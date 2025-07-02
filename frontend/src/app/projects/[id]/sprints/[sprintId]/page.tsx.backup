@@ -1,0 +1,644 @@
+"use client";
+import React, { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import Spinner from "../../../../../components/Spinner";
+import { useSprints } from "../../../../../hooks/useSprints";
+import { useSprintIssues, useReorderSprintIssues } from "../../../../../hooks/useSprintIssues";
+import { useBacklog } from "../../../../../hooks/useBacklog";
+import { useMoveIssueToSprint } from "../../../../../hooks/useMoveIssueToSprint";
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { Issue } from "../../../../../hooks/useProjectIssues";
+import { useSprintAttachments } from "../../../../../hooks/useSprints";
+import Image from 'next/image';
+import { 
+  TrashIcon, 
+  RocketLaunchIcon, 
+  CalendarIcon, 
+  FlagIcon, 
+  PaperClipIcon,
+  ArrowUpTrayIcon,
+  XMarkIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  UserIcon,
+  ExclamationTriangleIcon,
+  FireIcon,
+  SparklesIcon,
+  Bars3Icon
+} from '@heroicons/react/24/outline';
+import { useProject } from '@/hooks/useProject';
+import { useQueryClient } from '@tanstack/react-query';
+
+export default function SprintDetailPage() {
+  const params = useParams();
+  const projectId = params.id as string;
+  const sprintId = params.sprintId as string;
+  const { sprints, isLoading, isError } = useSprints(projectId);
+  const sprint = sprints?.find((s) => s.id === sprintId);
+
+  // Canonical data from React Query
+  const { issues: sprintIssues, isLoading: loadingSprint, isError: errorSprint } = useSprintIssues(projectId, sprintId);
+  const { issues: backlogIssues, isLoading: loadingBacklog, isError: errorBacklog } = useBacklog(projectId);
+  const reorderIssues = useReorderSprintIssues(projectId, sprintId);
+  const { assignIssueToSprint, removeIssueFromSprint } = useMoveIssueToSprint(projectId, sprintId);
+  const { currentUserRole } = useProject(projectId);
+  const [activeTab, setActiveTab] = React.useState<'issues' | 'attachments'>('issues');
+  const [editingStoryPointsId, setEditingStoryPointsId] = useState<string | null>(null);
+  const [storyPointsValue, setStoryPointsValue] = useState<number | ''>('');
+
+  const queryClient = useQueryClient();
+
+  // Progress bar: % of issues with status 'Done'
+  const total = sprintIssues?.length || 0;
+  const done = sprintIssues?.filter(i => i.status === 'Done').length || 0;
+  const percent = total ? Math.round((done / total) * 100) : 0;
+
+  // Attachments logic
+  const {
+    attachments,
+    isLoading: loadingAttachments,
+    isError: errorAttachments,
+    error: attachmentsError,
+    uploadAttachment,
+    isUploading,
+    uploadError,
+    deleteAttachment,
+    isDeleting,
+    deleteError,
+    refetch: refetchAttachments,
+  } = useSprintAttachments(projectId, sprintId);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [dragActive, setDragActive] = React.useState(false);
+  const [recentlyUploadedId, setRecentlyUploadedId] = React.useState<string | null>(null);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      const uploaded = await uploadAttachment(file);
+      setRecentlyUploadedId(uploaded.id);
+      setTimeout(() => setRecentlyUploadedId(null), 1200);
+    }
+  }
+  async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      const uploaded = await uploadAttachment(file);
+      setRecentlyUploadedId(uploaded.id);
+      setTimeout(() => setRecentlyUploadedId(null), 1200);
+    }
+  }
+  async function handleDeleteAttachment(a: any) {
+    await deleteAttachment(a.id);
+  }
+  function renderFileIconOrThumb(a: any) {
+    const ext = a.filename?.split('.').pop()?.toLowerCase();
+    if (["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(ext || "")) {
+      if (!a.filepath) {
+        return <span className="w-12 h-12 flex items-center justify-center bg-neutral-100 dark:bg-neutral-700 rounded-lg text-2xl">📎</span>;
+      }
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const imageUrl = a.filepath.startsWith('http') 
+          ? a.filepath 
+          : `${baseUrl}${a.filepath.startsWith('/') ? '' : '/'}${a.filepath}`;
+        
+        return <Image src={imageUrl} alt={a.filename || 'Image'} className="w-12 h-12 object-cover rounded-lg" width={48} height={48} />;
+      } catch (error) {
+        return <span className="w-12 h-12 flex items-center justify-center bg-neutral-100 dark:bg-neutral-700 rounded-lg text-2xl">📎</span>;
+      }
+    }
+    return <span className="w-12 h-12 flex items-center justify-center bg-neutral-100 dark:bg-neutral-700 rounded-lg text-2xl">📎</span>;
+  }
+
+  // DnD logic: only use React Query data
+  const onDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    const { source, destination } = result;
+    const getIssueId = (draggableId: string) => draggableId.replace(/^(sprint-|backlog-)/, '');
+
+    if (source.droppableId === 'sprint-issues' && destination.droppableId === 'sprint-issues') {
+      if (!sprintIssues) return;
+      const reordered = Array.from(sprintIssues);
+      const [removed] = reordered.splice(source.index, 1);
+      reordered.splice(destination.index, 0, removed);
+      queryClient.setQueryData(['sprint-issues', projectId, sprintId], reordered);
+      reorderIssues.mutate(reordered.map((i) => i.id));
+    } else if (source.droppableId === 'backlog-issues' && destination.droppableId === 'sprint-issues') {
+      const issueId = getIssueId(result.draggableId);
+      assignIssueToSprint.mutate(issueId);
+    } else if (source.droppableId === 'sprint-issues' && destination.droppableId === 'backlog-issues') {
+      const issueId = getIssueId(result.draggableId);
+      removeIssueFromSprint.mutate(issueId);
+    }
+  };
+
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900">
+      <div className="text-center">
+        <Spinner className="h-12 w-12 mx-auto mb-4" />
+        <p className="text-neutral-600 dark:text-neutral-400">Loading sprint details...</p>
+      </div>
+    </div>
+  );
+  
+  if (isError || !sprint) return (
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900">
+      <div className="text-center">
+        <ExclamationTriangleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
+        <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">Sprint Not Found</h2>
+        <p className="text-neutral-600 dark:text-neutral-400">The sprint you're looking for doesn't exist or has been removed.</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
+      {/* Header Section */}
+      <div className="bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
+        <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <RocketLaunchIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+                  {sprint.name}
+                </h1>
+                {sprint.goal && (
+                  <p className="text-neutral-600 dark:text-neutral-400 mt-1 flex items-center gap-2">
+                    <FlagIcon className="h-4 w-4" />
+                    {sprint.goal}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium capitalize
+                ${sprint.status === 'ACTIVE' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : ''}
+                ${sprint.status === 'PLANNED' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : ''}
+                ${sprint.status === 'COMPLETED' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : ''}
+              `}>
+                {sprint.status.toLowerCase()}
+              </span>
+              {sprint.startDate && sprint.endDate && (
+                <span className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                  <CalendarIcon className="h-4 w-4" />
+                  {new Date(sprint.startDate).toLocaleDateString()} - {new Date(sprint.endDate).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {/* Progress Section */}
+          <div className="bg-neutral-50 dark:bg-neutral-700/50 rounded-lg p-6">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Sprint Progress</span>
+              <span className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{percent}%</span>
+            </div>
+            <div className="w-full bg-neutral-200 dark:bg-neutral-600 rounded-full h-4 overflow-hidden">
+              <div 
+                className="bg-green-500 h-4 rounded-full transition-all duration-300"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+            <div className="text-neutral-600 dark:text-neutral-400 mt-2">
+              {done} of {total} issues completed
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        {/* Tab Navigation */}
+        <div className="flex justify-center mb-8">
+          <div className="bg-white dark:bg-neutral-800 rounded-lg p-1 shadow-sm border border-neutral-200 dark:border-neutral-700">
+            <div className="flex gap-1">
+              <button
+                className={`px-6 py-3 rounded-md font-medium transition-colors flex items-center gap-2 ${
+                  activeTab === 'issues' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                }`}
+                onClick={() => setActiveTab('issues')}
+              >
+                <FireIcon className="h-4 w-4" />
+                Issues
+              </button>
+              <button
+                className={`px-6 py-3 rounded-md font-medium transition-colors flex items-center gap-2 ${
+                  activeTab === 'attachments' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                }`}
+                onClick={() => setActiveTab('attachments')}
+              >
+                <PaperClipIcon className="h-4 w-4" />
+                Attachments
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'issues' && (
+          <DragDropContext onDragEnd={onDragEnd}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Sprint Issues */}
+              <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-6 border-b border-neutral-200 dark:border-neutral-700">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                      <RocketLaunchIcon className="h-5 w-5" />
+                      Sprint Issues
+                    </h3>
+                    <span className="text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full">
+                      {sprintIssues?.length} issues
+                    </span>
+                  </div>
+                  <p className="text-neutral-600 dark:text-neutral-400 text-sm mt-1">Drag to reorder or remove issues</p>
+                </div>
+                
+                <div className="p-6">
+                  {loadingSprint ? (
+                    <div className="flex justify-center py-12">
+                      <Spinner className="h-8 w-8" />
+                    </div>
+                  ) : errorSprint ? (
+                    <div className="text-center py-12">
+                      <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                      <p className="text-red-600 dark:text-red-400">Failed to load issues.</p>
+                    </div>
+                  ) : (
+                    <Droppable droppableId="sprint-issues">
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`space-y-3 min-h-[200px] p-2 rounded-lg border-2 border-dashed transition-colors ${
+                            snapshot.isDraggingOver 
+                              ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/20' 
+                              : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800'
+                          }`}
+                        >
+                          {(sprintIssues ?? []).length === 0 && (
+                            <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
+                              <ClockIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                              <p>No issues in this sprint.</p>
+                              <p className="text-sm">Drag issues from the backlog to get started!</p>
+                            </div>
+                          )}
+                          {(sprintIssues ?? []).map((issue: Issue, idx: number) => (
+                            <Draggable key={`sprint-${issue.id}`} draggableId={`sprint-${issue.id}`} index={idx}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={`group bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 transition-all duration-200 cursor-grab active:cursor-grabbing ${
+                                    snapshot.isDragging 
+                                      ? 'shadow-2xl rotate-1 scale-105 z-50 border-blue-400' 
+                                      : 'hover:shadow-lg hover:border-neutral-300 dark:hover:border-neutral-600'
+                                  }`}
+                                >
+                                  <div className="flex items-start gap-3">
+                                    {/* Visual Drag Handle Indicator */}
+                                    <div className="mt-1 p-2 rounded-md bg-neutral-100 dark:bg-neutral-700 transition-colors group-hover:bg-neutral-200 dark:group-hover:bg-neutral-600">
+                                      <Bars3Icon className="h-4 w-4 text-neutral-400" />
+                                    </div>
+                                    
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-start justify-between mb-3">
+                                        <div className="font-medium text-neutral-900 dark:text-neutral-100 line-clamp-2">
+                                          {issue.title}
+                                        </div>
+                                        <button
+                                          className="ml-2 p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 focus:outline-none focus:ring-2 focus:ring-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (confirm('Remove this issue from the sprint?')) {
+                                              removeIssueFromSprint.mutate(issue.id);
+                                            }
+                                          }}
+                                        >
+                                          <TrashIcon className="h-4 w-4 text-red-500" />
+                                        </button>
+                                      </div>
+                                      
+                                      <div className="flex gap-2 items-center flex-wrap">
+                                        {issue.priority && (
+                                          <span className="px-2 py-1 rounded-full text-xs font-medium ${
+                                            issue.priority === 'Highest' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200' :
+                                            issue.priority === 'High' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200' :
+                                            issue.priority === 'Medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200' :
+                                            issue.priority === 'Low' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' :
+                                            'bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-200'
+                                          }`}>
+                                            {issue.priority}
+                                          </span>
+                                        )}
+                                        {issue.storyPoints !== undefined ? (
+                                          editingStoryPointsId === issue.id ? (
+                                            <input
+                                              type="number"
+                                              min={0}
+                                              className="px-2 py-1 rounded bg-green-100 text-green-700 font-medium w-16 text-xs focus:outline-none focus:ring-2 focus:ring-green-400"
+                                              value={storyPointsValue}
+                                              autoFocus
+                                              onChange={e => setStoryPointsValue(Number(e.target.value))}
+                                              onBlur={() => setEditingStoryPointsId(null)}
+                                              onKeyDown={e => {
+                                                if (e.key === 'Enter') {
+                                                  setEditingStoryPointsId(null);
+                                                }
+                                              }}
+                                            />
+                                          ) : (
+                                            <span
+                                              className="px-2 py-1 rounded-full bg-green-100 text-green-700 font-medium text-xs cursor-pointer hover:bg-green-200 transition-colors"
+                                              onClick={() => {
+                                                setEditingStoryPointsId(issue.id);
+                                                setStoryPointsValue(issue.storyPoints ?? '');
+                                              }}
+                                            >
+                                              {issue.storyPoints} pts
+                                            </span>
+                                          )
+                                        ) : null}
+                                        {issue.status === 'Done' && (
+                                          <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 font-medium text-xs flex items-center gap-1">
+                                            <CheckCircleIcon className="h-3 w-3" />
+                                            Done
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    
+                                    {issue.assignee && (
+                                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-300 dark:border-neutral-600" title={typeof issue.assignee === 'object' ? issue.assignee.name : issue.assignee}>
+                                        {typeof issue.assignee === 'object' && issue.assignee.avatarUrl ? (
+                                          <img src={issue.assignee.avatarUrl} alt={issue.assignee.name || ''} className="w-8 h-8 object-cover" />
+                                        ) : (
+                                          <span>{
+                                            typeof issue.assignee === 'object'
+                                              ? (issue.assignee.name ? issue.assignee.name[0] : '')
+                                              : typeof issue.assignee === 'string'
+                                                ? issue.assignee[0].toUpperCase()
+                                                : ''
+                                          }</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  )}
+                </div>
+              </div>
+
+              {/* Backlog */}
+              <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700">
+                <div className="bg-purple-50 dark:bg-purple-900/20 p-6 border-b border-neutral-200 dark:border-neutral-700">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                      <SparklesIcon className="h-5 w-5" />
+                      Backlog
+                    </h3>
+                    <span className="text-sm bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 px-3 py-1 rounded-full">
+                      {backlogIssues?.length} issues
+                    </span>
+                  </div>
+                  <p className="text-neutral-600 dark:text-neutral-400 text-sm mt-1">Drag issues to add them to the sprint</p>
+                </div>
+                
+                <div className="p-6">
+                  {loadingBacklog ? (
+                    <div className="flex justify-center py-12">
+                      <Spinner className="h-8 w-8" />
+                    </div>
+                  ) : errorBacklog ? (
+                    <div className="text-center py-12">
+                      <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                      <p className="text-red-600 dark:text-red-400">Failed to load backlog.</p>
+                    </div>
+                  ) : (
+                    <Droppable droppableId="backlog-issues">
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`space-y-3 min-h-[200px] p-2 rounded-lg border-2 border-dashed transition-colors ${
+                            snapshot.isDraggingOver 
+                              ? 'border-purple-400 bg-purple-50 dark:bg-purple-950/20' 
+                              : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800'
+                          }`}
+                        >
+                          {(backlogIssues ?? []).length === 0 && (
+                            <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
+                              <SparklesIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                              <p>No issues in backlog.</p>
+                              <p className="text-sm">Create new issues to see them here!</p>
+                            </div>
+                          )}
+                          {(backlogIssues ?? []).map((issue: Issue, idx: number) => (
+                            <Draggable key={`backlog-${issue.id}`} draggableId={`backlog-${issue.id}`} index={idx}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={`group bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 transition-all duration-200 cursor-grab active:cursor-grabbing ${
+                                    snapshot.isDragging 
+                                      ? 'shadow-2xl rotate-1 scale-105 z-50 border-purple-400' 
+                                      : 'hover:shadow-lg hover:border-neutral-300 dark:hover:border-neutral-600'
+                                  }`}
+                                >
+                                  <div className="flex items-start gap-3">
+                                    {/* Visual Drag Handle Indicator */}
+                                    <div className="mt-1 p-2 rounded-md bg-neutral-100 dark:bg-neutral-700 transition-colors group-hover:bg-neutral-200 dark:group-hover:bg-neutral-600">
+                                      <Bars3Icon className="h-4 w-4 text-neutral-400" />
+                                    </div>
+                                    
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium text-neutral-900 dark:text-neutral-100 line-clamp-2 mb-3">
+                                        {issue.title}
+                                      </div>
+                                      <div className="flex gap-2 items-center flex-wrap">
+                                        {issue.priority && (
+                                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+                                            {issue.priority}
+                                          </span>
+                                        )}
+                                        {issue.storyPoints !== undefined && (
+                                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200">
+                                            {issue.storyPoints} pts
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    
+                                    {issue.assignee && (
+                                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-300 dark:border-neutral-600" title={typeof issue.assignee === 'object' ? issue.assignee.name : issue.assignee}>
+                                        {typeof issue.assignee === 'object' && issue.assignee.avatarUrl ? (
+                                          <img src={issue.assignee.avatarUrl} alt={issue.assignee.name || ''} className="w-8 h-8 object-cover" />
+                                        ) : (
+                                          <span>{
+                                            typeof issue.assignee === 'object'
+                                              ? (issue.assignee.name ? issue.assignee.name[0] : '')
+                                              : typeof issue.assignee === 'string'
+                                                ? issue.assignee[0].toUpperCase()
+                                                : ''
+                                          }</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  )}
+                </div>
+              </div>
+            </div>
+          </DragDropContext>
+        )}
+
+        {activeTab === 'attachments' && (
+          <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-6 border-b border-neutral-200 dark:border-neutral-700">
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                <PaperClipIcon className="h-5 w-5" />
+                Attachments
+              </h3>
+              <p className="text-neutral-600 dark:text-neutral-400 text-sm mt-1">Upload and manage files for this sprint</p>
+            </div>
+            
+            <div className="p-6">
+              {/* Upload Area */}
+              <div
+                className={`border-2 border-dashed rounded-lg p-8 mb-6 text-center transition-colors cursor-pointer group ${
+                  dragActive 
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                    : 'border-neutral-300 dark:border-neutral-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-neutral-50 dark:hover:bg-neutral-700/50'
+                }`}
+                onDragOver={e => { e.preventDefault(); setDragActive(true); }}
+                onDragLeave={e => { e.preventDefault(); setDragActive(false); }}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={handleFileChange}
+                  disabled={isUploading}
+                />
+                <ArrowUpTrayIcon className="h-12 w-12 text-neutral-400 group-hover:text-blue-500 mx-auto mb-4 transition-colors" />
+                <p className="text-lg font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                  {isUploading ? 'Uploading...' : 'Click or drag a file to upload'}
+                </p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Support for images, documents, and other file types
+                </p>
+                {isUploading && <Spinner className="inline ml-2 h-4 w-4" />}
+                {uploadError && (
+                  <div className="text-red-500 text-sm mt-2 bg-red-50 dark:bg-red-900/20 p-2 rounded">
+                    {String(uploadError)}
+                  </div>
+                )}
+              </div>
+
+              {/* Attachments List */}
+              <div className="space-y-4">
+                {loadingAttachments ? (
+                  <div className="flex justify-center py-12">
+                    <Spinner className="h-8 w-8" />
+                  </div>
+                ) : errorAttachments ? (
+                  <div className="text-center py-12">
+                    <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                    <p className="text-red-600 dark:text-red-400">
+                      {attachmentsError?.message || 'Failed to load attachments.'}
+                    </p>
+                  </div>
+                ) : attachments && attachments.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {attachments.map((a) => (
+                      <div
+                        key={a.id}
+                        className={`bg-white dark:bg-neutral-700 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-600 p-4 transition-all duration-300 hover:shadow-md ${
+                          recentlyUploadedId === a.id ? 'ring-2 ring-blue-500/60 bg-blue-50 dark:bg-blue-900/20' : ''
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          {renderFileIconOrThumb(a)}
+                          <div className="flex-1 min-w-0">
+                            <a 
+                              href={a.filepath ? (a.filepath.startsWith('http') ? a.filepath : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${a.filepath.startsWith('/') ? '' : '/'}${a.filepath}`) : '#'} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="text-blue-600 dark:text-blue-400 font-medium hover:underline truncate block"
+                              onClick={(e) => !a.filepath && e.preventDefault()}
+                            >
+                              {a.filename || 'Unknown file'}
+                            </a>
+                            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                              <div className="flex items-center gap-1 mb-1">
+                                <UserIcon className="h-3 w-3" />
+                                {a.uploader?.name || a.uploader?.email || 'Unknown user'}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <ClockIcon className="h-3 w-3" />
+                                {new Date(a.createdAt).toLocaleDateString()}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 focus:outline-none focus:ring-2 focus:ring-red-400 transition-colors"
+                            onClick={() => handleDeleteAttachment(a)}
+                            disabled={isDeleting}
+                          >
+                            {isDeleting ? (
+                              <Spinner className="h-4 w-4" />
+                            ) : (
+                              <XMarkIcon className="h-4 w-4 text-red-500" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
+                    <PaperClipIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No attachments yet.</p>
+                    <p className="text-sm">Upload files to share with your team!</p>
+                  </div>
+                )}
+                {deleteError && (
+                  <div className="text-red-500 text-sm mt-4 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+                    {String(deleteError)}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+} 
