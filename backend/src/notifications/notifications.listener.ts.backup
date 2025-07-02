@@ -1,0 +1,74 @@
+import { Injectable } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { NotificationsService } from './notifications.service';
+import { NotificationType } from './entities/notification.entity';
+
+@Injectable()
+export class NotificationsListener {
+  constructor(private notificationsService: NotificationsService) {}
+
+  @OnEvent('invite.created')
+  async handleInviteCreated(payload: { invite: any; project: any; role: string }) {
+    console.log('🎯 NotificationsListener: invite.created event received', payload);
+    try {
+      await this.notificationsService.createMany(
+        [payload.invite.inviteeId],
+        `You've been invited to join Project "${payload.project?.name ?? ''}" as ${payload.role}`,
+        { projectId: payload.project?.id ?? '', inviteId: payload.invite.id },
+        NotificationType.INFO
+      );
+      console.log('✅ Notification created successfully for invite');
+    } catch (error) {
+      console.error('❌ Error creating notification for invite:', error);
+    }
+  }
+
+  @OnEvent('invite.resend')
+  async handleInviteResend(payload: { invite: any; project: any }) {
+    console.log('🎯 NotificationsListener: invite.resend event received', payload);
+    try {
+      await this.notificationsService.createMany(
+        [payload.invite.inviteeId],
+        `REMINDER: You've been invited to join Project "${payload.project?.name ?? ''}" as ${payload.invite.role}`,
+        { projectId: payload.project?.id ?? '', inviteId: payload.invite.id },
+        NotificationType.INFO
+      );
+      console.log('✅ Reminder notification created successfully');
+    } catch (error) {
+      console.error('❌ Error creating reminder notification:', error);
+    }
+  }
+
+  @OnEvent('invite.responded')
+  async handleInviteResponded(payload: { invite: any; project: any; invitee: any; message: string; accept: boolean; reason?: string }) {
+    console.log('🎯 NotificationsListener: invite.responded event received', payload);
+    try {
+      await this.notificationsService.createMany(
+        [payload.invite.inviterId ? payload.invite.inviterId : ''],
+        payload.message,
+        { projectId: payload.invite.projectId ? payload.invite.projectId : '' },
+        payload.accept ? NotificationType.SUCCESS : NotificationType.WARNING
+      );
+      console.log('✅ Response notification created successfully');
+    } catch (error) {
+      console.error('❌ Error creating response notification:', error);
+    }
+  }
+
+  @OnEvent('invite.revoked')
+  async handleInviteRevoked(payload: { invite: any; project: any; reason: string }) {
+    console.log('🎯 NotificationsListener: invite.revoked event received', payload);
+    try {
+      await this.notificationsService.markNotificationsAsRead(payload.invite.inviteeId, payload.project.id);
+      await this.notificationsService.createMany(
+        [payload.invite.inviterId ? payload.invite.inviterId : ''],
+        `Invitation to Project "${payload.project?.name ?? ''}" has been revoked. Reason: ${payload.reason}`,
+        { projectId: payload.project?.id ?? '', inviteId: payload.invite.id },
+        NotificationType.WARNING
+      );
+      console.log('✅ Invitation revoked and notification created successfully');
+    } catch (error) {
+      console.error('❌ Error revoking invitation and creating notification:', error);
+    }
+  }
+} 
