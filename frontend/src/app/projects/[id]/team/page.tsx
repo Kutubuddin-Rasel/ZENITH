@@ -1,17 +1,15 @@
 "use client";
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
+import Image from 'next/image';
 import {
   useProjectMembers,
   useUpdateProjectMemberRole,
   useRemoveProjectMember,
   ProjectMember,
-  useAddProjectMember,
 } from '@/hooks/useProject';
 import { useAvailableEmployees } from '@/hooks/useAvailableEmployees';
-import Card from '@/components/Card';
 import Spinner from '@/components/Spinner';
-import Image from 'next/image';
 import Button from '@/components/Button';
 import { 
   TrashIcon, 
@@ -19,15 +17,10 @@ import {
   UserGroupIcon, 
   EnvelopeIcon, 
   ClockIcon,
-  CheckCircleIcon,
   XCircleIcon,
   ArrowPathIcon,
   ShieldCheckIcon,
   UserIcon,
-  CogIcon,
-  ChartBarIcon,
-  UsersIcon,
-  CalendarIcon
 } from '@heroicons/react/24/outline';
 import { 
   UserGroupIcon as UserGroupSolid,
@@ -56,13 +49,6 @@ const roleIcons = {
   'Viewer': UserGroupSolid,
 };
 
-const roleColors = {
-  'Super-Admin': 'from-yellow-400 to-orange-500',
-  'ProjectLead': 'from-blue-500 to-purple-600',
-  'Developer': 'from-green-500 to-blue-500',
-  'QA': 'from-pink-500 to-red-500',
-  'Viewer': 'from-gray-400 to-gray-600',
-};
 
 export default function TeamPage() {
   const params = useParams();
@@ -70,9 +56,9 @@ export default function TeamPage() {
   const { user: currentUser } = useAuth();
   const { project } = useProject(projectId);
   const { data: members, isLoading, isError } = useProjectMembers(projectId);
-  const { invites, isLoading: loadingInvites, createInvite, resendInvite, revokeInvite } = useProjectInvites();
+  const { invites, isLoading: loadingInvites, resendInvite, revokeInvite } = useProjectInvites();
   const { showToast } = useToast();
-  const { isSuperAdmin, projectRoles, refreshRoles } = useRole();
+  const { isSuperAdmin, projectRoles } = useRole();
   const { refetch: refetchAvailableEmployees } = useAvailableEmployees();
 
   // Add role debugging
@@ -96,7 +82,6 @@ export default function TeamPage() {
 
   const { mutate: updateRole, isPending: isUpdatingRole } = useUpdateProjectMemberRole(projectId);
   const { mutate: removeMember, isPending: isRemovingMember } = useRemoveProjectMember(projectId);
-  const addProjectMember = useAddProjectMember(projectId);
 
   const handleRoleChange = (userId: string, newRole: string) => {
     updateRole({ userId, roleName: newRole }, {
@@ -124,15 +109,6 @@ export default function TeamPage() {
     }
   };
 
-  const handleInviteMember = (userId: string, roleName: string) => {
-    createInvite({ inviteeId: userId, role: roleName }, {
-      onSuccess: () => {
-        showToast('Invite sent successfully! 📧', 'success');
-        setAddModalOpen(false);
-      },
-      onError: (err) => showToast(`Error: ${(err as Error).message}`, 'error'),
-    });
-  };
 
   const handleResendInvite = (inviteId: string) => {
     resendInvite(inviteId, {
@@ -275,7 +251,7 @@ export default function TeamPage() {
 
             {/* Enhanced Member Cards */}
             <div className="space-y-4">
-              {(members?.filter(member => roleFilter === 'All' || member.user?.defaultRole === roleFilter) || []).map((member, index) => {
+              {(members?.filter(member => roleFilter === 'All' || member.user?.defaultRole === roleFilter) || []).map((member) => {
                 const RoleIcon = roleIcons[member.roleName as keyof typeof roleIcons] || UserIcon;
                 const isCurrentUser = member.userId === currentUser?.id;
                 return (
@@ -386,7 +362,7 @@ export default function TeamPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {pendingInvites.map((invite, index) => {
+                {pendingInvites.map((invite) => {
                   const RoleIcon = roleIcons[invite.role as keyof typeof roleIcons] || UserIcon;
                   return (
                     <div

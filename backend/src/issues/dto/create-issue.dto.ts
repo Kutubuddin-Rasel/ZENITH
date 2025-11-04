@@ -8,7 +8,11 @@ import {
   IsInt,
   Min,
 } from 'class-validator';
-import { IssueStatus, IssuePriority, IssueType } from '../entities/issue.entity';
+import {
+  IssueStatus,
+  IssuePriority,
+  IssueType,
+} from '../entities/issue.entity';
 
 export class CreateIssueDto {
   @IsString()
@@ -31,7 +35,7 @@ export class CreateIssueDto {
   priority?: IssuePriority;
 
   @IsOptional()
-  @ValidateIf((o) => o.assigneeId !== null && o.assigneeId !== undefined)
+  @ValidateIf((o: any) => o.assigneeId !== null && o.assigneeId !== undefined)
   @IsUUID()
   assigneeId?: string | null;
 

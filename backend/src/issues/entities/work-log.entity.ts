@@ -41,4 +41,4 @@ export class WorkLog {
 
   @CreateDateColumn()
   createdAt: Date;
-} 
+}

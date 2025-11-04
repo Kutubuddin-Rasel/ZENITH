@@ -56,12 +56,15 @@ export class NotificationsController {
   @RequirePermission('notifications:create')
   @Get('test')
   async testNotification(@Request() req: { user: JwtRequestUser }) {
-    console.log('🧪 Test notification endpoint called for user:', req.user.userId);
+    console.log(
+      '🧪 Test notification endpoint called for user:',
+      req.user.userId,
+    );
     await this.svc.createMany(
       [req.user.userId],
       'This is a test notification',
       { projectId: 'test-project', inviteId: 'test-invite' },
-      NotificationType.INFO
+      NotificationType.INFO,
     );
     return { message: 'Test notification created' };
   }
@@ -72,25 +75,25 @@ export class NotificationsController {
   async debugNotifications(@Request() req: { user: JwtRequestUser }) {
     const allNotifications = await this.svc.listAllForUser(req.user.userId);
     const unreadNotifications = await this.svc.listForUser(req.user.userId);
-    
+
     return {
       total: allNotifications.length,
       unread: unreadNotifications.length,
-      all: allNotifications.map(n => ({
+      all: allNotifications.map((n) => ({
         id: n.id,
         message: n.message,
-        context: n.context,
+        context: n.context as Record<string, unknown>,
         read: n.read,
         type: n.type,
-        createdAt: n.createdAt
+        createdAt: n.createdAt,
       })),
-      unreadOnly: unreadNotifications.map(n => ({
+      unreadOnly: unreadNotifications.map((n) => ({
         id: n.id,
         message: n.message,
-        context: n.context,
+        context: n.context as Record<string, unknown>,
         type: n.type,
-        createdAt: n.createdAt
-      }))
+        createdAt: n.createdAt,
+      })),
     };
   }
 }

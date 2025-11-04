@@ -18,7 +18,6 @@ export const RoleProvider = ({ children }: { children: ReactNode }) => {
   // Fetch roles on mount
   useEffect(() => {
     refreshRoles();
-    // eslint-disable-next-line
   }, []);
 
   const refreshRoles = async () => {
@@ -53,11 +52,11 @@ export const RoleProvider = ({ children }: { children: ReactNode }) => {
       if (!membershipsRes.ok) throw new Error('Failed to fetch memberships');
       const memberships = await membershipsRes.json();
       const roles: { [projectId: string]: string } = {};
-      memberships.forEach((m: any) => {
+      memberships.forEach((m: { projectId: string; roleName: string }) => {
         roles[m.projectId] = m.roleName;
       });
       setProjectRoles(roles);
-    } catch (e) {
+    } catch {
       setIsSuperAdmin(false);
       setProjectRoles({});
     } finally {

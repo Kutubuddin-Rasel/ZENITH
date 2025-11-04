@@ -14,7 +14,6 @@ import { CreateColumnDto } from './dto/create-column.dto';
 import { UpdateColumnDto } from './dto/update-column.dto';
 import { ProjectsService } from '../projects/projects.service';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
-import { WatchersService } from 'src/watchers/watchers.service';
 import { BoardsGateway } from './boards.gateway';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
@@ -50,7 +49,12 @@ export class BoardsService {
     // seed default columns
     const defaults = {
       [BoardType.KANBAN]: ['To Do', 'In Progress', 'Done'],
-      [BoardType.SCRUM]: ['Backlog', 'Selected for Development', 'In Progress', 'Done'],
+      [BoardType.SCRUM]: [
+        'Backlog',
+        'Selected for Development',
+        'In Progress',
+        'Done',
+      ],
     }[saved.type];
     const cols = defaults.map((name, idx) =>
       this.colRepo.create({
@@ -248,7 +252,11 @@ export class BoardsService {
     // Update the issue's status/column and order
     // (Assume Issue entity has status and backlogOrder fields)
     const issueRepo = this.dataSource.getRepository('Issue');
-    const issue = await issueRepo.findOneBy({ id: issueId, projectId });
+    const issue = (await issueRepo.findOneBy({ id: issueId, projectId })) as {
+      id: string;
+      status: string;
+      backlogOrder: number;
+    } | null;
     if (!issue) throw new NotFoundException('Issue not found');
     const prevStatus = issue.status;
     issue.status = toColumn;

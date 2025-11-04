@@ -8,19 +8,15 @@ import {
   ClipboardIcon,
   Squares2X2Icon,
   TagIcon,
-  UserIcon,
   ChartBarIcon,
   Cog6ToothIcon,
-  PlusIcon,
   ExclamationCircleIcon,
   PaperClipIcon,
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
-import { useProject } from '../hooks/useProject';
 import Button from './Button';
-import ProjectIssueSidebar from './ProjectIssueSidebar';
 import { useProjectRole, useRole } from '../context/RoleContext';
-import { useSprints, useActiveSprint } from '../hooks/useSprints';
+import { useActiveSprint } from '../hooks/useSprints';
 import Typography from './Typography';
 import Card from './Card';
 
@@ -111,15 +107,11 @@ const Sidebar = ({ projectId }: { projectId?: string }) => {
   const pathname = usePathname();
   const { isSuperAdmin } = useRole();
   const projectRole = useProjectRole(projectId || '');
-  const [showIssuePanel, setShowIssuePanel] = React.useState(false);
   const [showCreateModal, setShowCreateModal] = React.useState(false);
 
   // Always use 'Super-Admin' for effectiveRole if isSuperAdmin is true
   const effectiveRole = isSuperAdmin ? 'Super-Admin' : projectRole;
 
-  // Fetch sprints for active sprint badge
-  const { sprints, isLoading: sprintsLoading } = useSprints(projectId || '');
-  const hasActiveSprint = !!sprints?.some(s => s.status === 'active');
 
   // Fetch active sprint for badge and link
   const { activeSprint } = useActiveSprint(projectId || '');

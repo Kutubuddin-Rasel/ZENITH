@@ -12,7 +12,7 @@ import Card from '@/components/Card';
 import Spinner from '@/components/Spinner';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  LineChart, Line, AreaChart, Area, PieChart, Pie, Cell
+  AreaChart, Area, PieChart, Pie, Cell
 } from 'recharts';
 import ProtectedProjectRoute from '@/components/ProtectedProjectRoute';
 import { 

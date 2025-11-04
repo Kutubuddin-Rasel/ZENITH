@@ -1,8 +1,9 @@
 "use client";
 import React, { useState } from "react";
 import { useParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import Image from "next/image";
 import { useBoard } from "../../../../../hooks/useBoard";
+import type { BoardColumn } from "../../../../../hooks/useBoard";
 import { useBoardIssues } from "../../../../../hooks/useBoardIssues";
 import { useUpdateIssueStatus } from "../../../../../hooks/useUpdateIssueStatus";
 import { useReorderBoardIssues } from "../../../../../hooks/useReorderBoardIssues";
@@ -10,11 +11,10 @@ import Spinner from "../../../../../components/Spinner";
 import {
   DndContext,
   closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
   DragOverlay,
   useDroppable,
+  DragStartEvent,
+  DragEndEvent,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -83,10 +83,8 @@ function SortableIssueCard({ issue, children }: { issue: Issue; children: React.
 }
 
 type BoardColumnProps = {
-  col: any;
-  colIdx: number;
+  col: BoardColumn;
   issuesByColumn: Record<string, Issue[]>;
-  columns: any[];
   showCreateForm: string | null;
   setShowCreateForm: (id: string | null) => void;
   currentUserRole: string | undefined;
@@ -96,9 +94,7 @@ type BoardColumnProps = {
 
 const BoardColumn: React.FC<BoardColumnProps> = ({
   col,
-  colIdx,
   issuesByColumn,
-  columns,
   showCreateForm,
   setShowCreateForm,
   currentUserRole,
@@ -177,7 +173,7 @@ const BoardColumn: React.FC<BoardColumnProps> = ({
                       typeof issue.assignee === 'object' ? (
                         <div className="w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-300 dark:border-neutral-600" title={issue.assignee.name || '?'}>
                           {issue.assignee.avatarUrl ? (
-                            <img src={issue.assignee.avatarUrl} alt={issue.assignee.name || '?'} className="w-full h-full object-cover" />
+                            <Image src={issue.assignee.avatarUrl} alt={issue.assignee.name || '?'} className="w-full h-full object-cover" width={32} height={32} />
                           ) : (
                             <span>{issue.assignee.name ? issue.assignee.name[0] : <UserIcon className="h-4 w-4 text-neutral-400" />}</span>
                           )}
@@ -228,7 +224,6 @@ const BoardColumn: React.FC<BoardColumnProps> = ({
 
 export default function BoardPage() {
   const { id: projectId, bid: boardId } = useParams<{ id: string; bid: string }>();
-  const queryClient = useQueryClient();
   const { board, columns, isLoading: loadingBoard, isError: errorBoard,
           updateBoard, deleteBoard, addColumn, updateColumn, deleteColumn, reorderColumns 
         } = useBoard(projectId, boardId);
@@ -271,11 +266,11 @@ export default function BoardPage() {
   }, [projectId, boardId, refetch, showToast, user]);
 
   // dnd-kit: onDragEnd handler for issues
-  function handleDragStart(event: any) {
+  function handleDragStart(event: DragStartEvent) {
     setActiveIssueId(event.active.id as string);
   }
 
-  function onDragEnd(event: any) {
+  function onDragEnd(event: DragEndEvent) {
     setActiveIssueId(null);
     const { active, over } = event;
     if (!over) return;
@@ -431,13 +426,11 @@ export default function BoardPage() {
       <main className="p-6">
         <DndContext onDragEnd={onDragEnd} onDragStart={handleDragStart} collisionDetection={closestCenter}>
           <div className="flex flex-row flex-wrap gap-6 justify-start items-start w-full">
-            {columns.map((col, colIdx) => (
+            {columns.map((col) => (
               <BoardColumn
                 key={col.id}
                 col={col}
-                colIdx={colIdx}
                 issuesByColumn={issuesByColumn}
-                columns={columns}
                 showCreateForm={showCreateForm}
                 setShowCreateForm={setShowCreateForm}
                 currentUserRole={currentUserRole}
@@ -479,7 +472,7 @@ export default function BoardPage() {
                         typeof issue.assignee === 'object' ? (
                           <div className="w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-300 dark:border-neutral-600" title={issue.assignee.name || '?'}>
                             {issue.assignee.avatarUrl ? (
-                              <img src={issue.assignee.avatarUrl} alt={issue.assignee.name || '?'} className="w-full h-full object-cover" />
+                              <Image src={issue.assignee.avatarUrl} alt={issue.assignee.name || '?'} className="w-full h-full object-cover" width={32} height={32} />
                             ) : (
                               <span>{issue.assignee.name ? issue.assignee.name[0] : <UserIcon className="h-4 w-4 text-neutral-400" />}</span>
                               )}

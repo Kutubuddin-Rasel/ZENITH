@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -14,7 +14,7 @@ const schema = z.object({
   title: z.string().min(1, 'Title is required'),
   priority: z.enum(ISSUE_PRIORITIES),
   type: z.enum(ISSUE_TYPES),
-  estimatedHours: z.coerce.number().min(0, 'Must be 0 or more').default(0),
+  estimatedHours: z.coerce.number().min(0, 'Must be 0 or more'),
 });
 
 type FormData = z.infer<typeof schema>;

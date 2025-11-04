@@ -3,16 +3,12 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useProject, useProjectMembers } from "../../../../hooks/useProject";
 import { useSprints } from "../../../../hooks/useSprints";
-import { useProjectIssues, useUpdateIssue, Issue } from "../../../../hooks/useProjectIssues";
+import { useProjectIssues, Issue, Label } from "../../../../hooks/useProjectIssues";
 import Spinner from "../../../../components/Spinner";
-import Card from "../../../../components/Card";
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
-import { toast } from "react-toastify";
 import { apiFetch } from '../../../../lib/fetcher';
-import { UserCircleIcon, PlusIcon, MagnifyingGlassIcon, AdjustmentsHorizontalIcon, TagIcon, UserGroupIcon, FlagIcon, ListBulletIcon, CalendarDaysIcon, PencilSquareIcon, EyeIcon, FunnelIcon } from '@heroicons/react/24/outline';
-import Tooltip from '../../../../components/Tooltip';
-import RoleBadge from '../../../../components/RoleBadge';
+import { UserCircleIcon, PlusIcon, MagnifyingGlassIcon, PencilSquareIcon, EyeIcon, FunnelIcon } from '@heroicons/react/24/outline';
 import CreateIssueModal from '../../../../components/CreateIssueModal';
 import { TagIcon as TagSolidIcon } from '@heroicons/react/24/solid';
 
@@ -25,7 +21,7 @@ const useLabels = (projectId: string) => {
     setLoading(true);
     apiFetch(`/projects/${projectId}/labels`)
       .then(data => setLabels(Array.isArray(data) ? data : []))
-      .catch(e => console.error("Error fetching labels:", e))
+      .catch(() => console.error("Error fetching labels"))
       .finally(() => setLoading(false));
   }, [projectId]);
   return { labels, loading };
@@ -66,7 +62,7 @@ function getAvatar(name: string | undefined) {
   return <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white font-medium text-sm">{initials}</span>;
 }
 
-function getAssigneeDisplayName(issue: any) {
+function getAssigneeDisplayName(issue: Issue) {
   // Debug logging
   console.log('Issue assignee data:', {
     assignee: issue.assignee,
@@ -84,7 +80,7 @@ function getAssigneeDisplayName(issue: any) {
   }
 }
 
-function getAssigneeAvatar(issue: any) {
+function getAssigneeAvatar(issue: Issue) {
   if (issue.assignee && typeof issue.assignee === 'object' && issue.assignee.name) {
     return getAvatar(issue.assignee.name);
   }
@@ -97,7 +93,7 @@ export default function IssuesListPage() {
   const { project } = useProject(projectId);
   const { data: members, isLoading: loadingMembers } = useProjectMembers(projectId);
   const { sprints, isLoading: loadingSprints } = useSprints(projectId);
-  const { labels, loading: loadingLabels } = useLabels(projectId);
+  const { } = useLabels(projectId);
   const router = useRouter();
 
   // Filters
@@ -119,7 +115,6 @@ export default function IssuesListPage() {
     sort,
   });
 
-  const updateIssueMutation = useUpdateIssue(projectId);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editIssue, setEditIssue] = useState<Issue | null>(null);
 
@@ -327,7 +322,7 @@ export default function IssuesListPage() {
         ) : issues?.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-24 h-24 mx-auto mb-6 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center">
-              <TagIcon className="h-12 w-12 text-neutral-400" />
+              <TagSolidIcon className="h-12 w-12 text-neutral-400" />
             </div>
             <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
               No issues found
@@ -393,7 +388,7 @@ export default function IssuesListPage() {
                                 {issue.storyPoints} pts
                               </span>
                             )}
-                        {issue.labels && Array.isArray(issue.labels) && issue.labels.map((l: any) => (
+                        {issue.labels && Array.isArray(issue.labels) && issue.labels.map((l: Label) => (
                               <span key={l.id} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-200">
                                 {l.name}
                               </span>

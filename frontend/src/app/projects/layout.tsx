@@ -5,7 +5,7 @@ import ProjectsCreateModalContext from '@/context/ProjectsCreateModalContext';
 
 // This is the correct signature for a dynamic route layout in Next.js app directory
 export default function ProjectsLayout({ children }: { children: ReactNode }) {
-  const [openModal, setOpenModal] = useState<(() => void) | undefined>(undefined);
+  const [, setOpenModal] = useState<(() => void) | undefined>(undefined);
 
   return (
     <ProtectedRoute>

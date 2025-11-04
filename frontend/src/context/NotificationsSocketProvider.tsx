@@ -4,6 +4,15 @@ import { getSocket } from '../lib/socket';
 import { useToast } from './ToastContext';
 import { useQueryClient } from '@tanstack/react-query';
 
+interface Notification {
+  id: string;
+  type: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  [key: string]: unknown;
+}
+
 export function NotificationsSocketProvider({ children }: { children: React.ReactNode }) {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -24,7 +33,7 @@ export function NotificationsSocketProvider({ children }: { children: React.Reac
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     };
 
-    const updateHandler = (notification: any) => {
+    const updateHandler = (notification: Notification) => {
       console.log('🔄 Received notification update event:', notification);
       // Invalidate the query to refetch and update UI components
       queryClient.invalidateQueries({ queryKey: ['notifications'] });

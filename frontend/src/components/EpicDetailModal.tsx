@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import Modal from './Modal';
 import Button from './Button';
 import Spinner from './Spinner';
-import { Epic, useUpdateEpic, useArchiveEpic } from '../hooks/useEpics';
+import { Epic, useUpdateEpic } from '../hooks/useEpics';
 import { useEpicStories, useAssignStoryToEpic, useUnassignStoryFromEpic } from '../hooks/useEpicStories';
 import { useBacklog } from '../hooks/useBacklog';
-import { useEpicAttachments } from '../hooks/useEpics';
+import { useEpicAttachments, EpicAttachment } from '../hooks/useEpics';
 import Image from 'next/image';
 import { useCombobox } from 'downshift';
 import { PencilIcon, XMarkIcon, ChevronUpDownIcon, DocumentTextIcon, PaperClipIcon, ChartBarIcon } from '@heroicons/react/24/outline';
@@ -30,11 +30,10 @@ type FormData = z.infer<typeof schema>;
 
 const EpicDetailModal = ({ open, onClose, epic, projectId }: EpicDetailModalProps) => {
   const { stories, isLoading: loadingStories, isError: errorStories } = useEpicStories(projectId, epic.id);
-  const { issues: backlogIssues, isLoading: loadingBacklog, isError: errorBacklog } = useBacklog(projectId);
+  const { issues: backlogIssues } = useBacklog(projectId);
   const assignStory = useAssignStoryToEpic(projectId, epic.id);
   const unassignStory = useUnassignStoryFromEpic(projectId, epic.id);
   const updateEpic = useUpdateEpic(projectId, epic.id);
-  const archiveEpic = useArchiveEpic(projectId);
   const [activeTab, setActiveTab] = React.useState<'stories' | 'attachments' | 'details'>('stories');
   const [isEditing, setIsEditing] = useState(false);
 
@@ -346,7 +345,6 @@ function EpicAttachmentsTab({ projectId, epicId }: { projectId: string; epicId: 
     deleteAttachment,
     isDeleting,
     deleteError,
-    refetch,
   } = useEpicAttachments(projectId, epicId);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = React.useState(false);
@@ -372,11 +370,11 @@ function EpicAttachmentsTab({ projectId, epicId }: { projectId: string; epicId: 
     }
   }
 
-  async function handleDeleteAttachment(a: any) {
+  async function handleDeleteAttachment(a: EpicAttachment) {
     await deleteAttachment(a.id);
   }
 
-  function renderFileIconOrThumb(a: any) {
+  function renderFileIconOrThumb(a: EpicAttachment) {
     const ext = a.filename.split('.').pop()?.toLowerCase();
     if (["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(ext || "")) {
       return <Image src={a.filepath} alt={a.filename} className="w-10 h-10 object-cover rounded" width={40} height={40} />;

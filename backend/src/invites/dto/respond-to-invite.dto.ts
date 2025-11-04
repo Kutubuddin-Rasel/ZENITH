@@ -7,4 +7,4 @@ export class RespondToInviteDto {
   @IsOptional()
   @IsString()
   reason?: string;
-} 
+}

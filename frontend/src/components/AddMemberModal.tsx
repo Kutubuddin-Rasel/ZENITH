@@ -54,8 +54,9 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ open, onClose, projectI
       setRole(ROLES[1]);
       onInviteSent?.();
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to send invite.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send invite.';
+      setError(errorMessage);
     }
   };
 
@@ -77,8 +78,9 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ open, onClose, projectI
       refetchAvailableEmployees();
       onInviteSent?.();
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to send invite.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send invite.';
+      setError(errorMessage);
     }
   };
 

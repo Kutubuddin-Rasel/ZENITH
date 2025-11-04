@@ -25,7 +25,7 @@ const Typography: React.FC<TypographyProps> = ({
   ...props
 }) => {
   // Determine the HTML element to render
-  const Component = as || getDefaultElement(variant);
+  const Component = as || getDefaultElement(variant) as React.ElementType;
   
   // Base classes based on variant
   const variantClasses = {
@@ -97,7 +97,7 @@ const Typography: React.FC<TypographyProps> = ({
 };
 
 // Helper function to determine default HTML element based on variant
-function getDefaultElement(variant: string): keyof JSX.IntrinsicElements {
+function getDefaultElement(variant: string): keyof React.JSX.IntrinsicElements {
   switch (variant) {
     case 'h1':
     case 'h2':
@@ -105,7 +105,7 @@ function getDefaultElement(variant: string): keyof JSX.IntrinsicElements {
     case 'h4':
     case 'h5':
     case 'h6':
-      return variant as keyof JSX.IntrinsicElements;
+      return variant as keyof React.JSX.IntrinsicElements;
     case 'body':
     case 'body-sm':
     case 'body-xs':

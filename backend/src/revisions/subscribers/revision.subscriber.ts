@@ -10,40 +10,49 @@ import {
 } from 'typeorm';
 import { Revision, EntityType } from '../entities/revision.entity';
 
-const WATCHED: { target: Function; type: EntityType }[] = [
+const WATCHED: { target: () => any; type: EntityType }[] = [
   {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     target: () => require('../../projects/entities/project.entity').Project,
     type: 'Project',
   },
   {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     target: () => require('../../issues/entities/issue.entity').Issue,
     type: 'Issue',
   },
   {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     target: () => require('../../sprints/entities/sprint.entity').Sprint,
     type: 'Sprint',
   },
   {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     target: () => require('../../boards/entities/board.entity').Board,
     type: 'Board',
   },
   {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     target: () => require('../../releases/entities/release.entity').Release,
     type: 'Release',
   },
   {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     target: () => require('../../taxonomy/entities/label.entity').Label,
     type: 'Label',
   },
   {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     target: () => require('../../taxonomy/entities/component.entity').Component,
     type: 'Component',
   },
   {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     target: () => require('../../epics/entities/epic.entity').Epic,
     type: 'Epic',
   },
   {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     target: () => require('../../epics/entities/story.entity').Story,
     type: 'Story',
   },

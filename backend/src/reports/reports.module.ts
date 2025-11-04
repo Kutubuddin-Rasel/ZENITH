@@ -9,7 +9,14 @@ import { MembershipModule } from 'src/membership/membership.module';
 import { EpicsModule } from 'src/epics/epics.module';
 
 @Module({
-  imports: [SprintsModule, IssuesModule, AuthModule, RevisionsModule, MembershipModule, EpicsModule],
+  imports: [
+    SprintsModule,
+    IssuesModule,
+    AuthModule,
+    RevisionsModule,
+    MembershipModule,
+    EpicsModule,
+  ],
   controllers: [ReportsController],
   providers: [ReportsService],
 })

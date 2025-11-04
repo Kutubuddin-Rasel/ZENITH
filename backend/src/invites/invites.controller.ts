@@ -1,11 +1,21 @@
-import { Controller, Post, Body, UseGuards, Request, Param, Req, Patch, Get } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Request,
+  Param,
+  Req,
+  Patch,
+  Get,
+} from '@nestjs/common';
 import { InvitesService } from './invites.service';
 import { CreateInviteDto } from './dto/create-invite.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { RespondToInviteDto } from './dto/respond-to-invite.dto';
-import { ProjectsService } from '../projects/projects.service';
+// import { ProjectsService } from '../projects/projects.service';
 
 @Controller('invites')
 export class InvitesController {
@@ -21,7 +31,7 @@ export class InvitesController {
   createInvite(@Body() dto: CreateInviteDto, @Req() req: any) {
     return this.invitesService.createInvite({
       ...dto,
-      inviterId: req.user.userId,
+      inviterId: (req.user as Record<string, unknown>).userId as string,
     });
   }
 
@@ -32,7 +42,10 @@ export class InvitesController {
   @RequirePermission('invites:create') // Same perm as creating
   @Patch(':id/revoke')
   async revokeInvite(@Param('id') id: string, @Req() req: any) {
-    await this.invitesService.revokeInvite(id, req.user.userId);
+    await this.invitesService.revokeInvite(
+      id,
+      (req.user as Record<string, unknown>).userId as string,
+    );
     return { message: 'Invite revoked' };
   }
 
@@ -43,7 +56,10 @@ export class InvitesController {
   @RequirePermission('invites:create') // Same perm as creating
   @Post(':id/resend')
   async resendInvite(@Param('id') id: string, @Req() req: any) {
-    await this.invitesService.resendInvite(id, req.user.userId);
+    await this.invitesService.resendInvite(
+      id,
+      (req.user as Record<string, unknown>).userId as string,
+    );
     return { message: 'Invite notification resent' };
   }
 
@@ -58,7 +74,12 @@ export class InvitesController {
     @Body() dto: RespondToInviteDto,
     @Req() req: any,
   ) {
-    await this.invitesService.respondToInvite(id, req.user.userId, dto.accept, dto.reason);
+    await this.invitesService.respondToInvite(
+      id,
+      (req.user as Record<string, unknown>).userId as string,
+      dto.accept,
+      dto.reason,
+    );
     return { message: `Invite ${dto.accept ? 'accepted' : 'rejected'}` };
   }
 }

@@ -17,7 +17,11 @@ import { NotificationsListener } from './notifications.listener';
     forwardRef(() => UsersModule),
     MembershipModule,
   ],
-  providers: [NotificationsService, NotificationsGateway, NotificationsListener],
+  providers: [
+    NotificationsService,
+    NotificationsGateway,
+    NotificationsListener,
+  ],
   controllers: [NotificationsController],
   exports: [NotificationsService],
 })

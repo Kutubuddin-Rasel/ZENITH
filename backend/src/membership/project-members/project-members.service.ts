@@ -48,7 +48,8 @@ export class ProjectMembersService {
 
   /** List all members of a project */
   async listMembers(projectId: string): Promise<any[]> {
-    return this.pmRepo.createQueryBuilder('pm')
+    return this.pmRepo
+      .createQueryBuilder('pm')
       .leftJoinAndSelect('pm.user', 'user')
       .where('pm.projectId = :projectId', { projectId })
       .select([

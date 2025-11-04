@@ -27,7 +27,7 @@ export function useProjectInvites() {
   const queryClient = useQueryClient();
 
   // This endpoint needs to be created on the backend
-  const { data: invites, isLoading, refetch } = useQuery<ProjectInvite[]>({
+  const { data: invites, isLoading } = useQuery<ProjectInvite[]>({
     queryKey: ['projects', projectId, 'invites'],
     queryFn: () => apiFetch(`/projects/${projectId}/invites`),
     enabled: !!projectId,

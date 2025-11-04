@@ -67,9 +67,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     });
 
     // Cleanup function to clear all timers when component unmounts
+    const currentTimers = timersRef.current;
     return () => {
-      timersRef.current.forEach((timer) => clearTimeout(timer));
-      timersRef.current.clear();
+      currentTimers.forEach((timer) => clearTimeout(timer));
+      currentTimers.clear();
     };
   }, [toasts]);
 

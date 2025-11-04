@@ -3,7 +3,7 @@ import io from 'socket.io-client';
 let socket: ReturnType<typeof io> | null = null;
 
 export function connectSocket(token: string, userId?: string) {
-  socket = io(`${process.env.NEXT_PUBLIC_API_URL}/notifications`, {
+  socket = io(`http://localhost:3000/notifications`, {
     auth: { token },
     transports: ['websocket'],
   });

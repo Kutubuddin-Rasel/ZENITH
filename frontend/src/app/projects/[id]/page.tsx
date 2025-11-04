@@ -1,78 +1,56 @@
 "use client";
-import React, { useEffect, useState, useContext, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useProject } from "../../../hooks/useProject";
-import { useProjectIssues } from "../../../hooks/useProjectIssues";
 import { useProjectSummary } from '../../../hooks/useProject';
-import Card from "../../../components/Card";
 import Spinner from "../../../components/Spinner";
 import { getSocket } from '../../../lib/socket';
 import Link from 'next/link';
-import { useUpdateProject, useArchiveProject } from '../../../hooks/useProject';
 import Button from "@/components/Button";
-import Input from "@/components/Input";
 import Typography from "@/components/Typography";
+import Card from "@/components/Card";
 import {
   useProjectMembers,
-  useAddProjectMember,
-  useRemoveProjectMember,
-  useUpdateProjectMemberRole,
-  ProjectMember,
 } from '../../../hooks/useProject';
-import Modal from '../../../components/Modal';
-import { useToast } from '../../../context/ToastContext';
-import Image from 'next/image';
-import { useAuth } from "@/context/AuthContext";
 import { 
-  PlusIcon, 
   BriefcaseIcon, 
-  SparklesIcon, 
   UserIcon, 
-  Cog6ToothIcon, 
-  ArrowRightOnRectangleIcon, 
   UserPlusIcon, 
   DocumentPlusIcon, 
-  PencilSquareIcon,
   ChartBarIcon,
   ClockIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
   CalendarIcon,
   RocketLaunchIcon,
-  FireIcon,
-  TrophyIcon,
   UsersIcon,
-  EyeIcon,
-  ArrowTrendingUpIcon
+  ArrowTrendingUpIcon,
+  EyeIcon
 } from "@heroicons/react/24/outline";
 import { 
   BriefcaseIcon as BriefcaseSolid,
-  SparklesIcon as SparklesSolid,
-  UserIcon as UserSolid,
-  ChartBarIcon as ChartBarSolid,
-  ClockIcon as ClockSolid,
-  CheckCircleIcon as CheckCircleSolid,
-  ExclamationTriangleIcon as ExclamationTriangleSolid,
-  CalendarIcon as CalendarSolid,
   RocketLaunchIcon as RocketLaunchSolid,
-  FireIcon as FireSolid,
-  TrophyIcon as TrophySolid,
   UsersIcon as UsersSolid,
-  EyeIcon as EyeSolid,
-  ArrowTrendingUpIcon as ArrowTrendingUpSolid
+  TrophyIcon
 } from "@heroicons/react/24/solid";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { useActiveSprint } from '../../../hooks/useSprints';
 import { useSprintIssues } from '../../../hooks/useSprintIssues';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import SpeedDialFAB, { SpeedDialAction } from '@/components/SpeedDialFAB';
 import { PencilIcon } from '@heroicons/react/24/solid';
 
+interface ProjectActivity {
+  id: string;
+  type: string;
+  description: string;
+  timestamp: string;
+  user: { name: string; email: string };
+  [key: string]: unknown;
+}
+
 function useProjectActivity(projectId: string) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
-  const [activity, setActivity] = useState<any[]>([]);
+  const [activity, setActivity] = useState<ProjectActivity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -91,7 +69,7 @@ function useProjectActivity(projectId: string) {
         return res.json();
       })
       .then(setActivity)
-      .catch(e => setError(e.message))
+      .catch(() => setError('Failed to fetch activity'))
       .finally(() => setLoading(false));
   }, [projectId, API_URL]);
   return { activity, loading, error };
@@ -101,31 +79,14 @@ export default function ProjectDashboard() {
   const params = useParams();
   const id = params.id as string;
   const { project, isLoading: loadingProject, isError: errorProject, currentUserRole } = useProject(id);
-  const { data: summary, isLoading: loadingSummary, isError: errorSummary, refetch: refetchSummary } = useProjectSummary(id);
-  const { issues, isLoading: loadingIssues, isError: errorIssues } = useProjectIssues(id);
-  const updateProject = useUpdateProject(id);
-  const archiveProject = useArchiveProject(id);
-  const [editing, setEditing] = React.useState(false);
-  const [formState, setFormState] = React.useState({ name: '', description: '' });
-  const { data: members, isLoading: loadingMembers, isError: errorMembers } = useProjectMembers(id);
-  const addMember = useAddProjectMember(id);
-  const removeMember = useRemoveProjectMember(id);
-  const updateMemberRole = useUpdateProjectMemberRole(id);
-  const [inviteState, setInviteState] = React.useState({ userId: '', roleName: 'Developer' });
-  const { showToast } = useToast();
-  const [removeTarget, setRemoveTarget] = React.useState<ProjectMember | null>(null);
+  const { data: summary, isLoading: loadingSummary, refetch: refetchSummary } = useProjectSummary(id);
+  const { data: members } = useProjectMembers(id);
   const { activity, loading: loadingActivity, error: errorActivity } = useProjectActivity(id);
-  const { user } = useAuth();
   const router = useRouter();
   const { activeSprint, isLoading: loadingActiveSprint, isError: errorActiveSprint } = useActiveSprint(id);
   const { issues: sprintIssues, isLoading: loadingSprintIssues } = useSprintIssues(id, activeSprint?.id || '');
   const [selectedStatus, setSelectedStatus] = React.useState<string | null>(null);
-  const [fabOpen, setFabOpen] = React.useState(false);
-  const [showSettings, setShowSettings] = React.useState(false);
 
-  React.useEffect(() => {
-    if (project) setFormState({ name: project.name, description: project.description || '' });
-  }, [project]);
 
   // Real-time updates for summary/activity
   React.useEffect(() => {
@@ -150,34 +111,14 @@ export default function ProjectDashboard() {
     Review: '#8b5cf6', // violet-500
   };
 
-  const statusIcons: Record<string, React.ReactElement> = {
-    Done: <CheckCircleSolid className="h-4 w-4" />,
-    InProgress: <ClockSolid className="h-4 w-4" />,
-    Todo: <EyeSolid className="h-4 w-4" />,
-    Backlog: <BriefcaseSolid className="h-4 w-4" />,
-    Blocked: <ExclamationTriangleSolid className="h-4 w-4" />,
-    Review: <SparklesSolid className="h-4 w-4" />,
-  };
-
   const donutData = Object.entries(summary?.statusCounts || {}).map(([status, count]) => ({ name: status, value: count }));
 
-  // Recent activity: show 5 most recently updated issues, filtered by selectedStatus if set
-  const filteredIssues = selectedStatus
-    ? issues?.filter((issue) => issue.status === selectedStatus)
-    : issues;
-  const recentActivity = filteredIssues
-    ? [...filteredIssues].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 5)
-    : [];
-
-  // FAB Quick Actions
-  const canQuickAction = ["Super-Admin", "ProjectLead"].includes(currentUserRole ?? '');
-  const canEditProject = ["Super-Admin", "ProjectLead"].includes(currentUserRole ?? '');
 
   const actions: SpeedDialAction[] = [
     {
       icon: <PencilIcon className="h-6 w-6" />,
       label: 'Edit Project',
-      onClick: () => setShowSettings(true),
+      onClick: () => console.log('Edit project clicked'),
     },
     {
       icon: <DocumentPlusIcon className="h-6 w-6" />,
@@ -191,7 +132,7 @@ export default function ProjectDashboard() {
     },
   ];
 
-  if (loadingProject || loadingSummary || loadingIssues) {
+  if (loadingProject || loadingSummary) {
     return (
       <div className="flex justify-center items-center h-96">
         <Spinner className="h-12 w-12" />
@@ -297,7 +238,7 @@ export default function ProjectDashboard() {
           { 
             label: 'Completion Rate', 
             value: `${percentDone}%`, 
-            icon: <TrophySolid className="h-6 w-6" />,
+            icon: <TrophyIcon className="h-6 w-6" />,
             color: 'text-emerald-600 dark:text-emerald-400',
             bgColor: 'bg-emerald-100 dark:bg-emerald-900'
           },
@@ -315,7 +256,7 @@ export default function ProjectDashboard() {
             color: activeSprint ? 'text-orange-600 dark:text-orange-400' : 'text-gray-600 dark:text-gray-400',
             bgColor: activeSprint ? 'bg-orange-100 dark:bg-orange-900' : 'bg-gray-100 dark:bg-gray-900'
           },
-        ].map((stat, i) => (
+        ].map((stat) => (
           <Card key={stat.label} className="p-6">
             <div className="flex items-center gap-4">
               <div className={`p-3 rounded-xl ${stat.bgColor}`}>
@@ -371,7 +312,7 @@ export default function ProjectDashboard() {
                     onClick={(_, idx) => setSelectedStatus(donutData[idx].name)}
                     cursor="pointer"
                   >
-                    {donutData.map((entry, idx) => (
+                    {donutData.map((entry) => (
                       <Cell
                         key={`cell-${entry.name}`}
                         fill={statusColors[entry.name] || '#6b7280'}
@@ -392,7 +333,7 @@ export default function ProjectDashboard() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex flex-wrap justify-center gap-4 mt-6 w-full">
-                {donutData.map((entry, idx) => (
+                {donutData.map((entry) => (
                   <div key={entry.name} className="flex items-center gap-2">
                     <span className="inline-block w-4 h-4 rounded-full" style={{ backgroundColor: statusColors[entry.name] || '#6b7280' }} />
                     <span className="font-medium text-gray-700 dark:text-gray-200">{entry.name}</span>
@@ -640,7 +581,7 @@ export default function ProjectDashboard() {
           </div>
         ) : (
           <div className="space-y-4">
-            {activity.slice(0, 5).map((rev, index) => {
+            {activity.slice(0, 5).map((rev) => {
               let href = null;
               if (rev.entityType === 'Issue') {
                 href = `./issues/${rev.entityId}`;
@@ -661,23 +602,27 @@ export default function ProjectDashboard() {
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-3">
                       <Typography variant="body-sm" className="font-semibold text-primary-600 dark:text-primary-400">
-                        {rev.action}
+                        {String(rev.action)}
                       </Typography>
                       <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 text-xs font-semibold rounded-full">
-                        {rev.entityType}
+                        {String(rev.entityType)}
                       </span>
                     </div>
                     <Typography variant="body" className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                      {rev.snapshot?.title || rev.snapshot?.name || rev.entityId}
+                      {String(
+                        typeof rev.snapshot === 'object' && rev.snapshot !== null && 'title' in rev.snapshot ? rev.snapshot.title :
+                        typeof rev.snapshot === 'object' && rev.snapshot !== null && 'name' in rev.snapshot ? rev.snapshot.name :
+                        rev.entityId || ''
+                      )}
                     </Typography>
                     <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                       <span className="flex items-center gap-1">
                         <UserIcon className="h-4 w-4" />
-                        {rev.changedBy}
+                        {String(rev.changedBy || '')}
                       </span>
                       <span className="flex items-center gap-1">
                         <ClockIcon className="h-4 w-4" />
-                        {new Date(rev.createdAt).toLocaleString()}
+                        {typeof rev.createdAt === 'string' ? new Date(rev.createdAt).toLocaleString() : 'Unknown date'}
                       </span>
                     </div>
                   </div>

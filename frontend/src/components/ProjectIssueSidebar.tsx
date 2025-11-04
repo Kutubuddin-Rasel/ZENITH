@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useProjectIssues } from '../hooks/useProjectIssues';
-import Button from './Button';
 import Input from './Input';
-import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 interface ProjectIssueSidebarProps {
   projectId: string;

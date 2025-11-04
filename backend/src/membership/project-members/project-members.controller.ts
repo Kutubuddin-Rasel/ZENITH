@@ -23,13 +23,17 @@ class AddMemberDto {
   userId: string; // ID of existing user to add
 
   @IsString()
-  @IsIn(ALLOWED_ROLES, { message: `roleName must be one of: ${ALLOWED_ROLES.join(', ')}` })
+  @IsIn(ALLOWED_ROLES, {
+    message: `roleName must be one of: ${ALLOWED_ROLES.join(', ')}`,
+  })
   roleName: string; // e.g. 'Developer'
 }
 
 class UpdateMemberRoleDto {
   @IsString()
-  @IsIn(ALLOWED_ROLES, { message: `roleName must be one of: ${ALLOWED_ROLES.join(', ')}` })
+  @IsIn(ALLOWED_ROLES, {
+    message: `roleName must be one of: ${ALLOWED_ROLES.join(', ')}`,
+  })
   roleName: string; // New role for the member
 }
 

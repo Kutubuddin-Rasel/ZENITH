@@ -1,37 +1,21 @@
 "use client";
-import React, { useEffect, useState, useContext, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useProject } from "../../../hooks/useProject";
-import { useProjectIssues } from "../../../hooks/useProjectIssues";
 import { useProjectSummary } from '../../../hooks/useProject';
-import Card from "../../../components/Card";
 import Spinner from "../../../components/Spinner";
 import { getSocket } from '../../../lib/socket';
 import Link from 'next/link';
-import { useUpdateProject, useArchiveProject } from '../../../hooks/useProject';
 import Button from "@/components/Button";
-import Input from "@/components/Input";
 import {
   useProjectMembers,
-  useAddProjectMember,
-  useRemoveProjectMember,
-  useUpdateProjectMemberRole,
-  ProjectMember,
 } from '../../../hooks/useProject';
-import Modal from '../../../components/Modal';
-import { useToast } from '../../../context/ToastContext';
-import Image from 'next/image';
-import { useAuth } from "@/context/AuthContext";
 import { 
-  PlusIcon, 
   BriefcaseIcon, 
-  SparklesIcon, 
   UserIcon, 
-  Cog6ToothIcon, 
   ArrowRightOnRectangleIcon, 
   UserPlusIcon, 
   DocumentPlusIcon, 
-  PencilSquareIcon,
   ChartBarIcon,
   ClockIcon,
   CheckCircleIcon,
@@ -39,39 +23,36 @@ import {
   CalendarIcon,
   RocketLaunchIcon,
   FireIcon,
-  TrophyIcon,
   UsersIcon,
+  ArrowTrendingUpIcon,
   EyeIcon,
-  ArrowTrendingUpIcon
+  PlusIcon,
+  SparklesIcon
 } from "@heroicons/react/24/outline";
 import { 
   BriefcaseIcon as BriefcaseSolid,
-  SparklesIcon as SparklesSolid,
-  UserIcon as UserSolid,
-  ChartBarIcon as ChartBarSolid,
-  ClockIcon as ClockSolid,
-  CheckCircleIcon as CheckCircleSolid,
-  ExclamationTriangleIcon as ExclamationTriangleSolid,
-  CalendarIcon as CalendarSolid,
   RocketLaunchIcon as RocketLaunchSolid,
-  FireIcon as FireSolid,
-  TrophyIcon as TrophySolid,
   UsersIcon as UsersSolid,
-  EyeIcon as EyeSolid,
-  ArrowTrendingUpIcon as ArrowTrendingUpSolid
+  TrophyIcon
 } from "@heroicons/react/24/solid";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { useActiveSprint } from '../../../hooks/useSprints';
 import { useSprintIssues } from '../../../hooks/useSprintIssues';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import SpeedDialFAB, { SpeedDialAction } from '@/components/SpeedDialFAB';
 import { PencilIcon } from '@heroicons/react/24/solid';
 
+interface ProjectActivity {
+  id: string;
+  type: string;
+  description: string;
+  timestamp: string;
+  user: { name: string; email: string };
+  [key: string]: unknown;
+}
+
 function useProjectActivity(projectId: string) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
-  const [activity, setActivity] = useState<any[]>([]);
+  const [activity, setActivity] = useState<ProjectActivity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -90,7 +71,7 @@ function useProjectActivity(projectId: string) {
         return res.json();
       })
       .then(setActivity)
-      .catch(e => setError(e.message))
+      .catch(() => setError('Failed to fetch activity'))
       .finally(() => setLoading(false));
   }, [projectId, API_URL]);
   return { activity, loading, error };
@@ -100,31 +81,14 @@ export default function ProjectDashboard() {
   const params = useParams();
   const id = params.id as string;
   const { project, isLoading: loadingProject, isError: errorProject, currentUserRole } = useProject(id);
-  const { data: summary, isLoading: loadingSummary, isError: errorSummary, refetch: refetchSummary } = useProjectSummary(id);
-  const { issues, isLoading: loadingIssues, isError: errorIssues } = useProjectIssues(id);
-  const updateProject = useUpdateProject(id);
-  const archiveProject = useArchiveProject(id);
-  const [editing, setEditing] = React.useState(false);
-  const [formState, setFormState] = React.useState({ name: '', description: '' });
-  const { data: members, isLoading: loadingMembers, isError: errorMembers } = useProjectMembers(id);
-  const addMember = useAddProjectMember(id);
-  const removeMember = useRemoveProjectMember(id);
-  const updateMemberRole = useUpdateProjectMemberRole(id);
-  const [inviteState, setInviteState] = React.useState({ userId: '', roleName: 'Developer' });
-  const { showToast } = useToast();
-  const [removeTarget, setRemoveTarget] = React.useState<ProjectMember | null>(null);
+  const { data: summary, isLoading: loadingSummary, refetch: refetchSummary } = useProjectSummary(id);
+  const { data: members } = useProjectMembers(id);
   const { activity, loading: loadingActivity, error: errorActivity } = useProjectActivity(id);
-  const { user } = useAuth();
   const router = useRouter();
   const { activeSprint, isLoading: loadingActiveSprint, isError: errorActiveSprint } = useActiveSprint(id);
   const { issues: sprintIssues, isLoading: loadingSprintIssues } = useSprintIssues(id, activeSprint?.id || '');
   const [selectedStatus, setSelectedStatus] = React.useState<string | null>(null);
-  const [fabOpen, setFabOpen] = React.useState(false);
-  const [showSettings, setShowSettings] = React.useState(false);
 
-  React.useEffect(() => {
-    if (project) setFormState({ name: project.name, description: project.description || '' });
-  }, [project]);
 
   // Real-time updates for summary/activity
   React.useEffect(() => {
@@ -151,41 +115,15 @@ export default function ProjectDashboard() {
 
   // Progress bar segments
   const statusCounts = summary?.statusCounts || {};
-  const total = summary?.totalIssues || 1;
-  const progressSegments = Object.entries(statusCounts).map(([status, count]) => {
-    const percent = Math.round((count / total) * 100);
-    return (
-      <div
-        key={status}
-        className="h-3 transition-all duration-500"
-        style={{ 
-          width: `${percent}%`,
-          backgroundColor: statusColors[status] || '#6b7280'
-        }}
-        title={`${status}: ${count}`}
-      />
-    );
-  });
 
   const donutData = Object.entries(statusCounts).map(([status, count]) => ({ name: status, value: count }));
 
-  // Recent activity: show 5 most recently updated issues, filtered by selectedStatus if set
-  const filteredIssues = selectedStatus
-    ? issues?.filter((issue) => issue.status === selectedStatus)
-    : issues;
-  const recentActivity = filteredIssues
-    ? [...filteredIssues].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 5)
-    : [];
-
-  // FAB Quick Actions
-  const canQuickAction = ["Super-Admin", "ProjectLead"].includes(currentUserRole ?? '');
-  const canEditProject = ["Super-Admin", "ProjectLead"].includes(currentUserRole ?? '');
 
   const actions: SpeedDialAction[] = [
     {
       icon: <PencilIcon className="h-6 w-6" />,
       label: 'Edit Project',
-      onClick: () => setShowSettings(true),
+      onClick: () => console.log('Edit project clicked'),
     },
     {
       icon: <DocumentPlusIcon className="h-6 w-6" />,
@@ -199,7 +137,7 @@ export default function ProjectDashboard() {
     },
   ];
 
-  if (loadingProject || loadingSummary || loadingIssues) {
+  if (loadingProject || loadingSummary) {
     return (
       <div className="flex justify-center items-center h-96">
         <div className="relative">
@@ -308,7 +246,7 @@ export default function ProjectDashboard() {
           { 
             label: 'Completion Rate', 
             value: `${percentDone}%`, 
-            icon: <TrophySolid className="h-6 w-6" />,
+            icon: <TrophyIcon className="h-6 w-6" />,
             color: 'from-green-500 to-emerald-600',
             bgColor: 'from-green-100 to-emerald-200 dark:from-green-900/30 dark:to-emerald-800/30'
           },
@@ -387,7 +325,7 @@ export default function ProjectDashboard() {
                     onClick={(_, idx) => setSelectedStatus(donutData[idx].name)}
                     cursor="pointer"
                   >
-                    {donutData.map((entry, idx) => (
+                    {donutData.map((entry) => (
                       <Cell
                         key={`cell-${entry.name}`}
                         fill={statusColors[entry.name] || '#6b7280'}
@@ -632,23 +570,27 @@ export default function ProjectDashboard() {
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                            {rev.action}
+                            {String(rev.action)}
                           </span>
                           <span className="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold">
-                            {rev.entityType}
+                            {String(rev.entityType)}
                           </span>
                         </div>
                         <div className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
-                          {rev.snapshot?.title || rev.snapshot?.name || rev.entityId}
+                          {String(
+                            typeof rev.snapshot === 'object' && rev.snapshot !== null && 'title' in rev.snapshot ? rev.snapshot.title :
+                            typeof rev.snapshot === 'object' && rev.snapshot !== null && 'name' in rev.snapshot ? rev.snapshot.name :
+                            rev.entityId || ''
+                          )}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                           <span className="flex items-center gap-1">
                             <UserIcon className="h-4 w-4" />
-                            {rev.changedBy}
+                            {String(rev.changedBy || '')}
                           </span>
                           <span className="flex items-center gap-1">
                             <ClockIcon className="h-4 w-4" />
-                            {new Date(rev.createdAt).toLocaleString()}
+                            {typeof rev.createdAt === 'string' ? new Date(rev.createdAt).toLocaleString() : 'Unknown date'}
                           </span>
                         </div>
                       </div>

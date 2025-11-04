@@ -57,7 +57,10 @@ export class Issue {
   @Column({ nullable: true })
   parentId?: string;
 
-  @ManyToOne(() => Issue, (issue) => issue.children, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => Issue, (issue) => issue.children, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'parentId' })
   parent?: Issue;
 

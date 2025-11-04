@@ -47,17 +47,17 @@ export class ProjectsService {
       // Likely unique constraint violation on name or key
       throw new BadRequestException('Project name or key might already exist');
     }
-    
+
     // Determine who should be Project Lead
     const projectLeadId = dto.projectLeadId || userId;
-    
+
     // Assign Project Lead
     await this.projectMembersService.addMemberToProject({
       projectId: saved.id,
       userId: projectLeadId,
       roleName: 'ProjectLead',
     });
-    
+
     // If creator is not the Project Lead, add them as a member with appropriate role
     if (projectLeadId !== userId) {
       await this.projectMembersService.addMemberToProject({
@@ -66,7 +66,7 @@ export class ProjectsService {
         roleName: 'Developer', // Default role for project creator if not Project Lead
       });
     }
-    
+
     return saved;
   }
 
@@ -145,47 +145,49 @@ export class ProjectsService {
    */
   async getSummary(projectId: string) {
     try {
-    // Verify project exists
-    const project = await this.findOneById(projectId);
-    // Choose repository
-    const issueRepository =
-      this.issueRepo || this.dataSource.getRepository(Issue);
+      // Verify project exists
+      const project = await this.findOneById(projectId);
+      // Choose repository
+      const issueRepository =
+        this.issueRepo || this.dataSource.getRepository(Issue);
 
-    // Count total
-    const totalCount = await issueRepository.count({
-      where: { projectId },
-    });
-    // Count done using the enum member:
-    const doneCount = await issueRepository.count({
-      where: { projectId, status: IssueStatus.DONE },
-    });
-    // Group by status
-    const result: { status: string; count: number }[] =
-      await this.projectRepo.query(
+      // Count total
+      const totalCount = await issueRepository.count({
+        where: { projectId },
+      });
+      // Count done using the enum member:
+      const doneCount = await issueRepository.count({
+        where: { projectId, status: IssueStatus.DONE },
+      });
+      // Group by status
+      const result: { status: string; count: number }[] =
+        await this.projectRepo.query(
           'SELECT status, COUNT(*) FROM issues WHERE "projectId" = $1 GROUP BY status',
-        [projectId],
+          [projectId],
+        );
+      const statusCounts = result.reduce(
+        (acc: Record<string, number>, row) => {
+          acc[row.status] = Number(row.count);
+          return acc;
+        },
+        {} as Record<string, number>,
       );
-    const statusCounts = result.reduce(
-      (acc: Record<string, number>, row) => {
-        acc[row.status] = Number(row.count);
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-    const percentDone =
-      totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+      const percentDone =
+        totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
-    return {
-      projectId: project.id,
-      projectName: project.name,
-      totalIssues: totalCount,
-      doneIssues: doneCount,
-      percentDone,
-      statusCounts,
-    };
+      return {
+        projectId: project.id,
+        projectName: project.name,
+        totalIssues: totalCount,
+        doneIssues: doneCount,
+        percentDone,
+        statusCounts,
+      };
     } catch (error) {
       console.error('Error in getSummary:', error);
-      throw new BadRequestException('Failed to compute project summary: ' + (error?.message || error));
+      throw new BadRequestException(
+        'Failed to compute project summary: ' + (error?.message || error),
+      );
     }
   }
 
@@ -197,7 +199,9 @@ export class ProjectsService {
     // Query all revisions where the snapshot contains the projectId
     return repo
       .createQueryBuilder('revision')
-      .where(`revision.snapshot::jsonb ->> 'projectId' = :projectId`, { projectId })
+      .where(`revision.snapshot::jsonb ->> 'projectId' = :projectId`, {
+        projectId,
+      })
       .orderBy('revision.createdAt', 'DESC')
       .limit(limit)
       .getMany();

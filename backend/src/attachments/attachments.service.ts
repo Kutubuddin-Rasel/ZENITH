@@ -41,15 +41,15 @@ export class AttachmentsService {
   ): Promise<Attachment> {
     // Verify user is a member of the project
     await this.membersService.getUserRole(projectId, uploaderId);
-    
-    const att = this.repo.create({ 
-      projectId, 
-      uploaderId, 
-      filename, 
+
+    const att = this.repo.create({
+      projectId,
+      uploaderId,
+      filename,
       filepath,
       originalName,
       fileSize,
-      mimeType
+      mimeType,
     });
     return this.repo.save(att);
   }
@@ -60,10 +60,10 @@ export class AttachmentsService {
   ): Promise<Attachment[]> {
     // Verify user is a member of the project
     await this.membersService.getUserRole(projectId, userId);
-    return this.repo.find({ 
+    return this.repo.find({
       where: { projectId },
       relations: ['uploader'],
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -71,8 +71,8 @@ export class AttachmentsService {
     projectId: string,
     attachmentId: string,
   ): Promise<Attachment | null> {
-    return this.repo.findOne({ 
-      where: { id: attachmentId, projectId }
+    return this.repo.findOne({
+      where: { id: attachmentId, projectId },
     });
   }
 
@@ -83,22 +83,26 @@ export class AttachmentsService {
   ): Promise<void> {
     // Verify user is a member of the project
     await this.membersService.getUserRole(projectId, userId);
-    
+
     const att = await this.repo.findOneBy({ id: attachmentId, projectId });
     if (!att) throw new NotFoundException('Attachment not found');
-    
+
     // Only uploader or ProjectLead/Super-Admin can delete
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (att.uploaderId !== userId && role !== 'ProjectLead' && role !== 'Super-Admin') {
+    if (
+      att.uploaderId !== userId &&
+      role !== 'ProjectLead' &&
+      role !== 'Super-Admin'
+    ) {
       throw new ForbiddenException('Cannot delete this attachment');
     }
-    
+
     // Delete file from disk
     const filePath = path.join(process.cwd(), 'uploads', att.filename);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
-    
+
     await this.repo.remove(att);
   }
 
@@ -277,9 +281,9 @@ export class AttachmentsService {
     userId: string,
   ): Promise<Attachment[]> {
     await this.sprintsService.findOne(projectId, sprintId, userId);
-    return this.repo.find({ 
+    return this.repo.find({
       where: { sprintId },
-      relations: ['uploader']
+      relations: ['uploader'],
     });
   }
 
@@ -308,7 +312,13 @@ export class AttachmentsService {
     filename: string,
     filepath: string,
   ): Promise<Attachment> {
-    await this.commentsService.update(projectId, issueId, commentId, uploaderId, {}); // just to check access
+    await this.commentsService.update(
+      projectId,
+      issueId,
+      commentId,
+      uploaderId,
+      {},
+    ); // just to check access
     const att = this.repo.create({ commentId, uploaderId, filename, filepath });
     return this.repo.save(att);
   }
@@ -319,7 +329,13 @@ export class AttachmentsService {
     commentId: string,
     userId: string,
   ): Promise<Attachment[]> {
-    await this.commentsService.update(projectId, issueId, commentId, userId, {}); // just to check access
+    await this.commentsService.update(
+      projectId,
+      issueId,
+      commentId,
+      userId,
+      {},
+    ); // just to check access
     return this.repo.find({ where: { commentId } });
   }
 
@@ -330,7 +346,13 @@ export class AttachmentsService {
     attachmentId: string,
     userId: string,
   ): Promise<void> {
-    await this.commentsService.update(projectId, issueId, commentId, userId, {}); // just to check access
+    await this.commentsService.update(
+      projectId,
+      issueId,
+      commentId,
+      userId,
+      {},
+    ); // just to check access
     const att = await this.repo.findOneBy({ id: attachmentId, commentId });
     if (!att) throw new NotFoundException('Attachment not found');
     const role = await this.membersService.getUserRole(projectId, userId);

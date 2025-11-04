@@ -1,5 +1,5 @@
 "use client";
-import React, { ReactNode } from 'react';
+import React from 'react';
 import Sidebar from '../../../components/Sidebar';
 import Topbar from '../../../components/Topbar';
 import ProtectedRoute from '../../../components/ProtectedRoute';

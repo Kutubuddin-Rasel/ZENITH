@@ -95,7 +95,7 @@ export class WatchersService {
     action: string, // e.g. 'commented', 'changed status to X'
     actorId: string, // user who performed action
   ) {
-    Promise.all([
+    await Promise.all([
       // all watchers on the project
       this.watcherRepo.find({ where: { projectId }, select: ['userId'] }),
       // plus watchers on the issue (if any)

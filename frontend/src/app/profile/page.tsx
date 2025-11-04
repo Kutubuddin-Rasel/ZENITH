@@ -65,9 +65,10 @@ export default function ProfilePage() {
       setPwSuccess(true);
       setPwForm({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
       showToast('Password changed successfully!', 'success');
-    } catch (err: any) {
-      setPwError(err?.message || 'Failed to change password.');
-      showToast(err?.message || 'Failed to change password.', 'error');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to change password.';
+      setPwError(errorMessage);
+      showToast(errorMessage, 'error');
     } finally {
       setPwLoading(false);
     }

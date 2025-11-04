@@ -1,0 +1,100 @@
+{
+  "name": "Zenith Project Management",
+  "short_name": "Zenith",
+  "description": "Enterprise-grade project management and collaboration platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["productivity", "business", "utilities"],
+  "icons": [
+    {
+      "src": "/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Projects",
+      "short_name": "Projects",
+      "description": "View all projects",
+      "url": "/projects",
+      "icons": [
+        {
+          "src": "/icon-144x144.png",
+          "sizes": "144x144"
+        }
+      ]
+    },
+    {
+      "name": "Issues",
+      "short_name": "Issues",
+      "description": "View all issues",
+      "url": "/issues",
+      "icons": [
+        {
+          "src": "/icon-144x144.png",
+          "sizes": "144x144"
+        }
+      ]
+    },
+    {
+      "name": "Sprints",
+      "short_name": "Sprints",
+      "description": "View active sprints",
+      "url": "/sprints",
+      "icons": [
+        {
+          "src": "/icon-144x144.png",
+          "sizes": "144x144"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Desktop view of Zenith dashboard"
+    },
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mobile view of Zenith dashboard"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "file_handlers": [
+    {
+      "action": "/upload",
+      "accept": {
+        "image/*": [".jpg", ".jpeg", ".png", ".gif", ".webp"],
+        "application/pdf": [".pdf"],
+        "text/*": [".txt", ".md"],
+        "application/vnd.openxmlformats-officedocument.*": [".docx", ".xlsx", ".pptx"]
+      }
+    }
+  ],
+  "protocol_handlers": [
+    {
+      "protocol": "web+zenith",
+      "url": "/project?id=%s"
+    }
+  ]
+}

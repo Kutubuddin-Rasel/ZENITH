@@ -39,7 +39,7 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
   const createIssue = useCreateIssue();
   const updateIssue = useUpdateIssue(projectId);
   const { data: members = [] } = useProjectMembers(projectId);
-  const { labels, components } = useTaxonomy(projectId);
+  const { } = useTaxonomy(projectId);
 
   const isEdit = mode === 'edit' && !!issue;
 
@@ -65,7 +65,7 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
       setValue('priority', issue.priority);
       setValue('status', issue.status as typeof ISSUE_STATUSES[number]);
       setValue('type', issue.type);
-      setValue('assigneeId', typeof issue.assignee === 'object' ? issue.assignee.id : (issue.assignee || ''));
+      setValue('assigneeId', typeof issue.assignee === 'object' && issue.assignee ? issue.assignee.id : (issue.assignee || undefined));
     } else {
       // Reset form for create mode
       reset({
@@ -90,7 +90,7 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
           priority: data.priority,
           status: data.status,
           type: data.type,
-          assigneeId: data.assigneeId === '' ? null : data.assigneeId,
+          assigneeId: data.assigneeId === '' ? undefined : data.assigneeId,
         };
         
         console.log('Updating issue with payload:', payload);
@@ -99,8 +99,9 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
       } else {
         const payload = {
           ...data,
-          assigneeId: data.assigneeId === '' ? null : data.assigneeId,
+          assigneeId: data.assigneeId === '' ? undefined : data.assigneeId,
           projectId,
+          estimatedHours: 0, // Default value for estimated hours
         };
         await createIssue.mutateAsync(payload);
         showToast('Issue created successfully!', 'success');

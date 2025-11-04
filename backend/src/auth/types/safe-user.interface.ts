@@ -4,4 +4,4 @@ export interface SafeUser {
   name: string;
   isSuperAdmin: boolean;
   isActive: boolean;
-} 
+}

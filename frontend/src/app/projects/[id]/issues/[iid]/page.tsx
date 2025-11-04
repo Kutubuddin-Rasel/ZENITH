@@ -1,35 +1,28 @@
 "use client";
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import Card from "@/components/Card";
+import Image from 'next/image';
 import Spinner from "@/components/Spinner";
 import Button from "@/components/Button";
 import Input from '../../../../../components/Input';
+import Card from '../../../../../components/Card';
+import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { useProjectIssues, Issue, useIssueHistory } from '../../../../../hooks/useProjectIssues';
+import { useProjectIssues, useIssueHistory } from '../../../../../hooks/useProjectIssues';
 import { useIssueComments, IssueComment } from '../../../../../hooks/useProjectIssues';
 import { useAuth } from '../../../../../context/AuthContext';
 import { getSocket } from '../../../../../lib/socket';
 import { useUpdateComment, useDeleteComment } from '../../../../../hooks/useProjectIssues';
 import { useProject } from '../../../../../hooks/useProject';
 import { useIssueAttachments, IssueAttachment } from '../../../../../hooks/useProjectIssues';
-import Image from 'next/image';
-import { useCommentAttachments } from '../../../../../hooks/useProjectIssues';
+import { useCommentAttachments, CommentAttachment } from '../../../../../hooks/useProjectIssues';
 import { useProjectMembers } from '@/hooks/useProject';
 import { saveAs } from 'file-saver';
-import { useIssueWorkLogs, IssueWorkLog } from '../../../../../hooks/useProjectIssues';
 import { useCreateIssue } from '../../../../../hooks/useCreateIssue';
 import RoleBadge from '@/components/RoleBadge';
-import { ExclamationCircleIcon, TagIcon, UserCircleIcon, FlagIcon, CalendarDaysIcon, HashtagIcon, ArrowUpIcon, ArrowDownIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { UserCircleIcon, FlagIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
 
-const schema = z.object({
-  title: z.string().min(2, 'Title is required'),
-  description: z.string().optional(),
-});
-
-type FormData = z.infer<typeof schema>;
 
 const commentSchema = z.object({
   content: z.string().min(1, 'Comment cannot be empty'),
@@ -42,11 +35,7 @@ export default function IssueDetailPage() {
   const projectId = params.id as string;
   const issueId = params.iid as string;
   const { issues, isLoading, isError } = useProjectIssues(projectId);
-  const [editing, setEditing] = useState(false);
-  const [optimisticIssue, setOptimisticIssue] = useState<Issue | null>(null);
-  const issue = optimisticIssue || issues?.find((i) => i.id === issueId);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const issue = issues?.find((i) => i.id === issueId);
   const [activeTab, setActiveTab] = useState('comments');
   const createIssue = useCreateIssue();
   const [subtaskTitle, setSubtaskTitle] = useState('');
@@ -54,37 +43,6 @@ export default function IssueDetailPage() {
   const [submittingSubtask, setSubmittingSubtask] = useState(false);
   const [subtaskError, setSubtaskError] = useState<string | null>(null);
   const { data: members } = useProjectMembers(projectId);
-
-  const form = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      title: issue?.title || '',
-      description: issue?.description || '',
-    },
-    values: issue
-      ? {
-          title: issue.title,
-          description: issue.description || '',
-        }
-      : undefined,
-  });
-
-  // PATCH handler (replace with your real API call)
-  async function handleSave(data: FormData) {
-    setLoading(true);
-    setError(null);
-    try {
-      // Optimistically update UI
-      setOptimisticIssue({ ...issue!, ...data });
-      // TODO: Replace with real PATCH call to /projects/:projectId/issues/:issueId
-      await new Promise((res) => setTimeout(res, 600));
-      setEditing(false);
-    } catch {
-      setOptimisticIssue(null);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function handleCreateSubtask(e: React.FormEvent) {
     e.preventDefault();
@@ -101,8 +59,9 @@ export default function IssueDetailPage() {
       });
       setSubtaskTitle('');
       setSubtaskType('Task');
-    } catch (err: any) {
-      setSubtaskError(err?.message || 'Failed to create sub-task');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create sub-task';
+      setSubtaskError(errorMessage);
     } finally {
       setSubmittingSubtask(false);
     }
@@ -136,7 +95,11 @@ export default function IssueDetailPage() {
               </div>
             <div className="flex flex-col items-end gap-2 min-w-[160px]">
               <div className="flex items-center gap-2">
-                <Avatar user={typeof issue.assignee === 'object' ? issue.assignee : undefined} size={10} />
+                <Avatar user={typeof issue.assignee === 'object' ? {
+                  name: issue.assignee?.name,
+                  email: issue.assignee?.email,
+                  avatarUrl: issue.assignee?.avatarUrl
+                } : undefined} size={10} />
                 <span className="text-xs text-gray-700 dark:text-gray-200 font-medium">{typeof issue.assignee === 'object' && issue.assignee ? issue.assignee.name : 'Unassigned'}</span>
               </div>
               {getAssigneeRole() && <RoleBadge role={getAssigneeRole() || ''} />}
@@ -233,7 +196,7 @@ export default function IssueDetailPage() {
             <HistoryTab projectId={projectId} issueId={issueId} />
           )}
           {activeTab === 'worklog' && (
-            <WorkLogTab projectId={projectId} issueId={issueId} />
+            <WorkLogTab />
           )}
           {activeTab !== 'comments' && (
             <div className="text-gray-400 text-center py-8">Select a tab to view details.</div>
@@ -366,8 +329,6 @@ function CommentsTab({ projectId, issueId }: { projectId: string; issueId: strin
                         setRecentlyEditedId(c.id);
                       }}
                       onCancel={() => setEditingId(null)}
-                      loading={updateComment.status === 'pending'}
-                      error={updateComment.error ? String(updateComment.error) : undefined}
                     />
                   ) : (
                     <div className="mt-1 text-gray-800 dark:text-gray-200 whitespace-pre-line">{c.content}</div>
@@ -413,7 +374,6 @@ function CommentAttachmentsSection({ projectId, issueId, commentId }: { projectI
     deleteAttachment,
     isDeleting,
     deleteError,
-    refetch,
   } = useCommentAttachments(projectId, issueId, commentId);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = React.useState(false);
@@ -439,11 +399,11 @@ function CommentAttachmentsSection({ projectId, issueId, commentId }: { projectI
     }
   }
 
-  async function handleDeleteAttachment(a: any) {
+  async function handleDeleteAttachment(a: CommentAttachment) {
     await deleteAttachment(a.id);
   }
 
-  function renderFileIconOrThumb(a: any) {
+  function renderFileIconOrThumb(a: CommentAttachment | IssueAttachment) {
     const ext = a.filename.split('.').pop()?.toLowerCase();
     if (["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(ext || "")) {
       return <Image src={a.filepath} alt={a.filename} className="w-8 h-8 object-cover rounded" width={32} height={32} />;
@@ -559,7 +519,7 @@ function AttachmentsTab({ projectId, issueId }: { projectId: string; issueId: st
     await deleteAttachment(a.id);
   }
 
-  function renderFileIconOrThumb(a: IssueAttachment) {
+  function renderFileIconOrThumb(a: IssueAttachment | CommentAttachment) {
     const ext = a.filename.split('.').pop()?.toLowerCase();
     if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(ext || '')) {
       return <Image src={a.filepath} alt={a.filename} className="w-10 h-10 object-cover rounded" width={40} height={40} />;
@@ -619,27 +579,8 @@ function AttachmentsTab({ projectId, issueId }: { projectId: string; issueId: st
   );
 }
 
-function formatRelativeTime(date: Date) {
-  const now = new Date();
-  const diff = (now.getTime() - date.getTime()) / 1000;
-  if (diff < 60) return `${Math.floor(diff)}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-  return date.toLocaleDateString();
-}
 
-function exportToCSV(data: any[], filename: string) {
-  if (!data.length) return;
-  const fields = Object.keys(data[0]);
-  const csv = [fields.join(',')].concat(
-    data.map(row => fields.map(f => JSON.stringify(row[f] ?? '')).join(','))
-  ).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  saveAs(blob, filename);
-}
-
-function exportToJSON(data: any[], filename: string) {
+function exportToJSON(data: unknown[], filename: string) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   saveAs(blob, filename);
 }
@@ -655,25 +596,13 @@ function useCopyToClipboard(timeout = 1500) {
 }
 
 function HistoryTab({ projectId, issueId }: { projectId: string; issueId: string }) {
-  const { data, isLoading, isError, error, refetch } = useIssueHistory(issueId);
+  const { data, isLoading, isError, error } = useIssueHistory(issueId);
   const { data: members } = useProjectMembers(projectId);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [userFilter, setUserFilter] = useState<string>('');
   const [actionFilter, setActionFilter] = useState<string>('');
   const [search, setSearch] = useState('');
   const { copiedIdx, copy } = useCopyToClipboard();
-
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
-    const handler = (notification: { message: string; context?: { issueId?: string } }) => {
-      if (notification?.context?.issueId === issueId) {
-        refetch();
-      }
-    };
-    socket.on('notification', handler);
-    return () => { socket.off('notification', handler); };
-  }, [issueId, refetch]);
 
   function getActionIcon(action: string) {
     if (action === 'CREATE') return <span title="Created" className="bg-green-100 text-green-600 rounded-full p-2"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" /></svg></span>;
@@ -686,10 +615,6 @@ function HistoryTab({ projectId, issueId }: { projectId: string; issueId: string
     if (!members) return null;
     return members.find((m) => m.userId === (userId || ''))?.user || null;
   }
-  function getUserRole(userId: string) {
-    if (!members) return undefined;
-    return members.find((m) => m.userId === userId)?.roleName;
-  }
 
   function renderUserAvatar(userId: string) {
     const user = getUserInfo(userId);
@@ -697,7 +622,7 @@ function HistoryTab({ projectId, issueId }: { projectId: string; issueId: string
     if (user?.avatarUrl) {
       return (
         <span className="group relative">
-          <img src={user.avatarUrl} alt={user.name || user.email || ''} className="w-8 h-8 rounded-full object-cover border-2 border-accent-blue shadow mr-2" />
+          <Image src={user.avatarUrl} alt={user.name || user.email || ''} className="w-8 h-8 rounded-full object-cover border-2 border-accent-blue shadow mr-2" width={32} height={32} />
           <span className="absolute left-10 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition pointer-events-none z-10 whitespace-nowrap">{label}</span>
         </span>
       );
@@ -710,7 +635,7 @@ function HistoryTab({ projectId, issueId }: { projectId: string; issueId: string
     );
   }
 
-  const fieldLabels: Record<string, string> = {
+  const fieldLabels: Record<string, string> = React.useMemo(() => ({
     title: 'Title',
     status: 'Status',
     assignee: 'Assignee',
@@ -718,7 +643,7 @@ function HistoryTab({ projectId, issueId }: { projectId: string; issueId: string
     description: 'Description',
     storyPoints: 'Story Points',
     // Add more as needed
-  };
+  }), []);
 
   // Filtering and search logic
   const filteredData = useMemo(() => {
@@ -736,9 +661,9 @@ function HistoryTab({ projectId, issueId }: { projectId: string; issueId: string
       }
       return true;
     });
-  }, [data, userFilter, actionFilter, search]);
+  }, [data, userFilter, actionFilter, search, fieldLabels]);
 
-  function renderDiff(prev: Record<string, any> = {}, curr: Record<string, any> = {}, idx: number): React.ReactNode | null {
+  function renderDiff(prev: Record<string, unknown> = {}, curr: Record<string, unknown> = {}, idx: number): React.ReactNode | null {
     if (!prev || typeof prev !== 'object' || Array.isArray(prev) || !curr || typeof curr !== 'object' || Array.isArray(curr)) return null;
     const changed: string[] = [];
     for (const key in curr) {
@@ -754,7 +679,7 @@ function HistoryTab({ projectId, issueId }: { projectId: string; issueId: string
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-accent-blue/10 text-accent-blue text-xs font-semibold">
           {user.avatarUrl ? (
-            <img src={user.avatarUrl} alt={user.name || user.email || ''} className="w-4 h-4 rounded-full object-cover" />
+            <Image src={user.avatarUrl} alt={user.name || user.email || ''} className="w-4 h-4 rounded-full object-cover" width={16} height={16} />
           ) : (
             <span className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold">{(user.name || user.email || '?')[0]}</span>
           )}
@@ -763,12 +688,12 @@ function HistoryTab({ projectId, issueId }: { projectId: string; issueId: string
       );
     }
 
-    function renderChips(arr: any[] | undefined, type: 'label' | 'component'): React.ReactNode {
+    function renderChips(arr: unknown[] | undefined, type: 'label' | 'component'): React.ReactNode {
       if (!arr || !Array.isArray(arr)) return null;
       return (
         <span className="flex flex-wrap gap-1">
-          {arr.map((item: any) => (
-            <span key={item && (item.id || item)} className={`px-2 py-0.5 rounded text-xs font-semibold ${type === 'label' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{item && (item.name || item)}</span>
+          {arr.map((item: unknown) => (
+            <span key={typeof item === 'object' && item !== null && 'id' in item ? String(item.id) : String(item)} className={`px-2 py-0.5 rounded text-xs font-semibold ${type === 'label' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{typeof item === 'object' && item !== null && 'name' in item ? String(item.name) : String(item)}</span>
           ))}
         </span>
       );
@@ -792,15 +717,15 @@ function HistoryTab({ projectId, issueId }: { projectId: string; issueId: string
                 </>
               ) : k === 'labels' ? (
                 <>
-                  {renderChips(prev[k] as any[], 'label')}
+                  {renderChips(prev[k] as unknown[], 'label')}
                   <span className="mx-1">→</span>
-                  {renderChips(curr[k] as any[], 'label')}
+                  {renderChips(curr[k] as unknown[], 'label')}
                 </>
               ) : k === 'components' ? (
                 <>
-                  {renderChips(prev[k] as any[], 'component')}
+                  {renderChips(prev[k] as unknown[], 'component')}
                   <span className="mx-1">→</span>
-                  {renderChips(curr[k] as any[], 'component')}
+                  {renderChips(curr[k] as unknown[], 'component')}
                 </>
               ) : (
                 <>
@@ -883,8 +808,8 @@ function HistoryTab({ projectId, issueId }: { projectId: string; issueId: string
             let diff: React.ReactNode | null = null;
             if (rev.action === 'UPDATE' && rev.snapshot && rev.snapshot.prev && rev.snapshot.curr) {
               diff = renderDiff(
-                rev.snapshot.prev as Record<string, any>,
-                rev.snapshot.curr as Record<string, any>,
+                rev.snapshot.prev as Record<string, unknown>,
+                rev.snapshot.curr as Record<string, unknown>,
                 idx
               );
             }
@@ -959,24 +884,22 @@ function PriorityBadge({ priority }: { priority: string }) {
 }
 
 // Avatar: Local definition
-function Avatar({ user, size = 10 }: { user?: any, size?: number }) {
+function Avatar({ user, size = 10 }: { user?: { name?: string; email?: string; avatarUrl?: string }, size?: number }) {
   if (!user) return <div className={`w-${size} h-${size} rounded-full bg-gray-200 flex items-center justify-center`}><UserCircleIcon className={`h-${size-2} w-${size-2} text-gray-400`} /></div>;
-  if (user.avatarUrl) return <img src={user.avatarUrl} alt={user.name || user.email || ''} className={`w-${size} h-${size} rounded-full object-cover`} />;
+  if (user.avatarUrl) return <Image src={user.avatarUrl} alt={user.name || user.email || ''} className={`w-${size} h-${size} rounded-full object-cover`} width={size <= 16 ? 16 : size <= 32 ? 32 : 48} height={size <= 16 ? 16 : size <= 32 ? 32 : 48} />;
   return <div className={`w-${size} h-${size} rounded-full bg-gray-200 flex items-center justify-center font-bold`}>{(user.name || user.email || '')[0]}</div>;
 }
 
 // WorkLogTab: Local stub (if not imported)
-function WorkLogTab({ projectId, issueId }: { projectId: string; issueId: string }) {
+function WorkLogTab() {
   return <div>Work Log Tab Placeholder</div>;
 }
 
 // EditCommentForm: Local stub (if not imported)
-function EditCommentForm({ initialContent, onSave, onCancel, loading, error }: {
+function EditCommentForm({ initialContent, onSave, onCancel }: {
   initialContent: string;
   onSave: (content: string) => Promise<void>;
   onCancel: () => void;
-  loading: boolean;
-  error?: string;
 }) {
   return <form><textarea defaultValue={initialContent} /><button type="button" onClick={() => onSave('')}>Save</button><button type="button" onClick={onCancel}>Cancel</button></form>;
 } 

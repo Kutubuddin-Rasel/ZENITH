@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Sprint } from './entities/sprint.entity';
 import { SprintIssue } from './entities/sprint-issue.entity';
+import { IssueStatus } from '../issues/entities/issue.entity';
 import { CreateSprintDto } from './dto/create-sprint.dto';
 import { UpdateSprintDto } from './dto/update-sprint.dto';
 import { AddIssueToSprintDto } from './dto/add-issue.dto';
@@ -19,6 +20,8 @@ import { IssuesService } from '../issues/issues.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Issue } from '../issues/entities/issue.entity';
 import { SprintStatus } from './entities/sprint.entity';
+import { BoardsService } from '../boards/boards.service';
+import { BoardType } from '../boards/entities/board.entity';
 
 @Injectable()
 export class SprintsService {
@@ -31,6 +34,7 @@ export class SprintsService {
     private membersService: ProjectMembersService,
     private issuesService: IssuesService,
     private eventEmitter: EventEmitter2,
+    private boardsService: BoardsService,
   ) {}
 
   /** Create sprint under a project */
@@ -52,6 +56,26 @@ export class SprintsService {
     }
     const saved = await this.sprintRepo.save(sprint);
 
+    // Jira-style: Automatically create a board when sprint is created as ACTIVE
+    if (saved.status === SprintStatus.ACTIVE) {
+      try {
+        const existingBoards = await this.boardsService.findAll(
+          projectId,
+          userId,
+        );
+        if (existingBoards.length === 0) {
+          // Create a default board for the sprint
+          await this.boardsService.create(projectId, userId, {
+            name: `${saved.name} Board`,
+            type: BoardType.KANBAN,
+          });
+        }
+      } catch (error) {
+        // Log the error but don't fail the sprint creation
+        console.warn('Failed to create board for sprint:', error);
+      }
+    }
+
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: null,
@@ -64,10 +88,18 @@ export class SprintsService {
   }
 
   /** List all sprints in a project */
-  async findAll(projectId: string, userId: string, active?: string): Promise<Sprint[]> {
+  async findAll(
+    projectId: string,
+    userId: string,
+    active?: string,
+  ): Promise<Sprint[]> {
     const role = await this.membersService.getUserRole(projectId, userId);
     if (!role) throw new ForbiddenException('Not a project member');
-    const where: any = { projectId };
+    const where: {
+      projectId: string;
+      isActive?: boolean;
+      status?: string;
+    } = { projectId };
     if (active) {
       where.isActive = true;
       where.status = 'ACTIVE';
@@ -110,6 +142,26 @@ export class SprintsService {
     }
     const updated = await this.sprintRepo.save(sprint);
 
+    // Jira-style: Automatically create a board when sprint is updated to ACTIVE
+    if (updated.status === SprintStatus.ACTIVE) {
+      try {
+        const existingBoards = await this.boardsService.findAll(
+          projectId,
+          userId,
+        );
+        if (existingBoards.length === 0) {
+          // Create a default board for the sprint
+          await this.boardsService.create(projectId, userId, {
+            name: `${updated.name} Board`,
+            type: BoardType.KANBAN,
+          });
+        }
+      } catch (error) {
+        // Log the error but don't fail the sprint update
+        console.warn('Failed to create board for sprint:', error);
+      }
+    }
+
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: null,
@@ -126,7 +178,7 @@ export class SprintsService {
     projectId: string,
     sprintId: string,
     userId: string,
-    nextSprintId?: string
+    nextSprintId?: string,
   ): Promise<Sprint> {
     const sprint = await this.findOne(projectId, sprintId, userId);
     const role = await this.membersService.getUserRole(projectId, userId);
@@ -140,13 +192,16 @@ export class SprintsService {
       relations: ['issue'],
     });
     const incompleteSprintIssues = sprintIssues.filter(
-      (si) => si.issue.status !== 'Done'
+      (si) => si.issue.status !== IssueStatus.DONE,
     );
     if (incompleteSprintIssues.length > 0) {
       if (nextSprintId && nextSprintId !== sprintId) {
         // Validate next sprint exists and is active
-        const nextSprint = await this.sprintRepo.findOne({ where: { id: nextSprintId, projectId, isActive: true } });
-        if (!nextSprint) throw new BadRequestException('Next sprint not found or not active');
+        const nextSprint = await this.sprintRepo.findOne({
+          where: { id: nextSprintId, projectId, isActive: true },
+        });
+        if (!nextSprint)
+          throw new BadRequestException('Next sprint not found or not active');
         // Move each incomplete issue to next sprint
         for (const si of incompleteSprintIssues) {
           si.sprintId = nextSprintId;
@@ -267,7 +322,7 @@ export class SprintsService {
       relations: ['issue'],
       order: { sprintOrder: 'ASC' },
     });
-    return sprintIssues.map(si => si.issue);
+    return sprintIssues.map((si) => si.issue);
   }
 
   async startSprint(
@@ -283,6 +338,25 @@ export class SprintsService {
     sprint.status = SprintStatus.ACTIVE;
     sprint.isActive = true;
     const started = await this.sprintRepo.save(sprint);
+
+    // Jira-style: Automatically create a board when sprint is activated
+    try {
+      const existingBoards = await this.boardsService.findAll(
+        projectId,
+        userId,
+      );
+      if (existingBoards.length === 0) {
+        // Create a default board for the sprint
+        await this.boardsService.create(projectId, userId, {
+          name: `${sprint.name} Board`,
+          type: BoardType.KANBAN,
+        });
+      }
+    } catch (error) {
+      // Log the error but don't fail the sprint start
+      console.warn('Failed to create board for sprint:', error);
+    }
+
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: null,

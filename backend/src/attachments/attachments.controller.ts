@@ -40,7 +40,9 @@ export class AttachmentsController {
           cb(null, `${unique}-${file.originalname}`);
         },
       }),
-      fileFilter: (req, file, cb) => { cb(null, true); },
+      fileFilter: (req, file, cb) => {
+        cb(null, true);
+      },
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
@@ -50,7 +52,15 @@ export class AttachmentsController {
     @Request() req: { user: JwtRequestUser },
   ) {
     const { filename, path } = file;
-    return this.svc.createForProject(projectId, req.user.userId, filename, path, file.originalname, file.size, file.mimetype);
+    return this.svc.createForProject(
+      projectId,
+      req.user.userId,
+      filename,
+      path,
+      file.originalname,
+      file.size,
+      file.mimetype,
+    );
   }
 
   @RequirePermission('attachments:view')
@@ -84,7 +94,9 @@ export class AttachmentsController {
           cb(null, `${unique}-${file.originalname}`);
         },
       }),
-      fileFilter: (req, file, cb) => { cb(null, true); },
+      fileFilter: (req, file, cb) => {
+        cb(null, true);
+      },
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
@@ -95,7 +107,13 @@ export class AttachmentsController {
     @Request() req: { user: JwtRequestUser },
   ) {
     const { filename, path } = file;
-    return this.svc.createForIssue(projectId, issueId, req.user.userId, filename, path);
+    return this.svc.createForIssue(
+      projectId,
+      issueId,
+      req.user.userId,
+      filename,
+      path,
+    );
   }
 
   @RequirePermission('attachments:view')
@@ -116,7 +134,12 @@ export class AttachmentsController {
     @Param('attachmentId') attachmentId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.removeForIssue(projectId, issueId, attachmentId, req.user.userId);
+    await this.svc.removeForIssue(
+      projectId,
+      issueId,
+      attachmentId,
+      req.user.userId,
+    );
     return { message: 'Attachment deleted' };
   }
 
@@ -131,7 +154,9 @@ export class AttachmentsController {
           cb(null, `${unique}-${file.originalname}`);
         },
       }),
-      fileFilter: (req, file, cb) => { cb(null, true); },
+      fileFilter: (req, file, cb) => {
+        cb(null, true);
+      },
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
@@ -142,7 +167,13 @@ export class AttachmentsController {
     @Request() req: { user: JwtRequestUser },
   ) {
     const { filename, path } = file;
-    return this.svc.createForRelease(projectId, releaseId, req.user.userId, filename, path);
+    return this.svc.createForRelease(
+      projectId,
+      releaseId,
+      req.user.userId,
+      filename,
+      path,
+    );
   }
 
   @RequirePermission('attachments:view')
@@ -163,7 +194,12 @@ export class AttachmentsController {
     @Param('attachmentId') attachmentId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.removeForRelease(projectId, releaseId, attachmentId, req.user.userId);
+    await this.svc.removeForRelease(
+      projectId,
+      releaseId,
+      attachmentId,
+      req.user.userId,
+    );
     return { message: 'Attachment deleted' };
   }
 
@@ -179,7 +215,9 @@ export class AttachmentsController {
           cb(null, `${unique}-${file.originalname}`);
         },
       }),
-      fileFilter: (req, file, cb) => { cb(null, true); },
+      fileFilter: (req, file, cb) => {
+        cb(null, true);
+      },
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
@@ -190,7 +228,13 @@ export class AttachmentsController {
     @Request() req: { user: JwtRequestUser },
   ) {
     const { filename, path } = file;
-    return this.svc.createForEpic(projectId, epicId, req.user.userId, filename, path);
+    return this.svc.createForEpic(
+      projectId,
+      epicId,
+      req.user.userId,
+      filename,
+      path,
+    );
   }
 
   @RequirePermission('attachments:view')
@@ -211,7 +255,12 @@ export class AttachmentsController {
     @Param('attachmentId') attachmentId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.removeForEpic(projectId, epicId, attachmentId, req.user.userId);
+    await this.svc.removeForEpic(
+      projectId,
+      epicId,
+      attachmentId,
+      req.user.userId,
+    );
     return { message: 'Attachment deleted' };
   }
 
@@ -227,7 +276,9 @@ export class AttachmentsController {
           cb(null, `${unique}-${file.originalname}`);
         },
       }),
-      fileFilter: (req, file, cb) => { cb(null, true); },
+      fileFilter: (req, file, cb) => {
+        cb(null, true);
+      },
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
@@ -238,7 +289,13 @@ export class AttachmentsController {
     @Request() req: { user: JwtRequestUser },
   ) {
     const { filename, path } = file;
-    return this.svc.createForSprint(projectId, sprintId, req.user.userId, filename, path);
+    return this.svc.createForSprint(
+      projectId,
+      sprintId,
+      req.user.userId,
+      filename,
+      path,
+    );
   }
 
   @RequirePermission('attachments:view')
@@ -259,7 +316,12 @@ export class AttachmentsController {
     @Param('attachmentId') attachmentId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.removeForSprint(projectId, sprintId, attachmentId, req.user.userId);
+    await this.svc.removeForSprint(
+      projectId,
+      sprintId,
+      attachmentId,
+      req.user.userId,
+    );
     return { message: 'Attachment deleted' };
   }
 
@@ -275,7 +337,9 @@ export class AttachmentsController {
           cb(null, `${unique}-${file.originalname}`);
         },
       }),
-      fileFilter: (req, file, cb) => { cb(null, true); },
+      fileFilter: (req, file, cb) => {
+        cb(null, true);
+      },
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
@@ -287,7 +351,14 @@ export class AttachmentsController {
     @Request() req: { user: JwtRequestUser },
   ) {
     const { filename, path } = file;
-    return this.svc.createForComment(projectId, issueId, commentId, req.user.userId, filename, path);
+    return this.svc.createForComment(
+      projectId,
+      issueId,
+      commentId,
+      req.user.userId,
+      filename,
+      path,
+    );
   }
 
   @RequirePermission('attachments:view')
@@ -298,11 +369,18 @@ export class AttachmentsController {
     @Param('commentId') commentId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.findAllForComment(projectId, issueId, commentId, req.user.userId);
+    return this.svc.findAllForComment(
+      projectId,
+      issueId,
+      commentId,
+      req.user.userId,
+    );
   }
 
   @RequirePermission('attachments:delete')
-  @Delete('projects/:projectId/issues/:issueId/comments/:commentId/attachments/:attachmentId')
+  @Delete(
+    'projects/:projectId/issues/:issueId/comments/:commentId/attachments/:attachmentId',
+  )
   async removeComment(
     @Param('projectId') projectId: string,
     @Param('issueId') issueId: string,
@@ -310,7 +388,13 @@ export class AttachmentsController {
     @Param('attachmentId') attachmentId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.removeForComment(projectId, issueId, commentId, attachmentId, req.user.userId);
+    await this.svc.removeForComment(
+      projectId,
+      issueId,
+      commentId,
+      attachmentId,
+      req.user.userId,
+    );
     return { message: 'Attachment deleted' };
   }
 
@@ -336,7 +420,10 @@ export class AttachmentsController {
     }
 
     const originalName = attachment.originalName || attachment.filename;
-    res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${originalName}"`,
+    );
     if (attachment.mimeType) {
       res.setHeader('Content-Type', attachment.mimeType);
     }

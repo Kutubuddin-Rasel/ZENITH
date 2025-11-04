@@ -16,7 +16,9 @@ export class ReportsService {
   async getVelocity(projectId: string, userId: string) {
     // Get all sprints and filter for completed ones
     const allSprints = await this.sprintsService.findAll(projectId, userId);
-    const sprints = allSprints.filter(sprint => sprint.status === SprintStatus.COMPLETED);
+    const sprints = allSprints.filter(
+      (sprint) => sprint.status === SprintStatus.COMPLETED,
+    );
 
     const velocityData = await Promise.all(
       sprints.map(async (sprint) => {
@@ -25,9 +27,12 @@ export class ReportsService {
         });
 
         // Use story points for velocity calculation (industry standard)
-        const committedPoints = issues.reduce((sum, issue) => sum + (issue.storyPoints || 0), 0);
+        const committedPoints = issues.reduce(
+          (sum, issue) => sum + (issue.storyPoints || 0),
+          0,
+        );
         const completedPoints = issues
-          .filter(issue => issue.status === IssueStatus.DONE)
+          .filter((issue) => issue.status === IssueStatus.DONE)
           .reduce((sum, issue) => sum + (issue.storyPoints || 0), 0);
 
         return {
@@ -41,20 +46,29 @@ export class ReportsService {
       }),
     );
 
-    return velocityData.sort((a, b) => new Date(a.sprintStart).getTime() - new Date(b.sprintStart).getTime());
+    return velocityData.sort(
+      (a, b) =>
+        new Date(a.sprintStart).getTime() - new Date(b.sprintStart).getTime(),
+    );
   }
 
   async getBurndown(projectId: string, userId: string, sprintId?: string) {
     let sprints;
-    
+
     if (sprintId) {
       // Get specific sprint
-      const sprint = await this.sprintsService.findOne(projectId, sprintId, userId);
+      const sprint = await this.sprintsService.findOne(
+        projectId,
+        sprintId,
+        userId,
+      );
       sprints = [sprint];
     } else {
       // Get active sprint
       const allSprints = await this.sprintsService.findAll(projectId, userId);
-      sprints = allSprints.filter(sprint => sprint.status === SprintStatus.ACTIVE);
+      sprints = allSprints.filter(
+        (sprint) => sprint.status === SprintStatus.ACTIVE,
+      );
     }
 
     if (sprints.length === 0) {
@@ -67,16 +81,21 @@ export class ReportsService {
           sprint: sprint.id,
         });
 
-        const totalPoints = issues.reduce((sum, issue) => sum + (issue.storyPoints || 0), 0);
+        const totalPoints = issues.reduce(
+          (sum, issue) => sum + (issue.storyPoints || 0),
+          0,
+        );
         const completedPoints = issues
-          .filter(issue => issue.status === IssueStatus.DONE)
+          .filter((issue) => issue.status === IssueStatus.DONE)
           .reduce((sum, issue) => sum + (issue.storyPoints || 0), 0);
         const remainingPoints = totalPoints - completedPoints;
 
         // Calculate ideal burndown line
         const sprintStart = new Date(sprint.startDate);
         const sprintEnd = new Date(sprint.endDate);
-        const totalDays = Math.ceil((sprintEnd.getTime() - sprintStart.getTime()) / (1000 * 60 * 60 * 24));
+        const totalDays = Math.ceil(
+          (sprintEnd.getTime() - sprintStart.getTime()) / (1000 * 60 * 60 * 24),
+        );
         const pointsPerDay = totalPoints / totalDays;
 
         return {
@@ -89,7 +108,8 @@ export class ReportsService {
           sprintEnd: sprint.endDate,
           totalDays,
           pointsPerDay,
-          completionPercentage: totalPoints > 0 ? (completedPoints / totalPoints) * 100 : 0,
+          completionPercentage:
+            totalPoints > 0 ? (completedPoints / totalPoints) * 100 : 0,
         };
       }),
     );
@@ -97,30 +117,34 @@ export class ReportsService {
     return burndownData;
   }
 
-  async getCumulativeFlow(projectId: string, userId: string, days: number = 30) {
+  async getCumulativeFlow(
+    projectId: string,
+    userId: string,
+    days: number = 30,
+  ) {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
     // Get all issues in the project
     const allIssues = await this.issuesService.findAll(projectId, userId);
-    
+
     // Filter issues by date range
-    const issuesInRange = allIssues.filter(issue => {
+    const issuesInRange = allIssues.filter((issue) => {
       const issueDate = new Date(issue.updatedAt);
       return issueDate >= startDate && issueDate <= endDate;
     });
 
     // Group issues by status and date
     const statusGroups: { [key: string]: { [key: string]: number } } = {};
-    
+
     // Initialize status groups
-    Object.values(IssueStatus).forEach(status => {
+    Object.values(IssueStatus).forEach((status) => {
       statusGroups[status] = {};
     });
 
     // Count issues by status and date
-    issuesInRange.forEach(issue => {
+    issuesInRange.forEach((issue) => {
       const date = new Date(issue.updatedAt).toISOString().split('T')[0];
       if (!statusGroups[issue.status][date]) {
         statusGroups[issue.status][date] = 0;
@@ -130,20 +154,23 @@ export class ReportsService {
 
     // Convert to cumulative flow format
     const dates = Object.keys(
-      issuesInRange.reduce((acc, issue) => {
-        const date = new Date(issue.updatedAt).toISOString().split('T')[0];
-        acc[date] = true;
-        return acc;
-      }, {} as { [key: string]: boolean })
+      issuesInRange.reduce(
+        (acc, issue) => {
+          const date = new Date(issue.updatedAt).toISOString().split('T')[0];
+          acc[date] = true;
+          return acc;
+        },
+        {} as { [key: string]: boolean },
+      ),
     ).sort();
 
-    const cumulativeFlowData = dates.map(date => {
+    const cumulativeFlowData = dates.map((date) => {
       const dataPoint: any = { date };
-      
-      Object.values(IssueStatus).forEach(status => {
+
+      Object.values(IssueStatus).forEach((status) => {
         dataPoint[status] = statusGroups[status][date] || 0;
       });
-      
+
       return dataPoint;
     });
 
@@ -152,16 +179,21 @@ export class ReportsService {
 
   async getEpicProgress(projectId: string, userId: string) {
     const epics = await this.epicsService.listEpics(projectId, userId);
-    
+
     const epicProgressData = await Promise.all(
-      epics.map(async (epic) => {
+      epics.map((epic) => {
         const stories = epic.stories || [];
-        
+
         const totalStories = stories.length;
-        const completedStories = stories.filter(story => story.status === 'Done').length;
-        const totalStoryPoints = stories.reduce((sum, story) => sum + (story.storyPoints || 0), 0);
+        const completedStories = stories.filter(
+          (story) => story.status === 'Done',
+        ).length;
+        const totalStoryPoints = stories.reduce(
+          (sum, story) => sum + (story.storyPoints || 0),
+          0,
+        );
         const completedStoryPoints = stories
-          .filter(story => story.status === 'Done')
+          .filter((story) => story.status === 'Done')
           .reduce((sum, story) => sum + (story.storyPoints || 0), 0);
 
         return {
@@ -172,8 +204,12 @@ export class ReportsService {
           completedStories,
           totalStoryPoints,
           completedStoryPoints,
-          completionPercentage: totalStories > 0 ? (completedStories / totalStories) * 100 : 0,
-          storyPointsCompletionPercentage: totalStoryPoints > 0 ? (completedStoryPoints / totalStoryPoints) * 100 : 0,
+          completionPercentage:
+            totalStories > 0 ? (completedStories / totalStories) * 100 : 0,
+          storyPointsCompletionPercentage:
+            totalStoryPoints > 0
+              ? (completedStoryPoints / totalStoryPoints) * 100
+              : 0,
           startDate: epic.startDate,
           endDate: epic.endDate,
         };
@@ -185,31 +221,43 @@ export class ReportsService {
 
   async getIssueBreakdown(projectId: string, userId: string) {
     const allIssues = await this.issuesService.findAll(projectId, userId);
-    
+
     // Breakdown by type
-    const typeBreakdown = allIssues.reduce((acc, issue) => {
-      acc[issue.type] = (acc[issue.type] || 0) + 1;
-      return acc;
-    }, {} as { [key: string]: number });
+    const typeBreakdown = allIssues.reduce(
+      (acc, issue) => {
+        acc[issue.type] = (acc[issue.type] || 0) + 1;
+        return acc;
+      },
+      {} as { [key: string]: number },
+    );
 
     // Breakdown by priority
-    const priorityBreakdown = allIssues.reduce((acc, issue) => {
-      acc[issue.priority] = (acc[issue.priority] || 0) + 1;
-      return acc;
-    }, {} as { [key: string]: number });
+    const priorityBreakdown = allIssues.reduce(
+      (acc, issue) => {
+        acc[issue.priority] = (acc[issue.priority] || 0) + 1;
+        return acc;
+      },
+      {} as { [key: string]: number },
+    );
 
     // Breakdown by status
-    const statusBreakdown = allIssues.reduce((acc, issue) => {
-      acc[issue.status] = (acc[issue.status] || 0) + 1;
-      return acc;
-    }, {} as { [key: string]: number });
+    const statusBreakdown = allIssues.reduce(
+      (acc, issue) => {
+        acc[issue.status] = (acc[issue.status] || 0) + 1;
+        return acc;
+      },
+      {} as { [key: string]: number },
+    );
 
     // Breakdown by assignee
-    const assigneeBreakdown = allIssues.reduce((acc, issue) => {
-      const assigneeName = issue.assignee?.name || 'Unassigned';
-      acc[assigneeName] = (acc[assigneeName] || 0) + 1;
-      return acc;
-    }, {} as { [key: string]: number });
+    const assigneeBreakdown = allIssues.reduce(
+      (acc, issue) => {
+        const assigneeName = issue.assignee?.name || 'Unassigned';
+        acc[assigneeName] = (acc[assigneeName] || 0) + 1;
+        return acc;
+      },
+      {} as { [key: string]: number },
+    );
 
     return {
       typeBreakdown,
@@ -219,4 +267,4 @@ export class ReportsService {
       totalIssues: allIssues.length,
     };
   }
-} 
+}

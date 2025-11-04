@@ -12,8 +12,8 @@ const script = `
       } else {
         document.documentElement.classList.remove('dark');
       }
-    } catch (e) {
-      console.warn('Could not set theme from localStorage', e);
+    } catch {
+      console.warn('Could not set theme from localStorage');
     }
   })();
 `;

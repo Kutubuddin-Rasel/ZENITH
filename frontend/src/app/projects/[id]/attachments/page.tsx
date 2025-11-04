@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import Image from 'next/image';
 import Spinner from '@/components/Spinner';
 import Button from '@/components/Button';
 import { 
@@ -124,7 +125,7 @@ export default function AttachmentsPage() {
       
       setSelectedFiles([]);
       showToast('Files uploaded successfully!', 'success');
-    } catch (error) {
+      } catch {
       showToast('Failed to upload files', 'error');
     }
   };
@@ -133,7 +134,7 @@ export default function AttachmentsPage() {
     try {
       await deleteAttachment.mutateAsync(attachmentId);
       showToast('File deleted successfully', 'success');
-    } catch (error) {
+      } catch {
       showToast('Failed to delete file', 'error');
     }
   };
@@ -142,7 +143,7 @@ export default function AttachmentsPage() {
     try {
       await downloadAttachment.mutateAsync(attachment);
       showToast(`Downloading ${attachment.originalName || attachment.filename}...`, 'info');
-    } catch (error) {
+      } catch {
       showToast('Failed to download file', 'error');
     }
   };
@@ -437,10 +438,12 @@ export default function AttachmentsPage() {
                   title="PDF Preview"
                 />
               ) : (
-                <img
+                <Image
                   src={`${process.env.NEXT_PUBLIC_API_URL}/projects/${projectId}/attachments/${previewFile.id}/download`}
                   alt={previewFile.originalName || previewFile.filename}
                   className="max-w-full h-auto"
+                  width={800}
+                  height={600}
                 />
               )}
             </div>

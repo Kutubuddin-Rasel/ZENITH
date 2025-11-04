@@ -4,7 +4,6 @@ import { BellIcon, CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon, Inform
 import { useNotifications, Notification } from '../hooks/useNotifications';
 import { useProjectInvites } from '../hooks/useProjectInvites';
 import { useToast } from '../context/ToastContext';
-import { useRouter } from 'next/navigation';
 import Button from './Button';
 import Spinner from './Spinner';
 import Modal from './Modal';
@@ -13,7 +12,6 @@ export default function NotificationPopover() {
   const { notifications, isLoading, markAsRead } = useNotifications();
   const { respondToInviteMutation } = useProjectInvites();
   const { showToast } = useToast();
-  const router = useRouter();
   
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'unread' | 'history'>('unread');
@@ -26,8 +24,8 @@ export default function NotificationPopover() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  const unreadNotifications = notifications?.filter(n => !n.read) || [];
-  const readNotifications = notifications?.filter(n => n.read) || [];
+  const unreadNotifications = React.useMemo(() => notifications?.filter(n => !n.read) || [], [notifications]);
+  const readNotifications = React.useMemo(() => notifications?.filter(n => n.read) || [], [notifications]);
   const unreadCount = unreadNotifications.length;
 
   // Mark notifications as read when popover opens (but keep actionable notifications unread)

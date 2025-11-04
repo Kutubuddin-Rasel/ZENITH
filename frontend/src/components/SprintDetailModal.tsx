@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
+import Image from 'next/image';
 import Modal from './Modal';
 import Button from './Button';
 import Spinner from './Spinner';
 import Typography from './Typography';
-import { Sprint, useUpdateSprint, useArchiveSprint } from '../hooks/useSprints';
+import { Sprint, useArchiveSprint } from '../hooks/useSprints';
 import { useSprintIssues, useReorderSprintIssues } from '../hooks/useSprintIssues';
 import { useBacklog } from '../hooks/useBacklog';
 import { useMoveIssueToSprint } from '../hooks/useMoveIssueToSprint';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Issue } from '../hooks/useProjectIssues';
-import { useSprintAttachments } from '../hooks/useSprints';
-import Image from 'next/image';
-import { TrashIcon, Bars3Icon, UserIcon, TagIcon, BookmarkSquareIcon, CheckCircleIcon, BugAntIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { useSprintAttachments, SprintAttachment } from '../hooks/useSprints';
+import { TrashIcon, Bars3Icon, TagIcon, BookmarkSquareIcon, CheckCircleIcon, BugAntIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useProject } from '@/hooks/useProject';
 
 interface SprintDetailModalProps {
@@ -33,7 +33,6 @@ const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailMod
   const { issues: sprintIssues, isLoading: loadingSprint, isError: errorSprint } = useSprintIssues(projectId, sprint.id);
   const { issues: backlogIssues, isLoading: loadingBacklog, isError: errorBacklog } = useBacklog(projectId);
   const reorderIssues = useReorderSprintIssues(projectId, sprint.id);
-  const updateSprint = useUpdateSprint(projectId, sprint.id);
   const archiveSprint = useArchiveSprint(projectId, sprint.id);
   const { assignIssueToSprint, removeIssueFromSprint } = useMoveIssueToSprint(projectId, sprint.id);
   const [activeTab, setActiveTab] = React.useState<'issues' | 'attachments'>('issues');
@@ -42,9 +41,6 @@ const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailMod
   const [localBacklogIssues, setLocalBacklogIssues] = useState(backlogIssues || []);
 
   const { currentUserRole } = useProject(projectId);
-  const [removingIssueId, setRemovingIssueId] = useState<string | null>(null);
-  const [editingStoryPointsId, setEditingStoryPointsId] = useState<string | null>(null);
-  const [storyPointsValue, setStoryPointsValue] = useState<number | ''>('');
 
   React.useEffect(() => {
     setLocalSprintIssues(sprintIssues || []);
@@ -288,13 +284,13 @@ const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailMod
                               {issue.assignee && (
                                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-300 dark:border-neutral-600" title={typeof issue.assignee === 'object' ? issue.assignee.name : issue.assignee}>
                                   {typeof issue.assignee === 'object' && issue.assignee.avatarUrl ? (
-                                    <img src={issue.assignee.avatarUrl} alt={issue.assignee.name || ''} className="w-8 h-8 object-cover" />
+                                    <Image src={issue.assignee.avatarUrl} alt={issue.assignee.name || ''} className="w-8 h-8 object-cover" width={32} height={32} />
                                   ) : (
                                     <span>{
                                       typeof issue.assignee === 'object'
                                         ? (issue.assignee.name ? issue.assignee.name[0] : '')
-                                        : typeof issue.assignee === 'string'
-                                          ? issue.assignee[0].toUpperCase()
+                                        : typeof issue.assignee === 'string' && issue.assignee
+                                          ? (issue.assignee as string)[0]?.toUpperCase() || ''
                                           : ''
                                     }</span>
                                   )}
@@ -424,13 +420,13 @@ const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailMod
                                   {issue.assignee && (
                                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-300 dark:border-neutral-600" title={typeof issue.assignee === 'object' ? issue.assignee.name : issue.assignee}>
                                       {typeof issue.assignee === 'object' && issue.assignee.avatarUrl ? (
-                                        <img src={issue.assignee.avatarUrl} alt={issue.assignee.name || ''} className="w-8 h-8 object-cover" />
+                                        <Image src={issue.assignee.avatarUrl} alt={issue.assignee.name || ''} className="w-8 h-8 object-cover" width={32} height={32} />
                                       ) : (
                                         <span>{
                                           typeof issue.assignee === 'object'
                                             ? (issue.assignee.name ? issue.assignee.name[0] : '')
-                                            : typeof issue.assignee === 'string'
-                                              ? issue.assignee[0].toUpperCase()
+                                            : typeof issue.assignee === 'string' && issue.assignee
+                                              ? (issue.assignee as string)[0]?.toUpperCase() || ''
                                               : ''
                                         }</span>
                                       )}
@@ -471,7 +467,6 @@ function SprintAttachmentsTab({ projectId, sprintId }: { projectId: string; spri
     deleteAttachment,
     isDeleting,
     deleteError,
-    refetch,
   } = useSprintAttachments(projectId, sprintId);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = React.useState(false);
@@ -497,11 +492,11 @@ function SprintAttachmentsTab({ projectId, sprintId }: { projectId: string; spri
     }
   }
 
-  async function handleDeleteAttachment(a: any) {
+  async function handleDeleteAttachment(a: SprintAttachment) {
     await deleteAttachment(a.id);
   }
 
-  function renderFileIconOrThumb(a: any) {
+  function renderFileIconOrThumb(a: SprintAttachment) {
     const ext = a.filename?.split('.').pop()?.toLowerCase();
     if (["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(ext || "")) {
       if (!a.filepath) {
@@ -509,13 +504,13 @@ function SprintAttachmentsTab({ projectId, sprintId }: { projectId: string; spri
       }
       
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
         const imageUrl = a.filepath.startsWith('http') 
           ? a.filepath 
           : `${baseUrl}${a.filepath.startsWith('/') ? '' : '/'}${a.filepath}`;
         
         return <Image src={imageUrl} alt={a.filename || 'Image'} className="w-10 h-10 object-cover rounded" width={40} height={40} />;
-      } catch (error) {
+      } catch {
         return <span className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded text-xl">📎</span>;
       }
     }
@@ -560,11 +555,11 @@ function SprintAttachmentsTab({ projectId, sprintId }: { projectId: string; spri
                   href={(() => {
                     if (!a.filepath) return '#';
                     try {
-                      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+                      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
                       return a.filepath.startsWith('http') 
                         ? a.filepath 
                         : `${baseUrl}${a.filepath.startsWith('/') ? '' : '/'}${a.filepath}`;
-                    } catch (error) {
+                    } catch {
                       return '#';
                     }
                   })()}

@@ -1,6 +1,7 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useParams } from "next/navigation";
+import Image from "next/image";
 import Spinner from "../../../../../components/Spinner";
 import { useSprints } from "../../../../../hooks/useSprints";
 import { useSprintIssues, useReorderSprintIssues } from "../../../../../hooks/useSprintIssues";
@@ -8,8 +9,7 @@ import { useBacklog } from "../../../../../hooks/useBacklog";
 import { useMoveIssueToSprint } from "../../../../../hooks/useMoveIssueToSprint";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Issue } from "../../../../../hooks/useProjectIssues";
-import { useSprintAttachments } from "../../../../../hooks/useSprints";
-import Image from 'next/image';
+import { useSprintAttachments, SprintAttachment } from "../../../../../hooks/useSprints";
 import { 
   TrashIcon, 
   RocketLaunchIcon, 
@@ -25,7 +25,6 @@ import {
   FireIcon,
   SparklesIcon
 } from '@heroicons/react/24/outline';
-import { useProject } from '@/hooks/useProject';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function SprintDetailPage() {
@@ -40,7 +39,6 @@ export default function SprintDetailPage() {
   const { issues: backlogIssues, isLoading: loadingBacklog, isError: errorBacklog } = useBacklog(projectId);
   const reorderIssues = useReorderSprintIssues(projectId, sprintId);
   const { assignIssueToSprint, removeIssueFromSprint } = useMoveIssueToSprint(projectId, sprintId);
-  const { currentUserRole } = useProject(projectId);
   const [activeTab, setActiveTab] = React.useState<'issues' | 'attachments'>('issues');
   const [editingStoryPointsId, setEditingStoryPointsId] = useState<string | null>(null);
   const [storyPointsValue, setStoryPointsValue] = useState<number | ''>('');
@@ -64,7 +62,6 @@ export default function SprintDetailPage() {
     deleteAttachment,
     isDeleting,
     deleteError,
-    refetch: refetchAttachments,
   } = useSprintAttachments(projectId, sprintId);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = React.useState(false);
@@ -88,10 +85,10 @@ export default function SprintDetailPage() {
       setTimeout(() => setRecentlyUploadedId(null), 1200);
     }
   }
-  async function handleDeleteAttachment(a: any) {
+  async function handleDeleteAttachment(a: SprintAttachment) {
     await deleteAttachment(a.id);
   }
-  function renderFileIconOrThumb(a: any) {
+  function renderFileIconOrThumb(a: SprintAttachment) {
     const ext = a.filename?.split('.').pop()?.toLowerCase();
     if (["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(ext || "")) {
       if (!a.filepath) {
@@ -99,13 +96,13 @@ export default function SprintDetailPage() {
       }
       
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
         const imageUrl = a.filepath.startsWith('http') 
           ? a.filepath 
           : `${baseUrl}${a.filepath.startsWith('/') ? '' : '/'}${a.filepath}`;
         
         return <Image src={imageUrl} alt={a.filename || 'Image'} className="w-12 h-12 object-cover rounded-lg shadow-md" width={48} height={48} />;
-      } catch (error) {
+      } catch {
         return <span className="w-12 h-12 flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-lg text-2xl shadow-md">📎</span>;
       }
     }
@@ -148,7 +145,7 @@ export default function SprintDetailPage() {
       <div className="text-center">
         <ExclamationTriangleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
         <h2 className="text-2xl font-bold text-red-700 dark:text-red-300 mb-2">Sprint Not Found</h2>
-        <p className="text-red-600 dark:text-red-400">The sprint you're looking for doesn't exist or has been removed.</p>
+        <p className="text-red-600 dark:text-red-400">The sprint you&apos;re looking for doesn&apos;t exist or has been removed.</p>
       </div>
     </div>
   );
@@ -363,13 +360,13 @@ export default function SprintDetailPage() {
                                 {issue.assignee && (
                                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 flex items-center justify-center text-xs font-bold overflow-hidden shadow-md">
                                     {typeof issue.assignee === 'object' && issue.assignee.avatarUrl ? (
-                                      <img src={issue.assignee.avatarUrl} alt={issue.assignee.name || ''} className="w-8 h-8 object-cover" />
+                                      <Image src={issue.assignee.avatarUrl} alt={issue.assignee.name || ''} className="w-8 h-8 object-cover" width={32} height={32} />
                                     ) : (
                                       <span className="text-blue-600 dark:text-blue-400">{
                                         typeof issue.assignee === 'object'
                                           ? (issue.assignee.name ? issue.assignee.name[0] : '')
                                           : typeof issue.assignee === 'string'
-                                            ? issue.assignee[0].toUpperCase()
+                                            ? ((issue.assignee as string) || '')[0].toUpperCase()
                                             : ''
                                       }</span>
                                     )}
@@ -483,13 +480,13 @@ export default function SprintDetailPage() {
                                         {issue.assignee && (
                                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 flex items-center justify-center text-xs font-bold overflow-hidden shadow-md">
                                             {typeof issue.assignee === 'object' && issue.assignee.avatarUrl ? (
-                                              <img src={issue.assignee.avatarUrl} alt={issue.assignee.name || ''} className="w-8 h-8 object-cover" />
+                                              <Image src={issue.assignee.avatarUrl} alt={issue.assignee.name || ''} className="w-8 h-8 object-cover" width={32} height={32} />
                                             ) : (
                                               <span className="text-blue-600 dark:text-blue-400">{
                                                 typeof issue.assignee === 'object'
                                                   ? (issue.assignee.name ? issue.assignee.name[0] : '')
                                                   : typeof issue.assignee === 'string'
-                                                    ? issue.assignee[0].toUpperCase()
+                                                    ? ((issue.assignee as string) || '')[0].toUpperCase()
                                                     : ''
                                               }</span>
                                             )}
@@ -576,7 +573,7 @@ export default function SprintDetailPage() {
                               {issue.assignee && (
                                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center text-xs font-bold shadow-md">
                                   <span className="text-purple-600 dark:text-purple-400">
-                                    {typeof issue.assignee === 'string' ? issue.assignee[0].toUpperCase() : 'A'}
+                                    {typeof issue.assignee === 'string' ? ((issue.assignee as string) || '')[0].toUpperCase() : 'A'}
                                   </span>
                                 </div>
                               )}
@@ -628,7 +625,7 @@ export default function SprintDetailPage() {
                                       {issue.assignee && (
                                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center text-xs font-bold shadow-md">
                                           <span className="text-purple-600 dark:text-purple-400">
-                                            {typeof issue.assignee === 'string' ? issue.assignee[0].toUpperCase() : 'A'}
+                                            {typeof issue.assignee === 'string' ? ((issue.assignee as string) || '')[0].toUpperCase() : 'A'}
                                           </span>
                                         </div>
                                       )}
@@ -722,11 +719,11 @@ export default function SprintDetailPage() {
                                 href={(() => {
                                   if (!a.filepath) return '#';
                                   try {
-                                    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+                                    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
                                     return a.filepath.startsWith('http') 
                                       ? a.filepath 
                                       : `${baseUrl}${a.filepath.startsWith('/') ? '' : '/'}${a.filepath}`;
-                                  } catch (error) {
+                                  } catch {
                                     return '#';
                                   }
                                 })()}

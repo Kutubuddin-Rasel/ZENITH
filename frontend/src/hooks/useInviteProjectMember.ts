@@ -10,14 +10,14 @@ export function useInviteProjectMember(projectId: string) {
   return useMutation({
     mutationFn: async (input: InviteInput) => {
       // Map frontend fields to backend DTO fields
-      const backendData: any = {
+      const backendData: { projectId: string; role: string; inviteeId?: string; userId?: string } = {
         projectId,
         role: input.roleName,
       };
       
       if ('email' in input) {
         // For email invitations, we need to find the user first
-        const users = await apiFetch(`/users/search?term=${input.email}`);
+        const users = await apiFetch(`/users/search?term=${input.email}`) as { user_id: string }[];
         if (users.length === 0) {
           throw new Error(`User with email ${input.email} not found`);
         }

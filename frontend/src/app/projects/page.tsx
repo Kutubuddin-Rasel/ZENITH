@@ -9,11 +9,19 @@ import Input from "../../components/Input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
-import { PlusIcon, BriefcaseIcon, UserIcon, ChevronRightIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, BriefcaseIcon, UserIcon, ChevronRightIcon, MagnifyingGlassIcon, SparklesIcon, Cog6ToothIcon } from "@heroicons/react/24/outline";
 import { useToast } from "@/context/ToastContext";
 import ProjectsCreateModalContext from '@/context/ProjectsCreateModalContext';
+import ProjectWizard from '../../components/ProjectWizard/ProjectWizard';
+import GettingStartedChecklist from '../../components/GettingStartedChecklist/GettingStartedChecklist';
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+}
 import { useRole } from "@/context/RoleContext";
 import RoleBadge from "@/components/RoleBadge";
 import { useProjectSummary } from "@/hooks/useProjectSummary";
@@ -120,7 +128,6 @@ function ProjectCard({ project, role }: { project: Project; role: string | undef
 }
 
 export default function ProjectsPage() {
-  const { user } = useAuth();
   const { projects, isLoading, isError, createProject } = useProjects();
   const { showToast } = useToast();
   const [isModalOpen, setModalOpen] = useState(false);
@@ -131,6 +138,10 @@ export default function ProjectsPage() {
   // User search for Project Lead selection
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [selectedProjectLead, setSelectedProjectLead] = useState<{ id: string; name: string; email: string } | null>(null);
+  
+  // New state for intelligent onboarding
+  const [showProjectWizard, setShowProjectWizard] = useState(false);
+  const [showGettingStarted, setShowGettingStarted] = useState(false);
   const [debouncedSearchTerm] = useDebounce(userSearchQuery, 500);
 
   const { data: users = [], isLoading: searchingUsers } = useQuery<{ id: string; name: string; email: string; avatarUrl?: string }[]>({
@@ -139,7 +150,7 @@ export default function ProjectsPage() {
     enabled: !!debouncedSearchTerm && debouncedSearchTerm.length > 2,
   });
 
-  const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm<CreateProjectData>({
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateProjectData>({
     resolver: zodResolver(createProjectSchema),
   });
 
@@ -246,11 +257,32 @@ export default function ProjectsPage() {
   const actionButtons = !rolesLoading && isSuperAdmin ? (
     <>
       <Button
+        variant="ghost"
+        onClick={() => setShowGettingStarted(!showGettingStarted)}
+      >
+        <SparklesIcon className="h-4 w-4 mr-2" />
+        Getting Started
+      </Button>
+      <Button
         variant="secondary"
         onClick={() => router.push('/manageemployees')}
       >
         <UserIcon className="h-4 w-4 mr-2" />
         Manage Employees
+      </Button>
+      <Button
+        variant="secondary"
+        onClick={() => setShowProjectWizard(true)}
+      >
+        <SparklesIcon className="h-4 w-4 mr-2" />
+        Smart Setup
+      </Button>
+      <Button
+        variant="secondary"
+        onClick={() => router.push('/integrations')}
+      >
+        <Cog6ToothIcon className="h-4 w-4 mr-2" />
+        Integrations
       </Button>
       <Button 
         onClick={() => setModalOpen(true)}
@@ -259,7 +291,30 @@ export default function ProjectsPage() {
         Create Project
       </Button>
     </>
-  ) : null;
+  ) : (
+    <>
+      <Button
+        variant="ghost"
+        onClick={() => setShowGettingStarted(!showGettingStarted)}
+      >
+        <SparklesIcon className="h-4 w-4 mr-2" />
+        Getting Started
+      </Button>
+      <Button
+        variant="secondary"
+        onClick={() => setShowProjectWizard(true)}
+      >
+        <SparklesIcon className="h-4 w-4 mr-2" />
+        Smart Setup
+      </Button>
+      <Button 
+        onClick={() => setModalOpen(true)}
+      >
+        <PlusIcon className="h-4 w-4 mr-2" />
+        Create Project
+      </Button>
+    </>
+  );
 
   return (
     <PageLayout
@@ -374,7 +429,7 @@ export default function ProjectsPage() {
                     </div>
                   ) : users.length > 0 ? (
                     <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
-                      {users.map((user: any) => (
+                      {users.map((user: User) => (
                         <button
                           key={user.id}
                           type="button"
@@ -427,6 +482,31 @@ export default function ProjectsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Project Wizard Modal */}
+      <ProjectWizard
+        isOpen={showProjectWizard}
+        onClose={() => setShowProjectWizard(false)}
+        onProjectCreated={() => {
+          showToast('Project created successfully!', 'success');
+          setShowProjectWizard(false);
+        }}
+      />
+
+      {/* Getting Started Checklist */}
+      {showGettingStarted && (
+        <div className="mt-8">
+          <GettingStartedChecklist
+            onItemComplete={(itemId) => {
+              console.log('Completed item:', itemId);
+            }}
+            onAllComplete={() => {
+              showToast('Congratulations! You\'ve completed all getting started steps!', 'success');
+              setShowGettingStarted(false);
+            }}
+          />
+        </div>
+      )}
     </PageLayout>
   );
 } 

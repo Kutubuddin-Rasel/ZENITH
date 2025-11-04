@@ -9,4 +9,4 @@ export class UpdateWorkLogDto {
   @IsOptional()
   @IsString()
   note?: string;
-} 
+}

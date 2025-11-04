@@ -26,6 +26,24 @@ import Card from '@/components/Card';
 import Typography from '@/components/Typography';
 import Modal from '@/components/Modal';
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  defaultRole: string;
+  isActive: boolean;
+  projects: Project[];
+}
+
+interface Project {
+  projectId: string;
+  projectName: string;
+  projectKey: string;
+  roleName: string;
+}
+
 const userSchema = z.object({
   name: z.string().min(2, 'Name is required'),
   email: z.string().email('Invalid email'),
@@ -74,7 +92,7 @@ const getRoleDescription = (role: string) => {
 };
 
 const ManageEmployeesPage: React.FC = () => {
-  const { data: users, isLoading, isError, refetch } = useQuery<any[]>({
+  const { data: users, isLoading, isError, refetch } = useQuery<User[]>({
     queryKey: ['users-with-projects'],
     queryFn: () => apiFetch('/users/project-memberships'),
   });
@@ -83,8 +101,8 @@ const ManageEmployeesPage: React.FC = () => {
   const [search, setSearch] = React.useState('');
   const [roleFilter, setRoleFilter] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('');
-  const [editUser, setEditUser] = React.useState<any | null>(null);
-  const [deleteUser, setDeleteUser] = React.useState<any | null>(null);
+  const [editUser, setEditUser] = React.useState<User | null>(null);
+  const [deleteUser, setDeleteUser] = React.useState<User | null>(null);
   const [activatingUserId, setActivatingUserId] = React.useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = React.useState<string | null>(null);
   const { showToast } = useToast();
@@ -104,7 +122,7 @@ const ManageEmployeesPage: React.FC = () => {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: z.infer<typeof userSchema>) => {
     try {
       await apiFetch('/users', {
         method: 'POST',
@@ -115,12 +133,13 @@ const ManageEmployeesPage: React.FC = () => {
       setShowForm(false);
       refetch();
       showToast('User created successfully!', 'success');
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to create user', 'error');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create user';
+      showToast(errorMessage, 'error');
     }
   };
 
-  const onEditSubmit = async (data: any) => {
+  const onEditSubmit = async (data: z.infer<typeof editUserSchema>) => {
     if (!editUser) return;
     try {
       await apiFetch(`/users/${editUser.id}`, {
@@ -131,18 +150,19 @@ const ManageEmployeesPage: React.FC = () => {
       setEditUser(null);
       refetch();
       showToast('User updated successfully!', 'success');
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to update user', 'error');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update user';
+      showToast(errorMessage, 'error');
     }
   };
 
-  const handleToggleActive = async (user: any) => {
+  const handleToggleActive = async (user: User) => {
     setActivatingUserId(user.id);
     try {
       await apiFetch(`/users/${user.id}/${user.isActive ? 'deactivate' : 'activate'}`, { method: 'PATCH' });
       refetch();
       showToast(`User ${user.isActive ? 'deactivated' : 'activated'} successfully!`, 'success');
-    } catch (err) {
+      } catch {
       showToast('Failed to update user status', 'error');
     } finally {
       setActivatingUserId(null);
@@ -157,8 +177,9 @@ const ManageEmployeesPage: React.FC = () => {
       setDeleteUser(null);
       refetch();
       showToast('User deleted successfully!', 'success');
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to delete user', 'error');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete user';
+      showToast(errorMessage, 'error');
     } finally {
       setDeletingUserId(null);
     }
@@ -275,7 +296,7 @@ const ManageEmployeesPage: React.FC = () => {
     </Card>
   );
 
-  const renderUserCard = (user: any, index: number) => (
+  const renderUserCard = (user: User) => (
     <Card key={user.id} variant="elevated" padding="lg" className="h-full">
       <div className="flex flex-col h-full">
         {/* Header */}
@@ -334,11 +355,11 @@ const ManageEmployeesPage: React.FC = () => {
         <div className="mb-4 flex-1">
           <Typography variant="label" className="mb-2 flex items-center gap-1">
             <SparklesIcon className="h-4 w-4" />
-            Projects ({user.projectMemberships?.length || 0})
+            Projects ({user.projects?.length || 0})
           </Typography>
           <div className="flex flex-wrap gap-2">
-            {user.projectMemberships && user.projectMemberships.length > 0 ? (
-              user.projectMemberships.map((pm: any, idx: number) => (
+            {user.projects && user.projects.length > 0 ? (
+              user.projects.map((pm: Project) => (
                 <a
                   key={pm.projectId}
                   href={`/projects/${pm.projectId}`}
@@ -447,7 +468,7 @@ const ManageEmployeesPage: React.FC = () => {
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filteredUsers.map((user, index) => renderUserCard(user, index))}
+        {filteredUsers.map((user) => renderUserCard(user))}
       </div>
     );
   };

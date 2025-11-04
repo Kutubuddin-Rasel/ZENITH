@@ -64,9 +64,14 @@ export class IssuesService {
       if (dto.parentId === undefined || dto.parentId === null) {
         // skip
       } else {
-        parent = await this.issueRepo.findOne({ where: { id: dto.parentId, projectId } }) || undefined;
+        parent =
+          (await this.issueRepo.findOne({
+            where: { id: dto.parentId, projectId },
+          })) || undefined;
         if (!parent) {
-          throw new BadRequestException('Parent issue not found in this project');
+          throw new BadRequestException(
+            'Parent issue not found in this project',
+          );
         }
       }
     }
@@ -84,7 +89,11 @@ export class IssuesService {
     });
     const saved = await this.issueRepo.save(issue);
 
-    this.eventEmitter.emit('issue.created', { projectId, issueId: saved.id, actorId: reporterId });
+    this.eventEmitter.emit('issue.created', {
+      projectId,
+      issueId: saved.id,
+      actorId: reporterId,
+    });
 
     return saved;
   }
@@ -93,7 +102,14 @@ export class IssuesService {
   async findAll(
     projectId: string,
     userId: string,
-    filters?: { status?: IssueStatus; assigneeId?: string; search?: string; label?: string; sprint?: string; sort?: string },
+    filters?: {
+      status?: IssueStatus;
+      assigneeId?: string;
+      search?: string;
+      label?: string;
+      sprint?: string;
+      sort?: string;
+    },
   ): Promise<Issue[]> {
     const role = await this.projectMembersService.getUserRole(
       projectId,
@@ -120,25 +136,33 @@ export class IssuesService {
       );
     }
     if (filters?.label) {
-      qb.innerJoin('taxonomy_issue_labels', 'il', 'il.issueId = issue.id')
-        .andWhere('il.labelId = :labelId', { labelId: filters.label });
+      qb.innerJoin(
+        'taxonomy_issue_labels',
+        'il',
+        'il.issueId = issue.id',
+      ).andWhere('il.labelId = :labelId', { labelId: filters.label });
     }
     if (filters?.sprint) {
-      qb.innerJoin('sprint_issues', 'si', 'si.issueId = issue.id')
-        .andWhere('si.sprintId = :sprintId', { sprintId: filters.sprint });
+      qb.innerJoin('sprint_issues', 'si', 'si.issueId = issue.id').andWhere(
+        'si.sprintId = :sprintId',
+        { sprintId: filters.sprint },
+      );
     }
     // Sorting
     if (filters?.sort) {
       if (filters.sort === 'updatedAt') {
         qb.orderBy('issue.updatedAt', 'DESC');
       } else if (filters.sort === 'priority') {
-        qb.addOrderBy(`CASE 
+        qb.addOrderBy(
+          `CASE 
           WHEN issue.priority = 'Highest' THEN 5
           WHEN issue.priority = 'High' THEN 4
           WHEN issue.priority = 'Medium' THEN 3
           WHEN issue.priority = 'Low' THEN 2
           WHEN issue.priority = 'Lowest' THEN 1
-          ELSE 0 END`, 'DESC');
+          ELSE 0 END`,
+          'DESC',
+        );
         qb.addOrderBy('issue.createdAt', 'DESC'); // secondary sort
       } else {
         qb.orderBy('issue.createdAt', 'DESC');
@@ -151,16 +175,19 @@ export class IssuesService {
     qb.leftJoinAndSelect('issue.assignee', 'assignee');
     qb.leftJoinAndSelect('issue.reporter', 'reporter');
     const issues = await qb.getMany();
-    
+
     // Debug logging
-    console.log('Backend findAll - Issues with assignee data:', issues.map(issue => ({
-      id: issue.id,
-      title: issue.title,
-      assigneeId: issue.assigneeId,
-      assignee: issue.assignee,
-      assigneeName: issue.assignee?.name
-    })));
-    
+    console.log(
+      'Backend findAll - Issues with assignee data:',
+      issues.map((issue) => ({
+        id: issue.id,
+        title: issue.title,
+        assigneeId: issue.assigneeId,
+        assignee: issue.assignee,
+        assigneeName: issue.assignee?.name,
+      })),
+    );
+
     return issues;
   }
 
@@ -214,15 +241,20 @@ export class IssuesService {
       console.log('Backend update - Processing assignee change:', {
         currentAssigneeId: issue.assigneeId,
         newAssigneeId: dto.assigneeId,
-        currentAssignee: issue.assignee
+        currentAssignee: issue.assignee,
       });
-      
+
       // Allow unassignment (setting to null/undefined)
       if (dto.assigneeId === null || dto.assigneeId === '') {
         issue.assigneeId = null;
         console.log('Backend update - Unassigning issue');
-        this.eventEmitter.emit('issue.updated', { projectId, issueId: issue.id, actorId: userId, action: 'unassigned issue' });
-      } 
+        this.eventEmitter.emit('issue.updated', {
+          projectId,
+          issueId: issue.id,
+          actorId: userId,
+          action: 'unassigned issue',
+        });
+      }
       // Handle assignment to a new user
       else if (dto.assigneeId !== issue.assigneeId) {
         // Check if the new assignee is a project member
@@ -233,22 +265,34 @@ export class IssuesService {
         if (!asRole) {
           throw new BadRequestException('New assignee is not a project member');
         }
-        
+
         // Permission check: Only ProjectLead or the current assignee can change assignment
         if (userRole !== 'ProjectLead' && issue.assigneeId !== userId) {
-          throw new ForbiddenException('Only ProjectLead or current assignee can reassign issues');
+          throw new ForbiddenException(
+            'Only ProjectLead or current assignee can reassign issues',
+          );
         }
-        
+
         issue.assigneeId = dto.assigneeId;
         console.log('Backend update - Reassigning issue to:', dto.assigneeId);
-        this.eventEmitter.emit('issue.updated', { projectId, issueId: issue.id, actorId: userId, action: `reassigned issue to ${dto.assigneeId}` });
+        this.eventEmitter.emit('issue.updated', {
+          projectId,
+          issueId: issue.id,
+          actorId: userId,
+          action: `reassigned issue to ${dto.assigneeId}`,
+        });
       }
     }
 
     // Handle status-change
     if (dto.status && dto.status !== issue.status) {
       issue.status = dto.status;
-      this.eventEmitter.emit('issue.updated', { projectId, issueId: issue.id, actorId: userId, action: `changed status to ${dto.status}` });
+      this.eventEmitter.emit('issue.updated', {
+        projectId,
+        issueId: issue.id,
+        actorId: userId,
+        action: `changed status to ${dto.status}`,
+      });
     }
 
     // --- Parent/child validation ---
@@ -258,9 +302,13 @@ export class IssuesService {
       } else if (dto.parentId === issue.id) {
         throw new BadRequestException('An issue cannot be its own parent');
       } else {
-        const parent = await this.issueRepo.findOne({ where: { id: dto.parentId, projectId } });
+        const parent = await this.issueRepo.findOne({
+          where: { id: dto.parentId, projectId },
+        });
         if (!parent) {
-          throw new BadRequestException('Parent issue not found in this project');
+          throw new BadRequestException(
+            'Parent issue not found in this project',
+          );
         }
         issue.parentId = dto.parentId;
       }
@@ -273,13 +321,13 @@ export class IssuesService {
     if (dto.storyPoints !== undefined) issue.storyPoints = dto.storyPoints;
 
     const savedIssue = await this.issueRepo.save(issue);
-    
+
     console.log('Backend update - Saved issue:', {
       id: savedIssue.id,
       assigneeId: savedIssue.assigneeId,
-      assignee: savedIssue.assignee
+      assignee: savedIssue.assignee,
     });
-    
+
     // Return the issue with relations loaded
     return this.findOne(projectId, savedIssue.id, userId);
   }
@@ -299,10 +347,19 @@ export class IssuesService {
       throw new ForbiddenException('Only ProjectLead can delete issues');
     }
     await this.issueRepo.remove(issue);
-    this.eventEmitter.emit('issue.deleted', { projectId, issueId, actorId: userId });
+    this.eventEmitter.emit('issue.deleted', {
+      projectId,
+      issueId,
+      actorId: userId,
+    });
   }
 
-  async updateStatus(projectId: string, issueId: string, status: string, userId: string): Promise<Issue> {
+  async updateStatus(
+    projectId: string,
+    issueId: string,
+    status: string,
+    userId: string,
+  ): Promise<Issue> {
     const issue = await this.findOne(projectId, issueId, userId);
     // Optionally: check permissions here
     if (!Object.values(IssueStatus).includes(status as IssueStatus)) {
@@ -324,36 +381,74 @@ export class WorkLogsService {
   ) {}
 
   async listWorkLogs(projectId: string, issueId: string) {
-    return this.workLogRepo.find({ where: { projectId, issueId }, order: { createdAt: 'DESC' }, relations: ['user'] });
+    return this.workLogRepo.find({
+      where: { projectId, issueId },
+      order: { createdAt: 'DESC' },
+      relations: ['user'],
+    });
   }
 
-  async addWorkLog(projectId: string, issueId: string, userId: string, minutesSpent: number, note?: string) {
+  async addWorkLog(
+    projectId: string,
+    issueId: string,
+    userId: string,
+    minutesSpent: number,
+    note?: string,
+  ) {
     // Ensure user is a project member and issue exists
     await this.issueRepo.findOneByOrFail({ id: issueId, projectId });
     // Optionally: check membership
-    const workLog = this.workLogRepo.create({ projectId, issueId, userId, minutesSpent, note });
+    const workLog = this.workLogRepo.create({
+      projectId,
+      issueId,
+      userId,
+      minutesSpent,
+      note,
+    });
     return this.workLogRepo.save(workLog);
   }
 
-  async deleteWorkLog(projectId: string, issueId: string, workLogId: string, userId: string) {
-    const workLog = await this.workLogRepo.findOneBy({ id: workLogId, projectId, issueId });
+  async deleteWorkLog(
+    projectId: string,
+    issueId: string,
+    workLogId: string,
+    userId: string,
+  ) {
+    const workLog = await this.workLogRepo.findOneBy({
+      id: workLogId,
+      projectId,
+      issueId,
+    });
     if (!workLog) throw new NotFoundException('Work log not found');
     // Only the user or ProjectLead can delete
     if (workLog.userId !== userId) {
       const role = await this.membersService.getUserRole(projectId, userId);
-      if (role !== 'ProjectLead') throw new ForbiddenException('Cannot delete this work log');
+      if (role !== 'ProjectLead')
+        throw new ForbiddenException('Cannot delete this work log');
     }
     await this.workLogRepo.remove(workLog);
     return { message: 'Work log deleted' };
   }
 
-  async updateWorkLog(projectId: string, issueId: string, workLogId: string, userId: string, minutesSpent?: number, note?: string) {
-    const workLog = await this.workLogRepo.findOneBy({ id: workLogId, projectId, issueId });
+  async updateWorkLog(
+    projectId: string,
+    issueId: string,
+    workLogId: string,
+    userId: string,
+    minutesSpent?: number,
+    note?: string,
+  ) {
+    const workLog = await this.workLogRepo.findOneBy({
+      id: workLogId,
+      projectId,
+      issueId,
+    });
     if (!workLog) throw new NotFoundException('Work log not found');
     // Only the user or ProjectLead can edit
     if (workLog.userId !== userId) {
       const role = await this.membersService.getUserRole(projectId, userId);
-      if (role !== 'ProjectLead') throw new ForbiddenException('Cannot edit this work log');
+      if (role !== 'ProjectLead')
+        throw new ForbiddenException('Cannot edit this work log');
     }
     if (minutesSpent !== undefined) workLog.minutesSpent = minutesSpent;
     if (note !== undefined) workLog.note = note;

@@ -2,7 +2,10 @@ import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Invite } from './entities/invite.entity';
 import { InvitesService } from './invites.service';
-import { InvitesController, ProjectInvitesController } from './invites.controller';
+import {
+  InvitesController,
+  ProjectInvitesController,
+} from './invites.controller';
 import { AuthModule } from '../auth/auth.module';
 import { MembershipModule } from '../membership/membership.module';
 import { UsersModule } from '../users/users.module';

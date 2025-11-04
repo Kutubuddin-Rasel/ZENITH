@@ -37,7 +37,10 @@ export default function ProjectNotificationsPage() {
       { inviteId, accept: true },
       {
         onSuccess: () => showToast('Invite accepted!', 'success'),
-        onError: (err: any) => showToast(err?.message || 'Failed to accept invite', 'error'),
+        onError: (err: unknown) => {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to accept invite';
+          showToast(errorMessage, 'error');
+        },
         onSettled: () => setAcceptingId(null),
       }
     );
@@ -49,7 +52,10 @@ export default function ProjectNotificationsPage() {
       { inviteId, accept: false, reason: rejectReason },
       {
         onSuccess: () => showToast('Invite rejected.', 'success'),
-        onError: (err: any) => showToast(err?.message || 'Failed to reject invite', 'error'),
+        onError: (err: unknown) => {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to reject invite';
+          showToast(errorMessage, 'error');
+        },
         onSettled: () => {
           setRejectingId(null);
           setRejectReason("");

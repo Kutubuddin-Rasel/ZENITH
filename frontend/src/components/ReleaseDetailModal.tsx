@@ -4,11 +4,10 @@ import Button from './Button';
 import Spinner from './Spinner';
 import { Release } from '../hooks/useReleases';
 import { useReleaseIssues, useAssignIssueToRelease, useUnassignIssueFromRelease } from '../hooks/useReleaseIssues';
-import { useProjectIssues, Issue, Label } from '../hooks/useProjectIssues';
-import { useReleaseAttachments } from '../hooks/useReleaseIssues';
-import { useAuth } from '../context/AuthContext';
+import { useProjectIssues, Issue } from '../hooks/useProjectIssues';
+import { useReleaseAttachments, ReleaseAttachment } from '../hooks/useReleaseIssues';
 import Image from 'next/image';
-import { CheckCircleIcon, XCircleIcon, TrashIcon, UserCircleIcon } from '@heroicons/react/24/solid';
+import { TrashIcon, UserCircleIcon } from '@heroicons/react/24/solid';
 import { differenceInDays, format } from 'date-fns';
 import Downshift from 'downshift';
 
@@ -233,7 +232,6 @@ const ReleaseDetailModal = ({ open, onClose, release, projectId }: ReleaseDetail
 };
 
 function ReleaseAttachmentsTab({ projectId, releaseId }: { projectId: string; releaseId: string }) {
-  const { user } = useAuth();
   const {
     attachments,
     isLoading,
@@ -245,7 +243,6 @@ function ReleaseAttachmentsTab({ projectId, releaseId }: { projectId: string; re
     deleteAttachment,
     isDeleting,
     deleteError,
-    refetch,
   } = useReleaseAttachments(projectId, releaseId);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = React.useState(false);
@@ -271,11 +268,11 @@ function ReleaseAttachmentsTab({ projectId, releaseId }: { projectId: string; re
     }
   }
 
-  async function handleDeleteAttachment(a: any) {
+  async function handleDeleteAttachment(a: ReleaseAttachment) {
     await deleteAttachment(a.id);
   }
 
-  function renderFileIconOrThumb(a: any) {
+  function renderFileIconOrThumb(a: ReleaseAttachment) {
     const ext = a.filename.split('.').pop()?.toLowerCase();
     if (["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(ext || "")) {
       return <Image src={a.filepath} alt={a.filename} className="w-10 h-10 object-cover rounded" width={40} height={40} />;

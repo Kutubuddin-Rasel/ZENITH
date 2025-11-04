@@ -8,6 +8,7 @@ import { ProjectsModule } from '../projects/projects.module';
 import { IssuesModule } from '../issues/issues.module';
 import { MembershipModule } from '../membership/membership.module'; // <-- this name must match
 import { WatchersModule } from '../watchers/watchers.module';
+import { BoardsModule } from '../boards/boards.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { WatchersModule } from '../watchers/watchers.module';
     forwardRef(() => IssuesModule),
     forwardRef(() => MembershipModule), // <<<<<< import here
     forwardRef(() => WatchersModule),
+    forwardRef(() => BoardsModule),
   ],
   providers: [SprintsService],
   controllers: [SprintsController],

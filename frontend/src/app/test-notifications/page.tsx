@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 export default function TestNotificationsPage() {
   const { user, token } = useAuth();
   const { notifications, isLoading, isError } = useNotifications();
-  const [apiResponse, setApiResponse] = useState<any>(null);
+  const [apiResponse, setApiResponse] = useState<unknown>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -64,11 +64,11 @@ export default function TestNotificationsPage() {
               <p>Error: {apiError}</p>
             </div>
           )}
-          {apiResponse && (
+          {apiResponse !== null && (
             <div className="text-green-600">
               <p>Success! Response:</p>
               <pre className="bg-white p-2 rounded text-sm overflow-auto">
-                {JSON.stringify(apiResponse, null, 2)}
+                {typeof apiResponse === 'object' ? JSON.stringify(apiResponse, null, 2) : String(apiResponse)}
               </pre>
             </div>
           )}

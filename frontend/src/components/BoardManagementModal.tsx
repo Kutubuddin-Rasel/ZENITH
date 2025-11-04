@@ -29,7 +29,7 @@ interface BoardManagementModalProps {
 }
 
 const BoardManagementModal: React.FC<BoardManagementModalProps> = ({
-  open, onClose, projectId, boardId, columns, boardName,
+  open, onClose, columns, boardName,
   onBoardRename, onBoardDelete, onColumnAdd, onColumnEdit, onColumnDelete, onColumnsReorder
 }) => {
   const [editingBoardName, setEditingBoardName] = useState(boardName);
@@ -40,7 +40,7 @@ const BoardManagementModal: React.FC<BoardManagementModalProps> = ({
   const [editingColId, setEditingColId] = useState<string | null>(null);
   const [editingColName, setEditingColName] = useState('');
   const [localCols, setLocalCols] = useState(columns);
-  const [reordering, setReordering] = useState(false);
+  const [, setReordering] = useState(false);
 
   const COMMON_COLUMN_NAMES = [
     'To Do',

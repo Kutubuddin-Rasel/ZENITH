@@ -1,11 +1,12 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Input from "../../../components/Input";
 import Button from "../../../components/Button";
 import FormError from "../../../components/FormError";
+import TwoFactorAuthVerification from "../../../components/TwoFactorAuthVerification";
 import { useAuth } from "../../../context/AuthContext";
 import Link from "next/link";
 import Image from "next/image";
@@ -19,6 +20,9 @@ type FormData = z.infer<typeof schema>;
 
 export default function LoginPage() {
   const { login, loading } = useAuth();
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  
   const {
     register,
     handleSubmit,
@@ -28,12 +32,34 @@ export default function LoginPage() {
 
   const onSubmit = async (data: FormData) => {
     try {
+      // Use the login function from the AuthContext instead of direct fetch
       await login(data.email, data.password);
+      // The login function will handle redirection to /projects
     } catch (e: unknown) {
       const message = e && typeof e === 'object' && 'message' in e ? (e as { message?: string }).message : undefined;
       setError("root", { message: message || "Login failed. Please check your credentials." });
     }
   };
+
+  const handle2FASuccess = (finalToken: string) => {
+    localStorage.setItem('access_token', finalToken);
+    window.location.href = '/projects';
+  };
+
+  const handle2FACancel = () => {
+    setRequires2FA(false);
+    setUserId(null);
+  };
+
+  if (requires2FA && userId) {
+    return (
+      <TwoFactorAuthVerification
+        userId={userId}
+        onSuccess={handle2FASuccess}
+        onCancel={handle2FACancel}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-indigo-500 via-blue-400 to-purple-400 dark:from-gray-900 dark:via-indigo-900 dark:to-purple-900 relative">

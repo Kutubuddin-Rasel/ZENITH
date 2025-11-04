@@ -13,11 +13,10 @@ import { useSprintIssues } from "../../../../hooks/useSprintIssues";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { CalendarDaysIcon, FlagIcon, RocketLaunchIcon, CheckCircleIcon, ArchiveBoxIcon, EyeIcon, PencilSquareIcon, ArchiveBoxXMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { CalendarDaysIcon, FlagIcon, RocketLaunchIcon, CheckCircleIcon, EyeIcon, PencilSquareIcon, ArchiveBoxXMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { addDays } from 'date-fns';
-import ConfirmationModal from "../../../../components/ConfirmationModal";
 import { useProjectRole, useRole } from "../../../../context/RoleContext";
 
 const schema = z.object({
@@ -325,7 +324,7 @@ export default function SprintsPage() {
                           
                         {startSprint.isError && startingSprintId === sprint.id && (
                             <Typography variant="body-sm" className="text-red-600 dark:text-red-400 mt-2">
-                              {(startSprint.error as any)?.message || 'Failed to start sprint.'}
+                              {startSprint.error instanceof Error ? startSprint.error.message : 'Failed to start sprint.'}
                             </Typography>
                         )}
                       </Card>
@@ -522,8 +521,9 @@ export default function SprintsPage() {
                 setCompleteModalOpen(false);
                 setSprintToComplete(null);
                 setNextSprintId(undefined);
-              } catch (e: any) {
-                setArchiveError(e?.message || 'Failed to complete sprint.');
+              } catch (e: unknown) {
+                const errorMessage = e instanceof Error ? e.message : 'Failed to complete sprint.';
+                setArchiveError(errorMessage);
               }
             }}
             loading={archiveSprint.isPending}

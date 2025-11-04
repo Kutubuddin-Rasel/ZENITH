@@ -1,4 +1,10 @@
-import { IsEmail, IsString, MinLength, IsOptional, IsIn } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  IsOptional,
+  IsIn,
+} from 'class-validator';
 
 const ALLOWED_ROLES = ['Developer', 'QA', 'Designer', 'ProjectLead', 'Viewer'];
 
@@ -20,7 +26,9 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(ALLOWED_ROLES, { message: `defaultRole must be one of: ${ALLOWED_ROLES.join(', ')}` })
+  @IsIn(ALLOWED_ROLES, {
+    message: `defaultRole must be one of: ${ALLOWED_ROLES.join(', ')}`,
+  })
   defaultRole?: string;
 }
 
@@ -35,7 +43,9 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(ALLOWED_ROLES, { message: `defaultRole must be one of: ${ALLOWED_ROLES.join(', ')}` })
+  @IsIn(ALLOWED_ROLES, {
+    message: `defaultRole must be one of: ${ALLOWED_ROLES.join(', ')}`,
+  })
   defaultRole?: string; // e.g. 'Developer', 'QA', etc.
 }
 
@@ -49,4 +59,4 @@ export class ChangePasswordDto {
 
   @IsString()
   confirmNewPassword: string;
-} 
+}

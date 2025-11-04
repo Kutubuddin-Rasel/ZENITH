@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
@@ -20,7 +25,12 @@ export class UsersService {
     name: string,
     defaultRole?: string,
   ): Promise<User> {
-    const user = this.userRepo.create({ email, passwordHash, name, defaultRole });
+    const user = this.userRepo.create({
+      email,
+      passwordHash,
+      name,
+      defaultRole,
+    });
     return this.userRepo.save(user);
   }
 
@@ -50,7 +60,10 @@ export class UsersService {
     return this.userRepo.save(user);
   }
 
-  async search(term: string, excludeProjectId?: string): Promise<Partial<User>[]> {
+  async search(
+    term: string,
+    excludeProjectId?: string,
+  ): Promise<Partial<User>[]> {
     try {
       const qb = this.userRepo
         .createQueryBuilder('user')
@@ -58,7 +71,8 @@ export class UsersService {
         .where(
           new Brackets((qb) => {
             qb.where('user.name ILIKE :term', { term: `%${term}%` }).orWhere(
-              'user.email ILIKE :term', { term: `%${term}%` }
+              'user.email ILIKE :term',
+              { term: `%${term}%` },
             );
           }),
         );
@@ -95,12 +109,27 @@ export class UsersService {
     // Get all users
     const users = await this.userRepo.find();
     // Get all project memberships with project info
-    const memberships = await this.userRepo.manager.getRepository('project_members').createQueryBuilder('pm')
+    const memberships = await this.userRepo.manager
+      .getRepository('project_members')
+      .createQueryBuilder('pm')
       .leftJoinAndSelect('pm.project', 'project')
       .getMany();
     // Map userId to memberships
-    const membershipsByUser: Record<string, any[]> = {};
-    for (const m of memberships) {
+    const membershipsByUser: Record<
+      string,
+      Array<{
+        projectId: string;
+        projectName?: string;
+        projectKey?: string;
+        roleName: string;
+      }>
+    > = {};
+    for (const m of memberships as Array<{
+      userId: string;
+      projectId: string;
+      project?: { name?: string; key?: string };
+      roleName: string;
+    }>) {
       if (!membershipsByUser[m.userId]) membershipsByUser[m.userId] = [];
       membershipsByUser[m.userId].push({
         projectId: m.projectId,
@@ -110,7 +139,7 @@ export class UsersService {
       });
     }
     // Return users with memberships
-    return users.map(u => ({
+    return users.map((u) => ({
       ...u,
       projectMemberships: membershipsByUser[u.id] || [],
     }));
@@ -132,19 +161,31 @@ export class UsersService {
   }
 
   /** Change a user's password */
-  async changePassword(id: string, dto: ChangePasswordDto, isSuperAdmin: boolean): Promise<{ success: boolean }> {
+  async changePassword(
+    id: string,
+    dto: ChangePasswordDto,
+    isSuperAdmin: boolean,
+  ): Promise<{ success: boolean }> {
     const user = await this.findOneById(id);
     // If not super admin, verify current password
     if (!isSuperAdmin) {
-      if (!dto.currentPassword) throw new BadRequestException('Current password required');
-      const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+      if (!dto.currentPassword)
+        throw new BadRequestException('Current password required');
+      const valid = await bcrypt.compare(
+        dto.currentPassword,
+        user.passwordHash,
+      );
       if (!valid) throw new ForbiddenException('Current password is incorrect');
     }
     if (!dto.newPassword || dto.newPassword.length < 6) {
-      throw new BadRequestException('New password must be at least 6 characters');
+      throw new BadRequestException(
+        'New password must be at least 6 characters',
+      );
     }
     if (dto.newPassword !== dto.confirmNewPassword) {
-      throw new BadRequestException('New password and confirmation do not match');
+      throw new BadRequestException(
+        'New password and confirmation do not match',
+      );
     }
     user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
     await this.userRepo.save(user);

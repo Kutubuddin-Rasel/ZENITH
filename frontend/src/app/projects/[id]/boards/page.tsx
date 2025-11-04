@@ -111,8 +111,9 @@ export default function BoardsLandingPage() {
                   const board = await res.json();
                   showToast('Board created!', 'success');
                   router.push(`/projects/${projectId}/boards/${board.id}`);
-                } catch (err: any) {
-                  showToast(err.message || 'Failed to create board', 'error');
+                } catch (err: unknown) {
+                  const errorMessage = err instanceof Error ? err.message : 'Failed to create board';
+                  showToast(errorMessage, 'error');
                   throw err;
                 }
               }}

@@ -32,10 +32,11 @@ export class InvitesService {
     role: string;
     expiresInHours?: number;
   }): Promise<Invite> {
-    const { projectId, inviteeId, email, inviterId, role, expiresInHours } = data;
+    const { projectId, inviteeId, email, inviterId, role, expiresInHours } =
+      data;
 
     let actualInviteeId: string;
-    
+
     if (inviteeId) {
       actualInviteeId = inviteeId;
     } else if (email) {
@@ -45,14 +46,19 @@ export class InvitesService {
       }
       actualInviteeId = user.id;
     } else {
-      throw new BadRequestException('Either inviteeId or email must be provided');
+      throw new BadRequestException(
+        'Either inviteeId or email must be provided',
+      );
     }
 
     const existing = await this.inviteRepo.findOne({
       where: { projectId, inviteeId: actualInviteeId, status: 'Pending' },
       order: { createdAt: 'DESC' },
     });
-    if (existing) throw new BadRequestException('Active invite already exists for this user/project');
+    if (existing)
+      throw new BadRequestException(
+        'Active invite already exists for this user/project',
+      );
 
     const token = randomBytes(32).toString('hex');
     const invite = this.inviteRepo.create({
@@ -67,7 +73,7 @@ export class InvitesService {
         : undefined,
     });
     const savedInvite = await this.inviteRepo.save(invite);
-    
+
     // Emit event to notify the invited user about the new invitation
     const project = await this.projectsService.findOneById(projectId);
     this.eventEmitter.emit('invite.created', {
@@ -80,7 +86,10 @@ export class InvitesService {
   }
 
   async findOneByToken(token: string): Promise<Invite | null> {
-    return this.inviteRepo.findOne({ where: { token }, relations: ['invitee'] });
+    return this.inviteRepo.findOne({
+      where: { token },
+      relations: ['invitee'],
+    });
   }
 
   async findForProject(projectId: string): Promise<Invite[]> {
@@ -96,7 +105,9 @@ export class InvitesService {
     if (!invite) throw new NotFoundException('Invite not found');
 
     if (invite.inviterId !== currentUserId) {
-      throw new ForbiddenException('You do not have permission to revoke this invite.');
+      throw new ForbiddenException(
+        'You do not have permission to revoke this invite.',
+      );
     }
 
     if (invite.status !== 'Pending') {
@@ -105,13 +116,13 @@ export class InvitesService {
 
     invite.status = 'Revoked';
     await this.inviteRepo.save(invite);
-    
+
     // Emit event to notify the invited user that their invitation has been revoked
     const project = await this.projectsService.findOneById(invite.projectId);
     this.eventEmitter.emit('invite.revoked', {
       invite,
       project,
-    });    
+    });
   }
 
   async resendInvite(inviteId: string, currentUserId: string): Promise<void> {
@@ -119,7 +130,9 @@ export class InvitesService {
     if (!invite) throw new NotFoundException('Invite not found');
 
     if (invite.inviterId !== currentUserId) {
-      throw new ForbiddenException('You do not have permission to resend this invite.');
+      throw new ForbiddenException(
+        'You do not have permission to resend this invite.',
+      );
     }
     if (invite.status !== 'Pending') {
       throw new BadRequestException('Can only resend a pending invite.');
@@ -133,17 +146,24 @@ export class InvitesService {
     });
   }
 
-  async respondToInvite(inviteId: string, userId: string, accept: boolean, reason?: string) {
+  async respondToInvite(
+    inviteId: string,
+    userId: string,
+    accept: boolean,
+    reason?: string,
+  ) {
     const invite = await this.inviteRepo.findOne({ where: { id: inviteId } });
     if (!invite) throw new NotFoundException();
-    if (invite.inviteeId !== userId) throw new ForbiddenException('Not your invite');
-    if (invite.status !== 'Pending') throw new BadRequestException('Invite already responded');
+    if (invite.inviteeId !== userId)
+      throw new ForbiddenException('Not your invite');
+    if (invite.status !== 'Pending')
+      throw new BadRequestException('Invite already responded');
 
     invite.status = accept ? 'Accepted' : 'Rejected';
     invite.respondedAt = new Date();
     invite.reason = reason;
     await this.inviteRepo.save(invite);
-    
+
     if (accept) {
       await this.projectMembersService.addMemberToProject({
         projectId: invite.projectId,

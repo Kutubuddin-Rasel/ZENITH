@@ -52,8 +52,16 @@ export class IssuesController {
     @Query('sprint') sprint?: string,
     @Query('sort') sort?: string,
   ) {
-    const userId = req.user.userId;
-    const filters: any = {};
+    const userId = (req.user as unknown as Record<string, unknown>)
+      .userId as string;
+    const filters: {
+      status?: string;
+      assigneeId?: string;
+      search?: string;
+      label?: string;
+      sprint?: string;
+      sort?: string;
+    } = {};
     if (status) filters.status = status;
     if (assigneeId) filters.assigneeId = assigneeId;
     if (search) filters.search = search;
@@ -81,7 +89,12 @@ export class IssuesController {
     @Body('status') status: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.issuesService.updateStatus(projectId, id, status, req.user.userId);
+    return this.issuesService.updateStatus(
+      projectId,
+      id,
+      status,
+      req.user.userId,
+    );
   }
 
   @RequirePermission('issues:update')
@@ -123,7 +136,13 @@ export class IssuesController {
     @Request() req: { user: { userId: string } },
     @Body() dto: CreateWorkLogDto,
   ) {
-    return this.workLogsService.addWorkLog(projectId, issueId, req.user.userId, dto.minutesSpent, dto.note);
+    return this.workLogsService.addWorkLog(
+      projectId,
+      issueId,
+      req.user.userId,
+      dto.minutesSpent,
+      dto.note,
+    );
   }
 
   @RequirePermission('issues:update')
@@ -134,7 +153,12 @@ export class IssuesController {
     @Param('workLogId') workLogId: string,
     @Request() req: { user: { userId: string } },
   ) {
-    return this.workLogsService.deleteWorkLog(projectId, issueId, workLogId, req.user.userId);
+    return this.workLogsService.deleteWorkLog(
+      projectId,
+      issueId,
+      workLogId,
+      req.user.userId,
+    );
   }
 
   @RequirePermission('issues:update')
@@ -146,6 +170,13 @@ export class IssuesController {
     @Request() req: { user: { userId: string } },
     @Body() dto: UpdateWorkLogDto,
   ) {
-    return this.workLogsService.updateWorkLog(projectId, issueId, workLogId, req.user.userId, dto.minutesSpent, dto.note);
+    return this.workLogsService.updateWorkLog(
+      projectId,
+      issueId,
+      workLogId,
+      req.user.userId,
+      dto.minutesSpent,
+      dto.note,
+    );
   }
 }

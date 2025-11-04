@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
+import Image from 'next/image';
 import { useBacklog } from '@/hooks/useBacklog';
 import { useProject } from '@/hooks/useProject';
 import { useToast } from '@/context/ToastContext';
@@ -43,21 +44,23 @@ export default function BacklogPage() {
   const hasNoPriority = (backlogIssues || []).some(issue => !issue.priority);
 
   // Filter issues
-  const filteredIssues = backlogIssues?.filter((issue) => {
-    const matchesFilter = issue.title.toLowerCase().includes(filter.toLowerCase()) ||
-                         issue.description?.toLowerCase().includes(filter.toLowerCase());
-    const matchesStatus = !statusFilter || (issue.status ? issue.status.trim() : '') === statusFilter;
-    const matchesPriority = !priorityFilter || (issue.priority ? issue.priority.trim() : '') === priorityFilter;
-    const matchesAssignee = !assigneeFilter || 
-      (typeof issue.assignee === 'string'
-        ? issue.assignee === assigneeFilter
-        : issue.assignee?.name === assigneeFilter);
-    return matchesFilter && matchesStatus && matchesPriority && matchesAssignee;
-  }) || [];
+  const filteredIssues = React.useMemo(() => {
+    return backlogIssues?.filter((issue) => {
+      const matchesFilter = issue.title.toLowerCase().includes(filter.toLowerCase()) ||
+                           issue.description?.toLowerCase().includes(filter.toLowerCase());
+      const matchesStatus = !statusFilter || (issue.status ? issue.status.trim() : '') === statusFilter;
+      const matchesPriority = !priorityFilter || (issue.priority ? issue.priority.trim() : '') === priorityFilter;
+      const matchesAssignee = !assigneeFilter || 
+        (typeof issue.assignee === 'string'
+          ? issue.assignee === assigneeFilter
+          : issue.assignee?.name === assigneeFilter);
+      return matchesFilter && matchesStatus && matchesPriority && matchesAssignee;
+    }) || [];
+  }, [backlogIssues, filter, statusFilter, priorityFilter, assigneeFilter]);
 
   React.useEffect(() => {
     setOrderedIssues(filteredIssues);
-  }, [JSON.stringify(filteredIssues)]);
+  }, [filteredIssues]);
 
   const handleSelectAll = () => {
     if (selectedIssues.size === filteredIssues.length) {
@@ -354,10 +357,12 @@ export default function BacklogPage() {
                                   ) : (
                                     <div className="flex items-center gap-2">
                                       {issue.assignee.avatarUrl ? (
-                                        <img 
+                                        <Image 
                                           src={issue.assignee.avatarUrl} 
                                           alt={issue.assignee.name || '?'} 
-                                          className="w-8 h-8 rounded-full object-cover" 
+                                          className="w-8 h-8 rounded-full object-cover"
+                                          width={32}
+                                          height={32}
                                         />
                                       ) : (
                                         <div className="w-8 h-8 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center">

@@ -1,4 +1,11 @@
-import { Controller, Get, Param, UseGuards, Request, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  UseGuards,
+  Request,
+  Query,
+} from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from 'src/auth/guards/permissions.guard';
@@ -18,9 +25,9 @@ export class ReportsController {
   @Get('burndown')
   @RequirePermission('projects:view')
   getBurndown(
-    @Param('projectId') projectId: string, 
+    @Param('projectId') projectId: string,
     @Request() req: any,
-    @Query('sprintId') sprintId?: string
+    @Query('sprintId') sprintId?: string,
   ) {
     return this.reportsService.getBurndown(projectId, req.user.id, sprintId);
   }
@@ -28,12 +35,16 @@ export class ReportsController {
   @Get('cumulative-flow')
   @RequirePermission('projects:view')
   getCumulativeFlow(
-    @Param('projectId') projectId: string, 
+    @Param('projectId') projectId: string,
     @Request() req: any,
-    @Query('days') days?: string
+    @Query('days') days?: string,
   ) {
     const daysNumber = days ? parseInt(days, 10) : 30;
-    return this.reportsService.getCumulativeFlow(projectId, req.user.id, daysNumber);
+    return this.reportsService.getCumulativeFlow(
+      projectId,
+      req.user.id,
+      daysNumber,
+    );
   }
 
   @Get('epic-progress')
@@ -44,7 +55,10 @@ export class ReportsController {
 
   @Get('issue-breakdown')
   @RequirePermission('projects:view')
-  getIssueBreakdown(@Param('projectId') projectId: string, @Request() req: any) {
+  getIssueBreakdown(
+    @Param('projectId') projectId: string,
+    @Request() req: any,
+  ) {
     return this.reportsService.getIssueBreakdown(projectId, req.user.id);
   }
 }

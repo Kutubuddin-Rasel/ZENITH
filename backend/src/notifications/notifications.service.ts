@@ -17,7 +17,7 @@ export class NotificationsService {
   async createMany(
     userIds: string[],
     message: string,
-    context: any = {},
+    context: Record<string, unknown> = {},
     type: NotificationType = NotificationType.INFO,
   ): Promise<Notification[]> {
     const notifs = userIds.map((uid) =>
@@ -28,7 +28,7 @@ export class NotificationsService {
       this.gateway.sendToUser(n.userId, {
         id: n.id,
         message: n.message,
-        context: n.context,
+        context: n.context as Record<string, unknown>,
         type: n.type,
         createdAt: n.createdAt,
       });
@@ -38,7 +38,10 @@ export class NotificationsService {
 
   /** List unread notifications for one user */
   async listForUser(userId: string): Promise<Notification[]> {
-    console.log('🔍 NotificationsService: listForUser called with userId:', userId);
+    console.log(
+      '🔍 NotificationsService: listForUser called with userId:',
+      userId,
+    );
     const notifications = await this.repo.find({
       where: { userId, read: false },
       order: { createdAt: 'DESC' },
@@ -50,25 +53,38 @@ export class NotificationsService {
 
   /** List all notifications for one user (both read and unread) */
   async listAllForUser(userId: string): Promise<Notification[]> {
-    console.log('🔍 NotificationsService: listAllForUser called with userId:', userId);
+    console.log(
+      '🔍 NotificationsService: listAllForUser called with userId:',
+      userId,
+    );
     const notifications = await this.repo.find({
       where: { userId },
       order: { createdAt: 'DESC' },
     });
-    console.log('📊 NotificationsService: Found all notifications:', notifications.length);
+    console.log(
+      '📊 NotificationsService: Found all notifications:',
+      notifications.length,
+    );
     if (!Array.isArray(notifications)) return [];
     return notifications;
   }
 
   /** Mark a notification as read */
   async markRead(userId: string, notifId: string): Promise<void> {
-    console.log('🔍 NotificationsService: markRead called with userId:', userId, 'notifId:', notifId);
+    console.log(
+      '🔍 NotificationsService: markRead called with userId:',
+      userId,
+      'notifId:',
+      notifId,
+    );
     const notification = await this.repo.findOne({
       where: { id: notifId, userId },
     });
     console.log('📊 NotificationsService: Found notification:', notification);
     if (!notification || typeof notification !== 'object') {
-      console.error('❌ NotificationsService: Notification not found or invalid');
+      console.error(
+        '❌ NotificationsService: Notification not found or invalid',
+      );
       return;
     }
     notification.read = true;
@@ -82,49 +98,66 @@ export class NotificationsService {
   }
 
   /** Delete notifications by context (useful for cleaning up invitation notifications) */
-  async deleteByContext(userId: string, context: any): Promise<void> {
-    console.log('🔍 NotificationsService: deleteByContext called with userId:', userId, 'context:', context);
-    
+  async deleteByContext(
+    userId: string,
+    context: Record<string, unknown>,
+  ): Promise<void> {
+    console.log(
+      '🔍 NotificationsService: deleteByContext called with userId:',
+      userId,
+      'context:',
+      context,
+    );
+
     // Find notifications that match the context
     const notifications = await this.repo.find({
       where: { userId },
     });
-    
-    console.log(`📊 NotificationsService: Found ${notifications.length} total notifications for user`);
-    
-    const matchingNotifications = notifications.filter(n => {
+
+    console.log(
+      `📊 NotificationsService: Found ${notifications.length} total notifications for user`,
+    );
+
+    const matchingNotifications = notifications.filter((n) => {
       if (!n.context) {
         console.log(`❌ Notification ${n.id} has no context`);
         return false;
       }
-      
+
       console.log(`🔍 Checking notification ${n.id}:`, {
-        notificationContext: n.context,
+        notificationContext: n.context as Record<string, unknown>,
         searchContext: context,
-        message: n.message
+        message: n.message,
       });
-      
+
       // More flexible matching - check if the context contains the search criteria
-      const matches = Object.keys(context).every(key => {
-        const notificationValue = n.context[key];
+      const matches = Object.keys(context).every((key) => {
+        const notificationValue = (n.context as Record<string, unknown>)[key];
         const searchValue = context[key];
         const isMatch = notificationValue === searchValue;
-        console.log(`  ${key}: ${notificationValue} === ${searchValue} = ${isMatch}`);
+        console.log(
+          `  ${key}: ${String(notificationValue)} === ${String(searchValue)} = ${isMatch}`,
+        );
         return isMatch;
       });
-      
+
       console.log(`✅ Notification ${n.id} matches: ${matches}`);
       return matches;
     });
-    
-    console.log(`📊 NotificationsService: Found ${matchingNotifications.length} notifications to delete`);
-    
+
+    console.log(
+      `📊 NotificationsService: Found ${matchingNotifications.length} notifications to delete`,
+    );
+
     if (matchingNotifications.length > 0) {
-      const notificationIds = matchingNotifications.map(n => n.id);
+      const notificationIds = matchingNotifications.map((n) => n.id);
       console.log('🗑️ Deleting notification IDs:', notificationIds);
       await this.repo.delete(notificationIds);
-      console.log('✅ NotificationsService: Successfully deleted notifications:', notificationIds);
-      
+      console.log(
+        '✅ NotificationsService: Successfully deleted notifications:',
+        notificationIds,
+      );
+
       // Send WebSocket deletion event
       this.gateway.sendDeletionToUser(userId, notificationIds);
     } else {
@@ -133,25 +166,41 @@ export class NotificationsService {
   }
 
   /** Delete notifications by message content (fallback for invitation cleanup) */
-  async deleteByMessageContent(userId: string, messagePattern: string): Promise<void> {
-    console.log('🔍 NotificationsService: deleteByMessageContent called with userId:', userId, 'pattern:', messagePattern);
-    
+  async deleteByMessageContent(
+    userId: string,
+    messagePattern: string,
+  ): Promise<void> {
+    console.log(
+      '🔍 NotificationsService: deleteByMessageContent called with userId:',
+      userId,
+      'pattern:',
+      messagePattern,
+    );
+
     const notifications = await this.repo.find({
       where: { userId, read: false },
     });
-    
-    const matchingNotifications = notifications.filter(n => 
-      n.message.includes(messagePattern)
+
+    const matchingNotifications = notifications.filter((n) =>
+      n.message.includes(messagePattern),
     );
-    
-    console.log(`📊 NotificationsService: Found ${matchingNotifications.length} notifications matching message pattern`);
-    
+
+    console.log(
+      `📊 NotificationsService: Found ${matchingNotifications.length} notifications matching message pattern`,
+    );
+
     if (matchingNotifications.length > 0) {
-      const notificationIds = matchingNotifications.map(n => n.id);
-      console.log('🗑️ Deleting notification IDs by message content:', notificationIds);
+      const notificationIds = matchingNotifications.map((n) => n.id);
+      console.log(
+        '🗑️ Deleting notification IDs by message content:',
+        notificationIds,
+      );
       await this.repo.delete(notificationIds);
-      console.log('✅ NotificationsService: Successfully deleted notifications by message content:', notificationIds);
-      
+      console.log(
+        '✅ NotificationsService: Successfully deleted notifications by message content:',
+        notificationIds,
+      );
+
       // Send WebSocket deletion event
       this.gateway.sendDeletionToUser(userId, notificationIds);
     } else {

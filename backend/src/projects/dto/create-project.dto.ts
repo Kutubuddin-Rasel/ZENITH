@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, MinLength, MaxLength, Matches } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  MinLength,
+  MaxLength,
+  Matches,
+} from 'class-validator';
 
 export class CreateProjectDto {
   @IsString()
@@ -10,7 +17,9 @@ export class CreateProjectDto {
   @IsNotEmpty()
   @MinLength(2)
   @MaxLength(5)
-  @Matches(/^[A-Z_]+$/, { message: 'Key must be uppercase letters and underscores only' })
+  @Matches(/^[A-Z_]+$/, {
+    message: 'Key must be uppercase letters and underscores only',
+  })
   key: string;
 
   @IsString()

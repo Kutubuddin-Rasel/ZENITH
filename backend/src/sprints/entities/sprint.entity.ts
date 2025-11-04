@@ -16,7 +16,7 @@ export enum SprintStatus {
   PLANNED = 'PLANNED',
   ACTIVE = 'ACTIVE',
   COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED'
+  CANCELLED = 'CANCELLED',
 }
 
 @Entity({ name: 'sprints' })
@@ -40,10 +40,10 @@ export class Sprint {
   @Column({ type: 'date' })
   endDate: string;
 
-  @Column({ 
-    type: 'enum', 
-    enum: SprintStatus, 
-    default: SprintStatus.PLANNED 
+  @Column({
+    type: 'enum',
+    enum: SprintStatus,
+    default: SprintStatus.PLANNED,
   })
   status: SprintStatus;
 

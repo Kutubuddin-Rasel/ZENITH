@@ -76,8 +76,9 @@ const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, o
       await onCreate({ type, name, description, columns });
       setCreating(false);
       onClose();
-    } catch (e: any) {
-      setError(e.message || 'Failed to create board');
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Failed to create board';
+      setError(errorMessage);
       setCreating(false);
     }
   };

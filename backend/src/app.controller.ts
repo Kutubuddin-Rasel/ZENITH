@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
+import { Public } from './auth/decorators/public.decorator';
 
 @Controller()
 export class AppController {
@@ -8,5 +9,16 @@ export class AppController {
   @Get()
   getHello(): string {
     return this.appService.getHello();
+  }
+
+  @Public()
+  @Get('test-public')
+  testPublic(): string {
+    return 'This is a public endpoint';
+  }
+
+  @Get('test-simple')
+  testSimple(): string {
+    return 'This is a simple endpoint without guards';
   }
 }

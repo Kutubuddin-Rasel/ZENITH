@@ -16,7 +16,11 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
-import { CreateUserDto, UpdateUserDto, ChangePasswordDto } from './dto/create-user.dto';
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  ChangePasswordDto,
+} from './dto/create-user.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import * as bcrypt from 'bcrypt';
@@ -64,7 +68,12 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me/project-memberships')
-  async getMyProjectMemberships(@Param() params, @Body() body, @Query() query, @Request() req) {
+  async getMyProjectMemberships(
+    @Param() params,
+    @Body() body,
+    @Query() query,
+    @Request() req,
+  ) {
     // req.user.userId is set by JwtAuthGuard
     return this.projectMembersService.listMembershipsForUser(req.user.userId);
   }
@@ -104,7 +113,10 @@ export class UsersController {
   // PATCH /users/:id
   @UseGuards(JwtAuthGuard, SuperAdminGuard)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateUserDto): Promise<User> {
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+  ): Promise<User> {
     return this.usersService.update(id, dto);
   }
 
@@ -114,7 +126,7 @@ export class UsersController {
   async changePassword(
     @Param('id') id: string,
     @Body() dto: ChangePasswordDto,
-    @Request() req: any
+    @Request() req: any,
   ) {
     // Only the user themselves or Super Admin can change password
     if (req.user.userId !== id && !req.user.isSuperAdmin) {

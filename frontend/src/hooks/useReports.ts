@@ -25,7 +25,7 @@ export interface BurndownData {
 
 export interface CumulativeFlowData {
   date: string;
-  [key: string]: any; // Dynamic status fields
+  [key: string]: string | number; // Dynamic status fields
 }
 
 export interface EpicProgressData {

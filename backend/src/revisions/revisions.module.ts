@@ -10,10 +10,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { MembershipModule } from '../membership/membership.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Revision]),
-    MembershipModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Revision]), MembershipModule],
   providers: [
     RevisionSubscriber,
     RevisionsService,

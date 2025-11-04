@@ -5,7 +5,6 @@ import Card from "../../components/Card";
 import Button from "../../components/Button";
 import Spinner from "../../components/Spinner";
 import Modal from "../../components/Modal";
-import Input from "../../components/Input";
 import { useNotifications, Notification } from "../../hooks/useNotifications";
 import { useProjectInvites } from "@/hooks/useProjectInvites";
 import { useToast } from "@/context/ToastContext";

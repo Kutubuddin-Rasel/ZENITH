@@ -11,6 +11,11 @@ type User = {
   isSuperAdmin?: boolean;
 };
 
+interface ProjectMembership {
+  projectId: string;
+  roleName: string;
+}
+
 interface AuthContextProps {
   user: User | null;
   token: string | null;
@@ -61,12 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         // Fetch project memberships
         try {
-          const memberships = await apiFetch<any[]>('/users/me/project-memberships', {
+          const memberships = await apiFetch<ProjectMembership[]>('/users/me/project-memberships', {
             headers: { Authorization: `Bearer ${authToken}` },
           });
           
           const roles: { [projectId: string]: string } = {};
-          memberships.forEach((m: any) => {
+          memberships.forEach((m: ProjectMembership) => {
             roles[m.projectId] = m.roleName;
           });
           setProjectRoles(roles);

@@ -21,9 +21,24 @@ import { WatchersModule } from './watchers/watchers.module';
 import { RevisionsModule } from './revisions/revisions.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ReportsModule } from './reports/reports.module';
+import { AuditModule } from './audit/audit.module';
+import { EncryptionModule } from './encryption/encryption.module';
+import { SessionModule } from './session/session.module';
+import { AccessControlModule } from './access-control/access-control.module';
+import { CacheModule } from './cache/cache.module';
+import { DatabaseModule } from './database/database.module';
+import { PerformanceModule } from './performance/performance.module';
+import { ProjectTemplatesModule } from './project-templates/project-templates.module';
+import { UserPreferencesModule } from './user-preferences/user-preferences.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
+import { SatisfactionModule } from './satisfaction/satisfaction.module';
+import { WorkflowsModule } from './workflows/workflows.module';
+import { IntegrationsModule } from './integrations/integrations.module';
+import { ResourceManagementModule } from './resource-management/resource-management.module';
 import { APP_GUARD } from '@nestjs/core';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { createDatabaseConfig } from './database/config/database.config';
 
 @Module({
   imports: [
@@ -31,21 +46,15 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    // Configure TypeORM asynchronously using ConfigService
+    // Configure TypeORM asynchronously using ConfigService with optimizations
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get<string>('DATABASE_HOST'),
-        port: config.get<number>('DATABASE_PORT'),
-        username: config.get<string>('DATABASE_USER'),
-        password: config.get<string>('DATABASE_PASS'),
-        database: config.get<string>('DATABASE_NAME'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // disable in production, use migrations
-      }),
+      useFactory: createDatabaseConfig,
     }),
+    CacheModule,
+    DatabaseModule,
+    PerformanceModule,
     UsersModule,
     AuthModule,
     InvitesModule,
@@ -64,6 +73,17 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     RevisionsModule,
     NotificationsModule,
     ReportsModule,
+    AuditModule,
+    EncryptionModule,
+    SessionModule,
+    AccessControlModule,
+    ProjectTemplatesModule,
+    UserPreferencesModule,
+    OnboardingModule,
+    SatisfactionModule,
+    WorkflowsModule,
+    IntegrationsModule,
+    ResourceManagementModule,
   ],
   controllers: [AppController],
   providers: [

@@ -80,7 +80,12 @@ export class SprintsController {
     @Body('nextSprintId') nextSprintId: string | undefined,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.sprintsService.archive(projectId, sprintId, req.user.userId, nextSprintId);
+    return this.sprintsService.archive(
+      projectId,
+      sprintId,
+      req.user.userId,
+      nextSprintId,
+    );
   }
 
   @RequirePermission('sprints:delete')
@@ -134,7 +139,11 @@ export class SprintsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.sprintsService.getSprintIssues(projectId, sprintId, req.user.userId);
+    return this.sprintsService.getSprintIssues(
+      projectId,
+      sprintId,
+      req.user.userId,
+    );
   }
 
   @RequirePermission('sprints:update')
@@ -144,6 +153,10 @@ export class SprintsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.sprintsService.startSprint(projectId, sprintId, req.user.userId);
+    return this.sprintsService.startSprint(
+      projectId,
+      sprintId,
+      req.user.userId,
+    );
   }
 }
