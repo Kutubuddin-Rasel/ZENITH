@@ -3,8 +3,14 @@ import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
+/**
+ * JwtAuthGuard - Cookie-Only Authentication
+ *
+ * Uses jwt-cookie strategy (HttpOnly cookie)
+ * Bearer token support has been deprecated as frontend is fully migrated
+ */
 @Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') {
+export class JwtAuthGuard extends AuthGuard('jwt-cookie') {
   constructor(private reflector: Reflector) {
     super();
   }

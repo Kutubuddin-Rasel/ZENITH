@@ -21,6 +21,8 @@ export enum NotificationStatus {
   UNREAD = 'unread',
   DONE = 'done',
   SAVED = 'saved',
+  SNOOZED = 'snoozed',
+  ARCHIVED = 'archived',
 }
 
 @Entity({ name: 'notifications' })
@@ -57,6 +59,9 @@ export class Notification {
     default: NotificationStatus.UNREAD,
   })
   status: NotificationStatus;
+
+  @Column({ type: 'timestamp', nullable: true })
+  snoozedUntil?: Date;
 
   @CreateDateColumn() createdAt: Date;
 }

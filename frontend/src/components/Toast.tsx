@@ -8,9 +8,9 @@ export interface ToastProps {
 }
 
 const typeStyles = {
-  info: 'bg-blue-500 border-blue-600',
-  success: 'bg-green-500 border-green-600',
-  error: 'bg-red-500 border-red-600',
+  info: 'bg-primary-500 border-primary-600',
+  success: 'bg-success-500 border-success-600',
+  error: 'bg-error-500 border-error-600',
 };
 
 const typeIcons = {
@@ -30,13 +30,13 @@ const Toast: React.FC<ToastProps> = ({ message, type = 'info', onClose, duration
     // Progress bar animation
     const startTime = Date.now();
     const endTime = startTime + duration;
-    
+
     const progressInterval = setInterval(() => {
       const now = Date.now();
       const remaining = Math.max(0, endTime - now);
       const newProgress = (remaining / duration) * 100;
       setProgress(newProgress);
-      
+
       if (remaining <= 0) {
         clearInterval(progressInterval);
       }
@@ -48,7 +48,7 @@ const Toast: React.FC<ToastProps> = ({ message, type = 'info', onClose, duration
   }, [duration]);
 
   return (
-    <div 
+    <div
       className={`
         fixed top-4 right-4 px-4 py-3 rounded-lg shadow-lg text-white border-l-4 
         ${typeStyles[type]} 
@@ -61,11 +61,11 @@ const Toast: React.FC<ToastProps> = ({ message, type = 'info', onClose, duration
         <span className="text-lg">{typeIcons[type]}</span>
         <span className="flex-1 text-sm font-medium">{message}</span>
         {onClose && (
-          <button 
+          <button
             onClick={() => {
               setIsVisible(false);
               setTimeout(() => onClose(), 300);
-            }} 
+            }}
             className="text-white/80 hover:text-white font-bold text-lg leading-none p-1 rounded hover:bg-white/20 transition-colors"
             aria-label="Close notification"
           >
@@ -73,10 +73,10 @@ const Toast: React.FC<ToastProps> = ({ message, type = 'info', onClose, duration
           </button>
         )}
       </div>
-      
+
       {/* Progress bar */}
       <div className="mt-2 h-1 bg-white/20 rounded-full overflow-hidden">
-        <div 
+        <div
           className="h-full bg-white/60 transition-all duration-100 ease-linear"
           style={{ width: `${progress}%` }}
         />

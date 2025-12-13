@@ -42,7 +42,7 @@ export class IssuesService {
     private workLogRepo: Repository<WorkLog>,
     private readonly cacheService: CacheService,
     private readonly transitionsService: WorkflowTransitionsService,
-  ) { }
+  ) {}
 
   /**
    * Compute friendly issue key from project key and issue number.
@@ -80,7 +80,10 @@ export class IssuesService {
     organizationId?: string,
   ): Promise<Issue & { key: string }> {
     // Validate project exists and belongs to organization
-    const project = await this.projectsService.findOneById(projectId, organizationId);
+    const project = await this.projectsService.findOneById(
+      projectId,
+      organizationId,
+    );
     // Permission checks handled by @RequireProjectRole and PermissionsGuard
 
     if (dto.assigneeId) {
@@ -364,9 +367,13 @@ export class IssuesService {
     );
 
     // Optimistic Locking: check if another user has modified this issue
-    if (dto.expectedVersion !== undefined && issue.version !== dto.expectedVersion) {
+    if (
+      dto.expectedVersion !== undefined &&
+      issue.version !== dto.expectedVersion
+    ) {
       throw new ConflictException({
-        message: 'This issue was modified by another user. Please refresh and try again.',
+        message:
+          'This issue was modified by another user. Please refresh and try again.',
         currentVersion: issue.version,
         yourVersion: dto.expectedVersion,
         lastUpdated: issue.updatedAt,
@@ -980,7 +987,7 @@ export class WorkLogsService {
     @InjectRepository(Issue)
     private issueRepo: Repository<Issue>,
     private membersService: ProjectMembersService,
-  ) { }
+  ) {}
 
   async listWorkLogs(projectId: string, issueId: string) {
     return this.workLogRepo.find({

@@ -23,7 +23,6 @@ import {
 } from './dto/create-user.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
-import * as bcrypt from 'bcrypt';
 import { AuthenticatedRequest } from 'src/common/types/authenticated-request.interface';
 
 @Injectable()
@@ -106,7 +105,14 @@ export class UsersController {
       throw new BadRequestException('email, password, and name required');
     }
     const email = dto.email.toLowerCase();
-    const hash = await bcrypt.hash(dto.password, 10);
+    // Use Argon2id for password hashing
+    const argon2 = await import('argon2');
+    const hash = await argon2.hash(dto.password, {
+      type: argon2.argon2id,
+      memoryCost: 65536,
+      timeCost: 3,
+      parallelism: 4,
+    });
     return this.usersService.create(
       email,
       hash,
@@ -114,6 +120,7 @@ export class UsersController {
       false, // isSuperAdmin
       req.user.organizationId, // Assign to current org
       dto.defaultRole,
+      3, // passwordVersion = Argon2id
     );
   }
 

@@ -10,11 +10,14 @@ import { TwoFactorAuthService } from './services/two-factor-auth.service';
 import { TwoFactorAuthController } from './controllers/two-factor-auth.controller';
 import { SAMLService } from './services/saml.service';
 import { SAMLController } from './controllers/saml.controller';
+import { CookieService } from './services/cookie.service';
+import { PasswordService } from './services/password.service';
 
 // **Guards** and **Strategies**
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+import { JwtCookieStrategy } from './strategies/jwt-cookie.strategy';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { ProjectRoleGuard } from './guards/project-role.guard';
 
@@ -55,14 +58,23 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
     AuthService,
     TwoFactorAuthService,
     SAMLService,
+    CookieService,
+    PasswordService,
     LocalStrategy,
     JwtStrategy,
     JwtRefreshStrategy,
+    JwtCookieStrategy,
     ProjectRoleGuard,
     // If you need to override the default 'local' or 'jwt' guards, provide them here:
     { provide: 'LOCAL_GUARD', useClass: LocalAuthGuard },
   ],
   controllers: [AuthController, TwoFactorAuthController, SAMLController],
-  exports: [TwoFactorAuthService, SAMLService, ProjectRoleGuard],
+  exports: [
+    AuthService,
+    TwoFactorAuthService,
+    SAMLService,
+    CookieService,
+    ProjectRoleGuard,
+  ],
 })
-export class AuthModule { }
+export class AuthModule {}

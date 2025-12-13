@@ -19,8 +19,11 @@ export class ClickHouseClient implements OnModuleInit, OnModuleDestroy {
       // Test connection
       await this.client.ping();
       this.isConnected = true;
-    } catch (error) {
-      console.warn('ClickHouse connection failed, audit logs will be disabled:', error.message);
+    } catch (error: unknown) {
+      console.warn(
+        'ClickHouse connection failed, audit logs will be disabled:',
+        error instanceof Error ? error.message : String(error),
+      );
       this.isConnected = false;
       return;
     }
@@ -46,8 +49,11 @@ export class ClickHouseClient implements OnModuleInit, OnModuleDestroy {
         PARTITION BY toYYYYMM(timestamp)
       `,
         });
-      } catch (error) {
-        console.warn('Failed to create ClickHouse table:', error.message);
+      } catch (error: unknown) {
+        console.warn(
+          'Failed to create ClickHouse table:',
+          error instanceof Error ? error.message : String(error),
+        );
         this.isConnected = false;
       }
     }

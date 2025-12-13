@@ -239,4 +239,14 @@ export class SprintsController {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.sprintsService.getVelocity(projectId, req.user.userId);
   }
+
+  @RequirePermission('sprints:view')
+  @Get(':sprintId/burnup')
+  async getBurnup(
+    @Param('projectId') projectId: string,
+    @Param('sprintId') sprintId: string,
+    @Request() req: { user: JwtRequestUser },
+  ) {
+    return this.sprintsService.getBurnup(projectId, sprintId, req.user.userId);
+  }
 }

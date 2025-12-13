@@ -19,4 +19,4 @@ import { UsersModule } from '../users/users.module';
   controllers: [ProjectsController],
   exports: [ProjectsService],
 })
-export class ProjectsModule { }
+export class ProjectsModule {}

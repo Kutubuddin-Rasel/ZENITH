@@ -72,5 +72,4 @@ import { WorkflowAnalyticsController } from './controllers/workflow-analytics.co
     TypeOrmModule,
   ],
 })
-export class WorkflowsModule { }
-
+export class WorkflowsModule {}

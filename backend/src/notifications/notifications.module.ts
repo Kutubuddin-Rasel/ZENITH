@@ -15,12 +15,15 @@ import { NotificationsListener } from './notifications.listener';
 import { AuthModule } from '../auth/auth.module';
 import { CacheModule } from '../cache/cache.module';
 import { SmartDigestService } from './services/smart-digest.service';
+import { SnoozeWorker } from './processors/snooze.worker';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Notification]),
     ConfigModule,
     CacheModule,
+    ScheduleModule.forRoot(),
     BullModule.registerQueue({
       name: 'notifications',
     }),
@@ -36,6 +39,7 @@ import { SmartDigestService } from './services/smart-digest.service';
     SmartDigestService,
     DailyDigestProcessor,
     NotificationsConsumer,
+    SnoozeWorker,
   ],
   controllers: [NotificationsController],
   exports: [NotificationsService, SmartDigestService],

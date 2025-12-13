@@ -398,7 +398,7 @@ const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailMod
             <span>{done} of {total} issues done ({percent}%)</span>
           </div>
           <div className="h-3 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
-            <div className="h-3 bg-green-500 transition-all duration-300" style={{ width: `${percent}%` }} />
+            <div className="h-3 bg-success-500 transition-all duration-300" style={{ width: `${percent}%` }} />
           </div>
         </div>
       </div>
@@ -406,13 +406,13 @@ const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailMod
       {/* Tabs */}
       <div className="mb-6 flex gap-2 border-b border-neutral-200 dark:border-neutral-700">
         <button
-          className={`pb-2 px-4 font-medium ${activeTab === 'issues' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
+          className={`pb-2 px-4 font-medium ${activeTab === 'issues' ? 'text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 dark:border-primary-400' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
           onClick={() => setActiveTab('issues')}
         >
           Issues
         </button>
         <button
-          className={`pb-2 px-4 font-medium ${activeTab === 'attachments' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
+          className={`pb-2 px-4 font-medium ${activeTab === 'attachments' ? 'text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 dark:border-primary-400' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
           onClick={() => setActiveTab('attachments')}
         >
           Attachments
@@ -565,23 +565,23 @@ function SprintAttachmentsTab({ projectId, sprintId }: { projectId: string; spri
     const ext = a.filename?.split('.').pop()?.toLowerCase();
     if (["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(ext || "")) {
       if (!a.filepath) {
-        return <span className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded text-xl">📎</span>;
+        return <span className="w-10 h-10 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 rounded text-xl">📎</span>;
       }
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
         const imageUrl = a.filepath.startsWith('http') ? a.filepath : `${baseUrl}${a.filepath.startsWith('/') ? '' : '/'}${a.filepath}`;
         return <Image src={imageUrl} alt={a.filename || 'Image'} className="w-10 h-10 object-cover rounded" width={40} height={40} unoptimized />;
       } catch {
-        return <span className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded text-xl">📎</span>;
+        return <span className="w-10 h-10 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 rounded text-xl">📎</span>;
       }
     }
-    return <span className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded text-xl">📎</span>;
+    return <span className="w-10 h-10 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 rounded text-xl">📎</span>;
   }
 
   return (
     <div className="flex flex-col h-[400px]">
       <div
-        className={`border-2 border-dashed rounded-md p-4 mb-4 text-center transition-colors ${dragActive ? 'border-accent-blue bg-accent-blue/5' : 'border-gray-300 dark:border-gray-700'}`}
+        className={`border-2 border-dashed rounded-md p-4 mb-4 text-center transition-colors ${dragActive ? 'border-primary-500 bg-primary-500/5' : 'border-neutral-300 dark:border-neutral-700'}`}
         onDragOver={e => { e.preventDefault(); setDragActive(true); }}
         onDragLeave={e => { e.preventDefault(); setDragActive(false); }}
         onDrop={handleDrop}
@@ -595,15 +595,15 @@ function SprintAttachmentsTab({ projectId, sprintId }: { projectId: string; spri
           onChange={handleFileChange}
           disabled={isUploading}
         />
-        <span className="text-accent-blue font-semibold">Click or drag a file to upload</span>
+        <span className="text-primary-600 font-semibold">Click or drag a file to upload</span>
         {isUploading && <Spinner className="inline ml-2 h-4 w-4" />}
-        {uploadError && <div className="text-red-500 text-sm mt-1">{String(uploadError)}</div>}
+        {uploadError && <div className="text-error-500 text-sm mt-1">{String(uploadError)}</div>}
       </div>
       <div className="flex-1 overflow-y-auto space-y-4 pr-2">
         {isLoading ? (
           <div className="flex justify-center py-8"><Spinner className="h-6 w-6" /></div>
         ) : isError ? (
-          <div className="text-red-500 text-center py-8">{error?.message || 'Failed to load attachments.'}</div>
+          <div className="text-error-500 text-center py-8">{error?.message || 'Failed to load attachments.'}</div>
         ) : attachments && attachments.length > 0 ? (
           attachments.map((a) => (
             <div
@@ -629,7 +629,7 @@ function SprintAttachmentsTab({ projectId, sprintId }: { projectId: string; spri
                 >
                   {a.filename || 'Unknown file'}
                 </a>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-neutral-500">
                   Uploaded by {a.uploader?.name || a.uploader?.email || 'Unknown user'} on {new Date(a.createdAt).toLocaleString()}
                 </div>
               </div>
@@ -637,9 +637,9 @@ function SprintAttachmentsTab({ projectId, sprintId }: { projectId: string; spri
             </div>
           ))
         ) : (
-          <div className="text-gray-400 text-center py-8">No attachments yet.</div>
+          <div className="text-neutral-400 text-center py-8">No attachments yet.</div>
         )}
-        {deleteError && <div className="text-red-500 text-sm mt-1">{String(deleteError)}</div>}
+        {deleteError && <div className="text-error-500 text-sm mt-1">{String(deleteError)}</div>}
       </div>
     </div>
   );

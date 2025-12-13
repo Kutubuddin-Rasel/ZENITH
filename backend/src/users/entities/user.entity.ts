@@ -45,6 +45,11 @@ export class User {
   @Column({ type: 'varchar', nullable: true, select: false })
   hashedRefreshToken?: string | null;
 
+  // Password hashing version for lazy migration
+  // 1 = bcrypt 10 rounds (legacy), 2 = bcrypt 12, 3 = argon2id
+  @Column({ default: 1 })
+  passwordVersion: number;
+
   // Organization relationship
   @Column({ type: 'uuid', nullable: true })
   organizationId?: string;

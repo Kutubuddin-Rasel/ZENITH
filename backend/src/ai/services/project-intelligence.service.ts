@@ -246,7 +246,7 @@ export class ProjectIntelligenceService {
     @Optional() private semanticExtractor?: SemanticExtractorService,
     @Optional() private questionGenerator?: QuestionGeneratorService,
     @Optional() private templateScorer?: TemplateScorerService,
-  ) { }
+  ) {}
 
   /**
    * Check if AI features are available
@@ -425,18 +425,18 @@ export class ProjectIntelligenceService {
     const recommendation: TemplateRecommendationResponse | undefined =
       topTemplate
         ? {
-          template: {
-            id: topTemplate.id,
-            name: topTemplate.name,
-            description: topTemplate.description || '',
-            icon: topTemplate.icon || '📋',
-            color: topTemplate.color || '#3b82f6',
-            category: topTemplate.category as string,
-            methodology: topTemplate.methodology as string,
-          },
-          confidence: topResult.score,
-          reasoning: topResult.reasons.join('. '),
-        }
+            template: {
+              id: topTemplate.id,
+              name: topTemplate.name,
+              description: topTemplate.description || '',
+              icon: topTemplate.icon || '📋',
+              color: topTemplate.color || '#3b82f6',
+              category: topTemplate.category as string,
+              methodology: topTemplate.methodology as string,
+            },
+            confidence: topResult.score,
+            reasoning: topResult.reasons.join('. '),
+          }
         : undefined;
 
     // Build alternatives
@@ -462,8 +462,9 @@ export class ProjectIntelligenceService {
       .filter((alt): alt is TemplateRecommendationResponse => alt !== null);
 
     // Generate confirmation message
-    const confirmationMessage =
-      this.questionGenerator!.generateConfirmation(context.criteria);
+    const confirmationMessage = this.questionGenerator!.generateConfirmation(
+      context.criteria,
+    );
     this.conversationManager!.addAssistantMessage(context, confirmationMessage);
     await this.conversationManager!.saveContext(context);
 

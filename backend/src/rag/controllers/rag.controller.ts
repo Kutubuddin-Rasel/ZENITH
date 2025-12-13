@@ -22,7 +22,7 @@ export class RagController {
     private readonly ingestionService: IngestionService,
     private readonly retrievalService: RetrievalService,
     private readonly openAiService: OpenAiService,
-  ) { }
+  ) {}
 
   @Post('index')
   async indexFile(

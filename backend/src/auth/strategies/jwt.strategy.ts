@@ -19,14 +19,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly usersService: UsersService,
   ) {
     const opts: StrategyOptions = {
+      // Cookie-only authentication (Bearer tokens deprecated for security)
       jwtFromRequest: ExtractJwt.fromExtractors([
-        (request: any) => {
-          const cookieToken = request?.cookies?.access_token;
-          if (cookieToken) console.log('✅ JwtStrategy: Found access_token in cookies');
-          else console.log('⚠️ JwtStrategy: No access_token in cookies. Cookies:', request?.cookies);
-          return cookieToken;
+        (request: Express.Request) => {
+          const cookies = (request as { cookies?: Record<string, string> })
+            .cookies;
+          return cookies?.access_token ?? null;
         },
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
       ]),
       ignoreExpiration: false,
       secretOrKey: cfg.get<string>('JWT_SECRET')!,

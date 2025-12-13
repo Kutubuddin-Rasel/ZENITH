@@ -61,8 +61,9 @@ export default function LoginPage() {
     }
   };
 
-  const handle2FASuccess = (finalToken: string) => {
-    localStorage.setItem('access_token', finalToken);
+  const handle2FASuccess = () => {
+    // HttpOnly cookies are set by backend after 2FA verification
+    // No need to store token in localStorage - just redirect
     window.location.href = '/projects';
   };
 

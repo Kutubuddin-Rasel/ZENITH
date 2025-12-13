@@ -11,6 +11,7 @@ import {
   SprintRiskService,
   SprintRiskResult,
 } from './services/sprint-risk.service';
+import { AnalyticsJobsService } from './services/analytics-jobs.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 
@@ -22,6 +23,7 @@ export class AnalyticsController {
   constructor(
     private readonly cycleTimeService: CycleTimeService,
     private readonly sprintRiskService: SprintRiskService,
+    private readonly analyticsJobsService: AnalyticsJobsService,
   ) {}
 
   @Get('cycle-time')
@@ -47,5 +49,10 @@ export class AnalyticsController {
       sprintId,
       req.user.userId,
     );
+  }
+
+  @Get('stalled-issues')
+  async getStalledIssues(@Param('projectId') projectId: string) {
+    return this.analyticsJobsService.getStalledIssues(projectId);
   }
 }

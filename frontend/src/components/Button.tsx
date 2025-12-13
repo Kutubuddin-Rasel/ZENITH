@@ -2,7 +2,7 @@
 import React from 'react';
 import Spinner from './Spinner';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'warning';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'warning' | 'gradient' | 'outline';
 type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -32,6 +32,8 @@ const Button: React.FC<ButtonProps> = ({
     danger: 'bg-error-600 text-white hover:bg-error-700 focus:ring-error-500 border border-error-600',
     success: 'bg-success-600 text-white hover:bg-success-700 focus:ring-success-500 border border-success-600',
     warning: 'bg-warning-600 text-white hover:bg-warning-700 focus:ring-warning-500 border border-warning-600',
+    gradient: 'bg-gradient-to-r from-primary-500 to-purple-600 text-white font-bold shadow-lg hover:from-primary-600 hover:to-purple-700 focus:ring-primary-500 border-0',
+    outline: 'text-primary-600 hover:text-primary-500 border border-primary-300 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-600 dark:hover:bg-primary-900/20 focus:ring-primary-500',
   };
 
   const sizeClasses = {

@@ -614,4 +614,61 @@ export class SprintsService {
 
     return velocityData;
   }
+
+  /**
+   * BURNUP DATA
+   * Shows both completed work and total scope over time
+   * Useful for visualizing scope creep
+   */
+  async getBurnup(
+    projectId: string,
+    sprintId: string,
+    userId: string,
+  ): Promise<{
+    sprint: Sprint;
+    snapshots: Array<{
+      date: string;
+      completedPoints: number;
+      totalScope: number;
+      remainingPoints: number;
+    }>;
+    initialScope: number;
+    currentScope: number;
+    scopeCreep: number;
+    scopeCreepPercentage: number;
+  }> {
+    const sprint = await this.findOne(projectId, sprintId, userId);
+
+    const snapshots = await this.snapshotRepo.find({
+      where: { sprintId },
+      order: { date: 'ASC' },
+    });
+
+    // Get initial and current scope
+    const initialScope = snapshots.length > 0 ? snapshots[0].totalPoints : 0;
+    const currentScope =
+      snapshots.length > 0 ? snapshots[snapshots.length - 1].totalPoints : 0;
+    const scopeCreep = currentScope - initialScope;
+    const scopeCreepPercentage =
+      initialScope > 0
+        ? parseFloat(((scopeCreep / initialScope) * 100).toFixed(2))
+        : 0;
+
+    // Transform snapshots for burnup chart
+    const burnupSnapshots = snapshots.map((s) => ({
+      date: s.date,
+      completedPoints: s.completedPoints,
+      totalScope: s.totalPoints,
+      remainingPoints: s.remainingPoints,
+    }));
+
+    return {
+      sprint,
+      snapshots: burnupSnapshots,
+      initialScope,
+      currentScope,
+      scopeCreep,
+      scopeCreepPercentage,
+    };
+  }
 }

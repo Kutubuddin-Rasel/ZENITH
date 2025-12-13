@@ -27,5 +27,4 @@ import { WorkflowsModule } from '../workflows/workflows.module';
   controllers: [IssuesController],
   exports: [IssuesService, WorkLogsService],
 })
-export class IssuesModule { }
-
+export class IssuesModule {}

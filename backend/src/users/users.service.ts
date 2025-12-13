@@ -8,7 +8,7 @@ import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Brackets } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import * as argon2 from 'argon2';
 import { ChangePasswordDto } from './dto/create-user.dto';
 
 interface RawUserRow {
@@ -41,6 +41,7 @@ export class UsersService {
     isSuperAdmin?: boolean,
     organizationId?: string,
     defaultRole?: string,
+    passwordVersion: number = 1,
   ): Promise<User> {
     const user = this.userRepo.create({
       email,
@@ -49,6 +50,7 @@ export class UsersService {
       isSuperAdmin: isSuperAdmin || false,
       organizationId,
       defaultRole,
+      passwordVersion,
     });
     return this.userRepo.save(user);
   }
@@ -135,6 +137,9 @@ export class UsersService {
       user.organizationId = dto.organizationId;
     if (dto.hashedRefreshToken !== undefined)
       user.hashedRefreshToken = dto.hashedRefreshToken;
+    if (dto.passwordHash !== undefined) user.passwordHash = dto.passwordHash;
+    if (dto.passwordVersion !== undefined)
+      user.passwordVersion = dto.passwordVersion;
     return this.userRepo.save(user);
   }
 
@@ -243,10 +248,7 @@ export class UsersService {
     if (!isSuperAdmin) {
       if (!dto.currentPassword)
         throw new BadRequestException('Current password required');
-      const valid = await bcrypt.compare(
-        dto.currentPassword,
-        user.passwordHash,
-      );
+      const valid = await argon2.verify(user.passwordHash, dto.currentPassword);
       if (!valid) throw new ForbiddenException('Current password is incorrect');
     }
     if (!dto.newPassword || dto.newPassword.length < 6) {
@@ -259,7 +261,14 @@ export class UsersService {
         'New password and confirmation do not match',
       );
     }
-    user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    // Use Argon2id for new password hash
+    user.passwordHash = await argon2.hash(dto.newPassword, {
+      type: argon2.argon2id,
+      memoryCost: 65536,
+      timeCost: 3,
+      parallelism: 4,
+    });
+    user.passwordVersion = 3; // Argon2id version
     await this.userRepo.save(user);
     return { success: true };
   }

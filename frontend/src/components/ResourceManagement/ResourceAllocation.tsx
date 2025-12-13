@@ -47,7 +47,7 @@ export default function ResourceAllocation({ className = '' }: ResourceAllocatio
   const loadAllocationData = async () => {
     try {
       setLoading(true);
-      
+
       const [conflictsResponse, suggestionsResponse] = await Promise.all([
         fetch('/api/resource-allocation/conflicts', {
           headers: {
@@ -79,18 +79,18 @@ export default function ResourceAllocation({ className = '' }: ResourceAllocatio
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'text-red-600 bg-red-100 border-red-200';
-      case 'high': return 'text-orange-600 bg-orange-100 border-orange-200';
-      case 'medium': return 'text-yellow-600 bg-yellow-100 border-yellow-200';
-      case 'low': return 'text-blue-600 bg-blue-100 border-blue-200';
-      default: return 'text-gray-600 bg-gray-100 border-gray-200';
+      case 'critical': return 'text-error-600 bg-error-100 border-error-200';
+      case 'high': return 'text-warning-600 bg-warning-100 border-warning-200';
+      case 'medium': return 'text-warning-500 bg-warning-50 border-warning-200';
+      case 'low': return 'text-primary-600 bg-primary-100 border-primary-200';
+      default: return 'text-neutral-600 bg-neutral-100 border-neutral-200';
     }
   };
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'text-green-600 bg-green-100';
-    if (confidence >= 0.6) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
+    if (confidence >= 0.8) return 'text-success-600 bg-success-100';
+    if (confidence >= 0.6) return 'text-warning-600 bg-warning-100';
+    return 'text-error-600 bg-error-100';
   };
 
   const formatCurrency = (amount: number) => {
@@ -104,21 +104,21 @@ export default function ResourceAllocation({ className = '' }: ResourceAllocatio
     return (
       <div className={`p-6 ${className}`}>
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
+          <div className="h-8 bg-neutral-200 rounded w-1/4 mb-6"></div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white p-6 rounded-lg shadow">
-              <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+              <div className="h-4 bg-neutral-200 rounded w-1/2 mb-4"></div>
               <div className="space-y-3">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-16 bg-gray-200 rounded"></div>
+                  <div key={i} className="h-16 bg-neutral-200 rounded"></div>
                 ))}
               </div>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
-              <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+              <div className="h-4 bg-neutral-200 rounded w-1/2 mb-4"></div>
               <div className="space-y-3">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-16 bg-gray-200 rounded"></div>
+                  <div key={i} className="h-16 bg-neutral-200 rounded"></div>
                 ))}
               </div>
             </div>
@@ -133,28 +133,28 @@ export default function ResourceAllocation({ className = '' }: ResourceAllocatio
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Resource Allocation</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-neutral-900">Resource Allocation</h1>
+          <p className="mt-1 text-sm text-neutral-500">
             AI-powered resource suggestions and conflict resolution
           </p>
         </div>
-        
+
         <div className="mt-4 sm:mt-0 flex space-x-3">
           <select
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-neutral-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             <option value="">Select Project</option>
             <option value="project-1">Project Alpha</option>
             <option value="project-2">Project Beta</option>
             <option value="project-3">Project Gamma</option>
           </select>
-          
+
           <select
             value={selectedTask}
             onChange={(e) => setSelectedTask(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-neutral-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             <option value="">Select Task</option>
             <option value="task-1">Frontend Development</option>
@@ -167,22 +167,22 @@ export default function ResourceAllocation({ className = '' }: ResourceAllocatio
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* AI Suggestions */}
         <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b border-neutral-200">
             <div className="flex items-center">
-              <Brain className="h-5 w-5 text-blue-600 mr-2" />
-              <h3 className="text-lg font-medium text-gray-900">AI Suggestions</h3>
+              <Brain className="h-5 w-5 text-primary-600 mr-2" />
+              <h3 className="text-lg font-medium text-neutral-900">AI Suggestions</h3>
             </div>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-neutral-500">
               Smart resource recommendations based on skills and availability
             </p>
           </div>
-          
+
           <div className="p-6">
             {suggestions.length === 0 ? (
               <div className="text-center py-8">
-                <Target className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No suggestions</h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <Target className="mx-auto h-12 w-12 text-neutral-400" />
+                <h3 className="mt-2 text-sm font-medium text-neutral-900">No suggestions</h3>
+                <p className="mt-1 text-sm text-neutral-500">
                   Select a project and task to get AI-powered recommendations
                 </p>
               </div>
@@ -191,12 +191,12 @@ export default function ResourceAllocation({ className = '' }: ResourceAllocatio
                 {suggestions.map((suggestion) => (
                   <div
                     key={suggestion.userId}
-                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    className="border border-neutral-200 rounded-lg p-4 hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center">
-                          <h4 className="text-sm font-medium text-gray-900">
+                          <h4 className="text-sm font-medium text-neutral-900">
                             {suggestion.userName}
                           </h4>
                           <span
@@ -205,8 +205,8 @@ export default function ResourceAllocation({ className = '' }: ResourceAllocatio
                             {Math.round(suggestion.confidence * 100)}% match
                           </span>
                         </div>
-                        
-                        <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-600">
+
+                        <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-neutral-600">
                           <div className="flex items-center">
                             <Target className="h-4 w-4 mr-1" />
                             <span>Skill: {Math.round(suggestion.skillMatch * 100)}%</span>
@@ -224,11 +224,11 @@ export default function ResourceAllocation({ className = '' }: ResourceAllocatio
                             <span>High confidence</span>
                           </div>
                         </div>
-                        
+
                         {suggestion.reasons.length > 0 && (
                           <div className="mt-2">
-                            <p className="text-xs text-gray-500 mb-1">Why this match:</p>
-                            <ul className="text-xs text-gray-600 space-y-1">
+                            <p className="text-xs text-neutral-500 mb-1">Why this match:</p>
+                            <ul className="text-xs text-neutral-600 space-y-1">
                               {suggestion.reasons.map((reason, index) => (
                                 <li key={index} className="flex items-start">
                                   <span className="mr-1">•</span>
@@ -239,12 +239,12 @@ export default function ResourceAllocation({ className = '' }: ResourceAllocatio
                           </div>
                         )}
                       </div>
-                      
+
                       <div className="ml-4 flex space-x-2">
-                        <button className="px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-500 border border-blue-300 rounded-md hover:bg-blue-50">
+                        <button className="px-3 py-1 text-xs font-medium text-primary-600 hover:text-primary-500 border border-primary-300 rounded-md hover:bg-primary-50">
                           Assign
                         </button>
-                        <button className="px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-500 border border-gray-300 rounded-md hover:bg-gray-50">
+                        <button className="px-3 py-1 text-xs font-medium text-neutral-600 hover:text-neutral-500 border border-neutral-300 rounded-md hover:bg-neutral-50">
                           Details
                         </button>
                       </div>
@@ -258,22 +258,22 @@ export default function ResourceAllocation({ className = '' }: ResourceAllocatio
 
         {/* Conflict Resolution */}
         <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b border-neutral-200">
             <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
-              <h3 className="text-lg font-medium text-gray-900">Active Conflicts</h3>
+              <AlertCircle className="h-5 w-5 text-error-600 mr-2" />
+              <h3 className="text-lg font-medium text-neutral-900">Active Conflicts</h3>
             </div>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-neutral-500">
               Resource allocation conflicts requiring attention
             </p>
           </div>
-          
+
           <div className="p-6">
             {conflicts.length === 0 ? (
               <div className="text-center py-8">
-                <CheckCircle className="mx-auto h-12 w-12 text-green-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No conflicts</h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <CheckCircle className="mx-auto h-12 w-12 text-success-400" />
+                <h3 className="mt-2 text-sm font-medium text-neutral-900">No conflicts</h3>
+                <p className="mt-1 text-sm text-neutral-500">
                   All resource allocations are properly balanced
                 </p>
               </div>
@@ -282,12 +282,12 @@ export default function ResourceAllocation({ className = '' }: ResourceAllocatio
                 {conflicts.map((conflict) => (
                   <div
                     key={conflict.id}
-                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    className="border border-neutral-200 rounded-lg p-4 hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center">
-                          <h4 className="text-sm font-medium text-gray-900">
+                          <h4 className="text-sm font-medium text-neutral-900">
                             {conflict.userName}
                           </h4>
                           <span
@@ -296,19 +296,19 @@ export default function ResourceAllocation({ className = '' }: ResourceAllocatio
                             {conflict.severity.toUpperCase()}
                           </span>
                         </div>
-                        
-                        <p className="mt-1 text-sm text-gray-600">
+
+                        <p className="mt-1 text-sm text-neutral-600">
                           {conflict.totalAllocationPercentage.toFixed(1)}% allocation on{' '}
                           {new Date(conflict.conflictDate).toLocaleDateString()}
                         </p>
-                        
+
                         <div className="mt-2">
-                          <p className="text-xs text-gray-500 mb-1">Conflicting projects:</p>
+                          <p className="text-xs text-neutral-500 mb-1">Conflicting projects:</p>
                           <div className="flex flex-wrap gap-1">
                             {conflict.conflictingAllocations.map((allocation) => (
                               <span
                                 key={allocation.id}
-                                className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800"
+                                className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800"
                               >
                                 {allocation.projectName} ({allocation.allocationPercentage}%)
                               </span>
@@ -316,12 +316,12 @@ export default function ResourceAllocation({ className = '' }: ResourceAllocatio
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="ml-4 flex space-x-2">
-                        <button className="px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-500 border border-blue-300 rounded-md hover:bg-blue-50">
+                        <button className="px-3 py-1 text-xs font-medium text-primary-600 hover:text-primary-500 border border-primary-300 rounded-md hover:bg-primary-50">
                           Resolve
                         </button>
-                        <button className="px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-500 border border-gray-300 rounded-md hover:bg-gray-50">
+                        <button className="px-3 py-1 text-xs font-medium text-neutral-600 hover:text-neutral-500 border border-neutral-300 rounded-md hover:bg-neutral-50">
                           Details
                         </button>
                       </div>
@@ -336,17 +336,17 @@ export default function ResourceAllocation({ className = '' }: ResourceAllocatio
 
       {/* Allocation Matrix */}
       <div className="mt-8 bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Allocation Matrix</h3>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="px-6 py-4 border-b border-neutral-200">
+          <h3 className="text-lg font-medium text-neutral-900">Allocation Matrix</h3>
+          <p className="mt-1 text-sm text-neutral-500">
             Visual overview of resource allocations across projects
           </p>
         </div>
-        
+
         <div className="p-6">
-          <div className="h-64 flex items-center justify-center text-gray-500">
+          <div className="h-64 flex items-center justify-center text-neutral-500">
             <div className="text-center">
-              <Users className="mx-auto h-12 w-12 text-gray-400" />
+              <Users className="mx-auto h-12 w-12 text-neutral-400" />
               <p className="mt-2">Allocation matrix visualization</p>
               <p className="text-sm">Integration with matrix component needed</p>
             </div>

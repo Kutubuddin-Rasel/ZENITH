@@ -92,4 +92,4 @@ import { RagModule } from '../rag/rag.module';
     IntercomService,
   ],
 })
-export class IntegrationsModule { }
+export class IntegrationsModule {}

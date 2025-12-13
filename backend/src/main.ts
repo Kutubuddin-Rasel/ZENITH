@@ -22,23 +22,27 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
-  // Security headers
+  // Security headers - Strict CSP for API-only backend
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
-          imgSrc: ["'self'", 'data:', 'https:'],
-          connectSrc: ["'self'"],
-          fontSrc: ["'self'"],
-          objectSrc: ["'none'"],
-          mediaSrc: ["'self'"],
-          frameSrc: ["'none'"],
+          defaultSrc: ["'none'"], // API shouldn't serve HTML
+          scriptSrc: ["'none'"], // No scripts from backend
+          styleSrc: ["'none'"], // No styles from backend
+          imgSrc: ["'none'"], // No images from backend
+          connectSrc: ["'self'"], // Allow API calls to self
+          fontSrc: ["'none'"], // No fonts from backend
+          objectSrc: ["'none'"], // No plugins
+          mediaSrc: ["'none'"], // No media
+          frameSrc: ["'none'"], // No iframes
+          formAction: ["'none'"], // No form submissions
+          frameAncestors: ["'none'"], // Cannot be embedded
+          baseUri: ["'none'"], // Prevent base hijacking
         },
       },
-      crossOriginEmbedderPolicy: false,
+      crossOriginEmbedderPolicy: false, // Allow CORS
+      crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow frontend access
     }),
   );
 

@@ -29,13 +29,26 @@ export class EncryptionService {
   private readonly masterKey: Buffer;
 
   constructor(private configService: ConfigService) {
-    // Get master key from environment or generate one
+    const isProduction =
+      this.configService.get<string>('NODE_ENV') === 'production';
+
+    // Get master key from environment
     const masterKeyString = this.configService.get<string>(
       'ENCRYPTION_MASTER_KEY',
     );
+
     if (!masterKeyString) {
+      if (isProduction) {
+        // CRITICAL: Never start production without a master key
+        throw new Error(
+          'ENCRYPTION_MASTER_KEY is required in production. ' +
+            "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
+        );
+      }
+      // Development only: generate ephemeral key with warning
       this.logger.warn(
-        'ENCRYPTION_MASTER_KEY not found, generating a new one. This should be set in production!',
+        'ENCRYPTION_MASTER_KEY not found, generating ephemeral key. ' +
+          'This is ONLY acceptable in development. Set ENCRYPTION_MASTER_KEY in production!',
       );
       this.masterKey = crypto.randomBytes(this.keyLength);
     } else {

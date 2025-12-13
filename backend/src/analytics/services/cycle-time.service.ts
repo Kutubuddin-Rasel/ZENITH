@@ -111,18 +111,46 @@ export class CycleTimeService {
     }
 
     if (metrics.length === 0)
-      return { averageDays: 0, totalIssues: 0, trend: 'flat', data: [] };
+      return {
+        averageDays: 0,
+        totalIssues: 0,
+        trend: 'flat',
+        data: [],
+        p50Days: 0,
+        p85Days: 0,
+        p95Days: 0,
+      };
 
-    // 3. Aggregate
+    // 3. Aggregate with Percentiles
+    const sortedTimes = metrics
+      .map((m) => m.cycleTimeHours)
+      .sort((a, b) => a - b);
     const totalHours = metrics.reduce((sum, m) => sum + m.cycleTimeHours, 0);
     const averageHours = totalHours / metrics.length;
     const averageDays = parseFloat((averageHours / 24).toFixed(2));
 
+    // Calculate percentiles
+    const p50Hours = this.percentile(sortedTimes, 0.5);
+    const p85Hours = this.percentile(sortedTimes, 0.85);
+    const p95Hours = this.percentile(sortedTimes, 0.95);
+
     return {
       averageDays,
+      p50Days: parseFloat((p50Hours / 24).toFixed(2)),
+      p85Days: parseFloat((p85Hours / 24).toFixed(2)),
+      p95Days: parseFloat((p95Hours / 24).toFixed(2)),
       totalIssues: metrics.length,
       trend: averageDays < 3 ? 'down' : 'up', // Mock trend logic
       data: usage === 'detailed' ? metrics : [],
     };
+  }
+
+  /**
+   * Calculate percentile value from sorted array
+   */
+  private percentile(sortedArr: number[], p: number): number {
+    if (sortedArr.length === 0) return 0;
+    const index = Math.ceil(sortedArr.length * p) - 1;
+    return sortedArr[Math.max(0, index)];
   }
 }

@@ -20,4 +20,4 @@ import { RagController } from './controllers/rag.controller';
   providers: [IngestionService, RetrievalService],
   exports: [IngestionService, RetrievalService],
 })
-export class RagModule { }
+export class RagModule {}

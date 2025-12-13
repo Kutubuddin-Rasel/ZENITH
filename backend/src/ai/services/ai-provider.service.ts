@@ -23,7 +23,7 @@ export class AIProviderService implements OnModuleInit {
     private openRouterProvider: OpenRouterProvider,
     private geminiProvider: GeminiProvider,
     private groqProvider: GroqProvider,
-  ) { }
+  ) {}
 
   onModuleInit() {
     // Initialize provider chain: Groq -> OpenRouter (Llama) -> Gemini
@@ -39,7 +39,7 @@ export class AIProviderService implements OnModuleInit {
     if (this.providers.length === 0) {
       this.logger.warn(
         '⚠️ No AI providers available. AI features will be disabled. ' +
-        'Set OPENROUTER_API_KEY or GOOGLE_AI_API_KEY in .env to enable.',
+          'Set OPENROUTER_API_KEY or GOOGLE_AI_API_KEY in .env to enable.',
       );
     } else {
       this.logger.log(

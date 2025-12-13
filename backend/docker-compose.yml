@@ -6,15 +6,15 @@ services:
     container_name: zenith-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: zenith_db
+      POSTGRES_USER: ${DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASS:-postgres}
+      POSTGRES_DB: ${DATABASE_NAME:-zenith_db}
     ports:
-      - "5433:5432" # Use 5433 to avoid conflict with existing PostgreSQL
+      - "${DATABASE_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -23,13 +23,13 @@ services:
     image: redis:7-alpine
     container_name: zenith-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ""
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -39,12 +39,13 @@ services:
     container_name: zenith-clickhouse
     restart: unless-stopped
     ports:
-      - "8123:8123" # HTTP Interface
+      - "${CLICKHOUSE_PORT:-8123}:8123" # HTTP Interface
       - "9000:9000" # Native Interface
     environment:
-      CLICKHOUSE_DB: audit_logs
-      CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: "" # Empty password for dev, configure for prod
+      CLICKHOUSE_DB: ${CLICKHOUSE_DATABASE:-audit_logs}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-zenith}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     ulimits:
       nofile:
         soft: 262144

@@ -1,7 +1,7 @@
 import { Command, CommandRunner, Option } from 'nest-commander';
 import { Injectable } from '@nestjs/common';
 import { UsersService } from '../../users/users.service';
-import * as bcrypt from 'bcrypt';
+import * as argon2 from 'argon2';
 
 interface CreateAdminOptions {
   email?: string;
@@ -36,8 +36,13 @@ export class CreateAdminCommand extends CommandRunner {
         process.exit(1);
       }
 
-      // Hash password
-      const passwordHash = await bcrypt.hash(password, 10);
+      // Hash password with Argon2id
+      const passwordHash = await argon2.hash(password, {
+        type: argon2.argon2id,
+        memoryCost: 65536,
+        timeCost: 3,
+        parallelism: 4,
+      });
 
       // Create admin user directly via repository (bypassing service validation)
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
@@ -50,6 +55,7 @@ export class CreateAdminCommand extends CommandRunner {
         isSuperAdmin: true,
         isActive: true,
         mustChangePassword: false,
+        passwordVersion: 3, // Argon2id
       });
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access

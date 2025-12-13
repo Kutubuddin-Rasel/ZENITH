@@ -7,16 +7,20 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcrypt'; // Used for refresh token hashing only
 import { UsersService } from '../users/users.service';
 import { InvitesService } from '../invites/invites.service';
 import { ProjectMembersService } from '../membership/project-members/project-members.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { OnboardingService } from '../onboarding/services/onboarding.service';
+import { PasswordService } from './services/password.service';
 import { RegisterDto } from './dto/register.dto';
 import { SafeUser } from './types/safe-user.interface';
 import { JwtRequestUser } from './types/jwt-request-user.interface';
 import { RedeemInviteDto } from './dto/redeem-invite.dto';
+
+// Argon2id = version 3 (see passwordVersion column in User entity)
+const ARGON2ID_VERSION = 3;
 
 @Injectable()
 export class AuthService {
@@ -28,23 +32,26 @@ export class AuthService {
     private organizationsService: OrganizationsService,
     private onboardingService: OnboardingService,
     private configService: ConfigService,
+    private passwordService: PasswordService,
   ) {}
 
   // Validate credentials for LocalStrategy
   async validateUser(email: string, pass: string): Promise<SafeUser | null> {
     const user = await this.usersService.findOneByEmail(email.toLowerCase());
-    if (
-      user &&
-      user.isActive &&
-      (await bcrypt.compare(pass, user.passwordHash))
-    ) {
-      // strip passwordHash before returning
-
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { passwordHash, hashedRefreshToken, ...result } = user;
-      return result as SafeUser;
+    if (!user || !user.isActive) {
+      return null;
     }
-    return null;
+
+    // Verify password using Argon2id
+    const isValid = await this.passwordService.verify(pass, user.passwordHash);
+    if (!isValid) {
+      return null;
+    }
+
+    // strip passwordHash before returning
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash, hashedRefreshToken, ...result } = user;
+    return result as SafeUser;
   }
 
   // Issue Access and Refresh Tokens
@@ -80,7 +87,8 @@ export class AuthService {
       throw new ConflictException('Email already in use');
     }
 
-    const hash = await bcrypt.hash(dto.password, 10);
+    // Use Argon2id for new registrations
+    const hash = await this.passwordService.hash(dto.password);
 
     // If workspaceName provided, create organization
     let organizationId: string | undefined;
@@ -100,6 +108,8 @@ export class AuthService {
       dto.name,
       isSuperAdmin,
       organizationId,
+      undefined, // defaultRole
+      ARGON2ID_VERSION, // Track password version (Argon2id)
     );
 
     // Initialize onboarding for the new user

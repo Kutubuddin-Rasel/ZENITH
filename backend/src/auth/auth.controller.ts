@@ -9,10 +9,10 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { TwoFactorAuthService } from './services/two-factor-auth.service';
+import { CookieService } from './services/cookie.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { RegisterDto } from './dto/register.dto';
 import { RedeemInviteDto } from './dto/redeem-invite.dto';
-// import { SafeUser } from './types/safe-user.interface';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshAuthGuard } from './guards/jwt-refresh-auth.guard';
 import { Public } from './decorators/public.decorator';
@@ -24,7 +24,8 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private twoFactorAuthService: TwoFactorAuthService,
-  ) { }
+    private cookieService: CookieService,
+  ) {}
 
   // POST /auth/login
   @Public()
@@ -50,47 +51,37 @@ export class AuthController {
     const has2FA = await this.twoFactorAuthService.isEnabled(req.user.id);
 
     if (has2FA) {
+      // Don't set cookies yet - wait for 2FA verification
       return {
-        ...result,
         requires2FA: true,
+        userId: req.user.id,
         message: 'Please provide your 2FA token to complete login',
       };
     }
 
-    // Set HttpOnly Cookies
-    this.setAuthCookies(res, result.access_token, result.refresh_token);
+    // Set HttpOnly Cookies using CookieService
+    this.cookieService.setAuthCookies(
+      res,
+      result.access_token,
+      result.refresh_token,
+    );
 
+    // Also return tokens in body for backward compatibility with old clients
     return {
+      access_token: result.access_token,
+      refresh_token: result.refresh_token,
       user: result.user,
       message: 'Login successful',
     };
   }
 
-  private setAuthCookies(
-    res: Response,
-    accessToken: string,
-    refreshToken: string,
-  ) {
-    console.log(`🍪 Setting Auth Cookies (Secure: ${process.env.NODE_ENV === 'production'})`);
-    res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax', // Relaxed for better dev compatibility
-      maxAge: 15 * 60 * 1000, // 15 minutes
-    });
-
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
-  }
-
   // POST /auth/verify-2fa-login
   @Public()
   @Post('verify-2fa-login')
-  async verify2FALogin(@Body() dto: VerifyLogin2FADto & { userId: string }) {
+  async verify2FALogin(
+    @Body() dto: VerifyLogin2FADto & { userId: string },
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const isValid = await this.twoFactorAuthService.verifyToken(
       dto.userId,
       dto.token,
@@ -102,7 +93,21 @@ export class AuthController {
 
     // Generate final JWT token
     const user = await this.authService.findUserById(dto.userId);
-    return this.authService.login(user);
+    const result = await this.authService.login(user);
+
+    // Set HttpOnly Cookies after successful 2FA
+    this.cookieService.setAuthCookies(
+      res,
+      result.access_token,
+      result.refresh_token,
+    );
+
+    return {
+      access_token: result.access_token,
+      refresh_token: result.refresh_token,
+      user: result.user,
+      success: true,
+    };
   }
 
   // POST /auth/register
@@ -114,8 +119,20 @@ export class AuthController {
 
   @Public()
   @Post('redeem-invite')
-  async redeemInvite(@Body() dto: RedeemInviteDto) {
-    return this.authService.redeemInvite(dto);
+  async redeemInvite(
+    @Body() dto: RedeemInviteDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.redeemInvite(dto);
+
+    // Set HttpOnly Cookies for invite redemption
+    this.cookieService.setAuthCookies(
+      res,
+      result.access_token,
+      result.refresh_token,
+    );
+
+    return result;
   }
 
   @UseGuards(JwtAuthGuard)
@@ -154,18 +171,36 @@ export class AuthController {
 
   @UseGuards(JwtRefreshAuthGuard)
   @Get('refresh')
-  refreshTokens(
+  async refreshTokens(
     @Request() req: { user: { userId: string; refreshToken: string } },
+    @Res({ passthrough: true }) res: Response,
   ) {
     const userId = req.user['userId'];
     const refreshToken = req.user['refreshToken'];
-    return this.authService.refreshTokens(userId, refreshToken);
+    const result = await this.authService.refreshTokens(userId, refreshToken);
+
+    // Set new HttpOnly Cookies after refresh
+    this.cookieService.setAuthCookies(
+      res,
+      result.access_token,
+      result.refresh_token,
+    );
+
+    return result;
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('logout')
-  logout(@Request() req: { user: { userId: string } }) {
+  @Post('logout')
+  async logout(
+    @Request() req: { user: { userId: string } },
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const userId = req.user['userId'];
-    return this.authService.logout(userId);
+    await this.authService.logout(userId);
+
+    // Clear HttpOnly Cookies on logout
+    this.cookieService.clearAuthCookies(res);
+
+    return { message: 'Logged out successfully' };
   }
 }

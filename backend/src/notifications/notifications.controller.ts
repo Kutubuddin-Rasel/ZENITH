@@ -123,4 +123,38 @@ export class NotificationsController {
       })),
     };
   }
+
+  /** Inbox Zero: Snooze a notification for specified hours */
+  @RequirePermission('notifications:update')
+  @Post(':id/snooze')
+  async snooze(
+    @Param('id') id: string,
+    @Body('hours') hours: number,
+    @Request() req: { user: JwtRequestUser },
+  ) {
+    const snoozeHours = hours || 1; // Default 1 hour
+    const notification = await this.svc.snooze(
+      req.user.userId,
+      id,
+      snoozeHours,
+    );
+    if (!notification) {
+      return { message: 'Notification not found' };
+    }
+    return {
+      message: `Snoozed for ${snoozeHours} hours`,
+      snoozedUntil: notification.snoozedUntil,
+    };
+  }
+
+  /** Inbox Zero: Archive a single notification */
+  @RequirePermission('notifications:update')
+  @Post(':id/archive')
+  async archive(
+    @Param('id') id: string,
+    @Request() req: { user: JwtRequestUser },
+  ) {
+    await this.svc.archive(req.user.userId, id);
+    return { message: 'Notification archived' };
+  }
 }

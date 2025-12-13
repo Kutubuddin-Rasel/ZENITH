@@ -18,7 +18,7 @@ export class NotificationsService {
     private gateway: NotificationsGateway,
     @Inject(forwardRef(() => SmartDigestService))
     private smartDigestService: SmartDigestService,
-  ) { }
+  ) {}
 
   /** Create a notification for multiple users */
   async createMany(
@@ -157,5 +157,80 @@ export class NotificationsService {
       // Send WebSocket deletion event
       this.gateway.sendDeletionToUser(userId, notificationIds);
     }
+  }
+
+  /** Inbox Zero: Snooze a notification for specified hours */
+  async snooze(
+    userId: string,
+    notifId: string,
+    hours: number,
+  ): Promise<Notification | null> {
+    const notification = await this.repo.findOne({
+      where: { id: notifId, userId },
+    });
+
+    if (!notification) return null;
+
+    const snoozedUntil = new Date();
+    snoozedUntil.setHours(snoozedUntil.getHours() + hours);
+
+    notification.status = NotificationStatus.SNOOZED;
+    notification.snoozedUntil = snoozedUntil;
+
+    await this.repo.save(notification);
+
+    return notification;
+  }
+
+  /** Inbox Zero: Archive a single notification */
+  async archive(userId: string, notifId: string): Promise<void> {
+    await this.repo.update(
+      { id: notifId, userId },
+      { status: NotificationStatus.ARCHIVED, read: true },
+    );
+  }
+
+  /** Unsnooze a notification (called by scheduled job or when snooze expires) */
+  async unsnooze(notifId: string): Promise<Notification | null> {
+    const notification = await this.repo.findOne({
+      where: { id: notifId },
+    });
+
+    if (!notification) return null;
+
+    notification.status = NotificationStatus.UNREAD;
+    notification.snoozedUntil = undefined;
+    notification.read = false;
+
+    await this.repo.save(notification);
+
+    // Notify user via WebSocket that notification is back
+    this.gateway.sendToUser(notification.userId, {
+      id: notification.id,
+      message: notification.message,
+      context: notification.context as Record<string, unknown>,
+      type: notification.type,
+      createdAt: notification.createdAt,
+      unsnoozed: true,
+    });
+
+    return notification;
+  }
+
+  /** Get snoozed notifications that are due to be unsnoozed */
+  async getDueSnoozedNotifications(): Promise<Notification[]> {
+    const now = new Date();
+    return this.repo
+      .createQueryBuilder('notification')
+      .where('notification.status = :status', {
+        status: NotificationStatus.SNOOZED,
+      })
+      .andWhere('notification.snoozedUntil <= :now', { now })
+      .getMany();
+  }
+
+  /** Get notification by ID */
+  async findOne(id: string): Promise<Notification | null> {
+    return this.repo.findOne({ where: { id } });
   }
 }

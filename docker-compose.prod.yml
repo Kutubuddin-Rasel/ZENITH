@@ -7,12 +7,12 @@ services:
       dockerfile: Dockerfile
     restart: always
     environment:
-      NODE_ENV: production
-      PORT: 3000
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3000}
     env_file:
-      - .env.production
+      - .env
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -25,10 +25,10 @@ services:
       dockerfile: Dockerfile
     restart: always
     environment:
-      NODE_ENV: production
-      PORT: 3001
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3001}
     env_file:
-      - .env.production
+      - .env
     ports:
       - "3001:3001"
     depends_on:
@@ -38,13 +38,13 @@ services:
     image: pgvector/pgvector:pg15
     restart: always
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASS}
+      POSTGRES_DB: ${DATABASE_NAME}
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DATABASE_USER}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -65,9 +65,9 @@ services:
     image: clickhouse/clickhouse-server:latest
     restart: always
     ports:
-      - "8123:8123"
+      - "${CLICKHOUSE_PORT:-8123}:8123"
     environment:
-      CLICKHOUSE_DB: audit_logs
+      CLICKHOUSE_DB: ${CLICKHOUSE_DATABASE:-audit_logs}
       CLICKHOUSE_USER: ${CLICKHOUSE_USER}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
     volumes:

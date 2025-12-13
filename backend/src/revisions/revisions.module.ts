@@ -19,4 +19,4 @@ import { MembershipModule } from '../membership/membership.module';
   controllers: [RevisionsController],
   exports: [RevisionsService],
 })
-export class RevisionsModule { }
+export class RevisionsModule {}

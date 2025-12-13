@@ -54,7 +54,7 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
         },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setCapacityData(data.data);
@@ -67,19 +67,19 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
   };
 
   const getUtilizationColor = (percentage: number) => {
-    if (percentage > 100) return 'text-red-600 bg-red-50';
-    if (percentage > 80) return 'text-yellow-600 bg-yellow-50';
-    if (percentage > 60) return 'text-green-600 bg-green-50';
-    return 'text-gray-600 bg-gray-50';
+    if (percentage > 100) return 'text-error-600 bg-error-50';
+    if (percentage > 80) return 'text-warning-600 bg-warning-50';
+    if (percentage > 60) return 'text-success-600 bg-success-50';
+    return 'text-neutral-600 bg-neutral-50';
   };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'text-red-600 bg-red-100';
-      case 'high': return 'text-orange-600 bg-orange-100';
-      case 'medium': return 'text-yellow-600 bg-yellow-100';
-      case 'low': return 'text-blue-600 bg-blue-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 'critical': return 'text-error-600 bg-error-100';
+      case 'high': return 'text-warning-600 bg-warning-100';
+      case 'medium': return 'text-warning-500 bg-warning-50';
+      case 'low': return 'text-primary-600 bg-primary-100';
+      default: return 'text-neutral-600 bg-neutral-100';
     }
   };
 
@@ -87,12 +87,12 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
     return (
       <div className={`p-6 ${className}`}>
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
+          <div className="h-8 bg-neutral-200 rounded w-1/4 mb-6"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="bg-white p-6 rounded-lg shadow">
-                <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-4 bg-neutral-200 rounded w-1/2 mb-2"></div>
+                <div className="h-8 bg-neutral-200 rounded w-3/4"></div>
               </div>
             ))}
           </div>
@@ -105,9 +105,9 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
     return (
       <div className={`p-6 ${className}`}>
         <div className="text-center py-12">
-          <AlertTriangle className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No capacity data</h3>
-          <p className="mt-1 text-sm text-gray-500">Unable to load capacity information.</p>
+          <AlertTriangle className="mx-auto h-12 w-12 text-neutral-400" />
+          <h3 className="mt-2 text-sm font-medium text-neutral-900">No capacity data</h3>
+          <p className="mt-1 text-sm text-neutral-500">Unable to load capacity information.</p>
         </div>
       </div>
     );
@@ -118,41 +118,39 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Capacity Planning</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-neutral-900">Capacity Planning</h1>
+          <p className="mt-1 text-sm text-neutral-500">
             Monitor and optimize team resource allocation
           </p>
         </div>
-        
+
         <div className="mt-4 sm:mt-0 flex space-x-3">
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-neutral-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
             <option value="90d">Last 90 days</option>
           </select>
-          
+
           <div className="flex rounded-md shadow-sm">
             <button
               onClick={() => setViewMode('individual')}
-              className={`px-3 py-2 text-sm font-medium rounded-l-md border ${
-                viewMode === 'individual'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300'
-              }`}
+              className={`px-3 py-2 text-sm font-medium rounded-l-md border ${viewMode === 'individual'
+                  ? 'bg-primary-600 text-white border-primary-600'
+                  : 'bg-white text-neutral-700 border-neutral-300'
+                }`}
             >
               Individual
             </button>
             <button
               onClick={() => setViewMode('team')}
-              className={`px-3 py-2 text-sm font-medium rounded-r-md border-t border-r border-b ${
-                viewMode === 'team'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300'
-              }`}
+              className={`px-3 py-2 text-sm font-medium rounded-r-md border-t border-r border-b ${viewMode === 'team'
+                  ? 'bg-primary-600 text-white border-primary-600'
+                  : 'bg-white text-neutral-700 border-neutral-300'
+                }`}
             >
               Team
             </button>
@@ -165,11 +163,11 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Calendar className="h-8 w-8 text-blue-600" />
+              <Calendar className="h-8 w-8 text-primary-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total Days</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-sm font-medium text-neutral-500">Total Days</p>
+              <p className="text-2xl font-semibold text-neutral-900">
                 {capacityData.summary.totalDays}
               </p>
             </div>
@@ -179,11 +177,11 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <TrendingUp className="h-8 w-8 text-green-600" />
+              <TrendingUp className="h-8 w-8 text-success-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Avg Utilization</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-sm font-medium text-neutral-500">Avg Utilization</p>
+              <p className="text-2xl font-semibold text-neutral-900">
                 {capacityData.summary.averageUtilization.toFixed(1)}%
               </p>
             </div>
@@ -193,11 +191,11 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <AlertTriangle className="h-8 w-8 text-red-600" />
+              <AlertTriangle className="h-8 w-8 text-error-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Overallocated Days</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-sm font-medium text-neutral-500">Overallocated Days</p>
+              <p className="text-2xl font-semibold text-neutral-900">
                 {capacityData.summary.overallocatedDays}
               </p>
             </div>
@@ -210,8 +208,8 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
               <Target className="h-8 w-8 text-purple-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Efficiency Score</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-sm font-medium text-neutral-500">Efficiency Score</p>
+              <p className="text-2xl font-semibold text-neutral-900">
                 {Math.max(0, 100 - capacityData.summary.overallocatedDays * 5)}
               </p>
             </div>
@@ -221,31 +219,30 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
 
       {/* Capacity Calendar */}
       <div className="bg-white rounded-lg shadow mb-8">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Capacity Calendar</h3>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="px-6 py-4 border-b border-neutral-200">
+          <h3 className="text-lg font-medium text-neutral-900">Capacity Calendar</h3>
+          <p className="mt-1 text-sm text-neutral-500">
             Daily capacity utilization for the selected period
           </p>
         </div>
-        
+
         <div className="p-6">
           <div className="grid grid-cols-7 gap-2 mb-4">
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-              <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
+              <div key={day} className="text-center text-sm font-medium text-neutral-500 py-2">
                 {day}
               </div>
             ))}
           </div>
-          
+
           <div className="grid grid-cols-7 gap-2">
             {capacityData.userCapacity.map((day) => (
               <div
                 key={day.id}
-                className={`p-3 rounded-lg text-center ${
-                  !day.isWorkingDay
-                    ? 'bg-gray-100 text-gray-400'
+                className={`p-3 rounded-lg text-center ${!day.isWorkingDay
+                    ? 'bg-neutral-100 text-neutral-400'
                     : getUtilizationColor(day.capacityPercentage)
-                }`}
+                  }`}
               >
                 <div className="text-sm font-medium">
                   {new Date(day.date).getDate()}
@@ -262,14 +259,14 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
       {/* Conflicts and Alerts */}
       {capacityData.utilization.conflicts.length > 0 && (
         <div className="bg-white rounded-lg shadow mb-8">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Active Conflicts</h3>
-            <p className="mt-1 text-sm text-gray-500">
+          <div className="px-6 py-4 border-b border-neutral-200">
+            <h3 className="text-lg font-medium text-neutral-900">Active Conflicts</h3>
+            <p className="mt-1 text-sm text-neutral-500">
               Resource allocation conflicts that need attention
             </p>
           </div>
-          
-          <div className="divide-y divide-gray-200">
+
+          <div className="divide-y divide-neutral-200">
             {capacityData.utilization.conflicts.map((conflict) => (
               <div key={conflict.id} className="px-6 py-4">
                 <div className="flex items-center justify-between">
@@ -279,11 +276,11 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
                     >
                       {conflict.severity.toUpperCase()}
                     </span>
-                    <span className="ml-3 text-sm text-gray-900">
+                    <span className="ml-3 text-sm text-neutral-900">
                       {conflict.description}
                     </span>
                   </div>
-                  <button className="text-blue-600 hover:text-blue-500 text-sm font-medium">
+                  <button className="text-primary-600 hover:text-primary-500 text-sm font-medium">
                     Resolve
                   </button>
                 </div>
@@ -295,17 +292,17 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
 
       {/* Utilization Chart */}
       <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Utilization Trend</h3>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="px-6 py-4 border-b border-neutral-200">
+          <h3 className="text-lg font-medium text-neutral-900">Utilization Trend</h3>
+          <p className="mt-1 text-sm text-neutral-500">
             Capacity utilization over time
           </p>
         </div>
-        
+
         <div className="p-6">
-          <div className="h-64 flex items-center justify-center text-gray-500">
+          <div className="h-64 flex items-center justify-center text-neutral-500">
             <div className="text-center">
-              <TrendingUp className="mx-auto h-12 w-12 text-gray-400" />
+              <TrendingUp className="mx-auto h-12 w-12 text-neutral-400" />
               <p className="mt-2">Chart visualization would go here</p>
               <p className="text-sm">Integration with charting library needed</p>
             </div>
