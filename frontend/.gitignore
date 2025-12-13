@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Playwright
+/playwright-report
+/test-results
+
+# SWC cache
+/.swc
+
+# Debug HTML files
+*.debug.html
+login-debug.html
+
+# Temporary images
+temp-*.png
