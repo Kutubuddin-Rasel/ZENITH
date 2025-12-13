@@ -33,9 +33,9 @@ export class ResourceAllocationController {
 
   @Get('suggestions/:taskId')
   @RequirePermission('resources:view')
-  getResourceSuggestions(@Param('taskId') taskId: string) {
+  getResourceSuggestions() {
     const suggestions =
-      this.resourceAllocationService.suggestResourceAssignment(taskId);
+      this.resourceAllocationService.suggestResourceAssignment();
 
     return {
       success: true,
@@ -115,7 +115,7 @@ export class ResourceAllocationController {
 
     const [conflicts, suggestions] = await Promise.all([
       this.resourceAllocationService.detectAllocationConflicts([userId]),
-      this.resourceAllocationService.suggestResourceAssignment(''), // This would need a proper task ID
+      this.resourceAllocationService.suggestResourceAssignment(),
     ]);
 
     return {

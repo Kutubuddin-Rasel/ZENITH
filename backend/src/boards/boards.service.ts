@@ -14,6 +14,7 @@ import { CreateColumnDto } from './dto/create-column.dto';
 import { UpdateColumnDto } from './dto/update-column.dto';
 import { ProjectsService } from '../projects/projects.service';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
+import { ProjectRole } from '../membership/enums/project-role.enum';
 import { BoardsGateway } from './boards.gateway';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
@@ -36,34 +37,48 @@ export class BoardsService {
     projectId: string,
     userId: string,
     dto: CreateBoardDto,
+    organizationId?: string,
   ): Promise<Board> {
-    await this.projectsService.findOneById(projectId);
+    await this.projectsService.findOneById(projectId, organizationId);
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (role !== 'ProjectLead') {
+    if (role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Only ProjectLead can create boards');
     }
 
-    const board = this.boardRepo.create({ projectId, ...dto });
+    const { columns, ...boardData } = dto;
+    const board = this.boardRepo.create({ projectId, ...boardData });
     const saved = await this.boardRepo.save(board);
 
-    // seed default columns
-    const defaults = {
-      [BoardType.KANBAN]: ['To Do', 'In Progress', 'Done'],
-      [BoardType.SCRUM]: [
-        'Backlog',
-        'Selected for Development',
-        'In Progress',
-        'Done',
-      ],
-    }[saved.type];
-    const cols = defaults.map((name, idx) =>
-      this.colRepo.create({
-        boardId: saved.id,
-        name,
-        status: name,
-        columnOrder: idx,
-      }),
-    );
+    let cols: BoardColumn[] = [];
+
+    if (columns && columns.length > 0) {
+      cols = columns.map((col: { name: string; order: number }) =>
+        this.colRepo.create({
+          boardId: saved.id,
+          name: col.name, // Linear-style: column name IS the status
+          columnOrder: col.order,
+        }),
+      );
+    } else {
+      // seed default columns
+      const defaults = {
+        [BoardType.KANBAN]: ['To Do', 'In Progress', 'Done'],
+        [BoardType.SCRUM]: [
+          'Backlog',
+          'Selected for Development',
+          'In Progress',
+          'Done',
+        ],
+      }[saved.type];
+      cols = defaults.map((name, idx) =>
+        this.colRepo.create({
+          boardId: saved.id,
+          name, // Linear-style: column name IS the status
+          columnOrder: idx,
+        }),
+      );
+    }
+
     await this.colRepo.save(cols);
     saved.columns = cols;
 
@@ -79,8 +94,14 @@ export class BoardsService {
   }
 
   /** List all boards for a project */
-  async findAll(projectId: string, userId: string): Promise<Board[]> {
-    await this.projectsService.findOneById(projectId);
+  async findAll(
+    projectId: string,
+    userId: string,
+    organizationId?: string,
+  ): Promise<Board[]> {
+    if (organizationId) {
+      await this.projectsService.findOneById(projectId, organizationId);
+    }
     const role = await this.membersService.getUserRole(projectId, userId);
     if (!role) throw new ForbiddenException('Not a project member');
     return this.boardRepo.find({
@@ -94,12 +115,19 @@ export class BoardsService {
     projectId: string,
     boardId: string,
     userId: string,
+    organizationId?: string,
   ): Promise<Board> {
     const board = await this.boardRepo.findOne({
       where: { id: boardId, projectId },
-      relations: ['columns'],
+      relations: ['columns', 'project'],
     });
     if (!board) throw new NotFoundException('Board not found');
+
+    // Validate organization access
+    if (organizationId && board.project.organizationId !== organizationId) {
+      throw new NotFoundException('Board not found');
+    }
+
     const role = await this.membersService.getUserRole(projectId, userId);
     if (!role) throw new ForbiddenException('Not a project member');
     board.columns.sort((a, b) => a.columnOrder - b.columnOrder);
@@ -112,10 +140,16 @@ export class BoardsService {
     boardId: string,
     userId: string,
     dto: UpdateBoardDto,
+    organizationId?: string,
   ): Promise<Board> {
-    const board = await this.findOne(projectId, boardId, userId);
+    const board = await this.findOne(
+      projectId,
+      boardId,
+      userId,
+      organizationId,
+    );
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (role !== 'ProjectLead') {
+    if (role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Only ProjectLead can update boards');
     }
     Object.assign(board, dto);
@@ -137,10 +171,16 @@ export class BoardsService {
     projectId: string,
     boardId: string,
     userId: string,
+    organizationId?: string,
   ): Promise<void> {
-    const board = await this.findOne(projectId, boardId, userId);
+    const board = await this.findOne(
+      projectId,
+      boardId,
+      userId,
+      organizationId,
+    );
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (role !== 'ProjectLead') {
+    if (role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Only ProjectLead can delete boards');
     }
     await this.boardRepo.remove(board);
@@ -160,10 +200,16 @@ export class BoardsService {
     boardId: string,
     userId: string,
     dto: CreateColumnDto,
+    organizationId?: string,
   ): Promise<BoardColumn> {
-    const board = await this.findOne(projectId, boardId, userId);
+    const board = await this.findOne(
+      projectId,
+      boardId,
+      userId,
+      organizationId,
+    );
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (role !== 'ProjectLead') {
+    if (role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Only ProjectLead can add columns');
     }
     const col = this.colRepo.create({ boardId, ...dto });
@@ -188,10 +234,16 @@ export class BoardsService {
     colId: string,
     userId: string,
     dto: UpdateColumnDto,
+    organizationId?: string,
   ): Promise<BoardColumn> {
-    const board = await this.findOne(projectId, boardId, userId);
+    const board = await this.findOne(
+      projectId,
+      boardId,
+      userId,
+      organizationId,
+    );
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (role !== 'ProjectLead') {
+    if (role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Only ProjectLead can update columns');
     }
     const col = await this.colRepo.findOneBy({ id: colId, boardId });
@@ -217,10 +269,16 @@ export class BoardsService {
     boardId: string,
     colId: string,
     userId: string,
+    organizationId?: string,
   ): Promise<void> {
-    const board = await this.findOne(projectId, boardId, userId);
+    const board = await this.findOne(
+      projectId,
+      boardId,
+      userId,
+      organizationId,
+    );
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (role !== 'ProjectLead') {
+    if (role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Only ProjectLead can remove columns');
     }
     const col = await this.colRepo.findOneBy({ id: colId, boardId });
@@ -237,6 +295,47 @@ export class BoardsService {
     });
   }
 
+  /**
+   * OPTIMIZED: Bulk reorder columns in single request
+   * Frontend currently makes N API calls to update column order - this reduces to 1
+   */
+  async reorderColumns(
+    projectId: string,
+    boardId: string,
+    orderedColumnIds: string[],
+    userId: string,
+    organizationId?: string,
+  ): Promise<void> {
+    await this.findOne(projectId, boardId, userId, organizationId);
+
+    const role = await this.membersService.getUserRole(projectId, userId);
+    if (role !== ProjectRole.PROJECT_LEAD) {
+      throw new ForbiddenException('Only ProjectLead can reorder columns');
+    }
+
+    if (orderedColumnIds.length === 0) return;
+
+    // Single bulk update with CASE statement
+    const caseStatements = orderedColumnIds
+      .map((id, idx) => `WHEN '${id}' THEN ${idx}`)
+      .join(' ');
+
+    await this.colRepo.query(
+      `UPDATE board_columns 
+       SET "order" = CASE id ${caseStatements} END
+       WHERE id = ANY($1) 
+       AND "boardId" = $2`,
+      [orderedColumnIds, boardId],
+    );
+
+    // Emit real-time event
+    this.boardsGateway.emitColumnsReordered({
+      projectId,
+      boardId,
+      orderedColumnIds,
+    });
+  }
+
   /** Move an issue between columns (drag-and-drop) */
   async moveIssue(
     projectId: string,
@@ -246,9 +345,10 @@ export class BoardsService {
     toColumn: string,
     newOrder: number,
     userId: string,
+    organizationId?: string,
   ): Promise<void> {
     // Permission checks (reuse existing logic as needed)
-    await this.findOne(projectId, boardId, userId);
+    await this.findOne(projectId, boardId, userId, organizationId);
     // Update the issue's status/column and order
     // (Assume Issue entity has status and backlogOrder fields)
     const issueRepo = this.dataSource.getRepository('Issue');
@@ -273,23 +373,37 @@ export class BoardsService {
     });
   }
 
-  /** Reorder issues within a column (drag-and-drop) */
+  /**
+   * OPTIMIZED: Reorder issues within a column using single bulk UPDATE
+   * Uses CASE statement to update all issues in one query instead of N queries
+   */
   async reorderIssues(
     projectId: string,
     boardId: string,
     columnId: string,
     orderedIssueIds: string[],
     userId: string,
+    organizationId?: string,
   ): Promise<void> {
-    await this.findOne(projectId, boardId, userId);
-    // Update backlogOrder for each issue in the column
-    const issueRepo = this.dataSource.getRepository('Issue');
-    for (let i = 0; i < orderedIssueIds.length; i++) {
-      await issueRepo.update(
-        { id: orderedIssueIds[i], projectId, status: columnId },
-        { backlogOrder: i },
-      );
-    }
+    await this.findOne(projectId, boardId, userId, organizationId);
+
+    if (orderedIssueIds.length === 0) return;
+
+    // OPTIMIZED: Single bulk update with CASE statement
+    // This replaces N update queries with 1 query
+    const caseStatements = orderedIssueIds
+      .map((id, idx) => `WHEN '${id}' THEN ${idx}`)
+      .join(' ');
+
+    await this.dataSource.query(
+      `UPDATE issues 
+       SET "backlogOrder" = CASE id ${caseStatements} END
+       WHERE id = ANY($1) 
+       AND "projectId" = $2 
+       AND status = $3`,
+      [orderedIssueIds, projectId, columnId],
+    );
+
     // Emit real-time event
     this.boardsGateway.emitIssueReordered({
       projectId,

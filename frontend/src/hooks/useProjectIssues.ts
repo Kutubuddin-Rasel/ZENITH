@@ -14,12 +14,12 @@ export interface Issue {
   key: string;
   title: string;
   type: IssueType;
-  status: string;
+  status: string; // Linear-style: matches column.name
   assigneeId?: string;
   assignee?: { id: string; name: string; email: string; avatarUrl?: string } | null;
   storyPoints?: number;
   priority: 'Highest' | 'High' | 'Medium' | 'Low' | 'Lowest';
-  labels?: Label[];
+  labels?: string[];
   createdAt: string;
   updatedAt: string;
   description?: string;
@@ -27,6 +27,9 @@ export interface Issue {
   parent?: Issue | null;
   children?: Issue[];
   boardPosition?: number;
+  isArchived?: boolean;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
 }
 
 export interface IssueFilters {
@@ -36,6 +39,8 @@ export interface IssueFilters {
   label?: string;
   sprint?: string;
   sort?: string;
+  includeArchived?: boolean;
+  type?: string;
 }
 
 export function useProjectIssues(projectId: string, filters?: IssueFilters) {
@@ -310,9 +315,9 @@ export function useUpdateIssue(projectId: string) {
       });
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         queryKey: ['project-issues', projectId],
-        exact: false 
+        exact: false
       });
       queryClient.invalidateQueries({ queryKey: ['issue-details', variables.issueId] });
     },

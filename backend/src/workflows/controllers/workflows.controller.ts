@@ -21,6 +21,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Workflow } from '../entities/workflow.entity';
 import { WorkflowExecution } from '../entities/workflow-execution.entity';
+import { WorkflowDefinition } from '../entities/workflow.entity';
+import { ExecutionContext } from '../entities/workflow-execution.entity';
 
 @Controller('api/workflows')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -43,7 +45,7 @@ export class WorkflowsController {
       projectId: string;
       name: string;
       description?: string;
-      definition: any;
+      definition: WorkflowDefinition;
       tags?: string[];
       category?: string;
       icon?: string;
@@ -55,7 +57,7 @@ export class WorkflowsController {
       createdBy: req.user.id,
       name: body.name,
       description: body.description,
-      definition: body.definition as Record<string, unknown>,
+      definition: body.definition,
       tags: body.tags,
       category: body.category,
       icon: body.icon,
@@ -139,7 +141,7 @@ export class WorkflowsController {
     body: {
       name?: string;
       description?: string;
-      definition?: any;
+      definition?: WorkflowDefinition;
       tags?: string[];
       category?: string;
       icon?: string;
@@ -199,7 +201,7 @@ export class WorkflowsController {
     @Param('id') id: string,
     @Body()
     body: {
-      context: any;
+      context: ExecutionContext;
     },
   ) {
     try {
@@ -301,7 +303,7 @@ export class WorkflowsController {
     @Param('id') id: string,
     @Body()
     body: {
-      testData?: any;
+      testData?: Record<string, unknown>;
     },
   ) {
     const workflow = await this.workflowRepo.findOne({
@@ -339,7 +341,7 @@ export class WorkflowsController {
     @Param('id') id: string,
     @Body()
     body: {
-      definition: any;
+      definition: WorkflowDefinition;
     },
   ) {
     try {

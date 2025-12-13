@@ -8,6 +8,7 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { BoardColumn } from './board-column.entity';
@@ -18,6 +19,9 @@ export enum BoardType {
 }
 
 @Entity({ name: 'boards' })
+@Index('IDX_board_project_id', ['projectId'])
+@Index('IDX_board_type', ['type'])
+@Index('IDX_board_is_active', ['isActive'])
 export class Board {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -34,6 +38,12 @@ export class Board {
 
   @Column({ type: 'enum', enum: BoardType, default: BoardType.KANBAN })
   type: BoardType;
+
+  @Column({ nullable: true })
+  description: string;
+
+  @Column({ default: true })
+  isActive: boolean;
 
   @OneToMany(() => BoardColumn, (col) => col.board, { cascade: true })
   columns: BoardColumn[];

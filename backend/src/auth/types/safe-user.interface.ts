@@ -4,4 +4,5 @@ export interface SafeUser {
   name: string;
   isSuperAdmin: boolean;
   isActive: boolean;
+  organizationId?: string; // Added for workspace context
 }

@@ -12,6 +12,7 @@ import { UpdateCommentDto } from './dto/update-comment.dto';
 import { IssuesService } from '../issues/issues.service';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import { WatchersService } from 'src/watchers/watchers.service';
+import { ProjectRole } from '../membership/enums/project-role.enum';
 
 @Injectable()
 export class CommentsService {
@@ -35,7 +36,7 @@ export class CommentsService {
     const saved = await this.repo.save(c);
 
     // notify watchers that a comment was posted
-    this.watcherService.notifyWatchersOnEvent(
+    void this.watcherService.notifyWatchersOnEvent(
       projectId,
       issueId,
       'commented',
@@ -72,7 +73,7 @@ export class CommentsService {
 
     await this.issuesService.findOne(projectId, issueId, userId);
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (c.authorId !== userId && role !== 'ProjectLead') {
+    if (c.authorId !== userId && role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Cannot edit this comment');
     }
 
@@ -80,7 +81,7 @@ export class CommentsService {
     const updated = await this.repo.save(c);
 
     // notify watchers that a comment was edited
-    this.watcherService.notifyWatchersOnEvent(
+    void this.watcherService.notifyWatchersOnEvent(
       projectId,
       issueId,
       'edited a comment',
@@ -102,14 +103,14 @@ export class CommentsService {
 
     await this.issuesService.findOne(projectId, issueId, userId);
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (c.authorId !== userId && role !== 'ProjectLead') {
+    if (c.authorId !== userId && role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Cannot delete this comment');
     }
 
     await this.repo.remove(c);
 
     // notify watchers that a comment was deleted
-    this.watcherService.notifyWatchersOnEvent(
+    void this.watcherService.notifyWatchersOnEvent(
       projectId,
       issueId,
       'deleted a comment',

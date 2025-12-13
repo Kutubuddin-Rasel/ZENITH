@@ -8,6 +8,9 @@ import { Workflow } from './entities/workflow.entity';
 import { AutomationRule } from './entities/automation-rule.entity';
 import { WorkflowExecution } from './entities/workflow-execution.entity';
 import { WorkflowTemplate } from './entities/workflow-template.entity';
+import { WorkflowCategory } from './entities/workflow-category.entity';
+import { WorkflowStatus } from './entities/workflow-status.entity';
+import { WorkflowTransition } from './entities/workflow-transition.entity';
 
 // Services
 import { WorkflowEngineService } from './services/workflow-engine.service';
@@ -15,6 +18,9 @@ import { AutomationRulesService } from './services/automation-rules.service';
 import { WorkflowDesignerService } from './services/workflow-designer.service';
 import { WorkflowTemplateService } from './services/workflow-template.service';
 import { WorkflowAnalyticsService } from './services/workflow-analytics.service';
+import { WorkflowCategoriesService } from './services/workflow-categories.service';
+import { WorkflowStatusesService } from './services/workflow-statuses.service';
+import { WorkflowTransitionsService } from './services/workflow-transitions.service';
 
 // Controllers
 import { WorkflowsController } from './controllers/workflows.controller';
@@ -30,6 +36,9 @@ import { WorkflowAnalyticsController } from './controllers/workflow-analytics.co
       AutomationRule,
       WorkflowExecution,
       WorkflowTemplate,
+      WorkflowCategory,
+      WorkflowStatus,
+      WorkflowTransition,
     ]),
     ScheduleModule.forRoot(),
     MembershipModule,
@@ -40,6 +49,9 @@ import { WorkflowAnalyticsController } from './controllers/workflow-analytics.co
     WorkflowDesignerService,
     WorkflowTemplateService,
     WorkflowAnalyticsService,
+    WorkflowCategoriesService,
+    WorkflowStatusesService,
+    WorkflowTransitionsService,
   ],
   controllers: [
     WorkflowsController,
@@ -54,6 +66,11 @@ import { WorkflowAnalyticsController } from './controllers/workflow-analytics.co
     WorkflowDesignerService,
     WorkflowTemplateService,
     WorkflowAnalyticsService,
+    WorkflowCategoriesService,
+    WorkflowStatusesService,
+    WorkflowTransitionsService,
+    TypeOrmModule,
   ],
 })
-export class WorkflowsModule {}
+export class WorkflowsModule { }
+

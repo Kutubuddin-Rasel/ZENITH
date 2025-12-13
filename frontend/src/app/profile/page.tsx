@@ -7,8 +7,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { UserIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon, ShieldCheckIcon, BellIcon, BriefcaseIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
-import { useToast } from '../../context/ToastContext';
-import { apiFetch } from '../../lib/fetcher';
+import { useToast } from '@/context/ToastContext';
+import { apiFetch } from '@/lib/fetcher';
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();

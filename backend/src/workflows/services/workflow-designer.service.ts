@@ -14,8 +14,8 @@ export interface NodeType {
   color: string;
   inputs: NodeInput[];
   outputs: NodeOutput[];
-  configSchema: Record<string, any>;
-  defaultConfig: Record<string, any>;
+  configSchema: Record<string, unknown>;
+  defaultConfig: Record<string, unknown>;
 }
 
 export interface NodeInput {
@@ -60,7 +60,7 @@ export interface WorkflowSimulationResult {
   executionTime: number;
   errors: string[];
   warnings: string[];
-  result: Record<string, any>;
+  result: Record<string, unknown>;
 }
 
 @Injectable()
@@ -307,7 +307,7 @@ export class WorkflowDesignerService {
 
     // Validate each node
     for (const node of definition.nodes) {
-      this.validateNode(node, errors, warnings);
+      this.validateNode(node, errors);
     }
 
     // Validate connections
@@ -319,7 +319,7 @@ export class WorkflowDesignerService {
     this.checkOrphanedNodes(definition, errors, warnings);
 
     // Check for cycles
-    this.checkCycles(definition, errors, warnings);
+    this.checkCycles(definition, errors);
 
     return {
       isValid: errors.length === 0,
@@ -328,11 +328,7 @@ export class WorkflowDesignerService {
     };
   }
 
-  private validateNode(
-    node: WorkflowNode,
-    errors: ValidationError[],
-    warnings: ValidationWarning[],
-  ): void {
+  private validateNode(node: WorkflowNode, errors: ValidationError[]): void {
     const nodeType = this.getNodeTypeById(node.type);
     if (!nodeType) {
       errors.push({
@@ -346,7 +342,10 @@ export class WorkflowDesignerService {
 
     // Validate required configuration
     for (const [key, schema] of Object.entries(nodeType.configSchema)) {
-      if (schema.required && !(key in node.config)) {
+      if (
+        (schema as { required?: boolean }).required &&
+        !(key in node.config)
+      ) {
         errors.push({
           type: 'node',
           nodeId: node.id,
@@ -368,7 +367,8 @@ export class WorkflowDesignerService {
 
     if (
       node.type === 'approval' &&
-      (!node.config.approvers || node.config.approvers.length === 0)
+      (!(node.config as { approvers?: unknown[] }).approvers ||
+        (node.config as { approvers?: unknown[] }).approvers?.length === 0)
     ) {
       errors.push({
         type: 'node',
@@ -413,7 +413,6 @@ export class WorkflowDesignerService {
       if (sourceNodeType && targetNodeType) {
         // Check if connection is valid based on node types
         const validOutputs = sourceNodeType.outputs.map((output) => output.id);
-        const validInputs = targetNodeType.inputs.map((input) => input.id);
 
         if (connection.source && !validOutputs.includes(connection.source)) {
           warnings.push({
@@ -454,7 +453,6 @@ export class WorkflowDesignerService {
   private checkCycles(
     definition: WorkflowDefinition,
     errors: ValidationError[],
-    warnings: ValidationWarning[],
   ): void {
     const visited = new Set<string>();
     const recursionStack = new Set<string>();
@@ -499,13 +497,13 @@ export class WorkflowDesignerService {
 
   async simulateWorkflow(
     definition: WorkflowDefinition,
-    testData: Record<string, any> = {},
+    testData: Record<string, unknown> = {},
   ): Promise<WorkflowSimulationResult> {
     const startTime = Date.now();
     const executionPath: string[] = [];
     const errors: string[] = [];
-    const warnings: string[] = [];
-    const result: Record<string, any> = {};
+    // const warnings: string[] = [];
+    const result: Record<string, unknown> = {};
 
     try {
       // Validate workflow first
@@ -542,7 +540,7 @@ export class WorkflowDesignerService {
         executionPath,
         executionTime: Date.now() - startTime,
         errors,
-        warnings,
+        warnings: [],
         result,
       };
     } catch (error) {
@@ -550,8 +548,8 @@ export class WorkflowDesignerService {
         success: false,
         executionPath,
         executionTime: Date.now() - startTime,
-        errors: [error.message],
-        warnings,
+        errors: [(error as Error).message],
+        warnings: [],
         result,
       };
     }
@@ -560,9 +558,9 @@ export class WorkflowDesignerService {
   private async simulateNodeExecution(
     node: WorkflowNode,
     definition: WorkflowDefinition,
-    context: Record<string, any>,
+    context: Record<string, unknown>,
     executionPath: string[],
-    result: Record<string, any>,
+    result: Record<string, unknown>,
   ): Promise<void> {
     executionPath.push(node.id);
 
@@ -581,7 +579,7 @@ export class WorkflowDesignerService {
         break;
       case 'decision':
         result.decisionResult = this.evaluateCondition(
-          node.config.condition,
+          (node.config as { condition: string }).condition,
           context,
         );
         break;
@@ -634,11 +632,12 @@ export class WorkflowDesignerService {
 
   private evaluateCondition(
     condition: string,
-    context: Record<string, any>,
+    context: Record<string, unknown>,
   ): boolean {
     try {
       // Simple condition evaluation for simulation
-      return new Function('context', `return ${condition}`)(context);
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call
+      return new Function('context', `return ${condition}`)(context) as boolean;
     } catch (error) {
       this.logger.warn(`Failed to evaluate condition: ${condition}`, error);
       return false;
@@ -673,14 +672,14 @@ export class WorkflowDesignerService {
         break;
       case 'status':
         code += `  result.statusUpdated = true;\n`;
-        code += `  result.newStatus = "${node.config.status}";\n`;
+        code += `  result.newStatus = "${(node.config as { status: string }).status}";\n`;
         break;
       case 'decision':
-        code += `  result.decisionResult = (${node.config.condition});\n`;
+        code += `  result.decisionResult = (${(node.config as { condition: string }).condition});\n`;
         break;
       case 'action':
         code += `  result.actionExecuted = true;\n`;
-        code += `  result.action = "${node.config.action}";\n`;
+        code += `  result.action = "${(node.config as { action: string }).action}";\n`;
         break;
       case 'approval':
         code += `  result.approvalRequired = true;\n`;

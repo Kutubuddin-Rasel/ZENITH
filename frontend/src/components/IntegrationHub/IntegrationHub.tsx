@@ -7,6 +7,7 @@ import Card from '../Card';
 import { IntegrationCard } from './IntegrationCard';
 import { IntegrationConfig } from './IntegrationConfig';
 import { UniversalSearch } from './UniversalSearch';
+import { apiClient } from '@/lib/api-client';
 
 export interface Integration {
   id: string;
@@ -60,20 +61,8 @@ export const IntegrationHub: React.FC = () => {
   const loadIntegrations = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('access_token');
-      
-      const response = await fetch('http://localhost:3000/api/integrations', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setIntegrations(data);
-      } else {
-        throw new Error('Failed to load integrations');
-      }
+      const data = await apiClient.get<Integration[]>('/api/integrations');
+      setIntegrations(data);
     } catch (err) {
       console.error('Failed to load integrations:', err);
       setError('Failed to load integrations');
@@ -84,18 +73,10 @@ export const IntegrationHub: React.FC = () => {
 
   const loadAvailableIntegrations = useCallback(async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      
-      const response = await fetch('http://localhost:3000/api/integrations/marketplace/available', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableIntegrations(data.integrations);
-      }
+      const data = await apiClient.get<{ integrations: AvailableIntegration[] }>(
+        '/api/integrations/marketplace/available'
+      );
+      setAvailableIntegrations(data.integrations);
     } catch (err) {
       console.error('Failed to load available integrations:', err);
     }
@@ -107,36 +88,12 @@ export const IntegrationHub: React.FC = () => {
   }, [loadIntegrations, loadAvailableIntegrations]);
 
   const handleInstallIntegration = (integrationType: string) => {
-    // Find the integration template
-    const template = availableIntegrations.find(i => i.type === integrationType);
-    if (!template) return;
+    // Redirect to OAuth authorization flow
+    const apiURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const oauthUrl = `${apiURL}/api/integrations/oauth/${integrationType.toLowerCase()}/authorize`;
 
-    // Create a new integration
-    const newIntegration: Integration = {
-      id: `temp-${Date.now()}`,
-      name: template.name,
-      type: integrationType,
-      isActive: false,
-      healthStatus: 'disconnected',
-      lastSyncAt: null,
-      lastErrorAt: null,
-      lastErrorMessage: null,
-      config: {
-        syncSettings: {
-          enabled: true,
-          frequency: 'daily',
-          batchSize: 100,
-        },
-        notifications: {
-          enabled: true,
-          channels: [],
-          events: [],
-        },
-      },
-    };
-
-    setSelectedIntegration(newIntegration);
-    setShowConfigModal(true);
+    // Redirect to OAuth flow (backend will redirect to third-party, then back to callback)
+    window.location.href = oauthUrl;
   };
 
   const handleConfigureIntegration = (integration: Integration) => {
@@ -147,7 +104,7 @@ export const IntegrationHub: React.FC = () => {
   const handleSaveIntegration = async (integration: Integration) => {
     try {
       const token = localStorage.getItem('access_token');
-      
+
       if (integration.id.startsWith('temp-')) {
         // Create new integration
         const response = await fetch('http://localhost:3000/api/integrations', {
@@ -207,7 +164,7 @@ export const IntegrationHub: React.FC = () => {
   const handleDeleteIntegration = async (integrationId: string) => {
     try {
       const token = localStorage.getItem('access_token');
-      
+
       const response = await fetch(`http://localhost:3000/api/integrations/${integrationId}`, {
         method: 'DELETE',
         headers: {
@@ -229,7 +186,7 @@ export const IntegrationHub: React.FC = () => {
   const handleSyncIntegration = async (integrationId: string) => {
     try {
       const token = localStorage.getItem('access_token');
-      
+
       const response = await fetch(`http://localhost:3000/api/integrations/${integrationId}/sync`, {
         method: 'POST',
         headers: {
@@ -348,15 +305,14 @@ export const IntegrationHub: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    integration.status === 'available'
-                      ? 'bg-green-100 text-green-800'
-                      : integration.status === 'beta'
+                  <span className={`px-2 py-1 text-xs rounded-full ${integration.status === 'available'
+                    ? 'bg-green-100 text-green-800'
+                    : integration.status === 'beta'
                       ? 'bg-yellow-100 text-yellow-800'
                       : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {integration.status === 'available' ? 'Available' : 
-                     integration.status === 'beta' ? 'Beta' : 'Coming Soon'}
+                    }`}>
+                    {integration.status === 'available' ? 'Available' :
+                      integration.status === 'beta' ? 'Beta' : 'Coming Soon'}
                   </span>
                 </div>
               </div>
@@ -367,8 +323,8 @@ export const IntegrationHub: React.FC = () => {
                 onClick={() => handleInstallIntegration(integration.type)}
                 className="w-full"
               >
-                {integration.status === 'available' ? 'Install' : 
-                 integration.status === 'beta' ? 'Join Beta' : 'Coming Soon'}
+                {integration.status === 'available' ? 'Install' :
+                  integration.status === 'beta' ? 'Join Beta' : 'Coming Soon'}
               </Button>
             </Card>
           ))}

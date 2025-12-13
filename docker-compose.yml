@@ -1,0 +1,112 @@
+services:
+  # Database Service
+  postgres:
+    image: postgres:15-alpine
+    container_name: zenith_db
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-zenith}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - zenith-network
+    ports:
+      - "5432:5432"
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Cache Service
+  redis:
+    image: redis:7-alpine
+    container_name: zenith_redis
+    networks:
+      - zenith-network
+    ports:
+      - "6379:6379"
+    restart: always
+    command: redis-server --save 20 1 --loglevel warning
+
+  # Backend API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: zenith_backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${DB_USERNAME:-postgres}
+      DATABASE_PASS: ${DB_PASSWORD:-password}
+      DATABASE_NAME: ${DB_NAME:-zenith}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      FRONTEND_URL: http://localhost:3001
+      # Add other env vars here (JWT_SECRET, etc)
+      JWT_SECRET: ${JWT_SECRET:-dev_secret_do_not_use_in_prod}
+    ports:
+      - "3000:3000"
+    networks:
+      - zenith-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: always
+
+  # Observability - Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: zenith_prometheus
+    volumes:
+      - ./backend/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - zenith-network
+    restart: always
+
+  # Observability - Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: zenith_grafana
+    depends_on:
+      - prometheus
+    ports:
+      - "3002:3000" # Map host 3002 to container 3000
+    networks:
+      - zenith-network
+    restart: always
+
+  # Frontend App Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: zenith_frontend
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    ports:
+      - "3001:3001"
+    networks:
+      - zenith-network
+    depends_on:
+      - backend
+    restart: always
+
+volumes:
+  postgres_data:
+
+
+networks:
+  zenith-network:
+    driver: bridge

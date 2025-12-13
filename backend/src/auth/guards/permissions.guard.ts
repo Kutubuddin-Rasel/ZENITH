@@ -3,22 +3,29 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
+import { CacheService } from 'src/cache/cache.service';
 
 interface JwtRequestUser {
   userId: string;
   email: string;
   isSuperAdmin: boolean;
+  organizationId?: string;
 }
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
+  private readonly logger = new Logger(PermissionsGuard.name);
+  private readonly CACHE_TTL = 300; // 5 minutes
+
   constructor(
     private reflector: Reflector,
     private projectMembersService: ProjectMembersService,
-  ) {}
+    private cacheService: CacheService,
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredPerm = this.reflector.get<string>(
@@ -32,12 +39,12 @@ export class PermissionsGuard implements CanActivate {
 
     const req = context.switchToHttp().getRequest<{
       user: JwtRequestUser;
-      params?: any;
-      body?: any;
-      query?: any;
+      params?: { projectId?: string; id?: string;[key: string]: unknown };
+      body?: { projectId?: string;[key: string]: unknown };
+      query?: { projectId?: string;[key: string]: unknown };
     }>();
     const user = req.user;
-    console.log('User in PermissionsGuard:', user);
+
     if (!user || !user.userId) {
       throw new ForbiddenException('No user in request context');
     }
@@ -48,30 +55,27 @@ export class PermissionsGuard implements CanActivate {
     }
 
     // 2) Handle global-only permissions
-    // If you have other global-only perms (e.g. 'users:manage'), handle similarly:
-    // In PermissionsGuard:
+    // ... (keep existing global perms logic) ...
     const otherGlobalOnlyPerms: string[] = [
-      'projects:create', // Only superadmin can create projects
-      'sprints:create', // Only superadmin can create sprints globally
-      'sprints:list-all', // optional: list every sprint globally
-      'boards:create',
-      'boards:delete',
-      'releases:create',
-      'releases:delete',
-      'labels:create',
-      'labels:delete',
-      'components:create',
-      'components:delete',
-      'epics:create',
-      'epics:delete',
-      'stories:create',
-      'stories:delete',
-      'backlog:update',
-      'watchers:update',
-      // e.g. 'users:manage', 'projects:list-all', etc.
+      // 'projects:create', // Handled separately
+      // 'sprints:create', // Project scoped
+      'sprints:list-all',
+      // 'boards:create', // Project scoped
+      // 'boards:delete', // Project scoped
+      // 'releases:create', // Project scoped
+      // 'releases:delete', // Project scoped
+      // 'labels:create', // Project scoped
+      // 'labels:delete', // Project scoped
+      // 'components:create', // Project scoped
+      // 'components:delete', // Project scoped
+      // 'epics:create', // Project scoped
+      // 'epics:delete', // Project scoped
+      // 'stories:create', // Project scoped
+      // 'stories:delete', // Project scoped
+      // 'backlog:update', // Project scoped
+      // 'watchers:update', // Project scoped
     ];
 
-    // Global permissions that all authenticated users have
     const globalUserPerms: string[] = [
       'notifications:view',
       'notifications:update',
@@ -79,11 +83,20 @@ export class PermissionsGuard implements CanActivate {
     ];
 
     if (globalUserPerms.includes(requiredPerm)) {
-      return true; // All authenticated users can access notifications
+      return true;
+    }
+
+    // Allow project creation if user belongs to an organization
+    if (requiredPerm === 'projects:create') {
+      if (user.organizationId) {
+        return true;
+      }
+      throw new ForbiddenException(
+        'User must belong to an organization to create projects',
+      );
     }
 
     if (otherGlobalOnlyPerms.includes(requiredPerm)) {
-      // Only superadmin allowed; since we're not superadmin here, forbid
       throw new ForbiddenException(
         `Insufficient global permissions: cannot ${requiredPerm}`,
       );
@@ -92,16 +105,31 @@ export class PermissionsGuard implements CanActivate {
     // 3) Project-scoped permission: extract projectId from params/body/query
     const projectId: string | undefined =
       req.params?.projectId ||
-      req.params?.id || // for /projects/:id or /projects/:id/...
+      req.params?.id ||
       req.body?.projectId ||
       req.query?.projectId;
 
     if (projectId) {
-      // Check membership in that project
-      const roleName = await this.projectMembersService.getUserRole(
-        projectId,
-        user.userId,
-      );
+      // Check membership in that project (WITH CACHING)
+      const cacheKey = `project_role:${projectId}:${user.userId}`;
+      let roleName = await this.cacheService.get<string>(cacheKey);
+
+      if (roleName) {
+        this.logger.debug(`Cache HIT for ${cacheKey}`);
+      } else {
+        this.logger.debug(`Cache MISS for ${cacheKey}`);
+        roleName = await this.projectMembersService.getUserRole(
+          projectId,
+          user.userId,
+        );
+
+        if (roleName) {
+          await this.cacheService.set(cacheKey, roleName, {
+            ttl: this.CACHE_TTL,
+          });
+        }
+      }
+
       if (!roleName) {
         throw new ForbiddenException('Not a member of this project');
       }
@@ -141,9 +169,6 @@ export class PermissionsGuard implements CanActivate {
           'releases:view',
           'releases:update',
           'releases:delete',
-          'releases:update',
-          'releases:delete',
-          'releases:view',
           'labels:create',
           'labels:view',
           'labels:update',
@@ -164,8 +189,33 @@ export class PermissionsGuard implements CanActivate {
           'backlog:update',
           'watchers:view',
           'watchers:update',
-          // etc.
         ],
+        Member: [
+          'projects:view',
+          'issues:create',
+          'issues:view',
+          'issues:update',
+          'sprints:view',
+          'comments:create',
+          'comments:view',
+          'comments:update',
+          'attachments:create',
+          'attachments:view',
+          'boards:view',
+          'releases:view',
+          'labels:view',
+          'components:view',
+          'labels:update',
+          'components:update',
+          'epics:view',
+          'stories:create',
+          'stories:view',
+          'stories:update',
+          'backlog:view',
+          'watchers:view',
+          'watchers:update',
+        ],
+        // Deprecated: Alias to Member
         Developer: [
           'projects:view',
           'issues:create',
@@ -190,14 +240,13 @@ export class PermissionsGuard implements CanActivate {
           'backlog:view',
           'watchers:view',
           'watchers:update',
-          // omit 'projects:update', etc.
         ],
+        // Deprecated: Alias to Member
         QA: [
           'projects:view',
           'issues:create',
           'issues:view',
           'issues:update',
-          'comments:create',
           'sprints:view',
           'comments:create',
           'comments:view',
@@ -211,8 +260,9 @@ export class PermissionsGuard implements CanActivate {
           'labels:update',
           'components:update',
           'epics:view',
-          'stories:view',
           'stories:create',
+          'stories:view',
+          'stories:update',
           'backlog:view',
           'watchers:view',
           'watchers:update',

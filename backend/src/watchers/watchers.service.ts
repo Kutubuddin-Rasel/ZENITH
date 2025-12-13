@@ -89,14 +89,14 @@ export class WatchersService {
   }
 
   /** Emit notification to watchers (to be called by other services) */
-  notifyWatchersOnEvent(
+  async notifyWatchersOnEvent(
     projectId: string,
     issueId: string | null,
     action: string, // e.g. 'commented', 'changed status to X'
     actorId: string, // user who performed action
   ) {
     await Promise.all([
-      // all watchers on the project
+      // watchers on the project
       this.watcherRepo.find({ where: { projectId }, select: ['userId'] }),
       // plus watchers on the issue (if any)
       issueId

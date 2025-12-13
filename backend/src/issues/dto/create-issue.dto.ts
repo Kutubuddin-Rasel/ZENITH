@@ -5,8 +5,6 @@ import {
   IsEnum,
   IsUUID,
   ValidateIf,
-  IsInt,
-  Min,
 } from 'class-validator';
 import {
   IssueStatus,
@@ -35,7 +33,9 @@ export class CreateIssueDto {
   priority?: IssuePriority;
 
   @IsOptional()
-  @ValidateIf((o: any) => o.assigneeId !== null && o.assigneeId !== undefined)
+  @ValidateIf(
+    (o: CreateIssueDto) => o.assigneeId !== null && o.assigneeId !== undefined,
+  )
   @IsUUID()
   assigneeId?: string | null;
 
@@ -44,7 +44,15 @@ export class CreateIssueDto {
   parentId?: string;
 
   @IsOptional()
-  @IsInt()
-  @Min(0)
   storyPoints?: number;
+
+  @IsOptional()
+  projectId?: string;
+
+  @IsOptional()
+  @IsOptional()
+  estimatedHours?: number;
+
+  @IsOptional()
+  metadata?: Record<string, any>;
 }

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { apiFetch } from '../lib/fetcher';
 
 interface OnboardingStep {
   stepId: string;
@@ -53,18 +54,11 @@ export const useOnboardingProgress = () => {
 
     try {
       setLoading(true);
-      const response = await fetch('/api/onboarding/initialize', {
+      const data = await apiFetch<{ success: boolean; data: OnboardingProgress }>('/api/onboarding/initialize', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
         body: JSON.stringify(context),
       });
 
-      if (!response.ok) throw new Error('Failed to initialize onboarding');
-
-      const data = await response.json();
       setProgress(data.data);
       return data.data;
     } catch (error) {
@@ -82,15 +76,7 @@ export const useOnboardingProgress = () => {
 
     try {
       setLoading(true);
-      const response = await fetch('/api/onboarding/progress', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-      });
-
-      if (!response.ok) throw new Error('Failed to get onboarding progress');
-
-      const data = await response.json();
+      const data = await apiFetch<{ success: boolean; data: OnboardingProgress }>('/api/onboarding/progress');
       setProgress(data.data);
       return data.data;
     } catch (error) {
@@ -108,15 +94,7 @@ export const useOnboardingProgress = () => {
 
     try {
       setLoading(true);
-      const response = await fetch('/api/onboarding/steps', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-      });
-
-      if (!response.ok) throw new Error('Failed to get onboarding steps');
-
-      const data = await response.json();
+      const data = await apiFetch<{ success: boolean; data: OnboardingStep[] }>('/api/onboarding/steps');
       setSteps(data.data);
       return data.data;
     } catch (error) {
@@ -133,21 +111,14 @@ export const useOnboardingProgress = () => {
     if (!user) return null;
 
     try {
-      const response = await fetch(`/api/onboarding/step/${stepId}`, {
+      const result = await apiFetch<{ success: boolean; data: OnboardingProgress }>(`/api/onboarding/step/${stepId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
         body: JSON.stringify({
           status,
           data,
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to update step progress');
-
-      const result = await response.json();
       setProgress(result.data);
       return result.data;
     } catch (error) {
@@ -162,20 +133,13 @@ export const useOnboardingProgress = () => {
     if (!user) return null;
 
     try {
-      const response = await fetch(`/api/onboarding/step/${stepId}/skip`, {
+      const result = await apiFetch<{ success: boolean; data: OnboardingProgress }>(`/api/onboarding/step/${stepId}/skip`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
         body: JSON.stringify({
           reason,
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to skip step');
-
-      const result = await response.json();
       setProgress(result.data);
       return result.data;
     } catch (error) {
@@ -190,16 +154,10 @@ export const useOnboardingProgress = () => {
     if (!user) return null;
 
     try {
-      const response = await fetch('/api/onboarding/complete', {
+      const result = await apiFetch<{ success: boolean; data: OnboardingProgress }>('/api/onboarding/complete', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
       });
 
-      if (!response.ok) throw new Error('Failed to complete onboarding');
-
-      const result = await response.json();
       setProgress(result.data);
       return result.data;
     } catch (error) {
@@ -214,16 +172,10 @@ export const useOnboardingProgress = () => {
     if (!user) return null;
 
     try {
-      const response = await fetch('/api/onboarding/reset', {
+      const result = await apiFetch<{ success: boolean; data: OnboardingProgress }>('/api/onboarding/reset', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
       });
 
-      if (!response.ok) throw new Error('Failed to reset onboarding');
-
-      const result = await response.json();
       setProgress(result.data);
       return result.data;
     } catch (error) {

@@ -16,6 +16,7 @@ export enum SyncOperation {
 }
 
 export enum SyncStatus {
+  QUEUED = 'queued',
   RUNNING = 'running',
   SUCCESS = 'success',
   FAILED = 'failed',
@@ -60,14 +61,17 @@ export class SyncLog {
   })
   status: SyncStatus;
 
-  @Column('jsonb')
-  details: SyncDetails;
+  @Column('jsonb', { nullable: true })
+  details: SyncDetails | null;
 
-  @Column()
+  @Column({ type: 'text', nullable: true })
+  error: string | null;
+
+  @Column({ type: 'timestamp' })
   startedAt: Date;
 
-  @Column({ nullable: true })
-  completedAt: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  completedAt: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

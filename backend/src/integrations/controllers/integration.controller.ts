@@ -11,6 +11,10 @@ import {
   Request,
   HttpCode,
   HttpStatus,
+  Headers,
+  RawBodyRequest,
+  Req,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   IntegrationService,
@@ -19,7 +23,6 @@ import {
 } from '../services/integration.service';
 import {
   SlackIntegrationService,
-  SlackMessage,
   SlackCommand,
 } from '../services/slack-integration.service';
 import {
@@ -43,9 +46,17 @@ import {
   UniversalSearchService,
   SearchQuery,
 } from '../services/universal-search.service';
+import { WebhookVerificationService } from '../services/webhook-verification.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-// import { PermissionsGuard } from '../../access-control/guards/permissions.guard';
-// import { IntegrationType } from '../entities/integration.entity';
+import { IntegrationType } from '../entities/integration.entity';
+import { IntegrationOwnershipGuard } from '../guards/integration-ownership.guard';
+import {
+  SyncSlackChannelsDto,
+  SyncSlackUsersDto,
+  SyncSlackMessagesDto,
+  SendSlackNotificationDto,
+} from '../dto/sync.dto';
+import { SuperAdminGuard } from '../../auth/guards/super-admin.guard';
 
 interface AuthenticatedRequest {
   user: {
@@ -53,6 +64,19 @@ interface AuthenticatedRequest {
     organizationId?: string;
     email: string;
   };
+}
+
+/**
+ * Helper to enforce organization context for multi-tenant security.
+ * Throws BadRequestException if organizationId is missing.
+ */
+function getRequiredOrganizationId(req: AuthenticatedRequest): string {
+  if (!req.user.organizationId) {
+    throw new BadRequestException(
+      'Organization context required. Please re-authenticate.',
+    );
+  }
+  return req.user.organizationId;
 }
 
 // interface SlackWebhookBody {
@@ -124,6 +148,8 @@ interface LocalIssueData {
   status: string;
   priority: string;
   assignee?: string;
+  labels?: string[];
+  [key: string]: unknown; // Index signature for Record<string, unknown> compatibility
 }
 
 interface GoogleEventData {
@@ -169,6 +195,7 @@ interface SearchContentItem {
   content: string;
   source: string;
   metadata: Record<string, unknown>;
+  [key: string]: unknown; // Index signature for compatibility
 }
 
 @Controller('api/integrations')
@@ -176,6 +203,7 @@ interface SearchContentItem {
 export class IntegrationController {
   constructor(
     private readonly integrationService: IntegrationService,
+    private readonly webhookVerificationService: WebhookVerificationService,
     private readonly slackIntegrationService: SlackIntegrationService,
     private readonly githubIntegrationService: GitHubIntegrationService,
     private readonly jiraIntegrationService: JiraIntegrationService,
@@ -186,12 +214,13 @@ export class IntegrationController {
   ) {}
 
   @Post()
+  @UseGuards(SuperAdminGuard)
   async createIntegration(
     @Request() req: AuthenticatedRequest,
     @Body() dto: CreateIntegrationDto,
   ) {
     // const userId = req.user.id;
-    const organizationId = req.user.organizationId || 'default-org';
+    const organizationId = getRequiredOrganizationId(req);
 
     return await this.integrationService.createIntegration({
       ...dto,
@@ -201,7 +230,7 @@ export class IntegrationController {
 
   @Get()
   async getIntegrations(@Request() req: AuthenticatedRequest) {
-    const organizationId = req.user.organizationId || 'default-org';
+    const organizationId = getRequiredOrganizationId(req);
     return await this.integrationService.getIntegrations(organizationId);
   }
 
@@ -210,17 +239,18 @@ export class IntegrationController {
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    const organizationId = req.user.organizationId || 'default-org';
+    const organizationId = getRequiredOrganizationId(req);
     return await this.integrationService.getIntegration(id, organizationId);
   }
 
   @Put(':id')
+  @UseGuards(SuperAdminGuard)
   async updateIntegration(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
     @Body() dto: UpdateIntegrationDto,
   ) {
-    const organizationId = req.user.organizationId || 'default-org';
+    const organizationId = getRequiredOrganizationId(req);
     return await this.integrationService.updateIntegration(
       id,
       organizationId,
@@ -230,20 +260,22 @@ export class IntegrationController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SuperAdminGuard)
   async deleteIntegration(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    const organizationId = req.user.organizationId || 'default-org';
+    const organizationId = getRequiredOrganizationId(req);
     await this.integrationService.deleteIntegration(id, organizationId);
   }
 
   @Post(':id/sync')
+  @UseGuards(SuperAdminGuard)
   async syncIntegration(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    const organizationId = req.user.organizationId || 'default-org';
+    const organizationId = getRequiredOrganizationId(req);
     return await this.integrationService.syncIntegration(id, organizationId);
   }
 
@@ -252,7 +284,7 @@ export class IntegrationController {
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    const organizationId = req.user.organizationId || 'default-org';
+    const organizationId = getRequiredOrganizationId(req);
     return await this.integrationService.getIntegrationHealth(
       id,
       organizationId,
@@ -260,11 +292,12 @@ export class IntegrationController {
   }
 
   @Post(':id/test')
+  @UseGuards(SuperAdminGuard)
   async testIntegration(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    const organizationId = req.user.organizationId || 'default-org';
+    const organizationId = getRequiredOrganizationId(req);
     const isConnected = await this.integrationService.testIntegration(
       id,
       organizationId,
@@ -278,25 +311,55 @@ export class IntegrationController {
     @Request() req: AuthenticatedRequest,
     @Query('limit') limit?: number,
   ) {
-    const organizationId = req.user.organizationId || 'default-org';
+    const organizationId = getRequiredOrganizationId(req);
     return await this.integrationService.getSyncLogs(id, organizationId, limit);
   }
 
   // Slack-specific endpoints
-  @Post('slack/install')
-  installSlackIntegration() {
-    // const organizationId = req.user.organizationId || 'default-org';
-
-    // This would handle OAuth flow
-    // For now, return a placeholder
-    return {
-      message: 'Slack integration installation initiated',
-      redirectUrl: 'https://slack.com/oauth/v2/authorize?client_id=...',
-    };
-  }
+  // OAuth flow is now handled by OAuthController
+  // See: /api/integrations/oauth/slack/authorize
 
   @Post('slack/webhook')
-  handleSlackWebhook() {
+  async handleSlackWebhook(
+    @Body() body: unknown,
+    @Headers('x-slack-signature') signature: string,
+    @Headers('x-slack-request-timestamp') timestamp: string,
+    @Req() req: RawBodyRequest<Request>,
+  ) {
+    // Get raw body for signature verification
+    const rawBody = req.rawBody
+      ? req.rawBody.toString('utf8')
+      : JSON.stringify(body);
+
+    // Find all Slack integrations and verify which one matches the signature
+    const slackIntegrations =
+      await this.integrationService.findIntegrationsByTypeForWebhook(
+        IntegrationType.SLACK,
+      );
+
+    let matchingIntegration: (typeof slackIntegrations)[number] | null = null;
+    for (const integration of slackIntegrations) {
+      if (!integration.authConfig?.webhookSecret) continue;
+
+      const isValid = this.webhookVerificationService.verifySlackSignature(
+        rawBody,
+        timestamp,
+        signature,
+        integration.authConfig.webhookSecret,
+      );
+
+      if (isValid) {
+        matchingIntegration = integration;
+        break;
+      }
+    }
+
+    if (!matchingIntegration) {
+      throw new BadRequestException(
+        'No Slack integration found with matching webhook secret',
+      );
+    }
+
     // Handle Slack webhook events
     return { received: true };
   }
@@ -309,39 +372,77 @@ export class IntegrationController {
   }
 
   @Post('slack/notify')
-  async sendSlackNotification(
-    @Body() body: { integrationId: string; message: SlackMessage },
-  ) {
+  @UseGuards(IntegrationOwnershipGuard)
+  async sendSlackNotification(@Body() dto: SendSlackNotificationDto) {
     return await this.slackIntegrationService.sendNotification(
-      body.integrationId,
-      body.message,
+      dto.integrationId,
+      dto.message,
     );
   }
 
   @Post('slack/sync-channels')
-  async syncSlackChannels(@Body() body: { integrationId: string }) {
-    return await this.slackIntegrationService.syncChannels(body.integrationId);
+  @UseGuards(IntegrationOwnershipGuard)
+  async syncSlackChannels(@Body() dto: SyncSlackChannelsDto) {
+    return await this.slackIntegrationService.syncChannels(dto.integrationId);
   }
 
   @Post('slack/sync-users')
-  async syncSlackUsers(@Body() body: { integrationId: string }) {
-    return await this.slackIntegrationService.syncUsers(body.integrationId);
+  @UseGuards(IntegrationOwnershipGuard)
+  async syncSlackUsers(@Body() dto: SyncSlackUsersDto) {
+    return await this.slackIntegrationService.syncUsers(dto.integrationId);
   }
 
   @Post('slack/sync-messages')
-  async syncSlackMessages(
-    @Body() body: { integrationId: string; channelId: string; limit?: number },
-  ) {
+  @UseGuards(IntegrationOwnershipGuard)
+  async syncSlackMessages(@Body() dto: SyncSlackMessagesDto) {
     return (await this.slackIntegrationService.syncMessages(
-      body.integrationId,
-      body.channelId,
-      body.limit,
-    )) as Record<string, unknown>[];
+      dto.integrationId,
+      dto.channelId,
+      dto.limit,
+    )) as unknown as Record<string, unknown>[];
   }
 
   // GitHub-specific endpoints
   @Post('github/webhook')
-  async handleGitHubWebhook(@Body() payload: GitHubWebhookPayload) {
+  async handleGitHubWebhook(
+    @Body() payload: GitHubWebhookPayload,
+    @Headers('x-hub-signature-256') signature: string,
+    @Req() req: RawBodyRequest<Request>,
+  ) {
+    // Get raw body for signature verification
+    const rawBody = req.rawBody
+      ? req.rawBody.toString('utf8')
+      : JSON.stringify(payload);
+
+    // Find all GitHub integrations and verify which one matches the signature
+    const githubIntegrations =
+      await this.integrationService.findIntegrationsByTypeForWebhook(
+        IntegrationType.GITHUB,
+      );
+
+    let matchingIntegration: (typeof githubIntegrations)[number] | null = null;
+    for (const integration of githubIntegrations) {
+      if (!integration.authConfig?.webhookSecret) continue;
+
+      const isValid = this.webhookVerificationService.verifyGitHubSignature(
+        rawBody,
+        signature,
+        integration.authConfig.webhookSecret,
+      );
+
+      if (isValid) {
+        matchingIntegration = integration;
+        break;
+      }
+    }
+
+    if (!matchingIntegration) {
+      throw new BadRequestException(
+        'No GitHub integration found with matching webhook secret',
+      );
+    }
+
+    // Process webhook
     await this.githubIntegrationService.handleWebhook(payload);
     return { received: true };
   }
@@ -391,7 +492,38 @@ export class IntegrationController {
 
   // Jira-specific endpoints
   @Post('jira/webhook')
-  async handleJiraWebhook(@Body() payload: JiraWebhookPayload) {
+  async handleJiraWebhook(
+    @Body() payload: JiraWebhookPayload,
+    @Query('secret') webhookSecret: string,
+  ) {
+    // Find all Jira integrations and verify which one matches the secret
+    const jiraIntegrations =
+      await this.integrationService.findIntegrationsByTypeForWebhook(
+        IntegrationType.JIRA,
+      );
+
+    let matchingIntegration: (typeof jiraIntegrations)[number] | null = null;
+    for (const integration of jiraIntegrations) {
+      if (!integration.authConfig?.webhookSecret) continue;
+
+      const isValid = this.webhookVerificationService.verifyJiraWebhook(
+        webhookSecret,
+        integration.authConfig.webhookSecret,
+      );
+
+      if (isValid) {
+        matchingIntegration = integration;
+        break;
+      }
+    }
+
+    if (!matchingIntegration) {
+      throw new BadRequestException(
+        'No Jira integration found with matching webhook secret',
+      );
+    }
+
+    // Process webhook
     await this.jiraIntegrationService.handleWebhook(payload);
     return { received: true };
   }
@@ -436,11 +568,11 @@ export class IntegrationController {
       jiraProjectKey: string;
     },
   ) {
-    return (await this.jiraIntegrationService.exportIssue(
+    return await this.jiraIntegrationService.exportIssue(
       body.integrationId,
       body.localIssue,
       body.jiraProjectKey,
-    )) as Record<string, unknown>;
+    );
   }
 
   @Post('jira/sync-status')
@@ -570,7 +702,47 @@ export class IntegrationController {
 
   // Trello-specific endpoints
   @Post('trello/webhook')
-  async handleTrelloWebhook(@Body() payload: TrelloWebhookPayload) {
+  async handleTrelloWebhook(
+    @Body() payload: TrelloWebhookPayload,
+    @Headers('x-trello-webhook') signature: string,
+    @Req() req: RawBodyRequest<Request>,
+  ) {
+    // Get raw body for signature verification
+    const rawBody = req.rawBody
+      ? req.rawBody.toString('utf8')
+      : JSON.stringify(payload);
+
+    // Find all Trello integrations and verify which one matches the signature
+    const trelloIntegrations =
+      await this.integrationService.findIntegrationsByTypeForWebhook(
+        IntegrationType.TRELLO,
+      );
+
+    let matchingIntegration: (typeof trelloIntegrations)[number] | null = null;
+    for (const integration of trelloIntegrations) {
+      if (!integration.authConfig?.webhookSecret) continue;
+
+      const callbackUrl = integration.config.webhookUrl || '';
+      const isValid = this.webhookVerificationService.verifyTrelloSignature(
+        rawBody,
+        callbackUrl,
+        signature,
+        integration.authConfig.webhookSecret,
+      );
+
+      if (isValid) {
+        matchingIntegration = integration;
+        break;
+      }
+    }
+
+    if (!matchingIntegration) {
+      throw new BadRequestException(
+        'No Trello integration found with matching webhook secret',
+      );
+    }
+
+    // Process webhook
     await this.trelloIntegrationService.handleWebhook(payload);
     return { received: true };
   }

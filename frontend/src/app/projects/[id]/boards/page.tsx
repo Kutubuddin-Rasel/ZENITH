@@ -6,9 +6,9 @@ import Spinner from "../../../../components/Spinner";
 import Card from "../../../../components/Card";
 import Button from "../../../../components/Button";
 import Typography from "../../../../components/Typography";
-import CreateBoardWizardModal from '../../../../components/CreateBoardWizardModal';
-import { useProject } from '../../../../hooks/useProject';
-import { useToast } from '../../../../context/ToastContext';
+import CreateBoardWizardModal from '@/components/CreateBoardWizardModal';
+import { useProject } from '@/hooks/useProject';
+import { useToast } from '@/context/ToastContext';
 
 // Fetch boards for the project
 async function fetchBoards(projectId: string) {

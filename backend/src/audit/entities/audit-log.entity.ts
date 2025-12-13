@@ -118,11 +118,14 @@ export enum AuditStatus {
 }
 
 @Entity({ name: 'audit_logs' })
-@Index(['timestamp', 'eventType'])
-@Index(['userId', 'timestamp'])
-@Index(['projectId', 'timestamp'])
-@Index(['severity', 'timestamp'])
-@Index(['ipAddress', 'timestamp'])
+@Index('IDX_audit_log_user_id', ['userId'])
+@Index('IDX_audit_log_event_type', ['eventType'])
+@Index('IDX_audit_log_severity', ['severity'])
+@Index('IDX_audit_log_timestamp', ['timestamp'])
+@Index('IDX_audit_log_project_id', ['projectId'])
+@Index('IDX_audit_log_resource_type', ['resourceType'])
+@Index('IDX_audit_log_resource_id', ['resourceId'])
+@Index('IDX_audit_log_recent', ['timestamp'])
 export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -204,7 +207,7 @@ export class AuditLog {
 
   // Additional Metadata
   @Column({ type: 'jsonb', nullable: true })
-  metadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
 
   @Column({ default: false })
   isRetained: boolean; // For compliance retention

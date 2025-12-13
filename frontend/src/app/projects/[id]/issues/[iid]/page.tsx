@@ -4,24 +4,28 @@ import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import Spinner from "@/components/Spinner";
 import Button from "@/components/Button";
-import Input from '../../../../../components/Input';
-import Card from '../../../../../components/Card';
+import Input from '@/components/Input';
+import Card from '@/components/Card';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useProjectIssues, useIssueHistory } from '../../../../../hooks/useProjectIssues';
-import { useIssueComments, IssueComment } from '../../../../../hooks/useProjectIssues';
-import { useAuth } from '../../../../../context/AuthContext';
-import { getSocket } from '../../../../../lib/socket';
-import { useUpdateComment, useDeleteComment } from '../../../../../hooks/useProjectIssues';
-import { useProject } from '../../../../../hooks/useProject';
-import { useIssueAttachments, IssueAttachment } from '../../../../../hooks/useProjectIssues';
-import { useCommentAttachments, CommentAttachment } from '../../../../../hooks/useProjectIssues';
+import { useProjectIssues, useIssueHistory } from '@/hooks/useProjectIssues';
+import { useIssueComments, IssueComment } from '@/hooks/useProjectIssues';
+import { useAuth } from '@/context/AuthContext';
+import { getSocket } from '@/lib/socket';
+import { useUpdateComment, useDeleteComment } from '@/hooks/useProjectIssues';
+import { useProject } from '@/hooks/useProject';
+import { useIssueAttachments, IssueAttachment } from '@/hooks/useProjectIssues';
+import { useCommentAttachments, CommentAttachment } from '@/hooks/useProjectIssues';
 import { useProjectMembers } from '@/hooks/useProject';
 import { saveAs } from 'file-saver';
-import { useCreateIssue } from '../../../../../hooks/useCreateIssue';
+import { useCreateIssue } from '@/hooks/useCreateIssue';
 import RoleBadge from '@/components/RoleBadge';
-import { UserCircleIcon, FlagIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
+import { UserCircleIcon, FlagIcon, CalendarDaysIcon, LinkIcon, TagIcon } from '@heroicons/react/24/outline';
+import LinkedIssues from '@/components/Issue/LinkedIssues';
+import LabelPicker from '@/components/Issue/LabelPicker';
+import { apiFetch } from '@/lib/fetcher';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 
 const commentSchema = z.object({
@@ -43,6 +47,21 @@ export default function IssueDetailPage() {
   const [submittingSubtask, setSubmittingSubtask] = useState(false);
   const [subtaskError, setSubtaskError] = useState<string | null>(null);
   const { data: members } = useProjectMembers(projectId);
+
+  // Mutation to update labels
+  const queryClient = useQueryClient();
+  const updateLabels = useMutation({
+    mutationFn: async (newLabels: string[]) => {
+      return apiFetch(`/projects/${projectId}/issues/${issueId}/labels`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labels: newLabels }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issues', projectId] });
+    }
+  });
 
   async function handleCreateSubtask(e: React.FormEvent) {
     e.preventDefault();
@@ -81,18 +100,18 @@ export default function IssueDetailPage() {
     <div className="flex flex-col md:flex-row gap-8 animate-fade-in">
       {/* Left column: Issue summary and metadata */}
       <div className="flex-1 min-w-0">
-        <Card className="mb-4 bg-white/80 dark:bg-gray-800/70 backdrop-blur-lg border border-accent-blue/10 shadow-2xl p-0 overflow-hidden">
+        <Card className="mb-4 bg-white/80 dark:bg-gray-800/70 backdrop-blur-lg border border-accent-blue/10 shadow-2xl p-0">
           {/* Glassy header with type, key, status, priority */}
-          <div className="flex flex-col md:flex-row md:items-center gap-4 px-8 py-6 bg-gradient-to-r from-accent-blue/10 via-white/60 to-blue-100/40 dark:from-accent-blue-dark/20 dark:via-gray-900/60 dark:to-blue-900/30 border-b border-accent-blue/10">
+          <div className="flex flex-col md:flex-row md:items-center gap-4 px-8 py-6 bg-gradient-to-r from-white via-blue-50/30 to-white dark:from-gray-900 dark:via-blue-900/10 dark:to-gray-900 border-b border-neutral-200/60 dark:border-neutral-800">
             <div className="flex flex-col gap-2 flex-1 min-w-0">
               <div className="flex items-center gap-3 flex-wrap">
                 <TypeBadge type={issue.type} />
-                <span className="font-mono text-xs text-accent-blue bg-accent-blue/10 px-2 py-1 rounded-full shadow-sm">{issue.key}</span>
+                <span className="font-mono text-xs text-neutral-500 bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded shadow-sm border border-neutral-200 dark:border-neutral-700">{issue.key}</span>
                 <StatusBadge status={issue.status} />
                 <PriorityBadge priority={issue.priority} />
               </div>
               <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-accent-blue dark:text-accent-blue-light mt-2 mb-1 break-words">{issue.title}</h1>
-              </div>
+            </div>
             <div className="flex flex-col items-end gap-2 min-w-[160px]">
               <div className="flex items-center gap-2">
                 <Avatar user={typeof issue.assignee === 'object' ? {
@@ -114,11 +133,25 @@ export default function IssueDetailPage() {
             {issue?.description || <span className="text-gray-400">No description yet.</span>}
           </div>
           {/* Metadata chips */}
-          <div className="flex flex-wrap gap-3 px-8 py-4 border-b border-accent-blue/5 bg-gradient-to-r from-white/60 to-blue-50/40 dark:from-background-dark/80 dark:to-gray-900/60">
+          <div className="flex flex-wrap gap-4 px-8 py-4 border-b border-accent-blue/5 bg-gradient-to-r from-white/60 to-blue-50/40 dark:from-background-dark/80 dark:to-gray-900/60 items-center">
             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-semibold text-gray-600 dark:text-gray-300"><UserCircleIcon className="h-4 w-4 mr-1" />Reporter: {'Unknown'}</span>
             {issue.storyPoints !== undefined && <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold"><FlagIcon className="h-4 w-4 mr-1" />{String(issue.storyPoints || '')} pts</span>}
             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-semibold text-gray-600 dark:text-gray-300"><CalendarDaysIcon className="h-4 w-4 mr-1" />Created: {issue.createdAt ? new Date(issue.createdAt).toLocaleDateString() : '-'}</span>
             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-semibold text-gray-600 dark:text-gray-300"><CalendarDaysIcon className="h-4 w-4 mr-1" />Updated: {issue.updatedAt ? new Date(issue.updatedAt).toLocaleDateString() : '-'}</span>
+            <div className="flex items-center gap-2 ml-auto">
+              <TagIcon className="h-4 w-4 text-gray-400" />
+              <LabelPicker
+                labels={issue.labels || []}
+                onChange={(newLabels) => updateLabels.mutate(newLabels)}
+              />
+            </div>
+          </div>
+          {/* Linked Issues Section (NEW) */}
+          <div className="px-8 py-4 border-b border-accent-blue/5 bg-white/40 dark:bg-gray-800/40">
+            <h3 className="font-semibold text-sm mb-3 text-gray-600 dark:text-gray-300 flex items-center gap-2">
+              <LinkIcon className="h-4 w-4" /> Linked Issues
+            </h3>
+            <LinkedIssues projectId={projectId} issueId={issueId} />
           </div>
           {/* Sub-tasks section */}
           <div className="px-8 py-6">
@@ -168,15 +201,15 @@ export default function IssueDetailPage() {
         </Card>
       </div>
       {/* Right column: Tabs for Comments, Attachments, History, Work Log */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 max-w-xl">
         <Card className="bg-white/80 dark:bg-gray-800/70 backdrop-blur-lg border border-accent-blue/10 shadow-xl p-0 overflow-hidden">
           {/* Tabs */}
           <div className="sticky top-0 z-10 bg-gradient-to-r from-white/80 to-blue-50/60 dark:from-background-dark/80 dark:to-blue-900/40 backdrop-blur border-b border-accent-blue/10 px-6 pt-4">
-            <div className="flex gap-10">
-              {['comments','attachments','history','worklog'].map(tab => (
-              <button
+            <div className="flex gap-6 overflow-x-auto pb-0">
+              {['comments', 'attachments', 'history', 'worklog'].map(tab => (
+                <button
                   key={tab}
-                  className={`px-4 py-2 font-semibold text-base rounded-xl transition-all duration-200 border-b-2 focus:outline-none focus:ring-2 focus:ring-accent-blue/30 shadow-sm ${activeTab === tab ? 'text-accent-blue border-accent-blue bg-accent-blue/10 dark:bg-accent-blue/20 shadow-md' : 'text-gray-400 border-transparent hover:text-accent-blue/80 hover:bg-accent-blue/5'}`}
+                  className={`px-4 py-2 font-semibold text-sm whitespace-nowrap rounded-t-xl transition-all duration-200 border-b-2 focus:outline-none focus:ring-2 focus:ring-accent-blue/30 ${activeTab === tab ? 'text-accent-blue border-accent-blue bg-accent-blue/10 dark:bg-accent-blue/20' : 'text-gray-400 border-transparent hover:text-accent-blue/80 hover:bg-accent-blue/5'}`}
                   onClick={() => setActiveTab(tab)}
                 >
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -186,21 +219,21 @@ export default function IssueDetailPage() {
           </div>
           {/* Tab content */}
           <div className="px-6 py-6 min-h-[320px]">
-          {activeTab === 'comments' && (
-            <CommentsTab projectId={projectId} issueId={issueId} />
-          )}
-          {activeTab === 'attachments' && (
-            <AttachmentsTab projectId={projectId} issueId={issueId} />
-          )}
-          {activeTab === 'history' && (
-            <HistoryTab projectId={projectId} issueId={issueId} />
-          )}
-          {activeTab === 'worklog' && (
-            <WorkLogTab />
-          )}
-          {activeTab !== 'comments' && (
-            <div className="text-gray-400 text-center py-8">Select a tab to view details.</div>
-          )}
+            {activeTab === 'comments' && (
+              <CommentsTab projectId={projectId} issueId={issueId} />
+            )}
+            {activeTab === 'attachments' && (
+              <AttachmentsTab projectId={projectId} issueId={issueId} />
+            )}
+            {activeTab === 'history' && (
+              <HistoryTab projectId={projectId} issueId={issueId} />
+            )}
+            {activeTab === 'worklog' && (
+              <WorkLogTab />
+            )}
+            {activeTab !== 'comments' && (
+              <div className="text-gray-400 text-center py-8">Select a tab to view details.</div>
+            )}
           </div>
         </Card>
       </div>
@@ -814,23 +847,23 @@ function HistoryTab({ projectId, issueId }: { projectId: string; issueId: string
               );
             }
             return (
-            <li
-              key={rev.id}
-              className={`mb-8 ml-4 animate-fade-in-slide group transition-all duration-200`}
-            >
+              <li
+                key={rev.id}
+                className={`mb-8 ml-4 animate-fade-in-slide group transition-all duration-200`}
+              >
                 <div className="absolute -left-7 top-2 w-10 h-10 flex items-center justify-center z-10">
-                {getActionIcon(rev.action)}
-              </div>
+                  {getActionIcon(rev.action)}
+                </div>
                 <div className="bg-white/90 dark:bg-gray-900/80 rounded-xl shadow-lg border border-accent-blue/10 px-6 py-4 flex flex-col gap-2">
                   <div className="flex items-center gap-3 mb-1">
-                  {renderUserAvatar(rev.changedBy)}
+                    {renderUserAvatar(rev.changedBy)}
                     <span className="font-semibold text-accent-blue text-sm">{getUserInfo(rev.changedBy)?.name || getUserInfo(rev.changedBy)?.email || rev.changedBy}</span>
-                  <span className="text-xs text-gray-400">{new Date(rev.createdAt).toLocaleString()}</span>
+                    <span className="text-xs text-gray-400">{new Date(rev.createdAt).toLocaleString()}</span>
                     <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${rev.action === 'CREATE' ? 'bg-green-100 text-green-700' : rev.action === 'UPDATE' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{rev.action.charAt(0) + rev.action.slice(1).toLowerCase()}</span>
-                </div>
+                  </div>
                   {diff}
-              </div>
-            </li>
+                </div>
+              </li>
             );
           })}
         </ol>
@@ -845,11 +878,11 @@ function HistoryTab({ projectId, issueId }: { projectId: string; issueId: string
 function TypeBadge({ type }: { type: string }) {
   const color =
     type === 'Bug' ? 'bg-red-100 text-red-800' :
-    type === 'Story' ? 'bg-green-100 text-green-800' :
-    type === 'Task' ? 'bg-blue-100 text-blue-800' :
-    type === 'Epic' ? 'bg-purple-100 text-purple-800' :
-    type === 'Sub-task' ? 'bg-gray-100 text-gray-800' :
-    'bg-gray-100 text-gray-800';
+      type === 'Story' ? 'bg-green-100 text-green-800' :
+        type === 'Task' ? 'bg-blue-100 text-blue-800' :
+          type === 'Epic' ? 'bg-purple-100 text-purple-800' :
+            type === 'Sub-task' ? 'bg-gray-100 text-gray-800' :
+              'bg-gray-100 text-gray-800';
   return (
     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold shadow-sm ${color} gap-1`}>{type}</span>
   );
@@ -859,11 +892,11 @@ function TypeBadge({ type }: { type: string }) {
 function StatusBadge({ status }: { status: string }) {
   const color =
     status === 'Done' ? 'bg-green-100 text-green-800' :
-    status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
-    status === 'To Do' ? 'bg-gray-200 text-gray-800' :
-    status === 'Blocked' ? 'bg-red-100 text-red-800' :
-    status === 'Ready for QA' ? 'bg-yellow-100 text-yellow-800' :
-    'bg-gray-100 text-gray-800';
+      status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+        status === 'To Do' ? 'bg-gray-200 text-gray-800' :
+          status === 'Blocked' ? 'bg-red-100 text-red-800' :
+            status === 'Ready for QA' ? 'bg-yellow-100 text-yellow-800' :
+              'bg-gray-100 text-gray-800';
   return (
     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold shadow-sm ${color}`}>{status}</span>
   );
@@ -873,11 +906,11 @@ function StatusBadge({ status }: { status: string }) {
 function PriorityBadge({ priority }: { priority: string }) {
   const color =
     priority === 'Highest' ? 'bg-red-700 text-white' :
-    priority === 'High' ? 'bg-red-100 text-red-800' :
-    priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-    priority === 'Low' ? 'bg-green-100 text-green-800' :
-    priority === 'Lowest' ? 'bg-gray-200 text-gray-700' :
-    'bg-gray-100 text-gray-800';
+      priority === 'High' ? 'bg-red-100 text-red-800' :
+        priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+          priority === 'Low' ? 'bg-green-100 text-green-800' :
+            priority === 'Lowest' ? 'bg-gray-200 text-gray-700' :
+              'bg-gray-100 text-gray-800';
   return (
     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold shadow-sm ${color} gap-1`}>{priority}</span>
   );
@@ -885,7 +918,7 @@ function PriorityBadge({ priority }: { priority: string }) {
 
 // Avatar: Local definition
 function Avatar({ user, size = 10 }: { user?: { name?: string; email?: string; avatarUrl?: string }, size?: number }) {
-  if (!user) return <div className={`w-${size} h-${size} rounded-full bg-gray-200 flex items-center justify-center`}><UserCircleIcon className={`h-${size-2} w-${size-2} text-gray-400`} /></div>;
+  if (!user) return <div className={`w-${size} h-${size} rounded-full bg-gray-200 flex items-center justify-center`}><UserCircleIcon className={`h-${size - 2} w-${size - 2} text-gray-400`} /></div>;
   if (user.avatarUrl) return <Image src={user.avatarUrl} alt={user.name || user.email || ''} className={`w-${size} h-${size} rounded-full object-cover`} width={size <= 16 ? 16 : size <= 32 ? 32 : 48} height={size <= 16 ? 16 : size <= 32 ? 32 : 48} />;
   return <div className={`w-${size} h-${size} rounded-full bg-gray-200 flex items-center justify-center font-bold`}>{(user.name || user.email || '')[0]}</div>;
 }

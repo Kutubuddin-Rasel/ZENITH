@@ -64,9 +64,8 @@ describe('ProjectWizardService', () => {
   });
 
   describe('getWizardQuestions', () => {
-    it('should return wizard questions for a user', async () => {
-      const userId = 'test-user-id';
-      const questions = await service.getWizardQuestions(userId);
+    it('should return wizard questions for a user', () => {
+      const questions = service.getWizardQuestions();
 
       expect(questions).toBeDefined();
       expect(Array.isArray(questions)).toBe(true);

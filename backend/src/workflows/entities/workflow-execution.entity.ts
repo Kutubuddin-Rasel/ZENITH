@@ -12,13 +12,13 @@ import { Workflow } from './workflow.entity';
 
 export interface ExecutionContext {
   triggerEvent: string;
-  triggerData: Record<string, any>;
-  variables: Record<string, any>;
+  triggerData: Record<string, unknown>;
+  variables: Record<string, unknown>;
   userId?: string;
   projectId: string;
   issueId?: string;
   sprintId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ExecutionLog {
@@ -28,7 +28,7 @@ export interface ExecutionLog {
   message: string;
   nodeId?: string;
   actionId?: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 export enum ExecutionStatus {

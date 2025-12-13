@@ -9,7 +9,15 @@ import {
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { SessionService } from '../session.service';
-import { SessionStatus } from '../entities/session.entity';
+import { SessionStatus, Session } from '../entities/session.entity';
+import { Request } from 'express';
+
+interface SessionRequest extends Omit<Request, 'session' | 'sessionID'> {
+  session?: Session;
+  sessionId?: string;
+  sessionID?: string;
+  cookies: { sessionId?: string };
+}
 
 @Injectable()
 export class SessionInterceptor implements NestInterceptor {
@@ -20,9 +28,8 @@ export class SessionInterceptor implements NestInterceptor {
   async intercept(
     context: ExecutionContext,
     next: CallHandler,
-  ): Promise<Observable<any>> {
-    const request = context.switchToHttp().getRequest();
-    const response = context.switchToHttp().getResponse();
+  ): Promise<Observable<unknown>> {
+    const request = context.switchToHttp().getRequest<SessionRequest>();
 
     // Skip session validation for public routes
     if (this.isPublicRoute(request.url)) {
@@ -77,13 +84,15 @@ export class SessionInterceptor implements NestInterceptor {
     );
   }
 
-  private extractSessionId(request: any): string | null {
+  private extractSessionId(request: SessionRequest): string | null {
     // Try to get session ID from various sources
     return (
       request.sessionID ||
-      request.headers['x-session-id'] ||
+      (Array.isArray(request.headers['x-session-id'])
+        ? request.headers['x-session-id'][0]
+        : request.headers['x-session-id']) ||
       request.cookies?.sessionId ||
-      request.query.sessionId ||
+      (request.query.sessionId as string) ||
       null
     );
   }

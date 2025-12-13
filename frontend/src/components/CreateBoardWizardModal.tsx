@@ -3,7 +3,25 @@ import Modal from './Modal';
 import Button from './Button';
 import Input from './Input';
 import { Squares2X2Icon, RectangleStackIcon, ArrowRightIcon, ArrowLeftIcon, PlusIcon, TrashIcon, Bars3Icon, InformationCircleIcon } from '@heroicons/react/24/outline';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import {
+  DndContext,
+  closestCenter,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  KeyboardSensor,
+  DragStartEvent,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Transition } from '@headlessui/react';
 
 export type BoardType = 'scrum' | 'kanban';
@@ -41,6 +59,79 @@ const steps = [
   'Review',
 ];
 
+// Sortable Column Item for Wizard
+function SortableWizardColumn({
+  column,
+  index,
+  onNameChange,
+  onRemove
+}: {
+  column: { name: string };
+  index: number;
+  onNameChange: (value: string) => void;
+  onRemove: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: `col-${index}` });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 rounded-xl bg-gradient-to-r from-gray-50/80 via-white/80 to-gray-100/80 dark:from-gray-800/80 dark:via-gray-900/80 dark:to-gray-800/80 border border-gray-100 dark:border-gray-800 p-2 shadow-sm transition-all duration-200 ${isDragging ? 'ring-2 ring-blue-400 scale-105 shadow-lg' : 'hover:shadow-md hover:bg-blue-50/40 dark:hover:bg-blue-950/20'
+        }`}
+    >
+      <span
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+        aria-label="Drag column"
+      >
+        <Bars3Icon className="h-5 w-5" />
+      </span>
+      <Input
+        value={column.name}
+        onChange={e => onNameChange(e.target.value)}
+        className="flex-1"
+        placeholder={`Column ${index + 1}`}
+        required
+        aria-label={`Column ${index + 1} Name`}
+      />
+      <button
+        type="button"
+        onClick={onRemove}
+        className="p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400"
+        aria-label="Remove column"
+      >
+        <TrashIcon className="h-4 w-4 text-red-500" />
+      </button>
+    </div>
+  );
+}
+
+// Drag Overlay for Column
+function DragOverlayWizardColumn({ column }: { column: { name: string } }) {
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-white dark:bg-gray-800 border-2 border-blue-400 p-2 shadow-2xl">
+      <Bars3Icon className="h-5 w-5 text-gray-400" />
+      <span className="flex-1 font-medium text-gray-900 dark:text-white">{column.name || 'New Column'}</span>
+    </div>
+  );
+}
+
 const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, onClose, onCreate, defaultProjectName }) => {
   const [step, setStep] = useState(0);
   const [type, setType] = useState<BoardType>('scrum');
@@ -49,6 +140,19 @@ const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, o
   const [description, setDescription] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
+  // Sensors for smooth DnD
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Reset columns when board type changes
   React.useEffect(() => {
@@ -61,13 +165,23 @@ const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, o
   const handleAddColumn = () => setColumns([...columns, { name: '' }]);
   const handleRemoveColumn = (idx: number) => setColumns(columns.filter((_, i) => i !== idx));
   const handleColumnNameChange = (idx: number, value: string) => setColumns(columns.map((col, i) => i === idx ? { ...col, name: value } : col));
-  const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
-    const reordered = Array.from(columns);
-    const [removed] = reordered.splice(result.source.index, 1);
-    reordered.splice(result.destination.index, 0, removed);
-    setColumns(reordered);
-  };
+
+  function handleDragStart(event: DragStartEvent) {
+    const id = event.active.id as string;
+    const idx = parseInt(id.replace('col-', ''), 10);
+    setActiveIndex(idx);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveIndex(null);
+
+    if (over && active.id !== over.id) {
+      const oldIndex = parseInt((active.id as string).replace('col-', ''), 10);
+      const newIndex = parseInt((over.id as string).replace('col-', ''), 10);
+      setColumns(arrayMove(columns, oldIndex, newIndex));
+    }
+  }
 
   const handleCreate = async () => {
     setCreating(true);
@@ -83,6 +197,8 @@ const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, o
     }
   };
 
+  const activeColumn = activeIndex !== null ? columns[activeIndex] : null;
+
   return (
     <Modal open={open} onClose={onClose} title="Create Board" maxWidthClass="sm:max-w-2xl">
       {/* Stepper Bar */}
@@ -97,6 +213,7 @@ const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, o
         </ol>
         <div className="h-1 w-full bg-gradient-to-r from-blue-400 via-purple-400 to-blue-400 rounded-full mt-4" style={{ width: `${((step + 1) / steps.length) * 100}%`, transition: 'width 0.4s' }} />
       </div>
+
       {/* Step Content with Animation */}
       <div className="min-h-[220px]">
         <Transition
@@ -149,6 +266,7 @@ const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, o
             </div>
           </div>
         </Transition>
+
         <Transition
           show={step === 1}
           enter="transition-opacity duration-300"
@@ -166,6 +284,7 @@ const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, o
             )}
           </div>
         </Transition>
+
         <Transition
           show={step === 2}
           enter="transition-opacity duration-300"
@@ -176,39 +295,40 @@ const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, o
           leaveTo="opacity-0"
         >
           <div className="flex flex-col gap-4">
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <Droppable droppableId="columns">
-                {(provided) => (
-                  <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col gap-2">
-                    {columns.map((col, idx) => (
-                      <Draggable draggableId={`col-${idx}`} index={idx} key={idx}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            className={`flex items-center gap-2 rounded-xl bg-gradient-to-r from-gray-50/80 via-white/80 to-gray-100/80 dark:from-gray-800/80 dark:via-gray-900/80 dark:to-gray-800/80 border border-gray-100 dark:border-gray-800 p-2 shadow-sm transition-all duration-200 ${snapshot.isDragging ? 'ring-2 ring-blue-400 scale-105' : 'hover:shadow-md hover:bg-blue-50/40 dark:hover:bg-blue-950/20'}`}
-                          >
-                            <span {...provided.dragHandleProps} className="cursor-grab text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400" aria-label="Drag column">
-                              <Bars3Icon className="h-5 w-5" />
-                            </span>
-                            <Input value={col.name} onChange={e => handleColumnNameChange(idx, e.target.value)} className="flex-1" placeholder={`Column ${idx + 1}`} required aria-label={`Column ${idx + 1} Name`} />
-                            <button type="button" onClick={() => handleRemoveColumn(idx)} className="p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400" aria-label="Remove column">
-                              <TrashIcon className="h-4 w-4 text-red-500" />
-                            </button>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </DragDropContext>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={columns.map((_, idx) => `col-${idx}`)} strategy={verticalListSortingStrategy}>
+                <div className="flex flex-col gap-2">
+                  {columns.map((col, idx) => (
+                    <SortableWizardColumn
+                      key={`col-${idx}`}
+                      column={col}
+                      index={idx}
+                      onNameChange={(value) => handleColumnNameChange(idx, value)}
+                      onRemove={() => handleRemoveColumn(idx)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+
+              <DragOverlay dropAnimation={{
+                duration: 250,
+                easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
+              }}>
+                {activeColumn ? <DragOverlayWizardColumn column={activeColumn} /> : null}
+              </DragOverlay>
+            </DndContext>
+
             <Button type="button" variant="secondary" size="sm" onClick={handleAddColumn} className="mt-2" aria-label="Add column">
               <PlusIcon className="h-4 w-4 mr-1" /> Add Column
             </Button>
           </div>
         </Transition>
+
         <Transition
           show={step === 3}
           enter="transition-opacity duration-300"
@@ -245,8 +365,10 @@ const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, o
           </div>
         </Transition>
       </div>
+
       {/* Error */}
       {error && <div className="mt-4 text-red-600 text-sm">{error}</div>}
+
       {/* Navigation */}
       <div className="mt-8 flex justify-between items-center gap-4">
         <Button type="button" variant="secondary" size="sm" onClick={step === 0 ? onClose : prev} aria-label={step === 0 ? 'Cancel' : 'Back'}>
@@ -266,4 +388,4 @@ const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, o
   );
 };
 
-export default CreateBoardWizardModal; 
+export default CreateBoardWizardModal;

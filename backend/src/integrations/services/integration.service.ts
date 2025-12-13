@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -10,14 +11,14 @@ import {
   IntegrationType,
   IntegrationStatus,
 } from '../entities/integration.entity';
-import {
-  SyncLog,
-  SyncOperation,
-  SyncStatus,
-} from '../entities/sync-log.entity';
+import { SyncLog, SyncStatus } from '../entities/sync-log.entity';
 import { ExternalData } from '../entities/external-data.entity';
 import { SearchIndex } from '../entities/search-index.entity';
 import { IntegrationConfig, AuthConfig } from '../entities/integration.entity';
+import { EncryptionService } from '../../common/services/encryption.service';
+import { RateLimitService } from './rate-limit.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 export interface CreateIntegrationDto {
   name: string;
@@ -46,6 +47,8 @@ export interface IntegrationHealth {
 
 @Injectable()
 export class IntegrationService {
+  private readonly logger = new Logger(IntegrationService.name);
+
   constructor(
     @InjectRepository(Integration)
     private integrationRepo: Repository<Integration>,
@@ -55,31 +58,42 @@ export class IntegrationService {
     private externalDataRepo: Repository<ExternalData>,
     @InjectRepository(SearchIndex)
     private searchIndexRepo: Repository<SearchIndex>,
+    private encryptionService: EncryptionService,
+    private rateLimitService: RateLimitService,
+    @InjectQueue('integration-sync') private syncQueue: Queue,
   ) {}
 
-  async createIntegration(dto: CreateIntegrationDto): Promise<Integration> {
-    // Validate integration type
-    if (!Object.values(IntegrationType).includes(dto.type)) {
-      throw new BadRequestException('Invalid integration type');
+  async createIntegration(
+    createIntegrationDto: CreateIntegrationDto,
+  ): Promise<Integration> {
+    const { name, type, config, authConfig, organizationId } =
+      createIntegrationDto;
+
+    // Encrypt sensitive data
+    if (authConfig.accessToken) {
+      authConfig.accessToken = this.encryptionService.encrypt(
+        authConfig.accessToken,
+      );
     }
-
-    // Check if integration already exists for this organization
-    const existing = await this.integrationRepo.findOne({
-      where: {
-        organizationId: dto.organizationId,
-        type: dto.type,
-      },
-    });
-
-    if (existing) {
-      throw new BadRequestException(
-        'Integration already exists for this organization',
+    if (authConfig.refreshToken) {
+      authConfig.refreshToken = this.encryptionService.encrypt(
+        authConfig.refreshToken,
+      );
+    }
+    if (authConfig.clientSecret) {
+      authConfig.clientSecret = this.encryptionService.encrypt(
+        authConfig.clientSecret,
       );
     }
 
     const integration = this.integrationRepo.create({
-      ...dto,
-      healthStatus: IntegrationStatus.HEALTHY,
+      name,
+      type,
+      config,
+      authConfig,
+      organizationId,
+      isActive: true,
+      healthStatus: IntegrationStatus.PENDING,
     });
 
     return await this.integrationRepo.save(integration);
@@ -92,6 +106,19 @@ export class IntegrationService {
     });
   }
 
+  /**
+   * Find all integrations of a given type that have a webhook secret configured.
+   * Used ONLY for webhook handlers where we don't have auth context.
+   * The webhook signature verification provides security.
+   */
+  async findIntegrationsByTypeForWebhook(
+    type: IntegrationType,
+  ): Promise<Integration[]> {
+    return await this.integrationRepo.find({
+      where: { type, isActive: true },
+    });
+  }
+
   async getIntegration(
     id: string,
     organizationId: string,
@@ -101,7 +128,7 @@ export class IntegrationService {
     });
 
     if (!integration) {
-      throw new NotFoundException('Integration not found');
+      throw new NotFoundException(`Integration ${id} not found`);
     }
 
     return integration;
@@ -110,90 +137,93 @@ export class IntegrationService {
   async updateIntegration(
     id: string,
     organizationId: string,
-    dto: UpdateIntegrationDto,
+    updateIntegrationDto: UpdateIntegrationDto,
   ): Promise<Integration> {
     const integration = await this.getIntegration(id, organizationId);
 
-    Object.assign(integration, dto);
-    integration.updatedAt = new Date();
+    const { name, config, authConfig, isActive } = updateIntegrationDto;
+
+    if (name) integration.name = name;
+    if (config) integration.config = config;
+    if (isActive !== undefined) integration.isActive = isActive;
+
+    if (authConfig) {
+      // Encrypt sensitive data
+      if (authConfig.accessToken) {
+        authConfig.accessToken = this.encryptionService.encrypt(
+          authConfig.accessToken,
+        );
+      }
+      if (authConfig.refreshToken) {
+        authConfig.refreshToken = this.encryptionService.encrypt(
+          authConfig.refreshToken,
+        );
+      }
+      if (authConfig.clientSecret) {
+        authConfig.clientSecret = this.encryptionService.encrypt(
+          authConfig.clientSecret,
+        );
+      }
+      integration.authConfig = authConfig;
+    }
 
     return await this.integrationRepo.save(integration);
   }
 
   async deleteIntegration(id: string, organizationId: string): Promise<void> {
     const integration = await this.getIntegration(id, organizationId);
-
-    // Delete related data
-    await this.externalDataRepo.delete({ integrationId: id });
-    await this.searchIndexRepo.delete({ integrationId: id });
-    await this.syncLogRepo.delete({ integrationId: id });
-
     await this.integrationRepo.remove(integration);
   }
 
   async syncIntegration(id: string, organizationId: string): Promise<SyncLog> {
     const integration = await this.getIntegration(id, organizationId);
 
-    if (!integration.isActive) {
-      throw new BadRequestException('Integration is not active');
-    }
-
-    // Create sync log
     const syncLog = this.syncLogRepo.create({
       integrationId: id,
-      operation: SyncOperation.MANUAL_SYNC,
-      status: SyncStatus.RUNNING,
+      status: SyncStatus.QUEUED,
       startedAt: new Date(),
-      details: {
-        recordsProcessed: 0,
-        recordsCreated: 0,
-        recordsUpdated: 0,
-        recordsDeleted: 0,
-        errorsCount: 0,
-        errors: [],
-        duration: 0,
-        metadata: {},
-      },
     });
 
-    const savedSyncLog = await this.syncLogRepo.save(syncLog);
+    await this.syncLogRepo.save(syncLog);
 
     try {
-      // Update integration last sync time
-      integration.lastSyncAt = new Date();
-      integration.healthStatus = IntegrationStatus.HEALTHY;
-      await this.integrationRepo.save(integration);
+      // Add job to BullMQ queue
+      await this.syncQueue.add(
+        'sync-job',
+        {
+          integrationId: id,
+          type: integration.type,
+        },
+        {
+          jobId: `sync-${id}-${Date.now()}`, // Prevent duplicate jobs
+          removeOnComplete: true,
+        },
+      );
 
-      // Complete sync log
-      savedSyncLog.status = SyncStatus.SUCCESS;
-      savedSyncLog.completedAt = new Date();
-      savedSyncLog.details.duration =
-        Date.now() - savedSyncLog.startedAt.getTime();
-      await this.syncLogRepo.save(savedSyncLog);
+      this.logger.log(`Sync job queued for integration ${id}`);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
 
-      return savedSyncLog;
-    } catch (error: unknown) {
-      // Update sync log with error
-      savedSyncLog.status = SyncStatus.FAILED;
-      savedSyncLog.completedAt = new Date();
-      savedSyncLog.details.duration =
-        Date.now() - savedSyncLog.startedAt.getTime();
-      savedSyncLog.details.errorsCount = 1;
-      savedSyncLog.details.errors.push({
-        message: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: new Date(),
-      });
-      await this.syncLogRepo.save(savedSyncLog);
+      syncLog.status = SyncStatus.FAILED;
+      syncLog.error = errorMessage;
+      syncLog.completedAt = new Date();
 
-      // Update integration health
       integration.healthStatus = IntegrationStatus.ERROR;
       integration.lastErrorAt = new Date();
-      integration.lastErrorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      await this.integrationRepo.save(integration);
+      integration.lastErrorMessage = errorMessage;
 
-      throw error;
+      this.logger.error(
+        `Failed to queue sync job for integration ${id}:`,
+        error,
+      );
+
+      await this.integrationRepo.save(integration);
     }
+
+    await this.syncLogRepo.save(syncLog);
+
+    return syncLog;
   }
 
   async getIntegrationHealth(
@@ -202,34 +232,21 @@ export class IntegrationService {
   ): Promise<IntegrationHealth> {
     const integration = await this.getIntegration(id, organizationId);
 
-    // Get recent sync logs
-    const recentLogs = await this.syncLogRepo.find({
-      where: { integrationId: id },
-      order: { createdAt: 'DESC' },
-      take: 10,
-    });
-
-    // Calculate uptime
-    const successfulSyncs = recentLogs.filter(
-      (log) => log.status === SyncStatus.SUCCESS,
-    );
-    const uptime =
-      recentLogs.length > 0
-        ? (successfulSyncs.length / recentLogs.length) * 100
-        : 0;
-
-    // Get records count
     const recordsCount = await this.externalDataRepo.count({
       where: { integrationId: id },
     });
+
+    const uptime = integration.createdAt
+      ? Date.now() - integration.createdAt.getTime()
+      : 0;
 
     return {
       status: integration.healthStatus,
       lastSyncAt: integration.lastSyncAt,
       lastErrorAt: integration.lastErrorAt,
       lastErrorMessage: integration.lastErrorMessage,
-      uptime,
-      syncFrequency: integration.config.syncSettings?.frequency || 'daily',
+      uptime: uptime / 1000 / 60 / 60, // hours
+      syncFrequency: integration.config?.syncSettings?.frequency || 'daily',
       recordsCount,
     };
   }
@@ -238,56 +255,168 @@ export class IntegrationService {
     const integration = await this.getIntegration(id, organizationId);
 
     try {
-      // Create test sync log
-      const testLog = this.syncLogRepo.create({
-        integrationId: id,
-        operation: SyncOperation.TEST_CONNECTION,
-        status: SyncStatus.RUNNING,
-        startedAt: new Date(),
-        details: {
-          recordsProcessed: 0,
-          recordsCreated: 0,
-          recordsUpdated: 0,
-          recordsDeleted: 0,
-          errorsCount: 0,
-          errors: [],
-          duration: 0,
-          metadata: {},
-        },
-      });
+      // For now, just test that we can decrypt tokens
+      const accessToken = this.getAccessToken(integration);
 
-      const savedTestLog = await this.syncLogRepo.save(testLog);
+      if (!accessToken) {
+        throw new Error('No access token found');
+      }
 
-      // Test connection based on integration type
-      const isConnected = this.testConnection(integration);
+      // Test actual connection to the integration's API
+      const isConnected = await this.testConnection(integration);
 
-      // Update test log
-      savedTestLog.status = isConnected
-        ? SyncStatus.SUCCESS
-        : SyncStatus.FAILED;
-      savedTestLog.completedAt = new Date();
-      savedTestLog.details.duration =
-        Date.now() - savedTestLog.startedAt.getTime();
-      await this.syncLogRepo.save(savedTestLog);
+      if (isConnected) {
+        integration.healthStatus = IntegrationStatus.HEALTHY;
+        integration.lastErrorAt = null;
+        integration.lastErrorMessage = null;
+      } else {
+        integration.healthStatus = IntegrationStatus.WARNING;
+        integration.lastErrorAt = new Date();
+        integration.lastErrorMessage = 'Connection test failed';
+      }
 
+      await this.integrationRepo.save(integration);
       return isConnected;
-    } catch (error: unknown) {
-      // Update integration health
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+
       integration.healthStatus = IntegrationStatus.ERROR;
       integration.lastErrorAt = new Date();
-      integration.lastErrorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
+      integration.lastErrorMessage = errorMessage;
+
       await this.integrationRepo.save(integration);
 
       return false;
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private testConnection(_integration: Integration): boolean {
-    // This would be implemented by specific integration services
-    // For now, return true as a placeholder
-    return true;
+  /**
+   * Tests actual connectivity to an integration by pinging their API.
+   * Each integration type has a specific endpoint to validate credentials.
+   */
+  async testConnection(integration: Integration): Promise<boolean> {
+    const accessToken = this.getAccessToken(integration);
+    if (!accessToken) {
+      return false;
+    }
+
+    try {
+      switch (integration.type) {
+        case IntegrationType.GITHUB:
+          return await this.testGitHubConnection(accessToken);
+        case IntegrationType.SLACK:
+          return await this.testSlackConnection(accessToken);
+        case IntegrationType.JIRA:
+          return await this.testJiraConnection(accessToken);
+        case IntegrationType.GOOGLE_WORKSPACE:
+          return await this.testGoogleConnection(accessToken);
+        case IntegrationType.MICROSOFT_TEAMS:
+          return await this.testTeamsConnection(accessToken);
+        case IntegrationType.TRELLO:
+          return await this.testTrelloConnection(integration);
+        default:
+          this.logger.warn(
+            `No connection test for type: ${String(integration.type)}`,
+          );
+          return true;
+      }
+    } catch (error) {
+      this.logger.error(
+        `Connection test failed for ${integration.type}:`,
+        error instanceof Error ? error.message : error,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Test GitHub connection with rate limit handling.
+   */
+  private async testGitHubConnection(token: string): Promise<boolean> {
+    return this.rateLimitService.executeWithRetry(async () => {
+      const response = await fetch('https://api.github.com/user', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      });
+      return response.ok;
+    });
+  }
+
+  /**
+   * Test Slack connection with rate limit handling.
+   */
+  private async testSlackConnection(token: string): Promise<boolean> {
+    return this.rateLimitService.executeWithRetry(async () => {
+      const response = await fetch('https://slack.com/api/auth.test', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return false;
+      const data = (await response.json()) as { ok: boolean };
+      return data.ok === true;
+    });
+  }
+
+  /**
+   * Test Jira connection with rate limit handling.
+   */
+  private async testJiraConnection(token: string): Promise<boolean> {
+    return this.rateLimitService.executeWithRetry(async () => {
+      const response = await fetch('https://api.atlassian.com/me', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+      });
+      return response.ok;
+    });
+  }
+
+  /**
+   * Test Google Workspace connection with rate limit handling.
+   */
+  private async testGoogleConnection(token: string): Promise<boolean> {
+    return this.rateLimitService.executeWithRetry(async () => {
+      const response = await fetch(
+        'https://www.googleapis.com/oauth2/v1/userinfo',
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      return response.ok;
+    });
+  }
+
+  /**
+   * Test Microsoft Teams connection with rate limit handling.
+   */
+  private async testTeamsConnection(token: string): Promise<boolean> {
+    return this.rateLimitService.executeWithRetry(async () => {
+      const response = await fetch('https://graph.microsoft.com/v1.0/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.ok;
+    });
+  }
+
+  /**
+   * Test Trello connection with rate limit handling.
+   */
+  private async testTrelloConnection(
+    integration: Integration,
+  ): Promise<boolean> {
+    const apiKey = integration.authConfig?.apiKey;
+    const token = integration.authConfig?.accessToken;
+    if (!apiKey || !token) return false;
+
+    return this.rateLimitService.executeWithRetry(async () => {
+      const response = await fetch(
+        `https://api.trello.com/1/members/me?key=${apiKey}&token=${token}`,
+      );
+      return response.ok;
+    });
   }
 
   async getSyncLogs(
@@ -295,12 +424,73 @@ export class IntegrationService {
     organizationId: string,
     limit = 50,
   ): Promise<SyncLog[]> {
-    await this.getIntegration(id, organizationId);
+    const integration = await this.getIntegration(id, organizationId);
 
     return await this.syncLogRepo.find({
-      where: { integrationId: id },
-      order: { createdAt: 'DESC' },
+      where: { integrationId: integration.id },
+      order: { startedAt: 'DESC' },
       take: limit,
     });
+  }
+  getAccessToken(integration: Integration): string | null {
+    if (!integration.authConfig?.accessToken) {
+      return null;
+    }
+    try {
+      return this.encryptionService.decrypt(integration.authConfig.accessToken);
+    } catch (error) {
+      this.logger.error(
+        `Failed to decrypt access token for integration ${integration.id}`,
+        error,
+      );
+      return null;
+    }
+  }
+
+  getRefreshToken(integration: Integration): string | null {
+    if (!integration.authConfig?.refreshToken) {
+      return null;
+    }
+    try {
+      return this.encryptionService.decrypt(
+        integration.authConfig.refreshToken,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to decrypt refresh token for integration ${integration.id}`,
+        error,
+      );
+      return null;
+    }
+  }
+
+  async updateTokens(
+    integrationId: string,
+    accessToken: string,
+    refreshToken: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    const integration = await this.integrationRepo.findOne({
+      where: { id: integrationId },
+    });
+
+    if (!integration) {
+      throw new NotFoundException(`Integration ${integrationId} not found`);
+    }
+
+    if (!integration.authConfig) {
+      throw new BadRequestException(
+        `Integration ${integrationId} has no auth config`,
+      );
+    }
+
+    integration.authConfig.accessToken =
+      this.encryptionService.encrypt(accessToken);
+    integration.authConfig.refreshToken =
+      this.encryptionService.encrypt(refreshToken);
+    integration.authConfig.expiresAt = expiresAt;
+    integration.updatedAt = new Date();
+
+    await this.integrationRepo.save(integration);
   }
 }

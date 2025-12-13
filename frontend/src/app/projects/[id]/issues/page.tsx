@@ -3,13 +3,13 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useProject, useProjectMembers } from "../../../../hooks/useProject";
 import { useSprints } from "../../../../hooks/useSprints";
-import { useProjectIssues, Issue, Label } from "../../../../hooks/useProjectIssues";
+import { useProjectIssues, Issue } from "../../../../hooks/useProjectIssues";
 import Spinner from "../../../../components/Spinner";
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
-import { apiFetch } from '../../../../lib/fetcher';
+import { apiFetch } from '@/lib/fetcher';
 import { UserCircleIcon, PlusIcon, MagnifyingGlassIcon, PencilSquareIcon, EyeIcon, FunnelIcon } from '@heroicons/react/24/outline';
-import CreateIssueModal from '../../../../components/CreateIssueModal';
+import CreateIssueModal from '@/components/CreateIssueModal';
 import { TagIcon as TagSolidIcon } from '@heroicons/react/24/solid';
 
 // Placeholder for fetching labels (implement as needed)
@@ -58,7 +58,7 @@ function getTypeIcon(type: string) {
 
 function getAvatar(name: string | undefined) {
   if (!name) return <UserCircleIcon className="h-8 w-8 text-neutral-300 dark:text-neutral-700" />;
-  const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
+  const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   return <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white font-medium text-sm">{initials}</span>;
 }
 
@@ -69,7 +69,7 @@ function getAssigneeDisplayName(issue: Issue) {
     assigneeId: issue.assigneeId,
     assigneeType: typeof issue.assignee
   });
-  
+
   if (issue.assignee && typeof issue.assignee === 'object' && issue.assignee.name) {
     return issue.assignee.name;
   } else if (issue.assigneeId) {
@@ -99,6 +99,7 @@ export default function IssuesListPage() {
   // Filters
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [type, setType] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [label, setLabel] = useState("");
   const [sprint, setSprint] = useState("");
@@ -109,6 +110,7 @@ export default function IssuesListPage() {
   const { issues, isLoading, isError } = useProjectIssues(projectId, {
     search,
     status,
+    type,
     assigneeId,
     label,
     sprint,
@@ -122,6 +124,7 @@ export default function IssuesListPage() {
   const clearFilters = () => {
     setSearch("");
     setStatus("");
+    setType("");
     setAssigneeId("");
     setLabel("");
     setSprint("");
@@ -129,7 +132,7 @@ export default function IssuesListPage() {
   };
 
   // Check if any filters are active
-  const hasActiveFilters = search || status || assigneeId || label || sprint || sort !== "updatedAt";
+  const hasActiveFilters = search || status || type || assigneeId || label || sprint || sort !== "updatedAt";
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
@@ -146,7 +149,7 @@ export default function IssuesListPage() {
                   {project?.name} • {issues?.length || 0} issues
                 </p>
               </div>
-        </div>
+            </div>
             <div className="flex items-center gap-3">
               <Button
                 variant="secondary"
@@ -158,17 +161,17 @@ export default function IssuesListPage() {
                 Filters
                 {hasActiveFilters && (
                   <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-medium bg-blue-500 text-white rounded-full">
-                    {[search, status, assigneeId, label, sprint].filter(Boolean).length + (sort !== "updatedAt" ? 1 : 0)}
+                    {[search, status, type, assigneeId, label, sprint].filter(Boolean).length + (sort !== "updatedAt" ? 1 : 0)}
                   </span>
                 )}
               </Button>
               <Button
                 variant="primary"
-            onClick={() => setShowCreateModal(true)}
+                onClick={() => setShowCreateModal(true)}
                 className="flex items-center gap-2"
-          >
+              >
                 <PlusIcon className="h-4 w-4" />
-            Create Issue
+                Create Issue
               </Button>
             </div>
           </div>
@@ -185,18 +188,18 @@ export default function IssuesListPage() {
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Search
                 </label>
-        <div className="relative">
+                <div className="relative">
                   <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
-          <Input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search issues..."
+                  <Input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Search issues..."
                     className="pl-10"
-          />
-        </div>
+                  />
+                </div>
               </div>
 
-        {/* Status Filter */}
+              {/* Status Filter */}
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Status
@@ -211,63 +214,82 @@ export default function IssuesListPage() {
                   <option value="In Progress">In Progress</option>
                   <option value="Done">Done</option>
                 </select>
-          </div>
+              </div>
 
-        {/* Assignee Filter */}
+              {/* Assignee Filter */}
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Assignee
                 </label>
-            <select
+                <select
                   className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              value={assigneeId}
-              onChange={e => setAssigneeId(e.target.value)}
-              disabled={loadingMembers}
-            >
+                  value={assigneeId}
+                  onChange={e => setAssigneeId(e.target.value)}
+                  disabled={loadingMembers}
+                >
                   <option value="">All Assignees</option>
-              {members && members.map(m => (
+                  {members && members.map(m => (
                     <option key={m.userId} value={m.userId}>
                       {m.user?.name || m.user?.email || m.userId}
                     </option>
-              ))}
-            </select>
-          </div>
+                  ))}
+                </select>
+              </div>
 
-        {/* Sprint Filter */}
+              {/* Sprint Filter */}
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Sprint
                 </label>
-            <select
+                <select
                   className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              value={sprint}
-              onChange={e => setSprint(e.target.value)}
-              disabled={loadingSprints}
-            >
+                  value={sprint}
+                  onChange={e => setSprint(e.target.value)}
+                  disabled={loadingSprints}
+                >
                   <option value="">All Sprints</option>
-              {sprints && sprints.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
+                  {sprints && sprints.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
 
               {/* Sort */}
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Sort By
                 </label>
-            <select
+                <select
                   className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              value={sort}
-              onChange={e => setSort(e.target.value)}
-            >
-              <option value="updatedAt">Last Updated</option>
-              <option value="priority">Priority</option>
+                  value={sort}
+                  onChange={e => setSort(e.target.value)}
+                >
+                  <option value="updatedAt">Last Updated</option>
+                  <option value="priority">Priority</option>
                   <option value="createdAt">Created Date</option>
                   <option value="title">Title</option>
-            </select>
-          </div>
-      </div>
+                </select>
+              </div>
+
+              {/* Type Filter */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                  Type
+                </label>
+                <select
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={type}
+                  onChange={e => setType(e.target.value)}
+                >
+                  <option value="">All Types</option>
+                  <option value="Epic">Epic</option>
+                  <option value="Story">Story</option>
+                  <option value="Task">Task</option>
+                  <option value="Bug">Bug</option>
+                  <option value="Sub-task">Sub-task</option>
+                </select>
+              </div>
+            </div>
 
             {/* Filter Actions */}
             <div className="flex items-center justify-between mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
@@ -328,7 +350,7 @@ export default function IssuesListPage() {
               No issues found
             </h3>
             <p className="text-neutral-500 dark:text-neutral-400 mb-6">
-              {hasActiveFilters 
+              {hasActiveFilters
                 ? "Try adjusting your filters to see more results"
                 : "Get started by creating your first issue"
               }
@@ -336,19 +358,19 @@ export default function IssuesListPage() {
             {!hasActiveFilters && (
               <Button
                 variant="primary"
-        onClick={() => setShowCreateModal(true)}
+                onClick={() => setShowCreateModal(true)}
                 className="flex items-center gap-2 mx-auto"
               >
                 <PlusIcon className="h-4 w-4" />
                 Create Issue
               </Button>
             )}
-              </div>
-            ) : (
+          </div>
+        ) : (
           <div className="space-y-4">
             {issues?.map(issue => (
-                <div
-                  key={issue.id}
+              <div
+                key={issue.id}
                 className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 group"
               >
                 <div className="p-6">
@@ -374,7 +396,7 @@ export default function IssuesListPage() {
                           <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors cursor-pointer" onClick={() => router.push(`/projects/${projectId}/issues/${issue.id}`)}>
                             {issue.title}
                           </h3>
-                          
+
                           {/* Badges */}
                           <div className="flex flex-wrap gap-2 items-center">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(issue.status)}`}>
@@ -388,11 +410,11 @@ export default function IssuesListPage() {
                                 {issue.storyPoints} pts
                               </span>
                             )}
-                        {issue.labels && Array.isArray(issue.labels) && issue.labels.map((l: Label) => (
-                              <span key={l.id} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-200">
-                                {l.name}
+                            {issue.labels && Array.isArray(issue.labels) && issue.labels.map((l: string) => (
+                              <span key={l} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-200">
+                                {l}
                               </span>
-                        ))}
+                            ))}
                           </div>
                         </div>
                       </div>
@@ -401,7 +423,7 @@ export default function IssuesListPage() {
                     {/* Right Side - Assignee, Dates, Actions */}
                     <div className="flex flex-col items-end gap-4 ml-6">
                       {/* Assignee */}
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
                         {getAssigneeAvatar(issue)}
                         <div className="text-right">
                           <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">

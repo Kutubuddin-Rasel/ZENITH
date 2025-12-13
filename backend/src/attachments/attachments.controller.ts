@@ -72,6 +72,15 @@ export class AttachmentsController {
     return this.svc.findAllForProject(projectId, req.user.userId);
   }
 
+  @RequirePermission('attachments:view')
+  @Get('projects/:projectId/attachments/history')
+  async getProjectAttachmentHistory(
+    @Param('projectId') projectId: string,
+    @Request() req: { user: JwtRequestUser },
+  ) {
+    return this.svc.getHistory(projectId, req.user.userId);
+  }
+
   @RequirePermission('attachments:delete')
   @Delete('projects/:projectId/attachments/:attachmentId')
   async removeProject(
@@ -203,68 +212,8 @@ export class AttachmentsController {
     return { message: 'Attachment deleted' };
   }
 
-  // Epic attachments
-  @RequirePermission('attachments:create')
-  @Post('projects/:projectId/epics/:epicId/attachments')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, cb) => {
-          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${unique}-${file.originalname}`);
-        },
-      }),
-      fileFilter: (req, file, cb) => {
-        cb(null, true);
-      },
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
-  )
-  async uploadEpic(
-    @Param('projectId') projectId: string,
-    @Param('epicId') epicId: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Request() req: { user: JwtRequestUser },
-  ) {
-    const { filename, path } = file;
-    return this.svc.createForEpic(
-      projectId,
-      epicId,
-      req.user.userId,
-      filename,
-      path,
-    );
-  }
-
-  @RequirePermission('attachments:view')
-  @Get('projects/:projectId/epics/:epicId/attachments')
-  async findAllEpic(
-    @Param('projectId') projectId: string,
-    @Param('epicId') epicId: string,
-    @Request() req: { user: JwtRequestUser },
-  ) {
-    return this.svc.findAllForEpic(projectId, epicId, req.user.userId);
-  }
-
-  @RequirePermission('attachments:delete')
-  @Delete('projects/:projectId/epics/:epicId/attachments/:attachmentId')
-  async removeEpic(
-    @Param('projectId') projectId: string,
-    @Param('epicId') epicId: string,
-    @Param('attachmentId') attachmentId: string,
-    @Request() req: { user: JwtRequestUser },
-  ) {
-    await this.svc.removeForEpic(
-      projectId,
-      epicId,
-      attachmentId,
-      req.user.userId,
-    );
-    return { message: 'Attachment deleted' };
-  }
-
   // Sprint attachments
+
   @RequirePermission('attachments:create')
   @Post('projects/:projectId/sprints/:sprintId/attachments')
   @UseInterceptors(

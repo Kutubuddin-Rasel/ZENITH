@@ -1,13 +1,14 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { apiClient } from '@/lib/api-client'; // Added
+// import { useAuth } from '../context/AuthContext'; // Removed
 import Button from './Button';
 import Typography from './Typography';
 import Card from './Card';
 import Input from './Input';
-import { 
-  ShieldCheckIcon, 
-  ExclamationTriangleIcon, 
+import {
+  ShieldCheckIcon,
+  ExclamationTriangleIcon,
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
@@ -61,7 +62,7 @@ interface AuditDashboardProps {
 }
 
 export default function AuditDashboard({ projectId }: AuditDashboardProps) {
-  const { token } = useAuth();
+  // const { token } = useAuth(); // Removed
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [stats, setStats] = useState<AuditStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -82,31 +83,21 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
     try {
       setIsLoading(true);
       setError(null);
-      
+
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
         if (value) params.append(key, value);
       });
       if (projectId) params.append('projectIds', projectId);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/audit/logs?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setLogs(data.logs || []);
-      } else {
-        setError('Failed to fetch audit logs');
-      }
+      const data = await apiClient.get<{ logs: AuditLog[] }>(`/audit/logs?${params}`);
+      setLogs(data.logs || []);
     } catch {
       setError('Failed to fetch audit logs');
     } finally {
       setIsLoading(false);
     }
-  }, [filters, projectId, token]);
+  }, [filters, projectId]);
 
   const fetchAuditStats = React.useCallback(async () => {
     try {
@@ -115,20 +106,12 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
       if (filters.endDate) params.append('endDate', filters.endDate);
       if (projectId) params.append('projectId', projectId);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/audit/stats?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
+      const data = await apiClient.get<AuditStats>(`/audit/stats?${params}`);
+      setStats(data);
     } catch (err) {
       console.error('Failed to fetch audit stats:', err);
     }
-  }, [filters, projectId, token]);
+  }, [filters, projectId]);
 
   useEffect(() => {
     fetchAuditLogs();
@@ -184,8 +167,9 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/audit/export?${params}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          // 'Authorization': `Bearer ${token}`, // Removed
         },
+        credentials: 'include', // Added for HttpOnly cookie
       });
 
       if (response.ok) {
@@ -378,7 +362,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
       {/* Audit Logs */}
       <Card className="p-6">
         <Typography variant="h3" className="mb-4">Audit Logs</Typography>
-        
+
         {error && (
           <div className="flex items-center space-x-2 text-red-600 dark:text-red-400 mb-4">
             <ExclamationTriangleIcon className="h-5 w-5" />
@@ -460,7 +444,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
                   <XCircleIcon className="h-5 w-5" />
                 </Button>
               </div>
-              
+
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>

@@ -23,7 +23,7 @@ export interface AccessCheckResult {
   ruleName?: string;
   requiresApproval?: boolean;
   expiresAt?: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface IPLocation {

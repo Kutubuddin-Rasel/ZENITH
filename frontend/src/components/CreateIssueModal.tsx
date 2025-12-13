@@ -11,8 +11,10 @@ import { useUpdateIssue } from '@/hooks/useProjectIssues';
 import { useToast } from '@/context/ToastContext';
 import { useProjectMembers } from '@/hooks/useProjectMembers';
 import { useTaxonomy } from '@/hooks/useTaxonomy';
+import { useSmartDefaults } from '@/hooks/useSmartDefaults';
 import { ISSUE_TYPES, ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/constants/issueOptions';
 import type { Issue } from '@/hooks/useProjectIssues';
+import { LightBulbIcon } from '@heroicons/react/24/outline';
 
 const createIssueSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -41,6 +43,9 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
   const { data: members = [] } = useProjectMembers(projectId);
   const { } = useTaxonomy(projectId);
 
+  // Smart Defaults Integration
+  const { getIssueDefaults, trackAction, suggestions } = useSmartDefaults();
+
   const isEdit = mode === 'edit' && !!issue;
 
   const {
@@ -57,6 +62,34 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
       type: 'Task',
     },
   });
+
+  // Load smart defaults when modal opens (only for create mode)
+  useEffect(() => {
+    if (isOpen && !isEdit && projectId) {
+      const teamMemberIds = members.map(m => m.userId);
+      getIssueDefaults(projectId, {
+        projectType: 'software_development',
+        teamMembers: teamMemberIds,
+      });
+    }
+  }, [isOpen, isEdit, projectId, members, getIssueDefaults]);
+
+  // Apply high-confidence suggestions
+  useEffect(() => {
+    if (!isEdit && (suggestions || []).length > 0) {
+      (suggestions || []).forEach(suggestion => {
+        if (suggestion.confidence > 0.7) {
+          if (suggestion.field === 'priority' && ISSUE_PRIORITIES.includes(suggestion.value as typeof ISSUE_PRIORITIES[number])) {
+            setValue('priority', suggestion.value as typeof ISSUE_PRIORITIES[number]);
+          } else if (suggestion.field === 'type' && ISSUE_TYPES.includes(suggestion.value as typeof ISSUE_TYPES[number])) {
+            setValue('type', suggestion.value as typeof ISSUE_TYPES[number]);
+          } else if (suggestion.field === 'assignee' && typeof suggestion.value === 'string') {
+            setValue('assigneeId', suggestion.value);
+          }
+        }
+      });
+    }
+  }, [suggestions, isEdit, setValue]);
 
   useEffect(() => {
     if (isEdit && issue) {
@@ -92,19 +125,31 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
           type: data.type,
           assigneeId: data.assigneeId === '' ? undefined : data.assigneeId,
         };
-        
-        console.log('Updating issue with payload:', payload);
+
+
         await updateIssue.mutateAsync({ issueId: issue.id, data: payload });
         showToast('Issue updated successfully!', 'success');
+
+        // Track behavior for learning
+        trackAction('issue_assigned', {
+          assignee: data.assigneeId,
+          issueType: data.type,
+        });
       } else {
         const payload = {
           ...data,
-          assigneeId: data.assigneeId === '' ? undefined : data.assigneeId,
           projectId,
-          estimatedHours: 0, // Default value for estimated hours
+          assigneeId: data.assigneeId === '' ? undefined : data.assigneeId,
         };
         await createIssue.mutateAsync(payload);
         showToast('Issue created successfully!', 'success');
+
+        // Track issue creation for learning
+        trackAction('issue_created', {
+          type: data.type,
+          priority: data.priority,
+          assignee: data.assigneeId,
+        });
       }
       reset();
       onClose();
@@ -121,9 +166,32 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
     onClose();
   };
 
+  // Get suggestion for a specific field
+  const getSuggestion = (field: string) => {
+    const safeSuggestions = Array.isArray(suggestions) ? suggestions : [];
+    return safeSuggestions.find((s) => s.field === field);
+  };
+
   return (
     <Modal open={isOpen} onClose={handleClose} title={isEdit ? 'Edit Issue' : 'Create New Issue'}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Smart Suggestions Banner */}
+        {!isEdit && (suggestions || []).length > 0 && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <LightBulbIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  Smart Suggestions Applied
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">
+                  Based on your preferences and team patterns
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Title */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -152,9 +220,17 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
         {/* Type and Priority */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Type
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Type
+              </label>
+              {getSuggestion('type') && (
+                <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                  <LightBulbIcon className="h-3 w-3" />
+                  {Math.round((getSuggestion('type')?.confidence || 0) * 100)}%
+                </span>
+              )}
+            </div>
             <select
               {...register('type')}
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
@@ -163,12 +239,25 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>
+            {getSuggestion('type')?.reason && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {getSuggestion('type')?.reason}
+              </p>
+            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Priority
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Priority
+              </label>
+              {getSuggestion('priority') && (
+                <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                  <LightBulbIcon className="h-3 w-3" />
+                  {Math.round((getSuggestion('priority')?.confidence || 0) * 100)}%
+                </span>
+              )}
+            </div>
             <select
               {...register('priority')}
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
@@ -177,6 +266,11 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
                 <option key={priority} value={priority}>{priority}</option>
               ))}
             </select>
+            {getSuggestion('priority')?.reason && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {getSuggestion('priority')?.reason}
+              </p>
+            )}
           </div>
         </div>
 
@@ -197,9 +291,17 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Assignee
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Assignee
+              </label>
+              {getSuggestion('assignee') && (
+                <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                  <LightBulbIcon className="h-3 w-3" />
+                  {Math.round((getSuggestion('assignee')?.confidence || 0) * 100)}%
+                </span>
+              )}
+            </div>
             <select
               {...register('assigneeId')}
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
@@ -211,6 +313,11 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
                 </option>
               ))}
             </select>
+            {getSuggestion('assignee')?.reason && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {getSuggestion('assignee')?.reason}
+              </p>
+            )}
           </div>
         </div>
 
@@ -235,4 +342,4 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
       </form>
     </Modal>
   );
-} 
+}

@@ -18,6 +18,31 @@ export interface ProjectAttachment {
   };
 }
 
+export interface AttachmentHistory {
+  id: string;
+  projectId: string;
+  attachmentId: string;
+  filename: string;
+  originalName: string;
+  action: 'UPLOADED' | 'DELETED';
+  performedById: string;
+  performedBy: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  fileSize?: number;
+  mimeType?: string;
+  createdAt: string;
+  metadata?: {
+    issueId?: string;
+    releaseId?: string;
+    epicId?: string;
+    sprintId?: string;
+    commentId?: string;
+  };
+}
+
 export function useProjectAttachments(projectId: string) {
   return useQuery({
     queryKey: ['project-attachments', projectId],
@@ -26,14 +51,22 @@ export function useProjectAttachments(projectId: string) {
   });
 }
 
+export function useProjectAttachmentHistory(projectId: string) {
+  return useQuery({
+    queryKey: ['project-attachment-history', projectId],
+    queryFn: () => apiFetch<AttachmentHistory[]>(`/projects/${projectId}/attachments/history`),
+    enabled: !!projectId,
+  });
+}
+
 export function useUploadProjectAttachment(projectId: string) {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       const token = localStorage.getItem('access_token');
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects/${projectId}/attachments`, {
         method: 'POST',
@@ -42,22 +75,23 @@ export function useUploadProjectAttachment(projectId: string) {
         },
         body: formData,
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to upload file');
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-attachments', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project-attachment-history', projectId] });
     },
   });
 }
 
 export function useDeleteProjectAttachment(projectId: string) {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (attachmentId: string) => {
       return apiFetch(`/projects/${projectId}/attachments/${attachmentId}`, {
@@ -66,6 +100,7 @@ export function useDeleteProjectAttachment(projectId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-attachments', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project-attachment-history', projectId] });
     },
   });
 }
@@ -79,11 +114,11 @@ export function useDownloadProjectAttachment(projectId: string) {
           Authorization: `Bearer ${token}`,
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to download file');
       }
-      
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -93,7 +128,7 @@ export function useDownloadProjectAttachment(projectId: string) {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
+
       return { success: true };
     },
   });

@@ -2,14 +2,22 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Integration, IntegrationType } from '../entities/integration.entity';
-import { ExternalData } from '../entities/external-data.entity';
+import { ExternalData, MappedData } from '../entities/external-data.entity';
 import { SearchIndex } from '../entities/search-index.entity';
+import { RateLimitService } from './rate-limit.service';
+import { TokenManagerService } from './token-manager.service';
+import { EncryptionService } from '../../common/services/encryption.service';
+import { BaseIntegrationService } from './base-integration.service';
+import { UsersService } from '../../users/users.service';
+import { ProjectsService } from '../../projects/projects.service';
+import { IssuesService } from '../../issues/issues.service';
+import { IssueType } from '../../issues/entities/issue.entity';
 
 export interface SlackMessage {
   channel: string;
   text: string;
-  blocks?: any[];
-  attachments?: any[];
+  blocks?: unknown[];
+  attachments?: unknown[];
   thread_ts?: string;
 }
 
@@ -47,20 +55,101 @@ export interface SlackCommand {
   trigger_id: string;
 }
 
+// Internal interfaces for Slack API responses
+interface SlackApiResponse {
+  ok: boolean;
+  error?: string;
+  response_metadata?: {
+    next_cursor?: string;
+  };
+}
+
+interface SlackApiChannel {
+  id: string;
+  name: string;
+  is_private: boolean;
+  is_member: boolean;
+}
+
+interface SlackConversationsListResponse extends SlackApiResponse {
+  channels?: SlackApiChannel[];
+}
+
+interface SlackApiUser {
+  id: string;
+  name: string;
+  real_name?: string;
+  deleted?: boolean;
+  is_bot?: boolean;
+  profile?: {
+    image_24?: string;
+    image_32?: string;
+    image_48?: string;
+    image_72?: string;
+    image_192?: string;
+    email?: string;
+  };
+}
+
+interface SlackUsersListResponse extends SlackApiResponse {
+  members?: SlackApiUser[];
+}
+
+interface SlackApiMessage {
+  type: string;
+  user?: string;
+  text?: string;
+  ts: string;
+  thread_ts?: string;
+  channelId?: string; // We inject this
+}
+
+interface SlackHistoryResponse extends SlackApiResponse {
+  messages?: SlackApiMessage[];
+}
+
 @Injectable()
-export class SlackIntegrationService {
-  private readonly logger = new Logger(SlackIntegrationService.name);
+export class SlackIntegrationService extends BaseIntegrationService {
+  protected readonly logger = new Logger(SlackIntegrationService.name);
+  protected readonly source = 'slack';
   private readonly slackApiBase = 'https://slack.com/api';
 
   constructor(
     @InjectRepository(Integration)
-    private integrationRepo: Repository<Integration>,
+    integrationRepo: Repository<Integration>,
     @InjectRepository(ExternalData)
-    private externalDataRepo: Repository<ExternalData>,
+    externalDataRepo: Repository<ExternalData>,
     @InjectRepository(SearchIndex)
-    private searchIndexRepo: Repository<SearchIndex>,
-  ) {}
+    searchIndexRepo: Repository<SearchIndex>,
+    rateLimitService: RateLimitService,
+    tokenManagerService: TokenManagerService,
+    encryptionService: EncryptionService,
+    private readonly usersService: UsersService,
+    private readonly projectsService: ProjectsService,
+    private readonly issuesService: IssuesService,
+  ) {
+    super(
+      integrationRepo,
+      externalDataRepo,
+      searchIndexRepo,
+      rateLimitService,
+      tokenManagerService,
+      encryptionService,
+    );
+  }
 
+  /**
+   * Helper to get access token from integration.
+   * Uses inherited getDecryptedAccessToken from base class.
+   */
+  private getAccessToken(integration: Integration): string {
+    return this.getDecryptedAccessToken(integration);
+  }
+
+  /**
+   * Send a notification message to a Slack channel.
+   * Uses proper token decryption for secure API calls.
+   */
   async sendNotification(
     integrationId: string,
     message: SlackMessage,
@@ -74,7 +163,7 @@ export class SlackIntegrationService {
         throw new Error('Slack integration not found or inactive');
       }
 
-      const accessToken = integration.authConfig.accessToken;
+      const accessToken = this.getAccessToken(integration);
       if (!accessToken) {
         throw new Error('Slack access token not found');
       }
@@ -88,10 +177,10 @@ export class SlackIntegrationService {
         body: JSON.stringify(message),
       });
 
-      const result = (await response.json()) as Record<string, unknown>;
+      const result = (await response.json()) as SlackApiResponse;
 
-      if (!(result.ok as boolean)) {
-        this.logger.error('Slack API error:', result.error as string);
+      if (!result.ok) {
+        this.logger.error('Slack API error:', result.error);
         return false;
       }
 
@@ -113,45 +202,55 @@ export class SlackIntegrationService {
         throw new Error('Slack integration not found');
       }
 
-      const accessToken = integration.authConfig.accessToken;
-      if (!accessToken) {
-        throw new Error('Slack access token not found');
-      }
+      const accessToken = this.getAccessToken(integration);
+      const allChannels: SlackChannel[] = [];
+      let cursor: string | undefined;
+      let hasMore = true;
 
-      const response = await fetch(
-        `${this.slackApiBase}/conversations.list?types=public_channel,private_channel`,
-        {
+      while (hasMore) {
+        const url = new URL(`${this.slackApiBase}/conversations.list`);
+        url.searchParams.append('types', 'public_channel,private_channel');
+        url.searchParams.append('limit', '100');
+        if (cursor) {
+          url.searchParams.append('cursor', cursor);
+        }
+
+        const response = await fetch(url.toString(), {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
-        },
-      );
-
-      const result = (await response.json()) as Record<string, unknown>;
-
-      if (!(result.ok as boolean)) {
-        throw new Error(`Slack API error: ${result.error as string}`);
-      }
-
-      const channels = (
-        (result.channels as Record<string, unknown>[]) || []
-      ).map((channel: Record<string, unknown>) => ({
-        id: channel.id as string,
-        name: channel.name as string,
-        is_private: channel.is_private as boolean,
-        is_member: channel.is_member as boolean,
-      }));
-
-      // Store channels in external data
-      for (const channel of channels) {
-        await this.storeExternalData(integrationId, 'channel', channel.id, {
-          ...channel,
-          syncedAt: new Date(),
         });
+
+        const result =
+          (await response.json()) as SlackConversationsListResponse;
+
+        if (!result.ok) {
+          throw new Error(`Slack API error: ${result.error}`);
+        }
+
+        const channels = (result.channels || []).map((channel) => ({
+          id: channel.id,
+          name: channel.name,
+          is_private: channel.is_private,
+          is_member: channel.is_member,
+        }));
+
+        allChannels.push(...channels);
+
+        // Store channels in external data
+        for (const channel of channels) {
+          await this.storeExternalData(integrationId, 'channel', channel.id, {
+            ...channel,
+            syncedAt: new Date(),
+          });
+        }
+
+        cursor = result.response_metadata?.next_cursor;
+        hasMore = !!cursor;
       }
 
-      this.logger.log(`Synced ${channels.length} Slack channels`);
-      return channels;
+      this.logger.log(`Synced ${allChannels.length} Slack channels`);
+      return allChannels;
     } catch (error) {
       this.logger.error('Failed to sync Slack channels:', error);
       throw error;
@@ -168,51 +267,61 @@ export class SlackIntegrationService {
         throw new Error('Slack integration not found');
       }
 
-      const accessToken = integration.authConfig.accessToken;
-      if (!accessToken) {
-        throw new Error('Slack access token not found');
-      }
+      const accessToken = this.getAccessToken(integration);
+      const allUsers: SlackUser[] = [];
+      let cursor: string | undefined;
+      let hasMore = true;
 
-      const response = await fetch(`${this.slackApiBase}/users.list`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      while (hasMore) {
+        const url = new URL(`${this.slackApiBase}/users.list`);
+        url.searchParams.append('limit', '100');
+        if (cursor) {
+          url.searchParams.append('cursor', cursor);
+        }
 
-      const result = (await response.json()) as Record<string, unknown>;
-
-      if (!(result.ok as boolean)) {
-        throw new Error(`Slack API error: ${result.error as string}`);
-      }
-
-      const users = ((result.members as Record<string, unknown>[]) || [])
-        .filter(
-          (user: Record<string, unknown>) =>
-            !(user.deleted as boolean) && !(user.is_bot as boolean),
-        )
-        .map((user: Record<string, unknown>) => ({
-          id: user.id as string,
-          name: user.name as string,
-          real_name: user.real_name as string,
-          profile: user.profile as {
-            image_24: string;
-            image_32: string;
-            image_48: string;
-            image_72: string;
-            image_192: string;
+        const response = await fetch(url.toString(), {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
           },
-        }));
-
-      // Store users in external data
-      for (const user of users) {
-        await this.storeExternalData(integrationId, 'user', user.id, {
-          ...user,
-          syncedAt: new Date(),
         });
+
+        const result = (await response.json()) as SlackUsersListResponse;
+
+        if (!result.ok) {
+          throw new Error(`Slack API error: ${result.error}`);
+        }
+
+        const users = (result.members || [])
+          .filter((user) => !user.deleted && !user.is_bot)
+          .map((user) => ({
+            id: user.id,
+            name: user.name,
+            real_name: user.real_name || user.name,
+            profile: {
+              image_24: user.profile?.image_24 || '',
+              image_32: user.profile?.image_32 || '',
+              image_48: user.profile?.image_48 || '',
+              image_72: user.profile?.image_72 || '',
+              image_192: user.profile?.image_192 || '',
+            },
+          }));
+
+        allUsers.push(...users);
+
+        // Store users in external data
+        for (const user of users) {
+          await this.storeExternalData(integrationId, 'user', user.id, {
+            ...user,
+            syncedAt: new Date(),
+          });
+        }
+
+        cursor = result.response_metadata?.next_cursor;
+        hasMore = !!cursor;
       }
 
-      this.logger.log(`Synced ${users.length} Slack users`);
-      return users;
+      this.logger.log(`Synced ${allUsers.length} Slack users`);
+      return allUsers;
     } catch (error) {
       this.logger.error('Failed to sync Slack users:', error);
       throw error;
@@ -223,7 +332,7 @@ export class SlackIntegrationService {
     integrationId: string,
     channelId: string,
     limit = 100,
-  ): Promise<any[]> {
+  ): Promise<SlackApiMessage[]> {
     try {
       const integration = await this.integrationRepo.findOne({
         where: { id: integrationId, type: IntegrationType.SLACK },
@@ -233,55 +342,130 @@ export class SlackIntegrationService {
         throw new Error('Slack integration not found');
       }
 
-      const accessToken = integration.authConfig.accessToken;
-      if (!accessToken) {
-        throw new Error('Slack access token not found');
-      }
+      const accessToken = this.getAccessToken(integration);
+      const allMessages: SlackApiMessage[] = [];
+      let cursor: string | undefined;
+      let hasMore = true;
 
-      const response = await fetch(
-        `${this.slackApiBase}/conversations.history?channel=${channelId}&limit=${limit}`,
-        {
+      // Get last sync time for incremental sync
+      // We use the channel-specific last sync time if available, otherwise integration's last sync
+      // Note: In a real implementation, we'd track per-channel sync times
+      const oldest = integration.lastSyncAt
+        ? (new Date(integration.lastSyncAt).getTime() / 1000).toString()
+        : '0';
+
+      while (hasMore) {
+        const url = new URL(`${this.slackApiBase}/conversations.history`);
+        url.searchParams.append('channel', channelId);
+        url.searchParams.append('limit', limit.toString());
+        url.searchParams.append('oldest', oldest); // Incremental sync
+        if (cursor) {
+          url.searchParams.append('cursor', cursor);
+        }
+
+        const response = await fetch(url.toString(), {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
-        },
-      );
+        });
 
-      const result = (await response.json()) as Record<string, unknown>;
+        const result = (await response.json()) as SlackHistoryResponse;
 
-      if (!(result.ok as boolean)) {
-        throw new Error(`Slack API error: ${result.error as string}`);
-      }
+        if (!result.ok) {
+          // If channel not found or user not in channel, just log and return empty
+          if (
+            result.error === 'channel_not_found' ||
+            result.error === 'not_in_channel'
+          ) {
+            this.logger.warn(
+              `Cannot sync messages for channel ${channelId}: ${result.error}`,
+            );
+            return [];
+          }
+          throw new Error(`Slack API error: ${result.error}`);
+        }
 
-      const messages = (
-        (result.messages as Record<string, unknown>[]) || []
-      ).map((message: Record<string, unknown>) => ({
-        ...message,
-        channelId,
-        syncedAt: new Date(),
-      }));
+        const messages = (result.messages || []).map((message) => ({
+          ...message,
+          channelId,
+          syncedAt: new Date(),
+        }));
 
-      // Store messages in external data
-      for (const message of messages) {
-        await this.storeExternalData(
-          integrationId,
-          'message',
-          (message as Record<string, unknown>).ts as string,
-          message,
-        );
+        allMessages.push(...messages);
+
+        // Store messages in external data
+        for (const message of messages) {
+          // Only store messages with a timestamp (ts)
+          if (message.ts) {
+            await this.storeExternalData(
+              integrationId,
+              'message',
+              message.ts,
+              message,
+            );
+          }
+        }
+
+        cursor = result.response_metadata?.next_cursor;
+        hasMore = !!cursor;
       }
 
       this.logger.log(
-        `Synced ${messages.length} Slack messages from channel ${channelId}`,
+        `Synced ${allMessages.length} Slack messages from channel ${channelId}`,
       );
-      return messages;
+      return allMessages;
     } catch (error) {
-      this.logger.error('Failed to sync Slack messages:', error);
+      this.logger.error(
+        `Failed to sync Slack messages for channel ${channelId}:`,
+        error,
+      );
       throw error;
     }
   }
 
-  async handleSlashCommand(command: SlackCommand): Promise<any> {
+  /**
+   * Syncs messages from all channels in parallel.
+   */
+  async syncAllChannelsHistory(integrationId: string): Promise<void> {
+    try {
+      // First sync channels to get the list
+      const channels = await this.syncChannels(integrationId);
+
+      // Filter for channels where the bot is a member
+      const memberChannels = channels.filter((c) => c.is_member);
+
+      this.logger.log(
+        `Syncing history for ${memberChannels.length} channels in parallel...`,
+      );
+
+      // Process in batches to avoid rate limits
+      const batchSize = 5; // Slack rate limits are stricter than GitHub
+
+      for (let i = 0; i < memberChannels.length; i += batchSize) {
+        const batch = memberChannels.slice(i, i + batchSize);
+
+        await Promise.all(
+          batch.map((channel) => this.syncMessages(integrationId, channel.id)),
+        );
+
+        this.logger.log(
+          `Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(memberChannels.length / batchSize)}`,
+        );
+      }
+
+      // Update integration last sync time
+      await this.integrationRepo.update(integrationId, {
+        lastSyncAt: new Date(),
+      });
+
+      this.logger.log('Successfully synced history for all channels');
+    } catch (error) {
+      this.logger.error('Failed to sync all channels history:', error);
+      throw error;
+    }
+  }
+
+  async handleSlashCommand(command: SlackCommand): Promise<unknown> {
     try {
       this.logger.log(
         `Received Slack slash command: ${command.command} ${command.text}`,
@@ -312,35 +496,162 @@ export class SlackIntegrationService {
     }
   }
 
-  private handleCreateIssueCommand(command: SlackCommand, args: string[]): any {
-    if (args.length < 2) {
+  /**
+   * Resolve a Slack User ID to a Zenith User ID via email.
+   */
+  private async resolveZenithUser(
+    integration: Integration,
+    slackUserId: string,
+  ): Promise<string | null> {
+    // 1. Check if we have an existing mapping in ExternalData?
+    // Doing a direct lookup is safer for now.
+
+    // 2. Fetch user info from Slack
+    const accessToken = this.getAccessToken(integration);
+    try {
+      const response = await fetch(
+        `${this.slackApiBase}/users.info?user=${slackUserId}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      const result = (await response.json()) as {
+        ok: boolean;
+        user?: SlackApiUser;
+        error?: string;
+      };
+
+      if (!result.ok || !result.user?.profile?.email) {
+        this.logger.warn(
+          `Could not fetch email for Slack user ${slackUserId}: ${result.error}`,
+        );
+        return null;
+      }
+
+      const email = result.user.profile.email;
+      const zenithUser = await this.usersService.findOneByEmail(email);
+      return zenithUser?.id || null;
+    } catch (error) {
+      this.logger.error(`Failed to resolve Slack user ${slackUserId}`, error);
+      return null;
+    }
+  }
+
+  private async handleCreateIssueCommand(
+    command: SlackCommand,
+    args: string[],
+  ): Promise<unknown> {
+    // Expect: <PROJECT_KEY> <TITLE> <DESCRIPTION>
+    // To be lenient: check if first arg looks like a project key (UPPERCASE, alphanumeric).
+    // If not, maybe use default project? No default implemented yet.
+
+    if (args.length < 3) {
       return {
         response_type: 'ephemeral',
-        text: 'Usage: `/zenith create-issue <title> <description>`',
+        text: '⚠️ Usage: `/zenith create-issue <PROJECT_KEY> <title> <description>`\nExample: `/zenith create-issue ZEN "Fix login page" Describes the bug...`',
       };
     }
 
-    const title = args[0];
-    const description = args.slice(1).join(' ');
+    const projectKey = args[0].toUpperCase();
 
-    // This would create an issue in the project management system
-    // For now, return a placeholder response
-    return {
-      response_type: 'in_channel',
-      text: `✅ Issue created: *${title}*\n${description}`,
-      blocks: [
+    // Quick heuristic: Project keys are usually short e.g. < 10 chars.
+    // If user provided a title first, they probably forgot the key.
+
+    // Extract title (handles quotes?)
+    // Simple space splitting is done by caller usually, but here args is string[].
+    // Title is args[1], Description is rest.
+    const title = args[1];
+    const description = args.slice(2).join(' ');
+
+    // If title is quoted in original text, args parsing might be simple split.
+    // We'll respect the args as passed.
+
+    try {
+      // 1. Find Integration (Organization Context)
+      const integration = await this.integrationRepo
+        .createQueryBuilder('integration')
+        .where(`integration.type = :type`, { type: IntegrationType.SLACK })
+        .andWhere(`integration.config ->> 'teamId' = :teamId`, {
+          teamId: command.team_id,
+        })
+        .getOne();
+
+      if (!integration) {
+        return {
+          response_type: 'ephemeral',
+          text: '❌ Zenith integration not configured for this Slack workspace.',
+        };
+      }
+
+      // 2. Find Project
+      const project = await this.projectsService.findByKey(
+        projectKey,
+        integration.organizationId,
+      );
+      if (!project) {
+        return {
+          response_type: 'ephemeral',
+          text: `❌ Project with key *${projectKey}* not found.`,
+        };
+      }
+
+      // 3. Resolve User
+      const reporterId = await this.resolveZenithUser(
+        integration,
+        command.user_id,
+      );
+      if (!reporterId) {
+        return {
+          response_type: 'ephemeral',
+          text: `❌ Could not match your Slack account (<@${command.user_id}>) to a Zenith user. Please ensure your emails match.`,
+        };
+      }
+
+      // 4. Create Issue
+      const issue = await this.issuesService.create(
+        project.id,
+        reporterId,
         {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: `*Issue Created*\n*Title:* ${title}\n*Description:* ${description}\n*Created by:* <@${command.user_id}>`,
-          },
+          title,
+          description,
+          priority: undefined,
+          type: IssueType.TASK,
         },
-      ],
-    };
+        integration.organizationId,
+      );
+
+      // 5. Respond
+      const issueNumber = issue.number
+        ? `${project.key}-${issue.number}`
+        : 'New Issue';
+      // Construct Link (Mock frontend URL logic)
+      // Assume FRONTEND_URL env is available
+      const appUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const issueUrl = `${appUrl}/projects/${project.id}/issues/${issue.id}`;
+
+      return {
+        response_type: 'in_channel',
+        text: `✅ Issue created: <${issueUrl}|${issueNumber}: ${title}>`,
+        blocks: [
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: `*Issue Created*\n*<${issueUrl}|${issueNumber}: ${title}>*\n${description}\n*Created by:* <@${command.user_id}>`,
+            },
+          },
+        ],
+      };
+    } catch (error) {
+      this.logger.error('Error creating issue from Slack:', error);
+      return {
+        response_type: 'ephemeral',
+        text: `❌ Error creating issue: ${(error as Error).message}`,
+      };
+    }
   }
 
-  private handleListIssuesCommand(): any {
+  private handleListIssuesCommand(): unknown {
     // This would fetch issues from the project management system
     // For now, return a placeholder response
     return {
@@ -349,69 +660,21 @@ export class SlackIntegrationService {
     };
   }
 
-  private handleHelpCommand(): any {
+  private handleHelpCommand(): unknown {
     return {
       response_type: 'ephemeral',
       text: `*Zenith Bot Commands:*\n• \`/zenith create-issue <title> <description>\` - Create a new issue\n• \`/zenith list-issues\` - List recent issues\n• \`/zenith help\` - Show this help message`,
     };
   }
 
-  private async storeExternalData(
-    integrationId: string,
-    type: string,
-    externalId: string,
-    data: any,
-  ): Promise<void> {
-    try {
-      // Check if data already exists
-      const existing = await this.externalDataRepo.findOne({
-        where: {
-          integrationId,
-          externalId,
-          externalType: type,
-        },
-      });
-
-      const mappedData = this.mapSlackData(
-        type,
-        data as Record<string, unknown>,
-      );
-
-      if (existing) {
-        existing.rawData = data as Record<string, unknown>;
-        existing.mappedData = mappedData;
-        existing.lastSyncAt = new Date();
-        await this.externalDataRepo.save(existing);
-      } else {
-        const externalData = this.externalDataRepo.create({
-          integrationId,
-          externalId,
-          externalType: type,
-          rawData: data as Record<string, unknown>,
-          mappedData: mappedData,
-          lastSyncAt: new Date(),
-        });
-        await this.externalDataRepo.save(externalData);
-      }
-
-      // Update search index
-      if (mappedData) {
-        await this.updateSearchIndex(
-          integrationId,
-          type,
-          externalId,
-          mappedData,
-        );
-      }
-    } catch (error) {
-      this.logger.error('Failed to store external data:', error);
-    }
-  }
-
-  private mapSlackData(
+  /**
+   * Maps Slack data to standard MappedData format.
+   * Implements abstract method from BaseIntegrationService.
+   */
+  protected mapExternalData(
     type: string,
     data: Record<string, unknown>,
-  ): Record<string, unknown> {
+  ): MappedData | null {
     switch (type) {
       case 'channel':
         return {
@@ -452,48 +715,7 @@ export class SlackIntegrationService {
           },
         };
       default:
-        return null as unknown as Record<string, unknown>;
-    }
-  }
-
-  private async updateSearchIndex(
-    integrationId: string,
-    type: string,
-    externalId: string,
-    mappedData: Record<string, unknown>,
-  ): Promise<void> {
-    try {
-      const searchContent =
-        `${mappedData.title as string} ${mappedData.content as string}`.toLowerCase();
-
-      const existing = await this.searchIndexRepo.findOne({
-        where: {
-          integrationId,
-          contentType: type,
-        },
-      });
-
-      if (existing) {
-        existing.title = mappedData.title as string;
-        existing.content = mappedData.content as string;
-        existing.metadata =
-          (mappedData as { metadata?: Record<string, unknown> }).metadata || {};
-        existing.searchVector = searchContent;
-        existing.updatedAt = new Date();
-        await this.searchIndexRepo.save(existing);
-      } else {
-        const searchIndex = this.searchIndexRepo.create({
-          integrationId,
-          contentType: type,
-          title: mappedData.title as string,
-          content: mappedData.content as string,
-          metadata: mappedData.metadata as Record<string, unknown>,
-          searchVector: searchContent,
-        });
-        await this.searchIndexRepo.save(searchIndex);
-      }
-    } catch (error) {
-      this.logger.error('Failed to update search index:', error);
+        return null;
     }
   }
 }

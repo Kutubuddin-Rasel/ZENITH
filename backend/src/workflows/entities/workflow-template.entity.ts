@@ -17,7 +17,7 @@ export interface WorkflowTemplateDefinition {
     name: string;
     description?: string;
     position: { x: number; y: number };
-    config: Record<string, any>;
+    config: Record<string, unknown>;
   }>;
   connections: Array<{
     id: string;
@@ -26,8 +26,8 @@ export interface WorkflowTemplateDefinition {
     condition?: string;
     label?: string;
   }>;
-  variables?: Record<string, any>;
-  settings?: Record<string, any>;
+  variables?: Record<string, unknown>;
+  settings?: Record<string, unknown>;
 }
 
 export interface WorkflowTemplateMetadata {

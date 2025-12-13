@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { User } from '../../users/entities/user.entity';
+import { WorkflowExecution } from './workflow-execution.entity';
 // Forward reference to avoid circular dependency
 
 export interface WorkflowNode {
@@ -27,8 +28,8 @@ export interface WorkflowNode {
   name: string;
   description?: string;
   position: { x: number; y: number };
-  config: Record<string, any>;
-  metadata?: Record<string, any>;
+  config: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface WorkflowConnection {
@@ -37,13 +38,13 @@ export interface WorkflowConnection {
   target: string;
   condition?: string;
   label?: string;
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
 }
 
 export interface WorkflowDefinition {
   nodes: WorkflowNode[];
   connections: WorkflowConnection[];
-  variables?: Record<string, any>;
+  variables?: Record<string, unknown>;
   settings?: {
     allowParallelExecution?: boolean;
     maxExecutionTime?: number;
@@ -151,8 +152,11 @@ export class Workflow {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   averageExecutionTime?: number;
 
-  @OneToMany('WorkflowExecution', (execution: any) => execution.workflow)
-  executions: any[];
+  @OneToMany(
+    () => WorkflowExecution,
+    (execution: WorkflowExecution) => execution.workflow,
+  )
+  executions: WorkflowExecution[];
 
   @CreateDateColumn()
   createdAt: Date;

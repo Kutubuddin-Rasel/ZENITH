@@ -3,26 +3,45 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import Input from "../../../components/Input";
-import Button from "../../../components/Button";
-import FormError from "../../../components/FormError";
-import TwoFactorAuthVerification from "../../../components/TwoFactorAuthVerification";
-import { useAuth } from "../../../context/AuthContext";
+import { motion, AnimatePresence } from "framer-motion";
+import Input from "@/components/Input";
+import Button from "@/components/Button";
+import FormError from "@/components/FormError";
+import TwoFactorAuthVerification from "@/components/TwoFactorAuthVerification";
+import AuthLayout from "@/components/AuthLayout";
+import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
-import Image from "next/image";
 
 const schema = z.object({
-  email: z.string().email({ message: "Invalid email address" }),
+  email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
 type FormData = z.infer<typeof schema>;
 
+// Social button component (UI placeholder)
+function SocialButton({ provider, icon, disabled = true }: { provider: string; icon: React.ReactNode; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-neutral-200 dark:border-neutral-700 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
+    >
+      {icon}
+      <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors">
+        {provider}
+      </span>
+    </button>
+  );
+}
+
 export default function LoginPage() {
   const { login, loading } = useAuth();
   const [requires2FA, setRequires2FA] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  
+  const [rememberMe, setRememberMe] = useState(false);
+  const [shakeForm, setShakeForm] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -32,12 +51,13 @@ export default function LoginPage() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      // Use the login function from the AuthContext instead of direct fetch
       await login(data.email, data.password);
-      // The login function will handle redirection to /projects
     } catch (e: unknown) {
       const message = e && typeof e === 'object' && 'message' in e ? (e as { message?: string }).message : undefined;
-      setError("root", { message: message || "Login failed. Please check your credentials." });
+      setError("root", { message: message || "Invalid email or password. Please try again." });
+      // Trigger shake animation
+      setShakeForm(true);
+      setTimeout(() => setShakeForm(false), 500);
     }
   };
 
@@ -53,60 +73,137 @@ export default function LoginPage() {
 
   if (requires2FA && userId) {
     return (
-      <TwoFactorAuthVerification
-        userId={userId}
-        onSuccess={handle2FASuccess}
-        onCancel={handle2FACancel}
-      />
+      <AuthLayout title="Two-Factor Authentication" subtitle="Enter your verification code">
+        <TwoFactorAuthVerification
+          userId={userId}
+          onSuccess={handle2FASuccess}
+          onCancel={handle2FACancel}
+        />
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-indigo-500 via-blue-400 to-purple-400 dark:from-gray-900 dark:via-indigo-900 dark:to-purple-900 relative">
-       <header className="w-full flex justify-between items-center px-8 py-6 z-10 relative">
-        <Link href="/" className="flex items-center gap-3">
-          <Image src="/file.svg" alt="Zenith PM Logo" width={48} height={48} />
-          <span className="text-3xl font-extrabold tracking-tight text-white drop-shadow-lg">Zenith PM</span>
-        </Link>
-      </header>
-      <main className="flex-1 flex flex-col items-center justify-center px-4">
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="bg-white/90 dark:bg-gray-900/80 shadow-2xl rounded-2xl p-8 md:p-12 w-full max-w-md"
-        >
-          <h1 className="text-3xl font-bold mb-2 text-center text-indigo-700 dark:text-indigo-300">Welcome Back</h1>
-          <p className="text-center text-gray-600 dark:text-gray-400 mb-8">Sign in to continue to Zenith PM</p>
+    <AuthLayout title="Welcome back" subtitle="Sign in to continue to Zenith PM">
+      {/* Social Login Buttons (Coming Soon) */}
+      <div className="mb-6">
+        <div className="flex gap-3">
+          <SocialButton
+            provider="Google"
+            icon={
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+              </svg>
+            }
+          />
+          <SocialButton
+            provider="GitHub"
+            icon={
+              <svg className="w-5 h-5 text-neutral-800 dark:text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+              </svg>
+            }
+          />
+        </div>
+        <p className="text-center text-xs text-neutral-400 mt-2">Social login coming soon</p>
+      </div>
 
-          <div className="flex flex-col gap-4">
-            <Input
-              label="Email"
-              type="email"
-              autoComplete="email"
-              {...register("email")}
-              error={errors.email?.message}
-              className="bg-gray-100 dark:bg-gray-800"
-            />
-            <Input
-              label="Password"
-              type="password"
-              autoComplete="current-password"
-              {...register("password")}
-              error={errors.password?.message}
-              className="bg-gray-100 dark:bg-gray-800"
-            />
-          </div>
-          <FormError error={errors.root?.message} />
-          <Button type="submit" loading={loading} fullWidth className="mt-6 py-3 text-lg font-bold bg-indigo-600 hover:bg-indigo-700">
-            Sign In
-          </Button>
-          <div className="mt-6 text-center text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Don&apos;t have an account?</span>{' '}
-            <Link href="/auth/register" className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
-              Sign up
+      {/* Divider */}
+      <div className="relative mb-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-neutral-200 dark:border-neutral-700" />
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="px-4 bg-white dark:bg-neutral-900 text-neutral-500">or continue with email</span>
+        </div>
+      </div>
+
+      {/* Login Form */}
+      <motion.form
+        onSubmit={handleSubmit(onSubmit)}
+        className="flex flex-col gap-5"
+        animate={shakeForm ? { x: [-10, 10, -10, 10, 0] } : {}}
+        transition={{ duration: 0.4 }}
+      >
+        <Input
+          label="Email address"
+          type="email"
+          autoComplete="email"
+          placeholder="you@company.com"
+          {...register("email")}
+          error={errors.email?.message}
+        />
+
+        <div className="space-y-2">
+          <Input
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            showPasswordToggle
+            {...register("password")}
+            error={errors.password?.message}
+          />
+
+          {/* Remember Me & Forgot Password Row */}
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary-600 focus:ring-primary-500 focus:ring-offset-0 transition-colors"
+              />
+              <span className="text-sm text-neutral-600 dark:text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-neutral-200 transition-colors">
+                Remember me
+              </span>
+            </label>
+            <Link
+              href="/auth/forgot-password"
+              className="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition-colors"
+            >
+              Forgot password?
             </Link>
           </div>
-        </form>
-      </main>
-    </div>
+        </div>
+
+        {/* Error Message */}
+        <AnimatePresence mode="wait">
+          {errors.root?.message && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <FormError error={errors.root?.message} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <Button
+          type="submit"
+          loading={loading}
+          fullWidth
+          className="mt-2 py-3 text-base font-semibold shadow-lg shadow-primary-600/20 hover:shadow-xl hover:shadow-primary-600/30 transition-shadow"
+        >
+          Sign in
+        </Button>
+
+        {/* Sign Up Link */}
+        <p className="mt-4 text-center text-sm text-neutral-600 dark:text-neutral-400">
+          Don&apos;t have an account?{' '}
+          <Link
+            href="/auth/register"
+            className="font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition-colors"
+          >
+            Create account
+          </Link>
+        </p>
+      </motion.form>
+    </AuthLayout>
   );
-} 
+}

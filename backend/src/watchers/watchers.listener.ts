@@ -12,7 +12,7 @@ export class WatchersListener {
     issueId: string;
     actorId: string;
   }) {
-    this.watchersService.notifyWatchersOnEvent(
+    void this.watchersService.notifyWatchersOnEvent(
       payload.projectId,
       payload.issueId,
       'created an issue',
@@ -27,7 +27,7 @@ export class WatchersListener {
     actorId: string;
     action: string;
   }) {
-    this.watchersService.notifyWatchersOnEvent(
+    void this.watchersService.notifyWatchersOnEvent(
       payload.projectId,
       payload.issueId,
       payload.action,
@@ -41,7 +41,7 @@ export class WatchersListener {
     issueId: string;
     actorId: string;
   }) {
-    this.watchersService.notifyWatchersOnEvent(
+    void this.watchersService.notifyWatchersOnEvent(
       payload.projectId,
       payload.issueId,
       'deleted an issue',
@@ -57,7 +57,7 @@ export class WatchersListener {
     actorId: string;
     sprintName?: string;
   }) {
-    this.watchersService.notifyWatchersOnEvent(
+    void this.watchersService.notifyWatchersOnEvent(
       payload.projectId,
       payload.issueId ?? null,
       payload.action + (payload.sprintName ? ` (${payload.sprintName})` : ''),
@@ -77,7 +77,7 @@ export class WatchersListener {
     let actionMsg = payload.action;
     if (payload.boardName) actionMsg += ` (${payload.boardName})`;
     if (payload.columnName) actionMsg += ` [${payload.columnName}]`;
-    this.watchersService.notifyWatchersOnEvent(
+    void this.watchersService.notifyWatchersOnEvent(
       payload.projectId,
       payload.issueId ?? null,
       actionMsg,

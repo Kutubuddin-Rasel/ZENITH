@@ -6,16 +6,20 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
+  Index,
 } from 'typeorm';
 import { Issue } from '../../issues/entities/issue.entity';
 import { User } from '../../users/entities/user.entity';
 import { Release } from '../../releases/entities/release.entity';
-import { Epic } from '../../epics/entities/epic.entity';
 import { Sprint } from '../../sprints/entities/sprint.entity';
 import { Comment } from '../../comments/entities/comment.entity';
 import { Project } from '../../projects/entities/project.entity';
 
 @Entity({ name: 'attachments' })
+@Index('IDX_attachment_issue_id', ['issueId'])
+@Index('IDX_attachment_project_id', ['projectId'])
+@Index('IDX_attachment_uploaded_by', ['uploaderId'])
+@Index('IDX_attachment_created_at', ['createdAt'])
 export class Attachment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -63,10 +67,7 @@ export class Attachment {
   createdAt: Date;
 
   @Column({ nullable: true })
-  epicId?: string;
-  @ManyToOne(() => Epic, { onDelete: 'CASCADE', nullable: true })
-  @JoinColumn({ name: 'epicId' })
-  epic?: Epic;
+  epicId?: string; // Deprecated: Epics now use Issue with type='Epic'
 
   @Column({ nullable: true })
   sprintId?: string;

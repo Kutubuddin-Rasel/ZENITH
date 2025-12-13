@@ -1,4 +1,3 @@
-// src/auth/auth.module.ts
 import { forwardRef, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -15,7 +14,9 @@ import { SAMLController } from './controllers/saml.controller';
 // **Guards** and **Strategies**
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { LocalAuthGuard } from './guards/local-auth.guard';
+import { ProjectRoleGuard } from './guards/project-role.guard';
 
 // **Entities**
 import { TwoFactorAuth } from './entities/two-factor-auth.entity';
@@ -25,11 +26,16 @@ import { User } from '../users/entities/user.entity';
 import { UsersModule } from '../users/users.module';
 import { InvitesModule } from '../invites/invites.module';
 import { MembershipModule } from '../membership/membership.module';
+import { CacheModule } from '../cache/cache.module';
+import { OrganizationsModule } from '../organizations/organizations.module';
+import { OnboardingModule } from '../onboarding/onboarding.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([TwoFactorAuth, SAMLConfig, User]),
     UsersModule,
+    OrganizationsModule,
+    OnboardingModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -43,6 +49,7 @@ import { MembershipModule } from '../membership/membership.module';
 
     forwardRef(() => InvitesModule), // wrap in forwardRef
     MembershipModule, // if AuthService also injects ProjectMembersService
+    CacheModule, // For ProjectRoleGuard caching
   ],
   providers: [
     AuthService,
@@ -50,10 +57,12 @@ import { MembershipModule } from '../membership/membership.module';
     SAMLService,
     LocalStrategy,
     JwtStrategy,
+    JwtRefreshStrategy,
+    ProjectRoleGuard,
     // If you need to override the default 'local' or 'jwt' guards, provide them here:
     { provide: 'LOCAL_GUARD', useClass: LocalAuthGuard },
   ],
   controllers: [AuthController, TwoFactorAuthController, SAMLController],
-  exports: [TwoFactorAuthService, SAMLService],
+  exports: [TwoFactorAuthService, SAMLService, ProjectRoleGuard],
 })
-export class AuthModule {}
+export class AuthModule { }

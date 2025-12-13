@@ -6,6 +6,13 @@ export const createDatabaseConfig = (
 ): TypeOrmModuleOptions => {
   const isProduction = configService.get('NODE_ENV') === 'production';
 
+  // Base DB defaults
+  const baseHost = configService.get<string>('DB_HOST', 'localhost');
+  const basePort = configService.get<number>('DB_PORT', 5432);
+  const baseUsername = configService.get<string>('DB_USERNAME', 'postgres');
+  const basePassword = configService.get<string>('DB_PASSWORD', 'password');
+  const baseDatabase = configService.get<string>('DB_NAME', 'zenith');
+
   // Configure pg-pool logging function
   const pgLogFunction = (msg: string) => {
     if (configService.get('DB_QUERY_LOG', false)) {
@@ -15,15 +22,15 @@ export const createDatabaseConfig = (
 
   return {
     type: 'postgres',
-    host: configService.get('DATABASE_HOST', 'localhost'),
-    port: configService.get('DATABASE_PORT', 5432),
-    username: configService.get('DATABASE_USER', 'postgres'),
-    password: configService.get('DATABASE_PASS', 'password'),
-    database: configService.get('DATABASE_NAME', 'zenith'),
+    host: configService.get<string>('DATABASE_HOST', 'localhost'),
+    port: configService.get<number>('DATABASE_PORT', 5432),
+    username: configService.get<string>('DATABASE_USER', 'postgres'),
+    password: configService.get<string>('DATABASE_PASS', 'password'),
+    database: configService.get<string>('DATABASE_NAME', 'zenith'),
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
     migrations: [__dirname + '/../migrations/*{.ts,.js}'],
-    synchronize: !isProduction, // Never use synchronize in production
-    logging: configService.get('DB_LOGGING', false),
+    synchronize: !isProduction, // CRITICAL: Always false in production to prevent data loss
+    logging: configService.get<boolean>('DB_LOGGING', false),
     ssl: isProduction ? { rejectUnauthorized: false } : false,
 
     // Direct fix for pg-pool
@@ -34,18 +41,24 @@ export const createDatabaseConfig = (
     // Connection Pool Configuration
     extra: {
       // Connection pool settings
-      max: configService.get('DB_POOL_MAX', 20), // Maximum number of connections
-      min: configService.get('DB_POOL_MIN', 5), // Minimum number of connections
-      acquire: configService.get('DB_POOL_ACQUIRE', 30000), // Maximum time to acquire connection
-      idle: configService.get('DB_POOL_IDLE', 10000), // Maximum idle time
+      max: configService.get<number>('DB_POOL_MAX', 20), // Maximum number of connections
+      min: configService.get<number>('DB_POOL_MIN', 5), // Minimum number of connections
+      acquire: configService.get<number>('DB_POOL_ACQUIRE', 30000), // Maximum time to acquire connection
+      idle: configService.get<number>('DB_POOL_IDLE', 10000), // Maximum idle time
 
       // Connection timeout settings
-      connectionTimeoutMillis: configService.get('DB_CONNECTION_TIMEOUT', 2000),
-      idleTimeoutMillis: configService.get('DB_IDLE_TIMEOUT', 30000),
-      query_timeout: configService.get('DB_QUERY_TIMEOUT', 60000),
+      connectionTimeoutMillis: configService.get<number>(
+        'DB_CONNECTION_TIMEOUT',
+        2000,
+      ),
+      idleTimeoutMillis: configService.get<number>('DB_IDLE_TIMEOUT', 30000),
+      query_timeout: configService.get<number>('DB_QUERY_TIMEOUT', 60000),
 
       // Performance settings
-      statement_timeout: configService.get('DB_STATEMENT_TIMEOUT', 30000),
+      statement_timeout: configService.get<number>(
+        'DB_STATEMENT_TIMEOUT',
+        30000,
+      ),
       application_name: 'zenith-api',
 
       // Connection validation
@@ -85,7 +98,7 @@ export const createDatabaseConfig = (
     // },
 
     // Query optimization
-    maxQueryExecutionTime: configService.get('DB_MAX_QUERY_TIME', 5000), // 5 seconds
+    maxQueryExecutionTime: configService.get<number>('DB_MAX_QUERY_TIME', 5000), // 5 seconds
     dropSchema: false,
     autoLoadEntities: true,
 
@@ -93,48 +106,33 @@ export const createDatabaseConfig = (
     replication: isProduction
       ? {
           master: {
-            host: configService.get(
-              'DB_MASTER_HOST',
-              configService.get('DB_HOST'),
-            ),
-            port: configService.get(
-              'DB_MASTER_PORT',
-              configService.get('DB_PORT'),
-            ),
-            username: configService.get(
+            host: configService.get<string>('DB_MASTER_HOST', baseHost),
+            port: configService.get<number>('DB_MASTER_PORT', basePort),
+            username: configService.get<string>(
               'DB_MASTER_USERNAME',
-              configService.get('DB_USERNAME'),
+              baseUsername,
             ),
-            password: configService.get(
+            password: configService.get<string>(
               'DB_MASTER_PASSWORD',
-              configService.get('DB_PASSWORD'),
+              basePassword,
             ),
-            database: configService.get(
-              'DB_MASTER_NAME',
-              configService.get('DB_NAME'),
-            ),
+            database: configService.get<string>('DB_MASTER_NAME', baseDatabase),
           },
           slaves: [
             {
-              host: configService.get(
-                'DB_SLAVE_HOST',
-                configService.get('DB_HOST'),
-              ),
-              port: configService.get(
-                'DB_SLAVE_PORT',
-                configService.get('DB_PORT'),
-              ),
-              username: configService.get(
+              host: configService.get<string>('DB_SLAVE_HOST', baseHost),
+              port: configService.get<number>('DB_SLAVE_PORT', basePort),
+              username: configService.get<string>(
                 'DB_SLAVE_USERNAME',
-                configService.get('DB_USERNAME'),
+                baseUsername,
               ),
-              password: configService.get(
+              password: configService.get<string>(
                 'DB_SLAVE_PASSWORD',
-                configService.get('DB_PASSWORD'),
+                basePassword,
               ),
-              database: configService.get(
+              database: configService.get<string>(
                 'DB_SLAVE_NAME',
-                configService.get('DB_NAME'),
+                baseDatabase,
               ),
             },
           ],
@@ -145,10 +143,10 @@ export const createDatabaseConfig = (
 
 export const createRedisConfig = (configService: ConfigService) => {
   return {
-    host: configService.get('REDIS_HOST', 'localhost'),
-    port: configService.get('REDIS_PORT', 6379),
-    password: configService.get('REDIS_PASSWORD'),
-    db: configService.get('REDIS_DB', 0),
+    host: configService.get<string>('REDIS_HOST', 'localhost'),
+    port: configService.get<number>('REDIS_PORT', 6379),
+    password: configService.get<string | undefined>('REDIS_PASSWORD'),
+    db: configService.get<number>('REDIS_DB', 0),
     keyPrefix: 'zenith:',
     retryDelayOnFailover: 100,
     enableReadyCheck: false,

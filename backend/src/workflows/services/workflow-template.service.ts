@@ -6,7 +6,7 @@ import {
   WorkflowTemplateStatus,
   WorkflowTemplateDefinition,
 } from '../entities/workflow-template.entity';
-import { Workflow } from '../entities/workflow.entity';
+import { Workflow, WorkflowDefinition } from '../entities/workflow.entity';
 import { User } from '../../users/entities/user.entity';
 
 export interface TemplateSearchFilters {
@@ -205,7 +205,7 @@ export class WorkflowTemplateService {
       })
       .getRawMany();
 
-    return result.map((row) => row.category);
+    return result.map((row: { category: string }) => row.category);
   }
 
   async getPopularTemplates(limit: number = 10): Promise<WorkflowTemplate[]> {
@@ -222,7 +222,7 @@ export class WorkflowTemplateService {
     });
   }
 
-  async getFeaturedTemplates(limit: number = 5): Promise<WorkflowTemplate[]> {
+  async getFeaturedTemplates(limit: number): Promise<WorkflowTemplate[]> {
     return this.templateRepo.find({
       where: {
         status: WorkflowTemplateStatus.PUBLISHED,
@@ -240,7 +240,7 @@ export class WorkflowTemplateService {
     templateId: string,
     projectId: string,
     userId: string,
-    customizations?: Record<string, any>,
+    customizations?: Record<string, unknown>,
   ): Promise<Workflow> {
     const template = await this.getTemplateById(templateId);
 
@@ -260,7 +260,7 @@ export class WorkflowTemplateService {
       createdBy: userId,
       name: template.name,
       description: template.description,
-      definition: workflowDefinition as any,
+      definition: workflowDefinition as WorkflowDefinition,
       metadata: {
         version: 1,
         lastModified: new Date(),
@@ -287,14 +287,16 @@ export class WorkflowTemplateService {
 
   private applyCustomizations(
     templateDefinition: WorkflowTemplateDefinition,
-    customizations: Record<string, any>,
+    customizations: Record<string, unknown>,
   ): WorkflowTemplateDefinition {
     const customized = { ...templateDefinition };
 
     // Apply node customizations
     if (customizations.nodes) {
       customized.nodes = customized.nodes.map((node) => {
-        const customization = customizations.nodes[node.id];
+        const customization = (customizations.nodes as Record<string, any>)?.[
+          node.id
+        ] as { name?: string; config?: Record<string, unknown> } | undefined;
         if (customization) {
           return {
             ...node,
@@ -312,7 +314,9 @@ export class WorkflowTemplateService {
     // Apply connection customizations
     if (customizations.connections) {
       customized.connections = customized.connections.map((connection) => {
-        const customization = customizations.connections[connection.id];
+        const customization = (
+          customizations.connections as Record<string, any>
+        )?.[connection.id] as Record<string, unknown> | undefined;
         if (customization) {
           return {
             ...connection,
@@ -410,7 +414,7 @@ export class WorkflowTemplateService {
 
   getSystemTemplates(): Promise<WorkflowTemplate[]> {
     // Return pre-built system templates
-    return [
+    return Promise.resolve([
       {
         id: 'system-simple-approval',
         name: 'Simple Approval Workflow',
@@ -586,7 +590,7 @@ export class WorkflowTemplateService {
         createdAt: new Date(),
         updatedAt: new Date(),
       },
-    ] as WorkflowTemplate[];
+    ] as WorkflowTemplate[]);
   }
 
   async deleteTemplate(templateId: string, userId: string): Promise<void> {

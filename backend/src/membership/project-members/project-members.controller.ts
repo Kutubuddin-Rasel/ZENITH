@@ -11,6 +11,7 @@ import {
   Patch,
 } from '@nestjs/common';
 import { ProjectMembersService } from './project-members.service';
+import { ProjectRole } from '../enums/project-role.enum';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from 'src/auth/guards/permissions.guard';
 import { RequirePermission } from 'src/auth/decorators/require-permission.decorator';
@@ -62,7 +63,7 @@ export class ProjectMembersController {
     return this.pmService.addMemberToProject({
       projectId,
       userId: dto.userId,
-      roleName: dto.roleName,
+      roleName: dto.roleName as ProjectRole,
     });
   }
 
@@ -88,6 +89,10 @@ export class ProjectMembersController {
     if (!dto.roleName) {
       throw new BadRequestException('roleName is required');
     }
-    return this.pmService.updateMemberRole(projectId, userId, dto.roleName);
+    return this.pmService.updateMemberRole(
+      projectId,
+      userId,
+      dto.roleName as ProjectRole,
+    );
   }
 }

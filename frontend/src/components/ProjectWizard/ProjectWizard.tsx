@@ -6,16 +6,29 @@ import Button from '../Button';
 import Input from '../Input';
 import Label from '../Label';
 import Spinner from '../Spinner';
-import { 
-  ChevronLeftIcon, 
-  ChevronRightIcon, 
+import AIProjectChat from './AIProjectChat';
+import { WizardAnalytics } from '@/lib/analytics';
+import { safeLocalStorage } from '@/lib/safe-local-storage';
+import { apiFetch } from '@/lib/fetcher';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
   CheckIcon,
   SparklesIcon,
   UserGroupIcon,
   ClockIcon,
   ChartBarIcon,
-  CogIcon
+  CogIcon,
+  QueueListIcon
 } from '@heroicons/react/24/outline';
+
+// Helper to check if a template ID is a fallback (not a real database UUID)
+// Fallback templates use descriptive IDs like 'software-agile' instead of UUIDs
+const isFallbackTemplate = (templateId: string): boolean => {
+  // UUIDs have a specific format: 8-4-4-4-12 hex characters
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return !uuidRegex.test(templateId);
+};
 
 interface WizardQuestion {
   id: string;
@@ -77,35 +90,96 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
   const [responses, setResponses] = useState<Record<string, string | number | boolean>>({});
   const [recommendations, setRecommendations] = useState<TemplateRecommendation[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+  const [loadingState, setLoadingState] = useState<{
+    isLoading: boolean;
+    action: 'questions' | 'recommendations' | 'creating' | null;
+    message: string;
+  }>({ isLoading: false, action: null, message: '' });
   const [error, setError] = useState<string>('');
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const [wizardMode, setWizardMode] = useState<'ai' | 'classic'>('ai');
 
+  // Legacy loading state for backward compatibility
+  const loading = loadingState.isLoading;
+  const setLoading = (isLoading: boolean) =>
+    setLoadingState((prev) => ({ ...prev, isLoading, action: isLoading ? prev.action : null }));
+
+  // LocalStorage key for persisting wizard progress
+  const WIZARD_STORAGE_KEY = 'zenith_wizard_progress';
+
+  // Save progress to localStorage whenever responses or step changes
+  useEffect(() => {
+    if (questions.length > 0 && Object.keys(responses).length > 0) {
+      const progress = {
+        currentStep,
+        responses,
+        selectedTemplate,
+        timestamp: Date.now(),
+      };
+      try {
+        safeLocalStorage.setItem(WIZARD_STORAGE_KEY, JSON.stringify(progress));
+      } catch {
+        // localStorage may be full or disabled
+      }
+    }
+  }, [currentStep, responses, selectedTemplate, questions.length]);
+
+  // Restore progress from localStorage on initial load
   useEffect(() => {
     if (isOpen) {
       setStartTime(new Date());
+      WizardAnalytics.wizardOpened();
+      // Try to restore saved progress
+      try {
+        const saved = safeLocalStorage.getItem(WIZARD_STORAGE_KEY);
+        if (saved) {
+          const progress = JSON.parse(saved);
+          // Only restore if saved within the last 24 hours
+          const isRecent = Date.now() - progress.timestamp < 24 * 60 * 60 * 1000;
+          if (isRecent && progress.responses) {
+            setResponses(progress.responses);
+            if (progress.selectedTemplate) {
+              setSelectedTemplate(progress.selectedTemplate);
+            }
+            // Don't restore step until questions are loaded
+          }
+        }
+      } catch {
+        // Invalid saved data, ignore
+      }
+
       loadWizardQuestions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Debug logging
+  // Restore step after questions are loaded (if we have saved progress)
   useEffect(() => {
-    console.log('Wizard state:', {
-      currentStep,
-      questionsLength: questions.length,
-      responses,
-      recommendations,
-      selectedTemplate,
-      loading,
-      error
-    });
-  }, [currentStep, questions.length, responses, recommendations, selectedTemplate, loading, error]);
+    if (questions.length > 0) {
+      try {
+        const saved = safeLocalStorage.getItem(WIZARD_STORAGE_KEY);
+        if (saved) {
+          const progress = JSON.parse(saved);
+          const isRecent = Date.now() - progress.timestamp < 24 * 60 * 60 * 1000;
+          if (isRecent && progress.currentStep !== undefined && progress.currentStep < questions.length) {
+            setCurrentStep(progress.currentStep);
+          }
+        }
+      } catch {
+        // Invalid saved data, ignore
+      }
+    }
+  }, [questions.length]);
 
-  // Log when recommendations change
-  useEffect(() => {
-    console.log('Recommendations updated:', recommendations);
-  }, [recommendations]);
+  // Clear saved progress when wizard completes successfully
+  const clearSavedProgress = () => {
+    try {
+      safeLocalStorage.removeItem(WIZARD_STORAGE_KEY);
+    } catch {
+      // Ignore errors
+    }
+  };
 
   // Timer effect
   useEffect(() => {
@@ -119,25 +193,15 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
 
   const loadWizardQuestions = async () => {
     try {
-      setLoading(true);
-      
+      setLoadingState({ isLoading: true, action: 'questions', message: 'Loading wizard questions...' });
+
       // Try to fetch questions from API
       try {
-        const response = await fetch('http://localhost:3000/api/project-wizard/questions', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-          },
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setQuestions(data.data);
-        } else {
-          throw new Error('API request failed');
-        }
+        const data = await apiFetch<{ data: WizardQuestion[] }>('/api/project-wizard/questions');
+        setQuestions(data.data);
       } catch {
-        console.log('API not available, using fallback questions');
-        
+        // API not available, using fallback questions
+
         // Fallback questions if API is not available
         const fallbackQuestions: WizardQuestion[] = [
           {
@@ -234,20 +298,15 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
             category: 'complexity',
           },
         ];
-        
+
         setQuestions(fallbackQuestions);
       }
-      
-      // Pre-populate with smart defaults for faster setup
+
+      // Only pre-populate non-critical fields - let user explicitly choose industry/methodology
       const smartDefaults = {
-        'project_name': 'My New Project',
+        'project_name': '',  // Let user enter project name
         'project_description': '',
-        'team_size': '2-5',
-        'timeline': 'medium',
-        'industry': 'software_development',
-        'methodology': 'agile',
-        'complexity': 'moderate',
-        'team_experience': 'intermediate',
+        // Don't pre-fill industry/methodology - these are critical for accurate recommendations
       };
       setResponses(smartDefaults);
     } catch (err) {
@@ -266,18 +325,14 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
   };
 
   const handleNext = async () => {
-    console.log('handleNext called', { 
-      currentStep, 
-      questionsLength: questions.length, 
-      responses,
-      isLastStep: currentStep === questions.length - 1,
-      currentQuestion: questions[currentStep]
-    });
     if (currentStep < questions.length - 1) {
-      console.log('Moving to next step');
+      // Track step completion
+      const currentQuestion = questions[currentStep];
+      if (currentQuestion) {
+        WizardAnalytics.stepCompleted(currentStep, currentQuestion.id, questions.length);
+      }
       setCurrentStep(prev => prev + 1);
     } else {
-      console.log('Processing responses and moving to template selection');
       await processResponses();
     }
   };
@@ -288,11 +343,134 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
     }
   };
 
+  // Generate dynamic fallback recommendations based on user selections
+  const generateDynamicFallbacks = (): TemplateRecommendation[] => {
+    const industry = String(responses.industry || 'software_development');
+    const methodology = String(responses.methodology || 'agile');
+    const teamSize = String(responses.team_size || '2-5');
+
+    // Template data for each industry with methodology variants
+    const templateDatabase: Record<string, TemplateRecommendation[]> = {
+      software_development: [
+        {
+          template: { id: 'software-agile', name: 'Software Development (Agile)', description: 'Agile workflow with sprints, stories, and retrospectives', category: 'software_development', methodology: 'agile', icon: '💻', color: '#3B82F6', usageCount: 150 },
+          score: 0.9, reasons: [], confidence: 'high',
+        },
+        {
+          template: { id: 'software-kanban', name: 'Software Development (Kanban)', description: 'Continuous flow with visual boards and WIP limits', category: 'software_development', methodology: 'kanban', icon: '📋', color: '#6366F1', usageCount: 100 },
+          score: 0.85, reasons: [], confidence: 'high',
+        },
+        {
+          template: { id: 'software-scrum', name: 'Software Development (Scrum)', description: 'Structured sprints with defined roles', category: 'software_development', methodology: 'scrum', icon: '🏃', color: '#10B981', usageCount: 120 },
+          score: 0.8, reasons: [], confidence: 'medium',
+        },
+      ],
+      marketing: [
+        {
+          template: { id: 'marketing-campaign', name: 'Marketing Campaign', description: 'Campaign management with content planning', category: 'marketing', methodology: 'kanban', icon: '📢', color: '#10B981', usageCount: 80 },
+          score: 0.9, reasons: [], confidence: 'high',
+        },
+        {
+          template: { id: 'content-calendar', name: 'Content Calendar', description: 'Plan and schedule content across channels', category: 'marketing', methodology: 'kanban', icon: '📅', color: '#8B5CF6', usageCount: 60 },
+          score: 0.85, reasons: [], confidence: 'high',
+        },
+      ],
+      product_launch: [
+        {
+          template: { id: 'product-launch', name: 'Product Launch', description: 'From ideation to market release', category: 'product_launch', methodology: 'hybrid', icon: '🚀', color: '#F59E0B', usageCount: 90 },
+          score: 0.9, reasons: [], confidence: 'high',
+        },
+      ],
+      website_development: [
+        {
+          template: { id: 'website-dev', name: 'Website Development', description: 'Full website project from design to deployment', category: 'website_development', methodology: 'agile', icon: '🌐', color: '#8B5CF6', usageCount: 70 },
+          score: 0.9, reasons: [], confidence: 'high',
+        },
+      ],
+      mobile_development: [
+        {
+          template: { id: 'mobile-app', name: 'Mobile App Development', description: 'iOS and Android app development', category: 'mobile_development', methodology: 'scrum', icon: '📱', color: '#EC4899', usageCount: 85 },
+          score: 0.9, reasons: [], confidence: 'high',
+        },
+      ],
+      event_planning: [
+        {
+          template: { id: 'event-planning', name: 'Event Planning', description: 'Plan and execute events with vendor management', category: 'event_planning', methodology: 'waterfall', icon: '🎉', color: '#F97316', usageCount: 50 },
+          score: 0.9, reasons: [], confidence: 'high',
+        },
+      ],
+      research: [
+        {
+          template: { id: 'research-project', name: 'Research & Development', description: 'Research with hypothesis and experiment tracking', category: 'research', methodology: 'agile', icon: '🔬', color: '#06B6D4', usageCount: 45 },
+          score: 0.9, reasons: [], confidence: 'high',
+        },
+      ],
+      data_analysis: [
+        {
+          template: { id: 'data-analysis', name: 'Data Analysis Project', description: 'Data analysis and reporting workflow', category: 'data_analysis', methodology: 'kanban', icon: '📊', color: '#14B8A6', usageCount: 55 },
+          score: 0.9, reasons: [], confidence: 'high',
+        },
+      ],
+      design: [
+        {
+          template: { id: 'design-project', name: 'Design Project', description: 'Creative design with feedback loops', category: 'design', methodology: 'kanban', icon: '🎨', color: '#A855F7', usageCount: 65 },
+          score: 0.9, reasons: [], confidence: 'high',
+        },
+      ],
+      sales: [
+        {
+          template: { id: 'sales-pipeline', name: 'Sales Pipeline', description: 'Sales opportunity tracking and management', category: 'sales', methodology: 'kanban', icon: '💼', color: '#EF4444', usageCount: 75 },
+          score: 0.9, reasons: [], confidence: 'high',
+        },
+      ],
+    };
+
+    // Get templates for selected industry (or fallback to software_development)
+    let templates = templateDatabase[industry] || templateDatabase.software_development;
+
+    // Score and add reasons based on user selections
+    templates = templates.map((t, index) => {
+      let score = 0.9 - (index * 0.1);
+      const reasons: string[] = [];
+
+      // Industry match
+      if (t.template.category === industry) {
+        score += 0.1;
+        reasons.push(`Designed for ${industry.replace('_', ' ')}`);
+      }
+
+      // Methodology match
+      if (t.template.methodology === methodology) {
+        score += 0.15;
+        reasons.push(`Uses ${methodology} workflow`);
+      }
+
+      // Team size consideration
+      const isSmallTeam = teamSize === '1' || teamSize === '2-5';
+      if (isSmallTeam) {
+        reasons.push('Suitable for small teams');
+      } else {
+        reasons.push('Scalable for larger teams');
+      }
+
+      return {
+        ...t,
+        score: Math.min(score, 1),
+        reasons,
+        confidence: score >= 0.8 ? 'high' as const : score >= 0.6 ? 'medium' as const : 'low' as const,
+      };
+    });
+
+    // Sort by score and return top 3
+    return templates
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+  };
+
   const processResponses = async () => {
     try {
-      console.log('processResponses called', { responses, recommendations });
-      setLoading(true);
-      
+      setLoadingState({ isLoading: true, action: 'recommendations', message: 'Analyzing your responses...' });
+
       // Try to process responses via API
       try {
         const wizardResponses: WizardResponse[] = Object.entries(responses).map(([questionId, answer]) => ({
@@ -301,143 +479,23 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
           timestamp: new Date(),
         }));
 
-        console.log('Making API call to process-responses with:', { responses: wizardResponses });
-        const response = await fetch('http://localhost:3000/api/project-wizard/process-responses', {
+        const data = await apiFetch<{ data: { recommendations: TemplateRecommendation[] } }>('/api/project-wizard/process-responses', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-          },
           body: JSON.stringify({ responses: wizardResponses }),
         });
 
-        console.log('API response status:', response.status);
-        if (response.ok) {
-          const data = await response.json();
-          console.log('API response data:', data);
-          console.log('API data.data:', data.data);
-          console.log('API data.data.recommendations:', data.data?.recommendations);
-          
-          // Check if API returned empty recommendations
-          if (data.data?.recommendations && data.data.recommendations.length > 0) {
-            setRecommendations(data.data.recommendations);
-            console.log('setRecommendations called with API recommendations:', data.data.recommendations);
-          } else {
-            console.log('API returned empty recommendations, using fallback');
-            // Use fallback recommendations if API returns empty
-            const fallbackRecommendations: TemplateRecommendation[] = [
-              {
-                template: {
-                  id: 'software-development-basic',
-                  name: 'Software Development - Basic',
-                  description: 'A simple project template for software development with basic issue types and workflows.',
-                  category: 'software_development',
-                  methodology: 'agile',
-                  icon: '💻',
-                  color: '#3B82F6',
-                  usageCount: 150,
-                },
-                score: 0.9,
-                reasons: ['Matches your industry selection', 'Suitable for your team size'],
-                confidence: 'high',
-              },
-              {
-                template: {
-                  id: 'agile-scrum-template',
-                  name: 'Agile Scrum Template',
-                  description: 'A comprehensive Scrum template with sprints, backlogs, and agile workflows.',
-                  category: 'software_development',
-                  methodology: 'scrum',
-                  icon: '🏃',
-                  color: '#10B981',
-                  usageCount: 200,
-                },
-                score: 0.85,
-                reasons: ['Matches your methodology preference', 'Good for your team size'],
-                confidence: 'high',
-              },
-              {
-                template: {
-                  id: 'kanban-workflow',
-                  name: 'Kanban Workflow',
-                  description: 'A flexible Kanban board for continuous workflow management.',
-                  category: 'software_development',
-                  methodology: 'kanban',
-                  icon: '📋',
-                  color: '#F59E0B',
-                  usageCount: 120,
-                },
-                score: 0.8,
-                reasons: ['Flexible workflow', 'Good for ongoing projects'],
-                confidence: 'medium',
-              },
-            ];
-            setRecommendations(fallbackRecommendations);
-            console.log('setRecommendations called with fallback recommendations:', fallbackRecommendations);
-          }
+        // Check if API returned recommendations
+        if (data.data?.recommendations && data.data.recommendations.length > 0) {
+          setRecommendations(data.data.recommendations);
         } else {
-          const errorText = await response.text();
-          console.log('API error response:', errorText);
-          throw new Error('API request failed');
+          // Use dynamic fallback recommendations based on user input
+          setRecommendations(generateDynamicFallbacks());
         }
-      } catch (apiError) {
-        console.log('API not available, using fallback recommendations', apiError);
-        
-        // Generate fallback recommendations based on responses
-        const fallbackRecommendations: TemplateRecommendation[] = [
-          {
-            template: {
-              id: 'software-development-basic',
-              name: 'Software Development - Basic',
-              description: 'A simple project template for software development with basic issue types and workflows.',
-              category: 'software_development',
-              methodology: 'agile',
-              icon: '💻',
-              color: '#3B82F6',
-              usageCount: 150,
-            },
-            score: 0.9,
-            reasons: ['Matches your industry selection', 'Suitable for your team size'],
-            confidence: 'high',
-          },
-          {
-            template: {
-              id: 'agile-scrum-template',
-              name: 'Agile Scrum Template',
-              description: 'A comprehensive Scrum template with sprints, backlogs, and agile workflows.',
-              category: 'software_development',
-              methodology: 'scrum',
-              icon: '🏃',
-              color: '#10B981',
-              usageCount: 200,
-            },
-            score: 0.85,
-            reasons: ['Matches your methodology preference', 'Good for your team size'],
-            confidence: 'high',
-          },
-          {
-            template: {
-              id: 'kanban-workflow',
-              name: 'Kanban Workflow',
-              description: 'A flexible Kanban board for continuous workflow management.',
-              category: 'software_development',
-              methodology: 'kanban',
-              icon: '📋',
-              color: '#F59E0B',
-              usageCount: 120,
-            },
-            score: 0.8,
-            reasons: ['Flexible workflow', 'Good for ongoing projects'],
-            confidence: 'medium',
-          },
-        ];
-        
-        console.log('Setting fallback recommendations:', fallbackRecommendations);
-        setRecommendations(fallbackRecommendations);
-        console.log('Fallback recommendations set');
+      } catch {
+        // API not available, use dynamic fallback recommendations
+        setRecommendations(generateDynamicFallbacks());
       }
-      
-      console.log('Moving to template selection step', { newStep: questions.length, recommendations });
+
       setCurrentStep(questions.length); // Move to template selection
     } catch (err) {
       console.error('Failed to process wizard responses:', err);
@@ -447,101 +505,116 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
     }
   };
 
-  const createProject = async () => {
-    if (!selectedTemplate) return;
+  const createProject = async (explicitData?: Record<string, string | number | boolean>, explicitTemplateId?: string) => {
+    const activeTemplate = explicitTemplateId || selectedTemplate;
+    if (!activeTemplate) return;
+
+    const activeResponses = { ...responses, ...(explicitData || {}) };
 
     try {
-      setLoading(true);
+      setLoadingState({ isLoading: true, action: 'creating', message: 'Analyzing your responses...' });
+      // Generate a unique project key (max 10 chars, uppercase letters and underscores only)
+      const projectName = String(activeResponses.project_name || 'New Project');
+      let baseKey = projectName.replace(/[^A-Za-z]/g, '').toUpperCase().substring(0, 4);
+
+      // Fallback if name has no letters (e.g. "123")
+      if (baseKey.length < 2) {
+        baseKey = 'PROJ';
+      }
+
+      // Add a random letter to make it unique and ensure at least 3 chars
+      const randomLetter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+      const uniqueKey = `${baseKey}${randomLetter}`;
+
       const wizardData = {
-        projectName: responses.project_name || 'New Project',
-        description: responses.project_description || '',
-        teamSize: responses.team_size && typeof responses.team_size === 'string' ? parseInt(responses.team_size.split('-')[0]) : 1,
-        timeline: responses.timeline || 'medium',
-        industry: responses.industry || 'software_development',
-        methodology: responses.methodology || 'agile',
-        complexity: responses.complexity || 'moderate',
-        teamExperience: responses.team_experience || 'intermediate',
+        projectName: projectName,
+        // projectKey: uniqueKey, // Let backend generate robust key
+        description: activeResponses.project_description || '',
+        teamSize: (() => {
+          const size = activeResponses.team_size;
+          if (typeof size === 'string') return size;
+          if (typeof size === 'number') return String(size);
+          return "1";
+        })(),
+        timeline: activeResponses.timeline || 'medium',
+        industry: activeResponses.industry || 'software_development',
+        methodology: activeResponses.methodology || 'agile',
+        complexity: activeResponses.complexity || 'moderate',
+        teamExperience: activeResponses.team_experience || 'intermediate',
         hasExternalStakeholders: false,
         requiresCompliance: false,
         budget: 'medium',
+        userExperience: "intermediate"
       };
 
-      // Generate a unique project key (max 5 chars, uppercase letters and underscores only)
-      const projectName = String(wizardData.projectName);
-      const baseKey = projectName.replace(/[^A-Za-z]/g, '').toUpperCase().substring(0, 4);
-      // Add a random letter to make it unique
-      const randomLetter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
-      const uniqueKey = `${baseKey}${randomLetter}`;
-      console.log('Generated project key:', uniqueKey);
-      
-        // Try regular project creation API first (more reliable)
+      // Only try wizard API if we have a real template ID (not a fallback)
+      // Fallback templates use descriptive IDs that won't exist in the database
+      const useWizardApi = activeTemplate && !isFallbackTemplate(activeTemplate);
+
+      if (useWizardApi) {
         try {
-          const token = localStorage.getItem('access_token');
-          console.log('Token from localStorage:', token ? 'Present' : 'Missing');
-          console.log('Creating project with:', {
+          const response = await apiFetch<{ data: Project } | Project>('/api/project-wizard/create-project', {
+            method: 'POST',
+            body: JSON.stringify({
+              wizardData,
+              templateId: activeTemplate,
+            }),
+          });
+
+          // apiFetch automatically throws if response is not ok
+          const project = 'data' in response ? response.data : response;
+
+          if (project?.id) {
+            clearSavedProgress();
+            WizardAnalytics.projectCreated(activeTemplate, elapsedTime, true);
+            onProjectCreated(project);
+            onClose();
+            // Force a router refresh to update server components/layout
+            router.refresh();
+            router.push(`/projects/${project.id}`);
+          } else {
+            console.error('Project created but ID missing:', project);
+            setError('Project created but navigation failed');
+          }
+          return;
+        } catch (wizardError: unknown) {
+          // Check if it's a known error (like duplicate name)
+          let errorMsg = '';
+          if (wizardError instanceof Error) {
+            errorMsg = wizardError.message;
+          } else {
+            errorMsg = String(wizardError);
+          }
+
+          if (errorMsg.includes('Project name or key') || errorMsg.includes('already exist')) {
+            setError(errorMsg.replace(/.*(?:message|error)":"([^"]+)".*/, '$1') || 'Project name already exists. Please choose another.');
+            return; // Stop here, don't try fallback
+          }
+          // Wizard API not available, falling through to regular project creation
+          console.warn('Wizard API error, trying fallback:', wizardError);
+        }
+      }
+
+      // Use regular project creation API for fallback templates or as fallback
+      try {
+        const data = await apiFetch<Project>('/projects', {
+          method: 'POST',
+          body: JSON.stringify({
             name: projectName,
             description: String(wizardData.description),
             key: uniqueKey,
-          });
-          
-          const response = await fetch('http://localhost:3000/projects', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              name: projectName,
-              description: String(wizardData.description),
-              key: uniqueKey,
-            }),
-          });
+          }),
+        });
 
-        console.log('Project creation response status:', response.status);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Project created successfully:', data);
-          onProjectCreated(data);
-          onClose();
-          router.push(`/projects/${data.id}`);
-          return;
-        } else {
-          const errorText = await response.text();
-          console.log('Project creation failed:', errorText);
-          throw new Error('Regular API request failed');
-        }
-      } catch (regularApiError) {
-        console.log('Regular API failed:', regularApiError);
-        console.log('Regular API not available, trying wizard API');
-        
-        // Try wizard API as fallback
-        try {
-          const response = await fetch('http://localhost:3000/api/project-wizard/create-project', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-            },
-            body: JSON.stringify({
-              wizardData,
-              templateId: selectedTemplate,
-            }),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            onProjectCreated(data.data);
-            onClose();
-            router.push(`/projects/${data.data.id}`);
-            return;
-          } else {
-            throw new Error('Wizard API request failed');
-          }
-        } catch {
-          console.log('All APIs failed, cannot create project');
-          throw new Error('Unable to create project - all APIs failed');
-        }
+        clearSavedProgress();
+        WizardAnalytics.projectCreated(activeTemplate, elapsedTime, false);
+        onProjectCreated(data);
+        onClose();
+        router.push(`/projects/${data.id}`);
+        return;
+      } catch (fallbackError) {
+        console.error('Fallback project creation failed:', fallbackError);
+        throw new Error('Unable to create project');
       }
     } catch (err) {
       console.error('Failed to create project:', err);
@@ -609,7 +682,6 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
   };
 
   const renderTemplateSelection = () => {
-    console.log('renderTemplateSelection called', { recommendations, selectedTemplate });
     return (
       <div className="space-y-6">
         <div className="text-center">
@@ -621,57 +693,58 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
           </p>
         </div>
 
-      <div className="grid gap-4">
-        {recommendations.map((rec) => (
-          <Card
-            key={rec.template.id}
-            className={`p-4 cursor-pointer transition-all duration-200 ${
-              selectedTemplate === rec.template.id
+        <div className="grid gap-4">
+          {recommendations.map((rec) => (
+            <Card
+              key={rec.template.id}
+              className={`p-4 cursor-pointer transition-all duration-200 ${selectedTemplate === rec.template.id
                 ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20'
                 : 'hover:shadow-md'
-            }`}
-            onClick={() => setSelectedTemplate(rec.template.id)}
-          >
-            <div className="flex items-start gap-4">
-              <div
-                className="w-12 h-12 rounded-lg flex items-center justify-center text-white"
-                style={{ backgroundColor: rec.template.color }}
-              >
-                <span className="text-xl">{rec.template.icon}</span>
-              </div>
-              
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <h4 className="font-semibold text-gray-900 dark:text-white">
-                    {rec.template.name}
-                  </h4>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    rec.confidence === 'high' ? 'bg-green-100 text-green-800' :
-                    rec.confidence === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {rec.confidence} match
-                  </span>
+                }`}
+              onClick={() => {
+                setSelectedTemplate(rec.template.id);
+                WizardAnalytics.templateSelected(rec.template.id, rec.template.name, isFallbackTemplate(rec.template.id));
+              }}
+            >
+              <div className="flex items-start gap-4">
+                <div
+                  className="w-12 h-12 rounded-lg flex items-center justify-center text-white"
+                  style={{ backgroundColor: rec.template.color }}
+                >
+                  <span className="text-xl">{rec.template.icon}</span>
                 </div>
-                
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  {rec.template.description}
-                </p>
-                
-                <div className="space-y-1">
-                  {rec.reasons.map((reason, index) => (
-                    <div key={index} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                      <CheckIcon className="h-4 w-4 text-green-500" />
-                      {reason}
-                    </div>
-                  ))}
+
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="font-semibold text-gray-900 dark:text-white">
+                      {rec.template.name}
+                    </h4>
+                    <span className={`px-2 py-1 text-xs rounded-full ${rec.confidence === 'high' ? 'bg-green-100 text-green-800' :
+                      rec.confidence === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                      {rec.confidence} match
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    {rec.template.description}
+                  </p>
+
+                  <div className="space-y-1">
+                    {rec.reasons.map((reason, index) => (
+                      <div key={index} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                        <CheckIcon className="h-4 w-4 text-green-500" />
+                        {reason}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          ))}
+        </div>
       </div>
-    </div>
     );
   };
 
@@ -702,149 +775,224 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
             </button>
           </div>
 
-          {/* Progress Bar */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Step {currentStep + 1} of {questions.length + 1}
-              </span>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {Math.round(((currentStep + 1) / (questions.length + 1)) * 100)}% Complete
-                </span>
-                <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
-                  <ClockIcon className="h-4 w-4" />
-                  {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}
-                </div>
-              </div>
-            </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  elapsedTime < 120 ? 'bg-green-600' : elapsedTime < 180 ? 'bg-yellow-600' : 'bg-red-600'
+          {/* Mode Toggle Tabs */}
+          <div className="flex gap-2 mb-6 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            <button
+              onClick={() => setWizardMode('ai')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium transition-all ${wizardMode === 'ai'
+                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
-                style={{ width: `${((currentStep + 1) / (questions.length + 1)) * 100}%` }}
-              />
-            </div>
-            {elapsedTime < 120 && (
-              <div className="mt-2 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                <CheckIcon className="h-3 w-3" />
-                On track for 2-minute setup!
-              </div>
-            )}
+            >
+              <SparklesIcon className="h-4 w-4" />
+              AI Assistant
+            </button>
+            <button
+              onClick={() => setWizardMode('classic')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium transition-all ${wizardMode === 'classic'
+                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+            >
+              <QueueListIcon className="h-4 w-4" />
+              Classic Wizard
+            </button>
           </div>
 
-          {/* Content */}
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Spinner />
-            </div>
-          ) : error ? (
-            <div className="text-center py-12">
-              <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
-              <Button onClick={() => window.location.reload()}>
-                Try Again
-              </Button>
-            </div>
-          ) : currentStep < questions.length ? (
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 mb-6">
-                {getStepIcon(currentStep)}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {questions[currentStep]?.question}
-                  </h3>
-                  {questions[currentStep]?.options?.[0]?.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      {questions[currentStep].options?.[0].description}
-                    </p>
+          {/* AI Chat Mode */}
+          {wizardMode === 'ai' && (
+            <AIProjectChat
+              onTemplateSelected={(templateId, suggestedConfig, extractedData) => {
+                console.log('[Wizard Debug] Template Selected:', templateId);
+                console.log('[Wizard Debug] AI Extracted Data:', extractedData);
+
+                setSelectedTemplate(templateId);
+
+                const newResponses = { ...responses };
+                if (extractedData) {
+                  if (extractedData.name) {
+                    newResponses.project_name = extractedData.name;
+                    console.log('[Wizard Debug] Mapped name to project_name:', extractedData.name);
+                  }
+                  if (extractedData.description) newResponses.project_description = extractedData.description;
+                  if (extractedData.teamSize) newResponses.team_size = extractedData.teamSize;
+                  if (extractedData.industry) newResponses.industry = extractedData.industry;
+                  if (extractedData.methodology) newResponses.methodology = extractedData.methodology;
+                  if (extractedData.timeline) newResponses.timeline = extractedData.timeline;
+
+                  setResponses(newResponses);
+                }
+
+                if (suggestedConfig) {
+                  // In a real app we'd store this config
+                }
+
+                // If check if we have a valid project name to proceed
+                // If yes, create immediately. If no, go to wizard to ask.
+                const hasProjectName = !!newResponses.project_name && String(newResponses.project_name).length > 0;
+                console.log('[Wizard Debug] Has Project Name?', hasProjectName, newResponses.project_name);
+
+                if (hasProjectName) {
+                  createProject(); // Call createProject without arguments, it uses state
+                } else {
+                  // Switch to Review Mode (Classic Wizard)
+                  // We start at step 0 so user can see/edit the inferred name
+                  setWizardMode('classic');
+                  setCurrentStep(0);
+                }
+              }}
+              onClose={onClose}
+            />
+          )}
+
+          {/* Classic Wizard Mode */}
+          {wizardMode === 'classic' && (
+            <>
+              {/* Progress Bar */}
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Step {currentStep + 1} of {questions.length + 1}
+                  </span>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {Math.round(((currentStep + 1) / (questions.length + 1)) * 100)}% Complete
+                    </span>
+                    <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                      <ClockIcon className="h-4 w-4" />
+                      {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}
+                    </div>
+                  </div>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-300 ${elapsedTime < 120 ? 'bg-green-600' : elapsedTime < 180 ? 'bg-yellow-600' : 'bg-red-600'
+                      }`}
+                    style={{ width: `${((currentStep + 1) / (questions.length + 1)) * 100}%` }}
+                  />
+                </div>
+                {elapsedTime < 120 && (
+                  <div className="mt-2 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <CheckIcon className="h-3 w-3" />
+                    On track for 2-minute setup!
+                  </div>
+                )}
+              </div>
+
+              {/* Content */}
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <Spinner />
+                  {loadingState.message && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{loadingState.message}</p>
+                  )}
+                </div>
+              ) : error ? (
+                <div className="text-center py-12">
+                  <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
+                  <Button onClick={() => window.location.reload()}>
+                    Try Again
+                  </Button>
+                </div>
+              ) : currentStep < questions.length ? (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    {getStepIcon(currentStep)}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {questions[currentStep]?.question}
+                      </h3>
+                      {questions[currentStep]?.options?.[0]?.description && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          {questions[currentStep].options?.[0].description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {questions[currentStep]?.options?.map((option) => (
+                      <div
+                        key={option.value}
+                        className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ${responses[questions[currentStep].id] === option.value
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                          }`}
+                        onClick={() => handleAnswer(questions[currentStep].id, option.value)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-4 h-4 rounded-full border-2 ${responses[questions[currentStep].id] === option.value
+                            ? 'border-blue-500 bg-blue-500'
+                            : 'border-gray-300 dark:border-gray-600'
+                            }`}>
+                            {responses[questions[currentStep].id] === option.value && (
+                              <div className="w-2 h-2 bg-white rounded-full m-0.5" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900 dark:text-white">
+                              {option.label}
+                            </div>
+                            {option.description && (
+                              <div className="text-sm text-gray-600 dark:text-gray-400">
+                                {option.description}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {questions[currentStep]?.type === 'text' && (
+                    <div className="space-y-2">
+                      <Label htmlFor={questions[currentStep].id}>
+                        {questions[currentStep].question}
+                      </Label>
+                      {renderQuestion(questions[currentStep])}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                renderTemplateSelection()
+              )}
+
+              {/* Navigation */}
+              <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <Button
+                  variant="ghost"
+                  onClick={currentStep < questions.length ? handlePrevious : () => setCurrentStep(questions.length - 1)}
+                  disabled={currentStep === 0}
+                >
+                  <ChevronLeftIcon className="h-4 w-4 mr-2" />
+                  Previous
+                </Button>
+
+                <div className="flex gap-3">
+                  <Button variant="ghost" onClick={onClose}>
+                    Cancel
+                  </Button>
+                  {currentStep < questions.length ? (
+                    <Button
+                      onClick={handleNext}
+                      disabled={questions[currentStep]?.required && !responses[questions[currentStep]?.id]}
+                    >
+                      Next
+                      <ChevronRightIcon className="h-4 w-4 ml-2" />
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => createProject()}
+                      disabled={!selectedTemplate}
+                    >
+                      Create Project
+                      <CheckIcon className="h-4 w-4 ml-2" />
+                    </Button>
                   )}
                 </div>
               </div>
-
-              <div className="space-y-4">
-                {questions[currentStep]?.options?.map((option) => (
-                  <div
-                    key={option.value}
-                    className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-                      responses[questions[currentStep].id] === option.value
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                    }`}
-                    onClick={() => handleAnswer(questions[currentStep].id, option.value)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-4 h-4 rounded-full border-2 ${
-                        responses[questions[currentStep].id] === option.value
-                          ? 'border-blue-500 bg-blue-500'
-                          : 'border-gray-300 dark:border-gray-600'
-                      }`}>
-                        {responses[questions[currentStep].id] === option.value && (
-                          <div className="w-2 h-2 bg-white rounded-full m-0.5" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-medium text-gray-900 dark:text-white">
-                          {option.label}
-                        </div>
-                        {option.description && (
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            {option.description}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {questions[currentStep]?.type === 'text' && (
-                <div className="space-y-2">
-                  <Label htmlFor={questions[currentStep].id}>
-                    {questions[currentStep].question}
-                  </Label>
-                  {renderQuestion(questions[currentStep])}
-                </div>
-              )}
-            </div>
-          ) : (
-            renderTemplateSelection()
+            </>
           )}
-
-          {/* Navigation */}
-          <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <Button
-              variant="ghost"
-              onClick={currentStep < questions.length ? handlePrevious : () => setCurrentStep(questions.length - 1)}
-              disabled={currentStep === 0}
-            >
-              <ChevronLeftIcon className="h-4 w-4 mr-2" />
-              Previous
-            </Button>
-
-            <div className="flex gap-3">
-              <Button variant="ghost" onClick={onClose}>
-                Cancel
-              </Button>
-              {currentStep < questions.length ? (
-                <Button
-                  onClick={handleNext}
-                  disabled={questions[currentStep]?.required && !responses[questions[currentStep]?.id]}
-                >
-                  Next
-                  <ChevronRightIcon className="h-4 w-4 ml-2" />
-                </Button>
-              ) : (
-                <Button
-                  onClick={createProject}
-                  disabled={!selectedTemplate}
-                >
-                  Create Project
-                  <CheckIcon className="h-4 w-4 ml-2" />
-                </Button>
-              )}
-            </div>
-          </div>
         </div>
       </Card>
     </div>

@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
-import * as path from 'path';
+import { execSync } from 'child_process';
+import * as crypto from 'crypto';
 
 export interface HTTPSConfig {
   key: Buffer;
@@ -39,9 +40,6 @@ export class HTTPSConfigService {
    * Generate self-signed certificate for development
    */
   generateSelfSignedCert(): { key: string; cert: string } {
-    const { execSync } = require('child_process');
-    const crypto = require('crypto');
-
     try {
       // Generate private key
       const key = crypto.generateKeyPairSync('rsa', {
@@ -60,7 +58,7 @@ export class HTTPSConfigService {
       const cert = execSync(
         `openssl req -x509 -new -key <(echo "${key.privateKey}") -days 365 -out /dev/stdout -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"`,
         {
-          shell: true,
+          shell: '/bin/bash',
           encoding: 'utf8',
         },
       );
@@ -80,12 +78,9 @@ export class HTTPSConfigService {
    */
   validateSSLCertificate(certPath: string): boolean {
     try {
-      const cert = fs.readFileSync(certPath);
-      const { execSync } = require('child_process');
-
       execSync(`openssl x509 -in ${certPath} -text -noout`, { stdio: 'pipe' });
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -95,7 +90,6 @@ export class HTTPSConfigService {
    */
   getCertificateExpiration(certPath: string): Date | null {
     try {
-      const { execSync } = require('child_process');
       const output = execSync(`openssl x509 -in ${certPath} -noout -enddate`, {
         encoding: 'utf8',
         stdio: 'pipe',
@@ -103,7 +97,7 @@ export class HTTPSConfigService {
 
       const dateString = output.split('=')[1].trim();
       return new Date(dateString);
-    } catch (error) {
+    } catch {
       return null;
     }
   }

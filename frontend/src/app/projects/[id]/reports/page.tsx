@@ -1,26 +1,26 @@
 "use client";
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
-import { 
-  useVelocityReport, 
-  useBurndownReport, 
-  useCumulativeFlowReport, 
-  useEpicProgressReport, 
-  useIssueBreakdownReport 
+import {
+  useVelocityReport,
+  useBurndownReport,
+  useCumulativeFlowReport,
+  useEpicProgressReport,
+  useIssueBreakdownReport
 } from '@/hooks/useReports';
 import Card from '@/components/Card';
 import Spinner from '@/components/Spinner';
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell
 } from 'recharts';
 import ProtectedProjectRoute from '@/components/ProtectedProjectRoute';
-import { 
-  ChartBarIcon, 
-  ArrowTrendingDownIcon, 
-  ArrowTrendingUpIcon, 
-  BookOpenIcon, 
-  ChartPieIcon 
+import {
+  ChartBarIcon,
+  ArrowTrendingDownIcon,
+  ArrowTrendingUpIcon,
+  BookOpenIcon,
+  ChartPieIcon
 } from '@heroicons/react/24/outline';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
@@ -60,7 +60,7 @@ export default function ReportsPage() {
           <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">Average Velocity</h3>
           <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{averageVelocity.toFixed(1)} points per sprint</p>
         </div>
-        
+
         <ResponsiveContainer width="100%" height={400}>
           <BarChart data={velocityData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -85,7 +85,7 @@ export default function ReportsPage() {
 
     const sprint = burndownData[0];
 
-  return (
+    return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-xl">
@@ -105,7 +105,7 @@ export default function ReportsPage() {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl">
           <h4 className="text-lg font-semibold mb-4">Sprint Progress</h4>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
-            <div 
+            <div
               className="bg-gradient-to-r from-green-400 to-emerald-500 h-4 rounded-full transition-all duration-1000"
               style={{ width: `${sprint.completionPercentage}%` }}
             />
@@ -136,13 +136,13 @@ export default function ReportsPage() {
           <Tooltip />
           <Legend />
           {statuses.map((status, index) => (
-            <Area 
+            <Area
               key={status}
-              type="monotone" 
-              dataKey={status} 
-              stackId="1" 
-              stroke={COLORS[index % COLORS.length]} 
-              fill={COLORS[index % COLORS.length]} 
+              type="monotone"
+              dataKey={status}
+              stackId="1"
+              stroke={COLORS[index % COLORS.length]}
+              fill={COLORS[index % COLORS.length]}
             />
           ))}
         </AreaChart>
@@ -163,15 +163,14 @@ export default function ReportsPage() {
           <Card key={epic.epicId} className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">{epic.epicTitle}</h3>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                epic.epicStatus === 'Done' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                epic.epicStatus === 'In Progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-              }`}>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${epic.epicStatus === 'Done' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                  epic.epicStatus === 'In Progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                    'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                }`}>
                 {epic.epicStatus}
               </span>
             </div>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div className="text-center">
                 <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{epic.totalStories}</p>
@@ -198,7 +197,7 @@ export default function ReportsPage() {
                   <span>{epic.completionPercentage.toFixed(1)}%</span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-blue-500 h-2 rounded-full"
                     style={{ width: `${epic.completionPercentage}%` }}
                   />
@@ -210,7 +209,7 @@ export default function ReportsPage() {
                   <span>{epic.storyPointsCompletionPercentage.toFixed(1)}%</span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-green-500 h-2 rounded-full"
                     style={{ width: `${epic.storyPointsCompletionPercentage}%` }}
                   />
@@ -230,7 +229,8 @@ export default function ReportsPage() {
       return <div className="text-center text-gray-500">No issues found</div>;
     }
 
-    const createPieChartData = (breakdown: { [key: string]: number }) => {
+    const createPieChartData = (breakdown: { [key: string]: number } | undefined) => {
+      if (!breakdown) return [];
       return Object.entries(breakdown).map(([key, value]) => ({ name: key, value }));
     };
 
@@ -371,11 +371,10 @@ export default function ReportsPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                    activeTab === tab.id
+                  className={`flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === tab.id
                       ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                  }`}
+                    }`}
                 >
                   <Icon className="h-5 w-5" />
                   {tab.name}
@@ -383,7 +382,7 @@ export default function ReportsPage() {
               );
             })}
           </nav>
-          </div>
+        </div>
 
         {/* Tab Content */}
         <Card className="p-6">

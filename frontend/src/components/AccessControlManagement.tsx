@@ -7,13 +7,13 @@ import Input from './Input';
 import Label from './Label';
 import Badge from './Badge';
 import Alert, { AlertDescription } from './Alert';
-import { 
-  Shield, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Play, 
-  Pause, 
+import {
+  Shield,
+  Plus,
+  Edit,
+  Trash2,
+  Play,
+  Pause,
   AlertTriangle,
   Globe,
   Clock,
@@ -26,6 +26,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
+import { apiClient } from '../lib/api-client';
 
 interface AccessRule {
   id: string;
@@ -62,13 +63,21 @@ interface AccessControlManagementProps {
   onRuleDeleted?: () => void;
 }
 
-export default function AccessControlManagement({ 
-  onRuleDeleted 
+export default function AccessControlManagement({
+  onRuleDeleted
 }: AccessControlManagementProps) {
   const [rules, setRules] = useState<AccessRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [, setShowCreateForm] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newRule, setNewRule] = useState({
+    name: '',
+    description: '',
+    ruleType: 'whitelist',
+    ipAddress: '',
+    ipType: 'single',
+    priority: 500,
+  });
   const [showDetails, setShowDetails] = useState<Record<string, boolean>>({});
   const [filter, setFilter] = useState({
     status: 'all',
@@ -83,18 +92,8 @@ export default function AccessControlManagement({
   const fetchRules = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/access-control/rules', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch access rules');
-      }
-
-      const data = await response.json();
-      setRules(data);
+      const data = await apiClient.get<AccessRule[]>('/access-control/rules');
+      setRules(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -106,16 +105,7 @@ export default function AccessControlManagement({
 
   const deleteRule = async (ruleId: string) => {
     try {
-      const response = await fetch(`/api/access-control/rules/${ruleId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete access rule');
-      }
+      await apiClient.delete(`/access-control/rules/${ruleId}`);
 
       await fetchRules();
       onRuleDeleted?.();
@@ -127,20 +117,30 @@ export default function AccessControlManagement({
   const toggleRuleStatus = async (ruleId: string, isActive: boolean) => {
     const endpoint = isActive ? 'activate' : 'deactivate';
     try {
-      const response = await fetch(`/api/access-control/rules/${ruleId}/${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to ${endpoint} rule`);
-      }
+      await apiClient.post(`/access-control/rules/${ruleId}/${endpoint}`, {});
 
       await fetchRules();
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to ${endpoint} rule`);
+    }
+  };
+
+  const createRule = async () => {
+    try {
+      await apiClient.post('/access-control/rules', newRule);
+
+      await fetchRules();
+      setShowCreateForm(false);
+      setNewRule({
+        name: '',
+        description: '',
+        ruleType: 'whitelist',
+        ipAddress: '',
+        ipType: 'single',
+        priority: 500,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create rule');
     }
   };
 
@@ -172,8 +172,8 @@ export default function AccessControlManagement({
   const filteredRules = rules.filter(rule => {
     if (filter.status !== 'all' && rule.status !== filter.status) return false;
     if (filter.ruleType !== 'all' && rule.ruleType !== filter.ruleType) return false;
-    if (filter.search && !rule.name.toLowerCase().includes(filter.search.toLowerCase()) && 
-        !rule.ipAddress.toLowerCase().includes(filter.search.toLowerCase())) return false;
+    if (filter.search && !rule.name.toLowerCase().includes(filter.search.toLowerCase()) &&
+      !rule.ipAddress.toLowerCase().includes(filter.search.toLowerCase())) return false;
     return true;
   });
 
@@ -359,7 +359,7 @@ export default function AccessControlManagement({
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => {/* Edit functionality */}}
+                      onClick={() => {/* Edit functionality */ }}
                     >
                       <Edit className="h-4 w-4 mr-2" />
                       Edit
@@ -390,6 +390,119 @@ export default function AccessControlManagement({
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Create Rule Modal */}
+      {showCreateForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle>Create Access Control Rule</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="rule-name">Rule Name</Label>
+                <Input
+                  id="rule-name"
+                  value={newRule.name}
+                  onChange={(e) => setNewRule(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., Office IP Whitelist"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="rule-description">Description</Label>
+                <Input
+                  id="rule-description"
+                  value={newRule.description}
+                  onChange={(e) => setNewRule(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Optional description"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="rule-type">Rule Type</Label>
+                  <select
+                    id="rule-type"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                    value={newRule.ruleType}
+                    onChange={(e) => setNewRule(prev => ({ ...prev, ruleType: e.target.value }))}
+                  >
+                    <option value="whitelist">Whitelist</option>
+                    <option value="blacklist">Blacklist</option>
+                    <option value="geographic">Geographic</option>
+                    <option value="time_based">Time-based</option>
+                    <option value="user_specific">User-specific</option>
+                    <option value="role_based">Role-based</option>
+                  </select>
+                </div>
+
+                <div>
+                  <Label htmlFor="ip-type">IP Type</Label>
+                  <select
+                    id="ip-type"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                    value={newRule.ipType}
+                    onChange={(e) => setNewRule(prev => ({ ...prev, ipType: e.target.value }))}
+                  >
+                    <option value="single">Single IP</option>
+                    <option value="range">IP Range</option>
+                    <option value="cidr">CIDR</option>
+                    <option value="wildcard">Wildcard</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="ip-address">IP Address</Label>
+                <Input
+                  id="ip-address"
+                  value={newRule.ipAddress}
+                  onChange={(e) => setNewRule(prev => ({ ...prev, ipAddress: e.target.value }))}
+                  placeholder="e.g., 192.168.1.1 or 192.168.1.0/24"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="priority">Priority (1-1000)</Label>
+                <Input
+                  id="priority"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={newRule.priority}
+                  onChange={(e) => setNewRule(prev => ({ ...prev, priority: parseInt(e.target.value) || 500 }))}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setNewRule({
+                      name: '',
+                      description: '',
+                      ruleType: 'whitelist',
+                      ipAddress: '',
+                      ipType: 'single',
+                      priority: 500,
+                    });
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={createRule}
+                  disabled={!newRule.name || !newRule.ipAddress}
+                >
+                  Create Rule
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

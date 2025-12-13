@@ -4,6 +4,10 @@ import { Repository } from 'typeorm';
 import { Integration, IntegrationType } from '../entities/integration.entity';
 import { ExternalData, MappedData } from '../entities/external-data.entity';
 import { SearchIndex } from '../entities/search-index.entity';
+import { RateLimitService } from './rate-limit.service';
+import { TokenManagerService } from './token-manager.service';
+import { EncryptionService } from '../../common/services/encryption.service';
+import { BaseIntegrationService } from './base-integration.service';
 
 export interface TrelloBoard {
   id: string;
@@ -186,18 +190,31 @@ interface TrelloBoardData {
 // }
 
 @Injectable()
-export class TrelloIntegrationService {
-  private readonly logger = new Logger(TrelloIntegrationService.name);
+export class TrelloIntegrationService extends BaseIntegrationService {
+  protected readonly logger = new Logger(TrelloIntegrationService.name);
+  protected readonly source = 'trello';
   private readonly trelloApiBase = 'https://api.trello.com/1';
 
   constructor(
     @InjectRepository(Integration)
-    private integrationRepo: Repository<Integration>,
+    integrationRepo: Repository<Integration>,
     @InjectRepository(ExternalData)
-    private externalDataRepo: Repository<ExternalData>,
+    externalDataRepo: Repository<ExternalData>,
     @InjectRepository(SearchIndex)
-    private searchIndexRepo: Repository<SearchIndex>,
-  ) {}
+    searchIndexRepo: Repository<SearchIndex>,
+    rateLimitService: RateLimitService,
+    tokenManagerService: TokenManagerService,
+    encryptionService: EncryptionService,
+  ) {
+    super(
+      integrationRepo,
+      externalDataRepo,
+      searchIndexRepo,
+      rateLimitService,
+      tokenManagerService,
+      encryptionService,
+    );
+  }
 
   async syncBoards(integrationId: string): Promise<TrelloBoard[]> {
     try {
@@ -541,59 +558,11 @@ export class TrelloIntegrationService {
     });
   }
 
-  private async storeExternalData(
-    integrationId: string,
-    type: string,
-    externalId: string,
-    data: Record<string, unknown>,
-  ): Promise<void> {
-    try {
-      // Check if data already exists
-      const existing = await this.externalDataRepo.findOne({
-        where: {
-          integrationId,
-          externalId,
-          externalType: type,
-        },
-      });
-
-      const mappedData = this.mapTrelloData(type, data);
-      if (!mappedData) {
-        return;
-      }
-
-      if (existing) {
-        existing.rawData = data;
-        existing.mappedData = mappedData;
-        existing.lastSyncAt = new Date();
-        await this.externalDataRepo.save(existing);
-      } else {
-        const externalData = this.externalDataRepo.create({
-          integrationId,
-          externalId,
-          externalType: type,
-          rawData: data,
-          mappedData,
-          lastSyncAt: new Date(),
-        });
-        await this.externalDataRepo.save(externalData);
-      }
-
-      // Update search index
-      if (mappedData) {
-        await this.updateSearchIndex(
-          integrationId,
-          type,
-          externalId,
-          mappedData,
-        );
-      }
-    } catch (error) {
-      this.logger.error('Failed to store external data:', error);
-    }
-  }
-
-  private mapTrelloData(
+  /**
+   * Maps Trello data to standard MappedData format.
+   * Implements abstract method from BaseIntegrationService.
+   */
+  protected mapExternalData(
     type: string,
     data: Record<string, unknown>,
   ): MappedData | null {
@@ -668,56 +637,6 @@ export class TrelloIntegrationService {
       }
       default:
         return null;
-    }
-  }
-
-  private async updateSearchIndex(
-    integrationId: string,
-    type: string,
-    externalId: string,
-    mappedData: MappedData,
-  ): Promise<void> {
-    try {
-      const searchContent =
-        `${mappedData.title} ${mappedData.content}`.toLowerCase();
-
-      const existing = await this.searchIndexRepo.findOne({
-        where: {
-          integrationId,
-          contentType: type,
-        },
-      });
-
-      const searchMetadata = {
-        source: mappedData.source,
-        url: mappedData.url,
-        author: mappedData.author,
-        timestamp: new Date(),
-        tags: [],
-        priority: 1,
-        ...mappedData.metadata,
-      };
-
-      if (existing) {
-        existing.title = mappedData.title;
-        existing.content = mappedData.content;
-        existing.metadata = searchMetadata;
-        existing.searchVector = searchContent;
-        existing.updatedAt = new Date();
-        await this.searchIndexRepo.save(existing);
-      } else {
-        const searchIndex = this.searchIndexRepo.create({
-          integrationId,
-          contentType: type,
-          title: mappedData.title,
-          content: mappedData.content,
-          metadata: searchMetadata,
-          searchVector: searchContent,
-        });
-        await this.searchIndexRepo.save(searchIndex);
-      }
-    } catch (error) {
-      this.logger.error('Failed to update search index:', error);
     }
   }
 }

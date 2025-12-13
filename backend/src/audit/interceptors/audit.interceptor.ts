@@ -163,7 +163,7 @@ export class AuditInterceptor implements NestInterceptor {
         request.url,
         className,
         (handler as Record<string, unknown>).name as string,
-        error,
+        error as { status?: number; message?: string },
       );
 
       if (eventType) {
@@ -176,7 +176,7 @@ export class AuditInterceptor implements NestInterceptor {
             request.url,
             className,
             (handler as Record<string, unknown>).name as string,
-            error,
+            error as { message?: string },
           ),
           details: {
             method: request.method,
@@ -411,11 +411,22 @@ export class AuditInterceptor implements NestInterceptor {
   }
 
   private getClientIp(request: Request): string {
-    return (request.ip ||
-      (request as any).connection?.remoteAddress ||
-      (request as any).socket?.remoteAddress ||
-      (request as any).connection?.socket?.remoteAddress ||
-      'unknown') as string;
+    type RequestWithSockets = Request & {
+      connection?: {
+        remoteAddress?: string;
+        socket?: { remoteAddress?: string };
+      };
+      socket?: { remoteAddress?: string };
+    };
+
+    const req = request as RequestWithSockets;
+    return (
+      request.ip ||
+      req.connection?.remoteAddress ||
+      req.socket?.remoteAddress ||
+      req.connection?.socket?.remoteAddress ||
+      'unknown'
+    );
   }
 
   private generateRequestId(): string {

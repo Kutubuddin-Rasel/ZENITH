@@ -6,6 +6,7 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
+  Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
@@ -16,7 +17,16 @@ export enum NotificationType {
   ERROR = 'error',
 }
 
+export enum NotificationStatus {
+  UNREAD = 'unread',
+  DONE = 'done',
+  SAVED = 'saved',
+}
+
 @Entity({ name: 'notifications' })
+@Index('IDX_notification_user_read', ['userId', 'read']) // OPTIMIZED: Frequent query pattern
+@Index('IDX_notification_created_at', ['createdAt']) // OPTIMIZED: Ordering
+@Index('IDX_notification_user_created', ['userId', 'createdAt']) // OPTIMIZED: User notifications with ordering
 export class Notification {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -39,7 +49,14 @@ export class Notification {
   type: NotificationType;
 
   @Column({ default: false })
-  read: boolean;
+  read: boolean; // @deprecated Use status instead
+
+  @Column({
+    type: 'enum',
+    enum: NotificationStatus,
+    default: NotificationStatus.UNREAD,
+  })
+  status: NotificationStatus;
 
   @CreateDateColumn() createdAt: Date;
 }

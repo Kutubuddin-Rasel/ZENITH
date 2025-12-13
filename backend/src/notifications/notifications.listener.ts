@@ -2,21 +2,19 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { NotificationsService } from './notifications.service';
 import { NotificationType } from './entities/notification.entity';
+import {
+  InviteCreatedPayload,
+  InviteResendPayload,
+  InviteRespondedPayload,
+  InviteRevokedPayload,
+} from './types/event-payloads.interface';
 
 @Injectable()
 export class NotificationsListener {
   constructor(private notificationsService: NotificationsService) {}
 
   @OnEvent('invite.created')
-  async handleInviteCreated(payload: {
-    invite: any;
-    project: any;
-    role: string;
-  }) {
-    console.log(
-      '🎯 NotificationsListener: invite.created event received',
-      payload,
-    );
+  async handleInviteCreated(payload: InviteCreatedPayload) {
     try {
       await this.notificationsService.createMany(
         [payload.invite.inviteeId],
@@ -24,18 +22,13 @@ export class NotificationsListener {
         { projectId: payload.project?.id ?? '', inviteId: payload.invite.id },
         NotificationType.INFO,
       );
-      console.log('✅ Notification created successfully for invite');
     } catch (error) {
       console.error('❌ Error creating notification for invite:', error);
     }
   }
 
   @OnEvent('invite.resend')
-  async handleInviteResend(payload: { invite: any; project: any }) {
-    console.log(
-      '🎯 NotificationsListener: invite.resend event received',
-      payload,
-    );
+  async handleInviteResend(payload: InviteResendPayload) {
     try {
       await this.notificationsService.createMany(
         [payload.invite.inviteeId],
@@ -43,25 +36,13 @@ export class NotificationsListener {
         { projectId: payload.project?.id ?? '', inviteId: payload.invite.id },
         NotificationType.INFO,
       );
-      console.log('✅ Reminder notification created successfully');
     } catch (error) {
       console.error('❌ Error creating reminder notification:', error);
     }
   }
 
   @OnEvent('invite.responded')
-  async handleInviteResponded(payload: {
-    invite: any;
-    project: any;
-    invitee: any;
-    message: string;
-    accept: boolean;
-    reason?: string;
-  }) {
-    console.log(
-      '🎯 NotificationsListener: invite.responded event received',
-      payload,
-    );
+  async handleInviteResponded(payload: InviteRespondedPayload) {
     try {
       await this.notificationsService.createMany(
         [payload.invite.inviterId], // Notify the inviter about the response
@@ -69,18 +50,13 @@ export class NotificationsListener {
         { projectId: payload.invite.projectId ? payload.invite.projectId : '' },
         payload.accept ? NotificationType.SUCCESS : NotificationType.WARNING,
       );
-      console.log('✅ Response notification created successfully');
     } catch (error) {
       console.error('❌ Error creating response notification:', error);
     }
   }
 
   @OnEvent('invite.revoked')
-  async handleInviteRevoked(payload: { invite: any; project: any }) {
-    console.log(
-      '🎯 NotificationsListener: invite.revoked event received',
-      payload,
-    );
+  async handleInviteRevoked(payload: InviteRevokedPayload) {
     try {
       // First, try to delete notifications by context
       await this.notificationsService.deleteByContext(
@@ -117,7 +93,6 @@ export class NotificationsListener {
         { projectId: payload.project?.id ?? '', inviteId: payload.invite.id },
         NotificationType.WARNING,
       );
-      console.log('✅ Revocation notification created successfully');
     } catch (error) {
       console.error('❌ Error handling invite revocation:', error);
     }

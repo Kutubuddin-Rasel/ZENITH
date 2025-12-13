@@ -9,7 +9,8 @@ interface CreateIssueData {
   type: string;
   projectId: string;
   assigneeId?: string;
-  estimatedHours: number;
+  estimatedHours?: number;
+  parentId?: string;
 }
 
 interface Issue {
@@ -34,12 +35,13 @@ export function useCreateIssue() {
 
   return useMutation({
     mutationFn: async (data: CreateIssueData): Promise<Issue> => {
-      return await apiFetch(`/projects/${data.projectId}/issues`, {
+      const { projectId, ...body } = data;
+      return await apiFetch(`/projects/${projectId}/issues`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(body),
       });
     },
     onSuccess: (newIssue, variables) => {
@@ -47,7 +49,7 @@ export function useCreateIssue() {
       queryClient.invalidateQueries({
         queryKey: ['project-issues', variables.projectId],
       });
-      
+
       // Also invalidate project summary to update issue counts
       queryClient.invalidateQueries({
         queryKey: ['project', variables.projectId],

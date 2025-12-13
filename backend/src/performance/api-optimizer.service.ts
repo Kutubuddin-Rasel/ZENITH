@@ -179,8 +179,10 @@ export class ApiOptimizerService {
     }
 
     if (typeof data === 'object') {
-      const optimized: any = {};
-      for (const [key, value] of Object.entries(data)) {
+      const optimized: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(
+        data as Record<string, unknown>,
+      )) {
         if (value !== null && value !== undefined) {
           optimized[key] = this.optimizeResponseData(value);
         }
@@ -237,7 +239,11 @@ export class ApiOptimizerService {
             const jsonString = decompressed.toString('utf8');
             resolve(JSON.parse(jsonString));
           } catch (parseError) {
-            reject(parseError);
+            reject(
+              parseError instanceof Error
+                ? parseError
+                : new Error(String(parseError)),
+            );
           }
         }
       });
@@ -271,7 +277,6 @@ export class ApiOptimizerService {
   ): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
     const key = `rate_limit:${identifier}`;
     const now = Date.now();
-    const windowStart = now - options.windowMs;
 
     try {
       // Get current request count
@@ -334,7 +339,7 @@ export class ApiOptimizerService {
     errorRate: number;
   }> {
     try {
-      const stats = await this.cacheService.getStats();
+      await this.cacheService.getStats();
 
       // This would need to be implemented with actual metrics collection
       // For now, return mock data
@@ -358,7 +363,7 @@ export class ApiOptimizerService {
   /**
    * Clean up expired cache entries
    */
-  async cleanupExpiredCache(): Promise<void> {
+  cleanupExpiredCache(): void {
     try {
       // This would be implemented with a background job
       // For now, just log the cleanup

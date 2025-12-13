@@ -14,7 +14,7 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import {
   // Generate2FADto,
   Verify2FADto,
-  Disable2FADto,
+  // Disable2FADto, // Removed - no longer used after simplification
   VerifyLogin2FADto,
 } from '../dto/two-factor-auth.dto';
 
@@ -74,15 +74,8 @@ export class TwoFactorAuthController {
 
   @Delete('disable')
   @HttpCode(HttpStatus.OK)
-  async disable(
-    @Request() req: { user: { userId: string } },
-    @Body() dto: Disable2FADto,
-  ) {
-    const userId = req.user.userId;
-    const success = await this.twoFactorAuthService.disable(
-      userId,
-      dto.password,
-    );
+  async disable(@Request() req: { user: { userId: string } }) {
+    const success = await this.twoFactorAuthService.disable(req.user.userId);
     return { success };
   }
 }

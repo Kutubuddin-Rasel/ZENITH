@@ -104,7 +104,9 @@ export class TwoFactorAuthService {
     twoFactorAuth.isEnabled = true;
     await this.twoFactorRepo.save(twoFactorAuth);
 
-    const backupCodes = JSON.parse(twoFactorAuth.backupCodes);
+    const backupCodes = JSON.parse(
+      twoFactorAuth.backupCodes ?? '[]',
+    ) as string[];
 
     return {
       success: true,
@@ -124,11 +126,13 @@ export class TwoFactorAuthService {
     }
 
     // Check if it's a backup code
-    const backupCodes = JSON.parse(twoFactorAuth.backupCodes);
+    const backupCodes = JSON.parse(
+      twoFactorAuth.backupCodes ?? '[]',
+    ) as string[];
     if (backupCodes.includes(token)) {
       // Remove used backup code
-      const updatedBackupCodes = backupCodes.filter(
-        (code: string) => code !== token,
+      const updatedBackupCodes: string[] = backupCodes.filter(
+        (code) => code !== token,
       );
       twoFactorAuth.backupCodes = JSON.stringify(updatedBackupCodes);
       twoFactorAuth.lastUsedAt = new Date();
@@ -155,8 +159,8 @@ export class TwoFactorAuthService {
   /**
    * Disable 2FA for user
    */
-  async disable(userId: string, password: string): Promise<boolean> {
-    // In a real implementation, verify password here
+  async disable(userId: string): Promise<boolean> {
+    // Password verification should be handled at the controller level
     const twoFactorAuth = await this.twoFactorRepo.findOne({
       where: { userId },
     });

@@ -5,10 +5,15 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  Index,
+  Unique,
 } from 'typeorm';
 import { Board } from './board.entity';
 
 @Entity({ name: 'board_columns' })
+@Index('IDX_board_column_board_id', ['boardId'])
+@Index('IDX_board_column_position', ['columnOrder'])
+@Unique('UQ_board_column_board_name', ['boardId', 'name']) // Column names must be unique per board
 export class BoardColumn {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -20,11 +25,10 @@ export class BoardColumn {
   @JoinColumn({ name: 'boardId' })
   board: Board;
 
+  // Linear-style: column name IS the status
+  // When issue.status === column.name, the issue appears in this column
   @Column()
-  name: string; // e.g. “To Do”
-
-  @Column()
-  status: string; // must match Issue.status enum
+  name: string;
 
   @Column({ type: 'int', default: 0 })
   columnOrder: number; // left-to-right order

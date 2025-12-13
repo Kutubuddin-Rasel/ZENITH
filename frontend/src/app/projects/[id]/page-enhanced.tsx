@@ -2,20 +2,20 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useProject } from "../../../hooks/useProject";
-import { useProjectSummary } from '../../../hooks/useProject';
+import { useProjectSummary } from '@/hooks/useProject';
 import Spinner from "../../../components/Spinner";
-import { getSocket } from '../../../lib/socket';
+import { getSocket } from '@/lib/socket';
 import Link from 'next/link';
 import Button from "@/components/Button";
 import {
   useProjectMembers,
-} from '../../../hooks/useProject';
-import { 
-  BriefcaseIcon, 
-  UserIcon, 
-  ArrowRightOnRectangleIcon, 
-  UserPlusIcon, 
-  DocumentPlusIcon, 
+} from '@/hooks/useProject';
+import {
+  BriefcaseIcon,
+  UserIcon,
+  ArrowRightOnRectangleIcon,
+  UserPlusIcon,
+  DocumentPlusIcon,
   ChartBarIcon,
   ClockIcon,
   CheckCircleIcon,
@@ -29,14 +29,14 @@ import {
   PlusIcon,
   SparklesIcon
 } from "@heroicons/react/24/outline";
-import { 
+import {
   BriefcaseIcon as BriefcaseSolid,
   RocketLaunchIcon as RocketLaunchSolid,
   UsersIcon as UsersSolid,
   TrophyIcon
 } from "@heroicons/react/24/solid";
-import { useActiveSprint } from '../../../hooks/useSprints';
-import { useSprintIssues } from '../../../hooks/useSprintIssues';
+import { useActiveSprint } from '@/hooks/useSprints';
+import { useSprintIssues } from '@/hooks/useSprintIssues';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import SpeedDialFAB, { SpeedDialAction } from '@/components/SpeedDialFAB';
 import { PencilIcon } from '@heroicons/react/24/solid';
@@ -50,30 +50,24 @@ interface ProjectActivity {
   [key: string]: unknown;
 }
 
+import { apiClient } from '@/lib/api-client';
+
 function useProjectActivity(projectId: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const [activity, setActivity] = useState<ProjectActivity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!projectId) return;
     setLoading(true);
     setError(null);
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    fetch(`${API_URL}/projects/${projectId}/activity`, {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        'Content-Type': 'application/json',
-      },
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch activity');
-        return res.json();
-      })
-      .then(setActivity)
+
+    apiClient.get<ProjectActivity[]>(`/projects/${projectId}/activity`)
+      .then((data) => setActivity(Array.isArray(data) ? data : []))
       .catch(() => setError('Failed to fetch activity'))
       .finally(() => setLoading(false));
-  }, [projectId, API_URL]);
+  }, [projectId]);
+
   return { activity, loading, error };
 }
 
@@ -147,7 +141,7 @@ export default function ProjectDashboard() {
       </div>
     );
   }
-  
+
   if (errorProject || !project) {
     return (
       <div className="flex justify-center items-center h-96">
@@ -183,7 +177,7 @@ export default function ProjectDashboard() {
                   {currentUserRole || 'Member'}
                 </div>
               </div>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center gap-4">
                   <h1 className="text-5xl font-black bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-white dark:via-gray-100 dark:to-white bg-clip-text text-transparent leading-tight tracking-tight">
@@ -212,7 +206,7 @@ export default function ProjectDashboard() {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-4 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-white/20 dark:border-gray-700/50">
@@ -236,30 +230,30 @@ export default function ProjectDashboard() {
       {/* Enhanced Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { 
-            label: 'Total Issues', 
-            value: totalIssues, 
+          {
+            label: 'Total Issues',
+            value: totalIssues,
             icon: <BriefcaseSolid className="h-6 w-6" />,
             color: 'from-blue-500 to-blue-600',
             bgColor: 'from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30'
           },
-          { 
-            label: 'Completion Rate', 
-            value: `${percentDone}%`, 
+          {
+            label: 'Completion Rate',
+            value: `${percentDone}%`,
             icon: <TrophyIcon className="h-6 w-6" />,
             color: 'from-green-500 to-emerald-600',
             bgColor: 'from-green-100 to-emerald-200 dark:from-green-900/30 dark:to-emerald-800/30'
           },
-          { 
-            label: 'Team Members', 
-            value: totalMembers, 
+          {
+            label: 'Team Members',
+            value: totalMembers,
             icon: <UsersSolid className="h-6 w-6" />,
             color: 'from-purple-500 to-purple-600',
             bgColor: 'from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/30'
           },
-          { 
-            label: 'Active Sprint', 
-            value: activeSprint ? 'Active' : 'None', 
+          {
+            label: 'Active Sprint',
+            value: activeSprint ? 'Active' : 'None',
             icon: <RocketLaunchSolid className="h-6 w-6" />,
             color: activeSprint ? 'from-orange-500 to-red-600' : 'from-gray-500 to-gray-600',
             bgColor: activeSprint ? 'from-orange-100 to-red-200 dark:from-orange-900/30 dark:to-red-800/30' : 'from-gray-100 to-gray-200 dark:from-gray-900/30 dark:to-gray-800/30'
@@ -271,7 +265,7 @@ export default function ProjectDashboard() {
             style={{ animationDelay: `${i * 100}ms` }}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-blue-50/20 via-purple-50/10 to-blue-50/20 dark:from-blue-950/10 dark:via-purple-950/5 dark:to-blue-950/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            
+
             <div className="relative z-10 flex items-center gap-4">
               <div className={`p-4 rounded-2xl bg-gradient-to-br ${stat.bgColor} shadow-lg`}>
                 <div className={`text-white ${stat.color.includes('gray') ? 'text-gray-600' : ''}`}>
@@ -301,7 +295,7 @@ export default function ProjectDashboard() {
             </h3>
             <ChartBarIcon className="h-8 w-8 text-blue-500" />
           </div>
-          
+
           {donutData.length === 0 ? (
             <div className="text-center py-12">
               <BriefcaseIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -331,13 +325,13 @@ export default function ProjectDashboard() {
                         fill={statusColors[entry.name] || '#6b7280'}
                         stroke={selectedStatus === entry.name ? '#2563eb' : '#fff'}
                         strokeWidth={selectedStatus === entry.name ? 4 : 2}
-                        style={{ 
-                          filter: selectedStatus === entry.name ? 'drop-shadow(0 0 12px #2563eb)' : undefined 
+                        style={{
+                          filter: selectedStatus === entry.name ? 'drop-shadow(0 0 12px #2563eb)' : undefined
                         }}
                       />
                     ))}
                   </Pie>
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value, name) => [`${value}`, `${name}`]}
                     contentStyle={{
                       backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -349,7 +343,7 @@ export default function ProjectDashboard() {
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
-              
+
               {selectedStatus && (
                 <button
                   className="mt-6 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 flex items-center gap-2"
@@ -371,7 +365,7 @@ export default function ProjectDashboard() {
             </h3>
             <ArrowTrendingUpIcon className="h-8 w-8 text-green-500" />
           </div>
-          
+
           <div className="space-y-6">
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -381,20 +375,20 @@ export default function ProjectDashboard() {
                 </span>
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden shadow-inner">
-                <div 
+                <div
                   className="h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-1000 ease-out shadow-lg"
                   style={{ width: `${percentDone}%` }}
                 />
               </div>
             </div>
-            
+
             <div className="space-y-3">
               <h4 className="font-semibold text-gray-700 dark:text-gray-300">Status Breakdown</h4>
               <div className="space-y-2">
                 {Object.entries(statusCounts).map(([status, count]) => (
                   <div key={status} className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-700/50 rounded-xl border border-white/20 dark:border-gray-600/50">
                     <div className="flex items-center gap-3">
-                      <div 
+                      <div
                         className="w-4 h-4 rounded-full"
                         style={{ backgroundColor: statusColors[status] || '#6b7280' }}
                       />
@@ -445,7 +439,7 @@ export default function ProjectDashboard() {
                       <span>No dates set</span>
                     )}
                   </div>
-                  
+
                   {/* Enhanced Progress Bar */}
                   {loadingSprintIssues ? (
                     <div className="w-full bg-white/30 rounded-full h-4 mt-4 animate-pulse" />
@@ -461,7 +455,7 @@ export default function ProjectDashboard() {
                             <span className="text-lg font-bold">{percent}%</span>
                           </div>
                           <div className="w-full bg-white/30 rounded-full h-4 overflow-hidden shadow-inner">
-                            <div 
+                            <div
                               className="bg-white/90 h-4 rounded-full transition-all duration-1000 ease-out shadow-lg"
                               style={{ width: `${percent}%` }}
                             />
@@ -474,7 +468,7 @@ export default function ProjectDashboard() {
                     })()
                   )}
                 </div>
-                
+
                 <div className="flex flex-col gap-4">
                   <Link href={`./sprints`}>
                     <Button className="bg-white/90 text-blue-700 font-bold px-8 py-4 rounded-xl shadow-lg hover:bg-white hover:shadow-xl transform hover:scale-105 transition-all duration-300">
@@ -496,7 +490,7 @@ export default function ProjectDashboard() {
                 </div>
                 <p className="text-lg max-w-2xl">Start a sprint to begin tracking progress and organizing your work!</p>
               </div>
-              
+
               {['Super-Admin', 'ProjectLead'].includes(currentUserRole ?? '') && (
                 <Link href={`./sprints`}>
                   <Button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold px-8 py-4 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300">
@@ -518,7 +512,7 @@ export default function ProjectDashboard() {
           </h3>
           <FireIcon className="h-8 w-8 text-orange-500" />
         </div>
-        
+
         <div className="bg-gradient-to-r from-white/80 via-white/60 to-white/80 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/50 overflow-hidden">
           {loadingActivity ? (
             <div className="p-8 text-center">
@@ -529,14 +523,14 @@ export default function ProjectDashboard() {
               <ExclamationTriangleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
               <p className="text-red-600 dark:text-red-400">{errorActivity}</p>
             </div>
-          ) : activity.length === 0 ? (
+          ) : (Array.isArray(activity) ? activity : []).length === 0 ? (
             <div className="p-8 text-center">
               <ClockIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500 dark:text-gray-400">No recent activity</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {activity.map((rev, index) => {
+              {(Array.isArray(activity) ? activity : []).map((rev, index) => {
                 let href = null;
                 if (rev.entityType === 'Issue') {
                   href = `./issues/${rev.entityId}`;
@@ -579,8 +573,8 @@ export default function ProjectDashboard() {
                         <div className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
                           {String(
                             typeof rev.snapshot === 'object' && rev.snapshot !== null && 'title' in rev.snapshot ? rev.snapshot.title :
-                            typeof rev.snapshot === 'object' && rev.snapshot !== null && 'name' in rev.snapshot ? rev.snapshot.name :
-                            rev.entityId || ''
+                              typeof rev.snapshot === 'object' && rev.snapshot !== null && 'name' in rev.snapshot ? rev.snapshot.name :
+                                rev.entityId || ''
                           )}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">

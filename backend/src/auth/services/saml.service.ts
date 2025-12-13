@@ -14,6 +14,7 @@ import {
 } from '../entities/saml-config.entity';
 import { User } from '../../users/entities/user.entity';
 import { AuthService } from '../auth.service';
+import { OrganizationsService } from '../../organizations/organizations.service';
 
 export interface SAMLUser {
   nameID: string;
@@ -46,6 +47,7 @@ export interface SAMLConfigDto {
   groupMapping?: { [key: string]: string };
   metadataUrl?: string;
   metadata?: string;
+  organizationId?: string;
 }
 
 @Injectable()
@@ -57,6 +59,7 @@ export class SAMLService {
     private userRepo: Repository<User>,
     private authService: AuthService,
     private jwtService: JwtService,
+    private organizationsService: OrganizationsService,
   ) {}
 
   /**
@@ -166,15 +169,14 @@ export class SAMLService {
 
     return new saml.Strategy(
       strategyConfig,
-      async (req, profile, done) => {
-        try {
-          const user = await this.handleSAMLUser(profile, config);
-          done(null, user as any);
-        } catch (error) {
-          done(error, undefined);
-        }
+      (_req, profile, done) => {
+        const safeDone = done as unknown as (err: any, user?: any) => void;
+        // Avoid returning a Promise directly to callbacks
+        this.handleSAMLUser(profile as Record<string, unknown>, config)
+          .then((user) => safeDone(null, user))
+          .catch((err: unknown) => safeDone(err, undefined));
       },
-      async (req, profile, done) => {
+      (_req, _profile, done) => {
         // Logout verification - not implemented yet
         done(null, undefined);
       },
@@ -184,7 +186,10 @@ export class SAMLService {
   /**
    * Handle SAML user authentication
    */
-  async handleSAMLUser(profile: any, config: SAMLConfig): Promise<User> {
+  async handleSAMLUser(
+    profile: Record<string, unknown>,
+    config: SAMLConfig,
+  ): Promise<User> {
     const email = this.extractAttribute(
       profile,
       config.attributeMapping?.email || 'email',
@@ -195,9 +200,12 @@ export class SAMLService {
       );
     }
 
+    const nameID = this.extractAttribute(profile, 'nameID');
+    const nameIDFormat = this.extractAttribute(profile, 'nameIDFormat');
+
     const samlUser: SAMLUser = {
-      nameID: profile.nameID,
-      nameIDFormat: profile.nameIDFormat,
+      nameID: nameID || '',
+      nameIDFormat: nameIDFormat || '',
       email: email,
       firstName: this.extractAttribute(
         profile,
@@ -240,6 +248,7 @@ export class SAMLService {
           samlUser.groups || [],
           config.groupMapping,
         ),
+        organizationId: config.organizationId, // JIT Bind to Organization
       });
       user = await this.userRepo.save(user);
     } else {
@@ -263,6 +272,31 @@ export class SAMLService {
     config.lastUsedAt = new Date();
     await this.samlConfigRepo.save(config);
 
+    // Authorization: Check if user is meant for this organization
+    if (config.organizationId) {
+      if (user) {
+        // Enforce: User MUST belong to the organization tied to this SAML config
+        // Case 1: User belongs to this org -> OK
+        // Case 2: User belongs to another org -> Fail? Or Auto-Join?
+        // Enterprise Rule: Strict Isolation. If user is in Org A, and logs in via Org B's SAML, they should probably be rejected unless we support Multi-Org users.
+        // Current User entity only supports single organizationId.
+        if (
+          user.organizationId &&
+          user.organizationId !== config.organizationId
+        ) {
+          throw new UnauthorizedException(
+            'User already belongs to a different organization.',
+          );
+        }
+
+        // If user has no org, bind them
+        if (!user.organizationId) {
+          user.organizationId = config.organizationId;
+          await this.userRepo.save(user);
+        }
+      }
+    }
+
     return user;
   }
 
@@ -270,27 +304,31 @@ export class SAMLService {
    * Extract attribute from SAML profile
    */
   private extractAttribute(
-    profile: any,
+    profile: Record<string, unknown>,
     attributeName: string,
   ): string | undefined {
     if (!attributeName) return undefined;
-
-    const value = profile[attributeName];
-    if (Array.isArray(value)) {
-      return value[0];
+    const raw = profile[attributeName];
+    if (Array.isArray(raw)) {
+      const first: unknown = (raw as unknown[])[0];
+      return typeof first === 'string' ? first : String(first);
     }
-    return value;
+    if (typeof raw === 'string') return raw;
+    if (typeof raw === 'number' || typeof raw === 'boolean') return String(raw);
+    return undefined;
   }
 
   /**
    * Extract groups from SAML profile
    */
-  private extractGroups(profile: any, groupsAttribute: string): string[] {
+  private extractGroups(
+    profile: Record<string, unknown>,
+    groupsAttribute: string,
+  ): string[] {
     if (!groupsAttribute) return [];
-
     const groups = profile[groupsAttribute];
     if (Array.isArray(groups)) {
-      return groups;
+      return groups.map((g) => String(g));
     }
     if (typeof groups === 'string') {
       return groups.split(',').map((g) => g.trim());
@@ -336,34 +374,8 @@ export class SAMLService {
   /**
    * Generate SAML metadata
    */
-  async generateMetadata(config: SAMLConfig): Promise<string> {
-    const metadata = {
-      EntityDescriptor: {
-        '@_entityID': config.issuer,
-        '@_xmlns': 'urn:oasis:names:tc:SAML:2.0:metadata',
-        SPSSODescriptor: {
-          '@_protocolSupportEnumeration':
-            'urn:oasis:names:tc:SAML:2.0:protocol',
-          '@_AuthnRequestsSigned': 'true',
-          '@_WantAssertionsSigned': 'true',
-          KeyDescriptor: {
-            '@_use': 'signing',
-            KeyInfo: {
-              X509Data: {
-                X509Certificate: config.cert,
-              },
-            },
-          },
-          NameIDFormat: 'urn:oasis:names:tc:SAML:2.0:nameid-format:transient',
-          AssertionConsumerService: {
-            '@_Binding': 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
-            '@_Location': config.callbackUrl,
-            '@_index': '0',
-            '@_isDefault': 'true',
-          },
-        },
-      },
-    };
+  generateMetadata(config: SAMLConfig): string {
+    // Shape preserved here for future XML builders; direct XML string returned below
 
     // Convert to XML (simplified - in production, use proper XML library)
     return `<?xml version="1.0" encoding="UTF-8"?>
@@ -400,13 +412,15 @@ export class SAMLService {
       }
 
       // Try to create strategy (this will validate the configuration)
-      const strategy = this.createStrategy(config);
+      this.createStrategy(config);
 
       return { success: true, message: 'SAML configuration is valid' };
-    } catch (error) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: `Configuration error: ${error.message}`,
+        message: `Configuration error: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
       };
     }
   }

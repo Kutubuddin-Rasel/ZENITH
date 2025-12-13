@@ -15,7 +15,7 @@ import {
   AuditSeverity,
 } from '../audit/entities/audit-log.entity';
 import * as crypto from 'crypto';
-import * as UAParser from 'ua-parser-js';
+import { UAParser } from 'ua-parser-js';
 
 export interface CreateSessionData {
   userId: string;
@@ -23,7 +23,7 @@ export interface CreateSessionData {
   ipAddress?: string;
   type?: SessionType;
   isRememberMe?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SessionInfo {
@@ -251,7 +251,7 @@ export class SessionService {
     terminatedBy?: string,
     reason?: string,
   ): Promise<number> {
-    const whereCondition: any = {
+    const whereCondition: Record<string, unknown> = {
       userId,
       status: SessionStatus.ACTIVE,
     };
@@ -347,7 +347,7 @@ export class SessionService {
           indicators: suspiciousIndicators,
           detectedAt: new Date().toISOString(),
           requestCount: session.requestCount,
-        } as any,
+        },
       });
 
       // Log suspicious activity
@@ -487,7 +487,17 @@ export class SessionService {
   /**
    * Parse user agent for device information
    */
-  private parseUserAgent(userAgent: string): any {
+  private parseUserAgent(userAgent: string): {
+    deviceId: string;
+    deviceName?: string;
+    osName?: string;
+    osVersion?: string;
+    browserName?: string;
+    browserVersion?: string;
+    isMobile: boolean;
+    isTablet: boolean;
+    isDesktop: boolean;
+  } {
     if (!userAgent) {
       return {
         deviceId: crypto.randomBytes(16).toString('hex'),
@@ -497,7 +507,7 @@ export class SessionService {
       };
     }
 
-    const parser = new (UAParser as any)(userAgent);
+    const parser = new UAParser(userAgent);
     const result = parser.getResult();
 
     return {

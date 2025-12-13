@@ -1,0 +1,127 @@
+
+> web-frontend@0.1.0 dev
+> next dev -p 3001
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/kutubuddin/Downloads/Zenith/package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /Users/kutubuddin/Downloads/Zenith/frontend/package-lock.json
+
+   ▲ Next.js 15.5.7
+   - Local:        http://localhost:3001
+   - Network:      http://127.0.2.2:3001
+   - Environments: .env.local, .env
+   - Experiments (use with caution):
+     ✓ optimizeCss
+     · optimizePackageImports
+
+ ✓ Starting...
+ ✓ Compiled /instrumentation in 201ms (20 modules)
+(node:20112) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ Ready in 1720ms
+ ○ Compiling / ...
+ ✓ Compiled / in 4.4s (1985 modules)
+ GET / 200 in 4924ms
+ GET / 200 in 90ms
+ ○ Compiling /auth/register ...
+ ✓ Compiled /auth/register in 549ms (2139 modules)
+React does not recognize the `showPasswordToggle` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `showpasswordtoggle` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+ GET /auth/register 200 in 731ms
+ ✓ Compiled /_not-found in 225ms (2130 modules)
+ GET /grid.svg 404 in 333ms
+ GET /auth/register 200 in 138ms
+ GET /grid.svg 404 in 44ms
+ GET /auth/register 200 in 140ms
+ GET /grid.svg 404 in 188ms
+ ○ Compiling /favicon.ico ...
+ ✓ Compiled /favicon.ico in 615ms (1182 modules)
+ GET /favicon.ico 200 in 612ms
+ GET /favicon.ico 200 in 910ms
+ GET /favicon.ico 200 in 11ms
+ GET /auth/register 200 in 844ms
+ GET /grid.svg 404 in 67ms
+ GET /auth/register 200 in 93ms
+ GET /grid.svg 404 in 70ms
+ GET /favicon.ico 200 in 11ms
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/kutubuddin/Downloads/Zenith/frontend/.next/server/app-paths-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/kutubuddin/Downloads/Zenith/frontend/.next/server/app-paths-manifest.json',
+  page: '/auth/register'
+}
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 1810ms (2433 modules)
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json',
+  page: '/auth/register'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open '/Users/kutubuddin/Downloads/Zenith/frontend/.next/server/app-paths-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/kutubuddin/Downloads/Zenith/frontend/.next/server/app-paths-manifest.json',
+  page: '/auth/register'
+}
+[Error: ENOENT: no such file or directory, open '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json',
+  page: '/auth/register'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'
+}
+ GET /auth/register 500 in 5024ms
+ GET /auth/register 500 in 467ms
+ GET /auth/register 500 in 3522ms
+ GET /auth/register 500 in 49ms
+ ✓ Compiled /favicon.ico in 109ms (1370 modules)
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json',
+  page: '/favicon.ico'
+}
+ GET /favicon.ico 500 in 219ms
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/kutubuddin/Downloads/Zenith/frontend/.next/routes-manifest.json'
+}

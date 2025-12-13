@@ -9,6 +9,7 @@ import { ProjectsModule } from '../projects/projects.module';
 import { MembershipModule } from '../membership/membership.module';
 import { BoardsGateway } from './boards.gateway';
 import { WatchersModule } from '../watchers/watchers.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { WatchersModule } from '../watchers/watchers.module';
     forwardRef(() => ProjectsModule),
     MembershipModule,
     forwardRef(() => WatchersModule),
+    UsersModule,
   ],
   providers: [BoardsService, BoardsGateway],
   controllers: [BoardsController],

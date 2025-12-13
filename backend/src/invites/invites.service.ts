@@ -168,7 +168,8 @@ export class InvitesService {
       await this.projectMembersService.addMemberToProject({
         projectId: invite.projectId,
         userId,
-        roleName: invite.role,
+        roleName:
+          invite.role as import('../membership/enums/project-role.enum').ProjectRole,
       });
     }
 

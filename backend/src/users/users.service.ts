@@ -11,6 +11,21 @@ import { Brackets } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { ChangePasswordDto } from './dto/create-user.dto';
 
+interface RawUserRow {
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  user_avatarUrl: string;
+  user_isActive: boolean;
+  user_isSuperAdmin: boolean;
+  user_defaultRole: string;
+  pm_projectId: string | null;
+  pm_roleName: string | null;
+  project_id: string | null;
+  project_name: string | null;
+  project_key: string | null;
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -23,19 +38,26 @@ export class UsersService {
     email: string,
     passwordHash: string,
     name: string,
+    isSuperAdmin?: boolean,
+    organizationId?: string,
     defaultRole?: string,
   ): Promise<User> {
     const user = this.userRepo.create({
       email,
       passwordHash,
       name,
+      isSuperAdmin: isSuperAdmin || false,
+      organizationId,
       defaultRole,
     });
     return this.userRepo.save(user);
   }
 
-  /** Get all users */
-  async findAll(): Promise<User[]> {
+  /** Get all users (scoped to organization if provided) */
+  async findAll(organizationId?: string): Promise<User[]> {
+    if (organizationId) {
+      return this.userRepo.find({ where: { organizationId } });
+    }
     return this.userRepo.find();
   }
 
@@ -63,6 +85,7 @@ export class UsersService {
   async search(
     term: string,
     excludeProjectId?: string,
+    organizationId?: string,
   ): Promise<Partial<User>[]> {
     try {
       const qb = this.userRepo
@@ -76,6 +99,13 @@ export class UsersService {
             );
           }),
         );
+
+      // Filter by organization
+      if (organizationId) {
+        qb.andWhere('user.organizationId = :organizationId', {
+          organizationId,
+        });
+      }
 
       if (excludeProjectId) {
         qb.andWhere((qb) => {
@@ -101,59 +131,101 @@ export class UsersService {
     if (dto.name !== undefined) user.name = dto.name;
     if (dto.avatarUrl !== undefined) user.avatarUrl = dto.avatarUrl;
     if (dto.defaultRole !== undefined) user.defaultRole = dto.defaultRole;
+    if (dto.organizationId !== undefined)
+      user.organizationId = dto.organizationId;
+    if (dto.hashedRefreshToken !== undefined)
+      user.hashedRefreshToken = dto.hashedRefreshToken;
     return this.userRepo.save(user);
   }
 
-  /** Get all users with their project memberships */
-  async findAllWithProjectMemberships(): Promise<any[]> {
-    // Get all users
-    const users = await this.userRepo.find();
-    // Get all project memberships with project info
-    const memberships = await this.userRepo.manager
-      .getRepository('project_members')
-      .createQueryBuilder('pm')
+  /** Get all users with their project memberships (scoped to organization) */
+  async findAllWithProjectMemberships(organizationId?: string): Promise<any[]> {
+    const qb = this.userRepo
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('project_members', 'pm', 'pm.userId = user.id')
       .leftJoinAndSelect('pm.project', 'project')
-      .getMany();
-    // Map userId to memberships
-    const membershipsByUser: Record<
-      string,
-      Array<{
-        projectId: string;
-        projectName?: string;
-        projectKey?: string;
-        roleName: string;
-      }>
-    > = {};
-    for (const m of memberships as Array<{
-      userId: string;
-      projectId: string;
-      project?: { name?: string; key?: string };
-      roleName: string;
-    }>) {
-      if (!membershipsByUser[m.userId]) membershipsByUser[m.userId] = [];
-      membershipsByUser[m.userId].push({
-        projectId: m.projectId,
-        projectName: m.project?.name,
-        projectKey: m.project?.key,
-        roleName: m.roleName,
-      });
+      .select([
+        'user.id',
+        'user.name',
+        'user.email',
+        'user.avatarUrl',
+        'user.isActive',
+        'user.isSuperAdmin',
+        'user.defaultRole',
+        'pm.projectId',
+        'pm.roleName',
+        'project.id',
+        'project.name',
+        'project.key',
+      ]);
+
+    if (organizationId) {
+      qb.where('user.organizationId = :organizationId', { organizationId });
     }
-    // Return users with memberships
-    return users.map((u) => ({
-      ...u,
-      projectMemberships: membershipsByUser[u.id] || [],
-    }));
+
+    const rawResults = await qb.getRawMany<RawUserRow>();
+
+    // Group by user
+    interface UserMapValue {
+      id: string;
+      name: string;
+      email: string;
+      avatarUrl: string;
+      isActive: boolean;
+      isSuperAdmin: boolean;
+      defaultRole: string;
+      projectMemberships: {
+        projectId: string;
+        projectName: string | null;
+        projectKey: string | null;
+        roleName: string | null;
+      }[];
+    }
+    const usersMap = new Map<string, UserMapValue>();
+
+    for (const row of rawResults) {
+      if (!usersMap.has(row.user_id)) {
+        usersMap.set(row.user_id, {
+          id: row.user_id,
+          name: row.user_name,
+          email: row.user_email,
+          avatarUrl: row.user_avatarUrl,
+          isActive: row.user_isActive,
+          isSuperAdmin: row.user_isSuperAdmin,
+          defaultRole: row.user_defaultRole,
+          projectMemberships: [],
+        });
+      }
+
+      if (row.pm_projectId) {
+        usersMap.get(row.user_id)!.projectMemberships.push({
+          projectId: row.pm_projectId,
+          projectName: row.project_name,
+          projectKey: row.project_key,
+          roleName: row.pm_roleName,
+        });
+      }
+    }
+
+    return Array.from(usersMap.values());
   }
 
-  /** List all users not assigned to any project */
-  async findUnassigned(): Promise<Partial<User>[]> {
+  /** List all users not assigned to any project (scoped to organization) */
+  async findUnassigned(organizationId?: string): Promise<Partial<User>[]> {
     try {
-      return await this.userRepo
+      const qb = this.userRepo
         .createQueryBuilder('user')
         .leftJoin('project_members', 'pm', 'pm.userId = user.id')
         .where('pm.userId IS NULL')
-        .select(['user.id', 'user.name', 'user.email', 'user.defaultRole'])
-        .getMany();
+        .select(['user.id', 'user.name', 'user.email', 'user.defaultRole']);
+
+      if (organizationId) {
+        qb.andWhere('user.organizationId = :organizationId', {
+          organizationId,
+        });
+      }
+
+      return qb.getMany();
     } catch (err) {
       console.error('Error in findUnassigned:', err);
       throw err;

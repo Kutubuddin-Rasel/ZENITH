@@ -24,12 +24,13 @@ import {
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import * as bcrypt from 'bcrypt';
+import { AuthenticatedRequest } from 'src/common/types/authenticated-request.interface';
 
 @Injectable()
 export class SuperAdminGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
-    const req = context.switchToHttp().getRequest();
-    if (req.user && req.user.isSuperAdmin) {
+    const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    if (req.user?.isSuperAdmin) {
       return true;
     }
     throw new ForbiddenException('Only Super Admins can access this resource');
@@ -43,18 +44,20 @@ export class UsersController {
     private readonly projectMembersService: ProjectMembersService,
   ) {}
 
-  // GET /users
+  // GET /users (scoped to current user's organization)
   @UseGuards(JwtAuthGuard, SuperAdminGuard)
   @Get()
-  findAll(): Promise<User[]> {
-    return this.usersService.findAll();
+  findAll(@Request() req: AuthenticatedRequest): Promise<User[]> {
+    return this.usersService.findAll(req.user.organizationId);
   }
 
-  // GET /users/project-memberships
+  // GET /users/project-memberships (scoped to current user's organization)
   @UseGuards(JwtAuthGuard, SuperAdminGuard)
   @Get('project-memberships')
-  async getAllWithProjectMemberships() {
-    return this.usersService.findAllWithProjectMemberships();
+  async getAllWithProjectMemberships(@Request() req: AuthenticatedRequest) {
+    return this.usersService.findAllWithProjectMemberships(
+      req.user.organizationId,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -62,8 +65,13 @@ export class UsersController {
   search(
     @Query('term') term: string,
     @Query('excludeProjectId') excludeProjectId?: string,
+    @Request() req?: AuthenticatedRequest,
   ) {
-    return this.usersService.search(term, excludeProjectId);
+    return this.usersService.search(
+      term,
+      excludeProjectId,
+      req?.user?.organizationId,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -72,29 +80,41 @@ export class UsersController {
     @Param() params,
     @Body() body,
     @Query() query,
-    @Request() req,
+    @Request() req: { user: { userId: string } },
   ) {
     // req.user.userId is set by JwtAuthGuard
-    return this.projectMembersService.listMembershipsForUser(req.user.userId);
+    return this.projectMembersService.listMembershipsForUser(
+      (req.user as { userId: string }).userId,
+    );
   }
 
-  // GET /users/available
+  // GET /users/available (scoped to current user's organization)
   @UseGuards(JwtAuthGuard, SuperAdminGuard)
   @Get('available')
-  findAvailable() {
-    return this.usersService.findUnassigned();
+  findAvailable(@Request() req: AuthenticatedRequest) {
+    return this.usersService.findUnassigned(req.user.organizationId);
   }
 
-  // POST /users
+  // POST /users (assign to current user's organization)
   @UseGuards(JwtAuthGuard, SuperAdminGuard)
   @Post()
-  async create(@Body() dto: CreateUserDto): Promise<User> {
+  async create(
+    @Body() dto: CreateUserDto,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<User> {
     if (!dto.email || !dto.password || !dto.name) {
       throw new BadRequestException('email, password, and name required');
     }
     const email = dto.email.toLowerCase();
     const hash = await bcrypt.hash(dto.password, 10);
-    return this.usersService.create(email, hash, dto.name, dto.defaultRole);
+    return this.usersService.create(
+      email,
+      hash,
+      dto.name,
+      false, // isSuperAdmin
+      req.user.organizationId, // Assign to current org
+      dto.defaultRole,
+    );
   }
 
   // PATCH /users/:id/activate or /deactivate
@@ -126,7 +146,7 @@ export class UsersController {
   async changePassword(
     @Param('id') id: string,
     @Body() dto: ChangePasswordDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     // Only the user themselves or Super Admin can change password
     if (req.user.userId !== id && !req.user.isSuperAdmin) {

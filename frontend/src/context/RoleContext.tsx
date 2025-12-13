@@ -1,5 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { apiFetch } from '../lib/fetcher';
+import { useAuth } from './AuthContext';
 
 interface RoleContextType {
   isSuperAdmin: boolean;
@@ -15,54 +17,59 @@ export const RoleProvider = ({ children }: { children: ReactNode }) => {
   const [projectRoles, setProjectRoles] = useState<{ [projectId: string]: string }>({});
   const [loading, setLoading] = useState(true);
 
-  // Fetch roles on mount
-  useEffect(() => {
-    refreshRoles();
-  }, []);
+  const { user } = useAuth();
 
-  const refreshRoles = async () => {
+  // Sync SuperAdmin state from AuthContext immediately
+  useEffect(() => {
+    if (user) {
+      setIsSuperAdmin(!!user.isSuperAdmin);
+    }
+  }, [user]);
+
+  // Wrap in useCallback to prevent infinite loop
+  const refreshRoles = React.useCallback(async () => {
     setLoading(true);
     try {
-      // Get JWT token from localStorage (or cookies if you use cookies)
-      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-      if (!token) throw new Error('No access token found');
-      // Fetch /auth/me for user info and isSuperAdmin
-      const meRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: 'include',
-      });
-      if (!meRes.ok) throw new Error('Failed to fetch user info');
-      const me = await meRes.json();
-      console.log('RoleContext: /auth/me response:', me);
-      console.log('RoleContext: me.isSuperAdmin:', me.isSuperAdmin);
-      setIsSuperAdmin(!!me.isSuperAdmin);
-      console.log('RoleContext: Setting isSuperAdmin to:', !!me.isSuperAdmin);
-      // If super-admin, skip memberships fetch
-      if (me.isSuperAdmin) {
-        setProjectRoles({});
-        setLoading(false);
-        return;
-      }
+      if (!user) return;
 
-      // Fetch memberships from the new endpoint
-      const membershipsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/project-memberships`, {
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: 'include',
-      });
-      if (!membershipsRes.ok) throw new Error('Failed to fetch memberships');
-      const memberships = await membershipsRes.json();
-      const roles: { [projectId: string]: string } = {};
-      memberships.forEach((m: { projectId: string; roleName: string }) => {
-        roles[m.projectId] = m.roleName;
-      });
-      setProjectRoles(roles);
-    } catch {
-      setIsSuperAdmin(false);
-      setProjectRoles({});
+      // If already super admin from AuthContext, we technically don't need to fetch 'me' again
+      // just to check isSuperAdmin, but let's trust AuthContext.
+      // However, we still might need project memberships if they are NOT a super admin.
+
+      setIsSuperAdmin(!!user.isSuperAdmin);
+
+      if (user.isSuperAdmin) {
+        setProjectRoles({});
+      } else {
+        // Use apiFetch so cookies are automatically included
+        try {
+          const memberships = await apiFetch<{ projectId: string; roleName: string }[]>('/users/me/project-memberships');
+          const roles: { [projectId: string]: string } = {};
+          memberships.forEach((m) => {
+            roles[m.projectId] = m.roleName;
+          });
+          setProjectRoles(roles);
+        } catch (err) {
+          console.error('Failed to fetch memberships', err);
+        }
+      }
+    } catch (e) {
+      console.error('Role refresh failed', e);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  // Fetch roles when user is loaded
+  useEffect(() => {
+    if (user) {
+      refreshRoles();
+    } else {
+      setProjectRoles({});
+      setIsSuperAdmin(false);
+      setLoading(false);
+    }
+  }, [user, refreshRoles]);
 
   return (
     <RoleContext.Provider value={{ isSuperAdmin, projectRoles, loading, refreshRoles }}>

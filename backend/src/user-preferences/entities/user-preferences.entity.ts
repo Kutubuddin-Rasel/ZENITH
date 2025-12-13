@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
-export interface UserPreferences {
+export interface UserPreferencesData {
   // UI Preferences
   ui: {
     theme: 'light' | 'dark' | 'auto';
@@ -85,10 +85,10 @@ export class UserPreferences {
   user: User;
 
   @Column({ type: 'jsonb' })
-  preferences: UserPreferences;
+  preferences: UserPreferencesData;
 
   @Column({ type: 'jsonb', nullable: true })
-  learningData?: Record<string, any>;
+  learningData?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', nullable: true })
   analytics?: {

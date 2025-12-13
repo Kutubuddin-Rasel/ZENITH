@@ -57,4 +57,28 @@ export function useArchiveRelease(projectId: string, releaseId: string) {
       queryClient.invalidateQueries({ queryKey: ['releases', projectId] });
     },
   });
-} 
+}
+
+// Generate release notes from linked issues
+export function useGenerateReleaseNotes(projectId: string, releaseId: string) {
+  return useQuery<{ notes: string; issueCount: number }>({
+    queryKey: ['release-notes-preview', projectId, releaseId],
+    queryFn: () => apiFetch(`/projects/${projectId}/releases/${releaseId}/generate-notes`),
+    enabled: !!projectId && !!releaseId,
+  });
+}
+
+// Generate and save release notes to description
+export function useSaveGeneratedReleaseNotes(projectId: string, releaseId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiFetch(`/projects/${projectId}/releases/${releaseId}/generate-notes`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['releases', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['release-notes-preview', projectId, releaseId] });
+    },
+  });
+}

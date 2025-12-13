@@ -84,6 +84,8 @@ export interface TemplateConfig {
 @Entity({ name: 'project_templates' })
 @Index(['category', 'isSystemTemplate'])
 @Index(['methodology', 'isSystemTemplate'])
+@Index('IDX_template_recommendation', ['category', 'methodology', 'isActive']) // Optimized for recommendation queries
+@Index('IDX_template_active_usage', ['isActive', 'usageCount']) // For popular/trending queries
 export class ProjectTemplate {
   @PrimaryGeneratedColumn('uuid')
   id: string;

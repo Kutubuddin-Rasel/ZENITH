@@ -38,7 +38,7 @@ export interface StepData {
   startedAt?: Date;
   completedAt?: Date;
   skippedAt?: Date;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   hints?: string[];
   nextSteps?: string[];
 }

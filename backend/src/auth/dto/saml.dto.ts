@@ -6,7 +6,6 @@ import {
   IsNumber,
   IsObject,
   IsUrl,
-  IsArray,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -105,6 +104,10 @@ export class CreateSAMLConfigDto {
   @IsNumber()
   @IsOptional()
   maxAssertionAgeMs?: number;
+
+  @IsString()
+  @IsOptional()
+  organizationId?: string;
 }
 
 export class UpdateSAMLConfigDto extends CreateSAMLConfigDto {

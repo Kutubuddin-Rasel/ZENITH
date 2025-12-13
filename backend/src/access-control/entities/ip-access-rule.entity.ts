@@ -34,9 +34,12 @@ export enum IPType {
 }
 
 @Entity('ip_access_rules')
-@Index(['ruleType', 'status'])
-@Index(['ipAddress'])
-@Index(['userId'])
+@Index('IDX_ip_access_rule_rule_type', ['ruleType'])
+@Index('IDX_ip_access_rule_status', ['status'])
+@Index('IDX_ip_access_rule_ip_address', ['ipAddress'])
+@Index('IDX_ip_access_rule_user_id', ['userId'])
+@Index('IDX_ip_access_rule_priority', ['priority'])
+@Index('IDX_ip_access_rule_is_active', ['isActive'])
 export class IPAccessRule {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -148,7 +151,7 @@ export class IPAccessRule {
   creator: User;
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
 
   @Column({ default: false })
   isActive: boolean; // Whether rule is currently active

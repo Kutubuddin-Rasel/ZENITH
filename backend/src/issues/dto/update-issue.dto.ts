@@ -16,7 +16,9 @@ import {
 
 export class UpdateIssueDto extends PartialType(CreateIssueDto) {
   @IsOptional()
-  @ValidateIf((o: any) => o.assigneeId !== null && o.assigneeId !== undefined)
+  @ValidateIf(
+    (o: UpdateIssueDto) => o.assigneeId !== null && o.assigneeId !== undefined,
+  )
   @IsUUID()
   assigneeId?: string | null;
 
@@ -40,4 +42,11 @@ export class UpdateIssueDto extends PartialType(CreateIssueDto) {
   @IsInt()
   @Min(0)
   storyPoints?: number;
+
+  // Optimistic locking: client sends the version they have,
+  // server rejects if it doesn't match (someone else edited)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  expectedVersion?: number;
 }

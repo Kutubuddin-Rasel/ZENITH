@@ -2,10 +2,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Revision, EntityType } from './entities/revision.entity';
-import { Repository } from 'typeorm';
+import { Repository, EntityTarget, ObjectLiteral } from 'typeorm';
 import { Project } from '../projects/entities/project.entity';
 import { Issue } from '../issues/entities/issue.entity';
-// TODO: Import other entities as needed (Sprint, Board, Release, Label, Component, Epic, Story)
+import { Sprint } from '../sprints/entities/sprint.entity';
+import { Board } from '../boards/entities/board.entity';
+import { Release } from '../releases/entities/release.entity';
+import { Label } from '../taxonomy/entities/label.entity';
+import { Component } from '../taxonomy/entities/component.entity';
 
 @Injectable()
 export class RevisionsService {
@@ -27,24 +31,21 @@ export class RevisionsService {
     type: EntityType,
     entityId: string,
     revisionId: string,
-  ): Promise<any> {
+  ): Promise<ObjectLiteral> {
     const rev = await this.revRepo.findOneBy({ id: revisionId });
     if (!rev || rev.entityType !== type || rev.entityId !== entityId) {
       throw new NotFoundException('Revision not found');
     }
 
     // Map EntityType to entity class
-    const entityClassMap: Record<EntityType, any> = {
+    const entityClassMap: Record<EntityType, EntityTarget<ObjectLiteral>> = {
       Project,
       Issue,
-      // TODO: Add other entity mappings here
-      Sprint: undefined,
-      Board: undefined,
-      Release: undefined,
-      Label: undefined,
-      Component: undefined,
-      Epic: undefined,
-      Story: undefined,
+      Sprint,
+      Board,
+      Release,
+      Label,
+      Component,
     };
     const entityClass = entityClassMap[type];
     if (!entityClass)
@@ -56,9 +57,9 @@ export class RevisionsService {
     const repo = this.revRepo.manager.getRepository(entityClass);
 
     // Overwrite the current entity with snapshot
-    await repo.save(rev.snapshot);
+    await repo.save(rev.snapshot as ObjectLiteral);
 
-    return rev.snapshot;
+    return rev.snapshot as ObjectLiteral;
   }
 
   /** Find the last revision for a specific field of an entity before a given date */

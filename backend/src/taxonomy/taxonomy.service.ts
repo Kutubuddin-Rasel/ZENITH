@@ -21,6 +21,7 @@ import { ProjectMembersService } from 'src/membership/project-members/project-me
 import { IssuesService } from '../issues/issues.service';
 import { UpdateComponentDto } from './dto/update-component.dto';
 import { CreateComponentDto } from './dto/create-component.dto';
+import { ProjectRole } from '../membership/enums/project-role.enum';
 
 @Injectable()
 export class TaxonomyService {
@@ -44,7 +45,7 @@ export class TaxonomyService {
   ): Promise<Label> {
     await this.projectsService.findOneById(projectId);
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (role !== 'ProjectLead') throw new ForbiddenException();
+    if (role !== ProjectRole.PROJECT_LEAD) throw new ForbiddenException();
     const lbl = this.labelRepo.create({ projectId, name: dto.name });
     return this.labelRepo.save(lbl);
   }
@@ -64,7 +65,7 @@ export class TaxonomyService {
     const lbl = await this.labelRepo.findOneBy({ id: labelId, projectId });
     if (!lbl) throw new NotFoundException();
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (role !== 'ProjectLead') throw new ForbiddenException();
+    if (role !== ProjectRole.PROJECT_LEAD) throw new ForbiddenException();
     Object.assign(lbl, dto);
     return this.labelRepo.save(lbl);
   }
@@ -77,7 +78,7 @@ export class TaxonomyService {
     const lbl = await this.labelRepo.findOneBy({ id: labelId, projectId });
     if (!lbl) throw new NotFoundException();
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (role !== 'ProjectLead') throw new ForbiddenException();
+    if (role !== ProjectRole.PROJECT_LEAD) throw new ForbiddenException();
     await this.labelRepo.remove(lbl);
   }
 
@@ -120,7 +121,7 @@ export class TaxonomyService {
   ): Promise<Component> {
     await this.projectsService.findOneById(projectId);
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (role !== 'ProjectLead') throw new ForbiddenException();
+    if (role !== ProjectRole.PROJECT_LEAD) throw new ForbiddenException();
     const cmp = this.compRepo.create({ projectId, name: dto.name });
     return this.compRepo.save(cmp);
   }
@@ -143,7 +144,7 @@ export class TaxonomyService {
     const cmp = await this.compRepo.findOneBy({ id: componentId, projectId });
     if (!cmp) throw new NotFoundException();
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (role !== 'ProjectLead') throw new ForbiddenException();
+    if (role !== ProjectRole.PROJECT_LEAD) throw new ForbiddenException();
     Object.assign(cmp, dto);
     return this.compRepo.save(cmp);
   }
@@ -156,7 +157,7 @@ export class TaxonomyService {
     const cmp = await this.compRepo.findOneBy({ id: componentId, projectId });
     if (!cmp) throw new NotFoundException();
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (role !== 'ProjectLead') throw new ForbiddenException();
+    if (role !== ProjectRole.PROJECT_LEAD) throw new ForbiddenException();
     await this.compRepo.remove(cmp);
   }
 

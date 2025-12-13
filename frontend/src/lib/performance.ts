@@ -106,11 +106,11 @@ class PerformanceMonitor {
       }, 1000);
     });
 
-      // Capture FCP
-      if (typeof window !== 'undefined' && 'PerformanceObserver' in window) {
-        const fcpObserver = new PerformanceObserver((list: PerformanceObserverEntryList) => {
-          const entries = list.getEntries();
-          const fcpEntry = entries.find((entry: PerformanceEntry) => entry.name === 'first-contentful-paint');
+    // Capture FCP
+    if (typeof window !== 'undefined' && 'PerformanceObserver' in window) {
+      const fcpObserver = new PerformanceObserver((list: PerformanceObserverEntryList) => {
+        const entries = list.getEntries();
+        const fcpEntry = entries.find((entry: PerformanceEntry) => entry.name === 'first-contentful-paint');
         if (fcpEntry && this.metrics) {
           this.metrics.firstContentfulPaint = fcpEntry.startTime;
         }
@@ -124,7 +124,7 @@ class PerformanceMonitor {
     if (typeof window === 'undefined') return;
 
     const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-    
+
     this.metrics = {
       loadTime: navigation.loadEventEnd - navigation.fetchStart,
       firstContentfulPaint: 0, // Set by observer
@@ -144,7 +144,7 @@ class PerformanceMonitor {
 
     const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
     const loadTime = navigation.loadEventEnd - navigation.fetchStart;
-    
+
     // Simple TTI calculation (in real implementation, use web-vitals library)
     return loadTime * 1.5;
   }
@@ -160,13 +160,7 @@ class PerformanceMonitor {
     if (!this.metrics) return;
 
     console.group('🚀 Performance Metrics');
-    console.log('Load Time:', `${this.metrics.loadTime.toFixed(2)}ms`);
-    console.log('First Contentful Paint:', `${this.metrics.firstContentfulPaint.toFixed(2)}ms`);
-    console.log('Largest Contentful Paint:', `${this.metrics.largestContentfulPaint.toFixed(2)}ms`);
-    console.log('First Input Delay:', `${this.metrics.firstInputDelay.toFixed(2)}ms`);
-    console.log('Cumulative Layout Shift:', this.metrics.cumulativeLayoutShift.toFixed(4));
-    console.log('Time to Interactive:', `${this.metrics.timeToInteractive.toFixed(2)}ms`);
-    console.log('Total Blocking Time:', `${this.metrics.totalBlockingTime.toFixed(2)}ms`);
+
     console.groupEnd();
 
     // Send to analytics (implement your analytics service)
@@ -280,21 +274,21 @@ export const analyzeBundleSize = (): void => {
 
   const scripts = Array.from(document.querySelectorAll('script[src]'));
   const stylesheets = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
-  
+
   console.group('📦 Bundle Analysis');
   console.log('Scripts:', scripts.length);
   console.log('Stylesheets:', stylesheets.length);
-  
+
   scripts.forEach(script => {
     const src = (script as HTMLScriptElement).src;
     console.log('Script:', src);
   });
-  
+
   stylesheets.forEach(link => {
     const href = (link as HTMLLinkElement).href;
     console.log('Stylesheet:', href);
   });
-  
+
   console.groupEnd();
 };
 

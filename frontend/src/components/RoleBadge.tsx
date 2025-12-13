@@ -10,22 +10,27 @@ const ROLE_STYLES: Record<string, { label: string; className: string }> = {
   ProjectLead: {
     label: "Lead",
     className:
-      "bg-gradient-to-r from-blue-500 to-purple-600 text-white border-blue-500",
+      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  },
+  Member: {
+    label: "Member",
+    className:
+      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   },
   Developer: {
     label: "Dev",
     className:
-      "bg-gradient-to-r from-green-500 to-blue-500 text-white border-green-500",
+      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   },
   QA: {
     label: "QA",
     className:
-      "bg-gradient-to-r from-pink-500 to-red-500 text-white border-pink-500",
+      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
   },
   Viewer: {
     label: "Viewer",
     className:
-      "bg-gradient-to-r from-gray-400 to-gray-600 text-white border-gray-400",
+      "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
   },
 };
 

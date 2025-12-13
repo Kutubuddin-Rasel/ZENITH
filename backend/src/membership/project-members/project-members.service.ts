@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProjectMember } from '../entities/project-member.entity';
+import { ProjectRole } from '../enums/project-role.enum';
 
 @Injectable()
 export class ProjectMembersService {
@@ -19,7 +20,7 @@ export class ProjectMembersService {
   async addMemberToProject(params: {
     projectId: string;
     userId: string;
-    roleName: string;
+    roleName: ProjectRole;
   }): Promise<ProjectMember> {
     const { projectId, userId, roleName } = params;
     const existing = await this.pmRepo.findOneBy({ projectId, userId });
@@ -30,7 +31,10 @@ export class ProjectMembersService {
       }
       throw new BadRequestException('User already a member of this project');
     }
-    const pm = this.pmRepo.create({ projectId, userId, roleName });
+    const pm = new ProjectMember();
+    pm.projectId = projectId;
+    pm.userId = userId;
+    pm.roleName = roleName;
     return this.pmRepo.save(pm);
   }
 
@@ -64,7 +68,10 @@ export class ProjectMembersService {
   }
 
   /** Get the user's roleName in a project, or null if not a member */
-  async getUserRole(projectId: string, userId: string): Promise<string | null> {
+  async getUserRole(
+    projectId: string,
+    userId: string,
+  ): Promise<ProjectRole | null> {
     const pm = await this.pmRepo.findOneBy({ projectId, userId });
     return pm ? pm.roleName : null;
   }
@@ -73,7 +80,7 @@ export class ProjectMembersService {
   async updateMemberRole(
     projectId: string,
     userId: string,
-    newRole: string,
+    newRole: ProjectRole,
   ): Promise<ProjectMember> {
     const existing = await this.pmRepo.findOneBy({ projectId, userId });
     if (!existing) {

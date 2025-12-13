@@ -34,6 +34,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'avatars.githubusercontent.com',
       },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
     ],
   },
 
@@ -44,7 +48,7 @@ const nextConfig: NextConfig = {
   webpack: (config, { dev, isServer }) => {
     // Disable webpack cache to avoid PackFileCacheStrategy warnings
     config.cache = false;
-    
+
     // Production optimizations
     if (!dev && !isServer) {
       // Tree shaking
@@ -169,6 +173,16 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  // API Proxy
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:3000/api/:path*',
+      },
+    ];
+  },
+
   // Environment variables
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
@@ -177,7 +191,7 @@ const nextConfig: NextConfig = {
 
   // Output configuration
   output: 'standalone',
-  
+
   // Power by header
   poweredByHeader: false,
 

@@ -2,31 +2,29 @@ import {
   Controller,
   Get,
   Post,
-  Put,
   Body,
-  Param,
   UseGuards,
   Request,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  SmartDefaultsService,
-  SmartDefaultSuggestion,
-} from '../services/smart-defaults.service';
+import { SmartDefaultsService } from '../services/smart-defaults.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermission } from '../../auth/decorators/require-permission.decorator';
+import { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
+import { UserPreferencesData } from '../entities/user-preferences.entity';
 
 @Controller('api/smart-defaults')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class SmartDefaultsController {
   constructor(private smartDefaultsService: SmartDefaultsService) {}
 
-  @Get('issue-defaults')
+  @Post('issue-defaults')
+  @HttpCode(HttpStatus.OK)
   @RequirePermission('issues:create')
   async getIssueDefaults(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Body()
     body: {
       projectId: string;
@@ -51,11 +49,12 @@ export class SmartDefaultsController {
     };
   }
 
-  @Get('project-defaults')
+  @Post('project-defaults')
+  @HttpCode(HttpStatus.OK)
   @RequirePermission('projects:create')
   async getProjectDefaults(
-    @Request() req: any,
-    @Param('projectType') projectType: string,
+    @Request() req: AuthenticatedRequest,
+    @Body('projectType') projectType: string,
   ) {
     const suggestions = await this.smartDefaultsService.getProjectDefaults(
       req.user.id,
@@ -72,11 +71,11 @@ export class SmartDefaultsController {
   @HttpCode(HttpStatus.OK)
   @RequirePermission('projects:view')
   async learnFromBehavior(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Body()
     body: {
       action: string;
-      context: Record<string, any>;
+      context: Record<string, unknown>;
       timestamp: Date;
     },
   ) {
@@ -94,7 +93,7 @@ export class SmartDefaultsController {
 
   @Get('behavior-pattern')
   @RequirePermission('projects:view')
-  async getUserBehaviorPattern(@Request() req: any) {
+  async getUserBehaviorPattern(@Request() req: AuthenticatedRequest) {
     const pattern = await this.smartDefaultsService.getUserBehaviorPattern(
       req.user.id,
     );
@@ -102,6 +101,36 @@ export class SmartDefaultsController {
     return {
       success: true,
       data: pattern,
+    };
+  }
+
+  @Get('preferences')
+  async getUserPreferences(@Request() req: AuthenticatedRequest) {
+    const preferences = await this.smartDefaultsService.getUserPreferences(
+      req.user.id,
+    );
+
+    return {
+      success: true,
+      data: preferences,
+    };
+  }
+
+  @Post('preferences')
+  @HttpCode(HttpStatus.OK)
+  async updateUserPreferences(
+    @Request() req: AuthenticatedRequest,
+    @Body() body: Partial<UserPreferencesData>,
+  ) {
+    const preferences = await this.smartDefaultsService.updateUserPreferences(
+      req.user.id,
+      body,
+    );
+
+    return {
+      success: true,
+      data: preferences,
+      message: 'Preferences updated successfully',
     };
   }
 }

@@ -267,7 +267,7 @@ export default function WorkflowsPage() {
     const date = new Date(lastExecutedAt);
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
@@ -296,11 +296,10 @@ export default function WorkflowsPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as 'workflows' | 'rules' | 'templates' | 'analytics')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
-                    activeTab === tab.id
+                  className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeTab === tab.id
                       ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                  }`}
+                    }`}
                 >
                   <Icon className="h-5 w-5" />
                   {tab.name}
@@ -437,7 +436,7 @@ export default function WorkflowsPage() {
                             {workflow.status}
                           </span>
                         </div>
-                        
+
                         {workflow.description && (
                           <p className="text-gray-600 dark:text-gray-400 mb-3">
                             {workflow.description}

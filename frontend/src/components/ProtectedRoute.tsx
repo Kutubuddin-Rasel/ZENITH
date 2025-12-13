@@ -6,15 +6,15 @@ import { useRouter } from 'next/navigation';
 import Spinner from './Spinner';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading, token } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    console.log('ProtectedRoute state:', { user, token, loading });
-    if (!loading && (!token || !user)) {
+    // Token is now HttpOnly cookie, so we only check if user is loaded
+    if (!loading && !user) {
       router.replace('/auth/login');
     }
-  }, [loading, token, user, router]);
+  }, [loading, user, router /* token removed */]);
 
   if (loading) {
     return (
@@ -24,7 +24,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  if (!token || !user) return null;
+  if (!user && !loading) return null; // Wait for redirect
 
   return <>{children}</>;
 };

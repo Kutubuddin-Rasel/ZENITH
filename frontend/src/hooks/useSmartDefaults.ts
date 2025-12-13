@@ -50,10 +50,11 @@ export const useSmartDefaults = () => {
       if (!response.ok) throw new Error('Failed to get issue defaults');
 
       const data = await response.json();
-      setSuggestions(data.data);
-      return data.data;
+      setSuggestions(data.data || []);
+      return data.data || [];
     } catch (error) {
       console.error('Error getting issue defaults:', error);
+      setSuggestions([]);
       return [];
     } finally {
       setLoading(false);
@@ -75,10 +76,11 @@ export const useSmartDefaults = () => {
       if (!response.ok) throw new Error('Failed to get project defaults');
 
       const data = await response.json();
-      setSuggestions(data.data);
-      return data.data;
+      setSuggestions(data.data || []);
+      return data.data || [];
     } catch (error) {
       console.error('Error getting project defaults:', error);
+      setSuggestions([]);
       return [];
     } finally {
       setLoading(false);
@@ -136,13 +138,13 @@ export const useSmartDefaults = () => {
 
   // Get suggestion for a specific field
   const getSuggestion = useCallback((field: string): SmartDefaultSuggestion | null => {
-    return suggestions.find(s => s.field === field) || null;
+    return suggestions?.find(s => s.field === field) || null;
   }, [suggestions]);
 
   // Apply suggestion to form data
   const applySuggestions = useCallback((formData: Record<string, unknown>): Record<string, unknown> => {
     const updatedData = { ...formData };
-    
+
     suggestions.forEach(suggestion => {
       if (suggestion.confidence > 0.6 && !updatedData[suggestion.field]) {
         updatedData[suggestion.field] = suggestion.value;

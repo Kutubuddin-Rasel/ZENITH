@@ -2,21 +2,21 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useProject } from "../../../hooks/useProject";
-import { useProjectSummary } from '../../../hooks/useProject';
+import { useProjectSummary } from '@/hooks/useProject';
 import Spinner from "../../../components/Spinner";
-import { getSocket } from '../../../lib/socket';
+import { getSocket } from '@/lib/socket';
 import Link from 'next/link';
 import Button from "@/components/Button";
 import Typography from "@/components/Typography";
 import Card from "@/components/Card";
 import {
   useProjectMembers,
-} from '../../../hooks/useProject';
-import { 
-  BriefcaseIcon, 
-  UserIcon, 
-  UserPlusIcon, 
-  DocumentPlusIcon, 
+} from '@/hooks/useProject';
+import {
+  BriefcaseIcon,
+  UserIcon,
+  UserPlusIcon,
+  DocumentPlusIcon,
   ChartBarIcon,
   ClockIcon,
   CheckCircleIcon,
@@ -27,14 +27,14 @@ import {
   ArrowTrendingUpIcon,
   EyeIcon
 } from "@heroicons/react/24/outline";
-import { 
+import {
   BriefcaseIcon as BriefcaseSolid,
   RocketLaunchIcon as RocketLaunchSolid,
   UsersIcon as UsersSolid,
   TrophyIcon
 } from "@heroicons/react/24/solid";
-import { useActiveSprint } from '../../../hooks/useSprints';
-import { useSprintIssues } from '../../../hooks/useSprintIssues';
+import { useActiveSprint } from '@/hooks/useSprints';
+import { useSprintIssues } from '@/hooks/useSprintIssues';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import SpeedDialFAB, { SpeedDialAction } from '@/components/SpeedDialFAB';
 import { PencilIcon } from '@heroicons/react/24/solid';
@@ -48,30 +48,24 @@ interface ProjectActivity {
   [key: string]: unknown;
 }
 
+import { apiClient } from '@/lib/api-client';
+
 function useProjectActivity(projectId: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const [activity, setActivity] = useState<ProjectActivity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!projectId) return;
     setLoading(true);
     setError(null);
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    fetch(`${API_URL}/projects/${projectId}/activity`, {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        'Content-Type': 'application/json',
-      },
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch activity');
-        return res.json();
-      })
-      .then(setActivity)
+
+    apiClient.get<ProjectActivity[]>(`/projects/${projectId}/activity`)
+      .then((data) => setActivity(Array.isArray(data) ? data : []))
       .catch(() => setError('Failed to fetch activity'))
       .finally(() => setLoading(false));
-  }, [projectId, API_URL]);
+  }, [projectId]);
+
   return { activity, loading, error };
 }
 
@@ -139,7 +133,7 @@ export default function ProjectDashboard() {
       </div>
     );
   }
-  
+
   if (errorProject || !project) {
     return (
       <div className="flex justify-center items-center h-96">
@@ -172,7 +166,7 @@ export default function ProjectDashboard() {
                 {project.name?.charAt(0).toUpperCase() || '?'}
               </Typography>
             </div>
-            
+
             <div className="space-y-2">
               <div className="flex items-center gap-4">
                 <Typography variant="h1" className="text-gray-900 dark:text-white">
@@ -201,7 +195,7 @@ export default function ProjectDashboard() {
               </div>
             </div>
           </div>
-          
+
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
@@ -228,30 +222,30 @@ export default function ProjectDashboard() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { 
-            label: 'Total Issues', 
-            value: totalIssues, 
+          {
+            label: 'Total Issues',
+            value: totalIssues,
             icon: <BriefcaseSolid className="h-6 w-6" />,
             color: 'text-blue-600 dark:text-blue-400',
             bgColor: 'bg-blue-100 dark:bg-blue-900'
           },
-          { 
-            label: 'Completion Rate', 
-            value: `${percentDone}%`, 
+          {
+            label: 'Completion Rate',
+            value: `${percentDone}%`,
             icon: <TrophyIcon className="h-6 w-6" />,
             color: 'text-emerald-600 dark:text-emerald-400',
             bgColor: 'bg-emerald-100 dark:bg-emerald-900'
           },
-          { 
-            label: 'Team Members', 
-            value: totalMembers, 
+          {
+            label: 'Team Members',
+            value: totalMembers,
             icon: <UsersSolid className="h-6 w-6" />,
             color: 'text-purple-600 dark:text-purple-400',
             bgColor: 'bg-purple-100 dark:bg-purple-900'
           },
-          { 
-            label: 'Active Sprint', 
-            value: activeSprint ? 'Active' : 'None', 
+          {
+            label: 'Active Sprint',
+            value: activeSprint ? 'Active' : 'None',
             icon: <RocketLaunchSolid className="h-6 w-6" />,
             color: activeSprint ? 'text-orange-600 dark:text-orange-400' : 'text-gray-600 dark:text-gray-400',
             bgColor: activeSprint ? 'bg-orange-100 dark:bg-orange-900' : 'bg-gray-100 dark:bg-gray-900'
@@ -321,7 +315,7 @@ export default function ProjectDashboard() {
                       />
                     ))}
                   </Pie>
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value, name) => [`${value}`, `${name}`]}
                     contentStyle={{
                       backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -363,7 +357,7 @@ export default function ProjectDashboard() {
             </Typography>
             <ArrowTrendingUpIcon className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
           </div>
-          
+
           <div className="space-y-6">
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -375,13 +369,13 @@ export default function ProjectDashboard() {
                 </Typography>
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
-                <div 
+                <div
                   className="h-4 bg-emerald-500 rounded-full transition-all duration-1000 ease-out"
                   style={{ width: `${percentDone}%` }}
                 />
               </div>
             </div>
-            
+
             <div className="space-y-3">
               <Typography variant="body" className="font-semibold text-gray-700 dark:text-gray-300">
                 Status Breakdown
@@ -390,7 +384,7 @@ export default function ProjectDashboard() {
                 {Object.entries(summary?.statusCounts || {}).map(([status, count]) => (
                   <div key={status} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-3">
-                      <div 
+                      <div
                         className="w-4 h-4 rounded-full"
                         style={{ backgroundColor: statusColors[status] || '#6b7280' }}
                       />
@@ -487,7 +481,7 @@ export default function ProjectDashboard() {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex flex-col justify-center items-center gap-8">
               {loadingSprintIssues ? (
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-6 animate-pulse" />
@@ -507,7 +501,7 @@ export default function ProjectDashboard() {
                         </Typography>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-6 overflow-hidden">
-                        <div 
+                        <div
                           className="bg-green-500 h-6 rounded-full transition-all duration-1000 ease-out"
                           style={{ width: `${percent}%` }}
                         />
@@ -540,7 +534,7 @@ export default function ProjectDashboard() {
                 Start a sprint to begin tracking progress and organizing your work!
               </Typography>
             </div>
-            
+
             {['Super-Admin', 'ProjectLead'].includes(currentUserRole ?? '') && (
               <Link href={`./sprints`}>
                 <Button>
@@ -572,7 +566,7 @@ export default function ProjectDashboard() {
               {errorActivity}
             </Typography>
           </div>
-        ) : activity.length === 0 ? (
+        ) : (Array.isArray(activity) ? activity : []).length === 0 ? (
           <div className="text-center py-12">
             <ClockIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <Typography variant="body" className="text-gray-500 dark:text-gray-400">
@@ -581,7 +575,7 @@ export default function ProjectDashboard() {
           </div>
         ) : (
           <div className="space-y-4">
-            {activity.slice(0, 5).map((rev) => {
+            {(Array.isArray(activity) ? activity : []).slice(0, 5).map((rev) => {
               let href = null;
               if (rev.entityType === 'Issue') {
                 href = `./issues/${rev.entityId}`;
@@ -611,8 +605,8 @@ export default function ProjectDashboard() {
                     <Typography variant="body" className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                       {String(
                         typeof rev.snapshot === 'object' && rev.snapshot !== null && 'title' in rev.snapshot ? rev.snapshot.title :
-                        typeof rev.snapshot === 'object' && rev.snapshot !== null && 'name' in rev.snapshot ? rev.snapshot.name :
-                        rev.entityId || ''
+                          typeof rev.snapshot === 'object' && rev.snapshot !== null && 'name' in rev.snapshot ? rev.snapshot.name :
+                            rev.entityId || ''
                       )}
                     </Typography>
                     <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">

@@ -5,4 +5,8 @@ import { BoardType } from '../entities/board.entity';
 export class CreateBoardDto {
   @IsString() @IsNotEmpty() name: string;
   @IsEnum(BoardType) @IsOptional() type?: BoardType;
+
+  @IsString() @IsOptional() description?: string;
+
+  @IsOptional() columns?: any[];
 }

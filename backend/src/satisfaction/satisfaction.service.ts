@@ -17,7 +17,7 @@ export class SatisfactionService {
     userId: string,
     metric: string,
     value: number,
-    context?: Record<string, any>,
+    context?: Record<string, unknown>,
   ): Promise<SatisfactionMetric> {
     const metricEntity = this.metricRepo.create({
       userId,
@@ -88,7 +88,9 @@ export class SatisfactionService {
       .select('AVG(metric.value)', 'average')
       .where('metric.userId = :userId', { userId })
       .andWhere('metric.metric = :metric', { metric })
-      .getRawOne();
+      .getRawOne<{ average: string }>();
+
+    if (!result) return 0;
 
     return parseFloat(result.average) || 0;
   }
@@ -98,7 +100,9 @@ export class SatisfactionService {
       .createQueryBuilder('survey')
       .select('AVG(survey.overallScore)', 'average')
       .where('survey.userId = :userId', { userId })
-      .getRawOne();
+      .getRawOne<{ average: string }>();
+
+    if (!result) return 0;
 
     return parseFloat(result.average) || 0;
   }

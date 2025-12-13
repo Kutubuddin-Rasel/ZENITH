@@ -210,9 +210,9 @@ export class SkillMatchingService {
     });
 
     const skillSupply = this.calculateSkillSupply(allSkills);
-    const skillDemand = await this.calculateSkillDemand(organizationId);
+    const skillDemand = await this.calculateSkillDemand();
     const skillGaps = this.identifySkillGaps(skillSupply, skillDemand);
-    const emergingSkills = await this.identifyEmergingSkills(organizationId);
+    const emergingSkills = await this.identifyEmergingSkills();
 
     return {
       organizationId,
@@ -267,7 +267,7 @@ export class SkillMatchingService {
   > {
     // This would analyze project requirements, job postings, etc.
     // For now, returning common in-demand skills
-    return [
+    return Promise.resolve([
       { skill: 'JavaScript', averageRequiredLevel: 4, demandCount: 15 },
       { skill: 'TypeScript', averageRequiredLevel: 3, demandCount: 12 },
       { skill: 'React', averageRequiredLevel: 4, demandCount: 10 },
@@ -275,7 +275,7 @@ export class SkillMatchingService {
       { skill: 'PostgreSQL', averageRequiredLevel: 3, demandCount: 6 },
       { skill: 'Docker', averageRequiredLevel: 2, demandCount: 5 },
       { skill: 'AWS', averageRequiredLevel: 3, demandCount: 4 },
-    ];
+    ]);
   }
 
   private generateLearningPath(
@@ -292,7 +292,7 @@ export class SkillMatchingService {
         step: `Level ${level}`,
         description: this.getSkillLevelDescription(skill, level),
         estimatedTime: this.getEstimatedLearningTime(skill, level),
-        resources: this.getLearningResources(skill, level),
+        resources: this.getLearningResources(skill),
       });
     }
 
@@ -338,7 +338,7 @@ export class SkillMatchingService {
     return (baseHours[skill] || 20) * level;
   }
 
-  private getLearningResources(skill: string, _level: number): string[] {
+  private getLearningResources(skill: string): string[] {
     const resources: Record<string, string[]> = {
       JavaScript: [
         'MDN Web Docs',
@@ -420,12 +420,10 @@ export class SkillMatchingService {
     return supply;
   }
 
-  private calculateSkillDemand(
-    _organizationId: string,
-  ): Promise<SkillAnalysis['skillDemand']> {
+  private calculateSkillDemand(): Promise<SkillAnalysis['skillDemand']> {
     // This would analyze project requirements, job postings, etc.
     // For now, returning placeholder data
-    return [
+    return Promise.resolve([
       {
         skill: 'JavaScript',
         requiredCount: 20,
@@ -438,7 +436,7 @@ export class SkillMatchingService {
         averageRequiredLevel: 3,
         projects: ['Project A', 'Project C'],
       },
-    ];
+    ]);
   }
 
   private identifySkillGaps(
@@ -515,12 +513,10 @@ export class SkillMatchingService {
     return recommendations;
   }
 
-  private identifyEmergingSkills(
-    _organizationId: string,
-  ): Promise<SkillAnalysis['emergingSkills']> {
+  private identifyEmergingSkills(): Promise<SkillAnalysis['emergingSkills']> {
     // This would analyze trends, job postings, technology adoption, etc.
     // For now, returning placeholder data
-    return [
+    return Promise.resolve([
       {
         skill: 'AI/ML',
         growthRate: 0.3,
@@ -533,7 +529,7 @@ export class SkillMatchingService {
         adoptionRate: 0.1,
         futureDemand: 0.6,
       },
-    ];
+    ]);
   }
 
   private groupSkillsByType(skills: SkillMatrix[]): Map<string, SkillMatrix[]> {

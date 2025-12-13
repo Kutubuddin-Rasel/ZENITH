@@ -25,9 +25,12 @@ export enum SessionType {
 }
 
 @Entity('sessions')
-@Index(['userId', 'status'])
-@Index(['sessionId'])
-@Index(['expiresAt'])
+@Index('IDX_session_user_id', ['userId'])
+@Index('IDX_session_status', ['status'])
+@Index('IDX_session_expires_at', ['expiresAt'])
+@Index('IDX_session_last_activity', ['lastActivity'])
+@Index('IDX_session_ip_address', ['ipAddress'])
+@Index('IDX_session_active', ['userId', 'lastActivity'])
 export class Session {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -87,7 +90,7 @@ export class Session {
   terminationReason: string | null;
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
 
   @Column({ default: false })
   isConcurrent: boolean; // Whether this is a concurrent session
@@ -159,7 +162,7 @@ export class Session {
   isSuspicious: boolean; // Whether session shows suspicious activity
 
   @Column({ type: 'jsonb', nullable: true })
-  suspiciousActivity: Record<string, any> | null; // Details of suspicious activity
+  suspiciousActivity: Record<string, unknown> | null; // Details of suspicious activity
 
   @Column({ default: 0 })
   failedLoginAttempts: number; // Number of failed login attempts

@@ -5,20 +5,22 @@ import { CardHeader, CardContent, CardTitle } from './CardComponents';
 import Button from './Button';
 import Badge from './Badge';
 import Alert, { AlertDescription } from './Alert';
-import { 
-  Shield, 
-  Monitor, 
-  Smartphone, 
-  Tablet, 
-  Globe, 
-  Clock, 
+import {
+  Shield,
+  Monitor,
+  Smartphone,
+  Tablet,
+  Globe,
+  Clock,
   AlertTriangle,
   Lock,
   Trash2,
   RefreshCw,
   Eye,
-  EyeOff
+  EyeOff,
+
 } from 'lucide-react';
+import { apiClient } from '../lib/api-client';
 
 interface SessionInfo {
   sessionId: string;
@@ -70,17 +72,7 @@ export default function SessionManagement({ onSessionTerminated }: SessionManage
   const fetchSessions = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/sessions/my-sessions', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch sessions');
-      }
-
-      const data = await response.json();
+      const data = await apiClient.get<SessionInfo[]>('/sessions/my-sessions');
       setSessions(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -91,18 +83,7 @@ export default function SessionManagement({ onSessionTerminated }: SessionManage
 
   const terminateSession = async (sessionId: string, reason?: string) => {
     try {
-      const response = await fetch(`/api/sessions/${sessionId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ reason }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to terminate session');
-      }
+      await apiClient.delete(`/sessions/${sessionId}`, { reason });
 
       setSessions(sessions.filter(s => s.sessionId !== sessionId));
       onSessionTerminated?.();
@@ -113,24 +94,12 @@ export default function SessionManagement({ onSessionTerminated }: SessionManage
 
   const terminateAllSessions = async (exceptCurrent: boolean = true) => {
     try {
-      const response = await fetch('/api/sessions/my-sessions/all', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          reason: 'User requested termination',
-          exceptCurrent 
-        }),
+      await apiClient.delete('/sessions/my-sessions/all', {
+        reason: 'User requested termination',
+        exceptCurrent
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to terminate sessions');
-      }
-
-      await response.json();
-      setSessions(sessions.filter(s => s.isConcurrent));
+      setSessions(sessions.filter(s => s.sessionId === sessions.find(s => !s.isConcurrent)?.sessionId)); // Keep only the current session if it exists
       onSessionTerminated?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to terminate sessions');
@@ -139,16 +108,7 @@ export default function SessionManagement({ onSessionTerminated }: SessionManage
 
   const refreshSession = async () => {
     try {
-      const response = await fetch('/api/sessions/refresh', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to refresh session');
-      }
+      await apiClient.post('/sessions/refresh', {});
 
       await fetchSessions();
     } catch (err) {
@@ -211,9 +171,9 @@ export default function SessionManagement({ onSessionTerminated }: SessionManage
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button 
-            onClick={() => terminateAllSessions(true)} 
-            variant="danger" 
+          <Button
+            onClick={() => terminateAllSessions(true)}
+            variant="danger"
             size="sm"
           >
             <Trash2 className="h-4 w-4 mr-2" />
@@ -241,7 +201,7 @@ export default function SessionManagement({ onSessionTerminated }: SessionManage
                       {session.deviceInfo?.deviceName || 'Unknown Device'}
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      {session.deviceInfo?.osName} {session.deviceInfo?.osVersion} • 
+                      {session.deviceInfo?.osName} {session.deviceInfo?.osVersion} •
                       {session.deviceInfo?.browserName} {session.deviceInfo?.browserVersion}
                     </p>
                   </div>

@@ -24,6 +24,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
+import { AuthenticatedRequest } from '../common/types/authenticated-request.interface';
 
 export class CreateAccessRuleDto {
   ruleType: AccessRuleType;
@@ -53,7 +54,7 @@ export class CreateAccessRuleDto {
   isLoggingEnabled?: boolean;
   isNotificationEnabled?: boolean;
   notificationChannels?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export class UpdateAccessRuleDto {
@@ -83,7 +84,7 @@ export class UpdateAccessRuleDto {
   isLoggingEnabled?: boolean;
   isNotificationEnabled?: boolean;
   notificationChannels?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export class TestAccessDto {
@@ -103,17 +104,14 @@ export class AccessControlController {
   @RequirePermission('access_control:test')
   async testAccess(
     @Body() testData: TestAccessDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ): Promise<AccessCheckResult> {
-    const reqData = req as Record<string, unknown>;
     return this.accessControlService.checkAccess(
       testData.ipAddress,
-      testData.userId ||
-        ((reqData.user as Record<string, unknown>)?.userId as string),
-      (reqData.headers as Record<string, unknown>)['user-agent'] as string,
+      testData.userId || req.user.userId,
+      req.headers?.['user-agent'] || '',
       testData.projectId,
-      testData.userRoles ||
-        ((reqData.user as Record<string, unknown>)?.roles as string[]),
+      testData.userRoles,
     );
   }
 
@@ -122,12 +120,11 @@ export class AccessControlController {
   @RequirePermission('access_control:create')
   async createRule(
     @Body() createRuleDto: CreateAccessRuleDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ): Promise<IPAccessRule> {
-    const reqData = req as Record<string, unknown>;
     return this.accessControlService.createRule({
       ...createRuleDto,
-      createdBy: (reqData.user as Record<string, unknown>)?.userId as string,
+      createdBy: req.user.userId,
     });
   }
 
@@ -159,12 +156,11 @@ export class AccessControlController {
   async updateRule(
     @Param('id') id: string,
     @Body() updateRuleDto: UpdateAccessRuleDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ): Promise<IPAccessRule> {
-    const reqData = req as Record<string, unknown>;
     return this.accessControlService.updateRule(id, {
       ...updateRuleDto,
-      createdBy: (reqData.user as Record<string, unknown>)?.userId as string,
+      createdBy: req.user.userId,
     });
   }
 
@@ -173,18 +169,14 @@ export class AccessControlController {
   @RequirePermission('access_control:delete')
   async deleteRule(
     @Param('id') id: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ): Promise<void> {
-    const reqData = req as Record<string, unknown>;
-    return this.accessControlService.deleteRule(
-      id,
-      (reqData.user as Record<string, unknown>)?.userId as string,
-    );
+    return this.accessControlService.deleteRule(id, req.user.userId);
   }
 
   @Get('stats')
   @RequirePermission('access_control:read:stats')
-  async getStats(): Promise<any> {
+  async getStats(): Promise<Record<string, unknown>> {
     return this.accessControlService.getAccessStats();
   }
 
@@ -213,12 +205,11 @@ export class AccessControlController {
   @RequirePermission('access_control:approve')
   async approveRule(
     @Param('id') id: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ): Promise<IPAccessRule> {
-    const reqData = req as Record<string, unknown>;
     return this.accessControlService.updateRule(id, {
       requiresApproval: false,
-      approvedBy: (reqData.user as Record<string, unknown>)?.userId as string,
+      approvedBy: req.user.userId,
       approvedAt: new Date(),
     });
   }
@@ -233,12 +224,12 @@ export class AccessControlController {
       reason: string;
       expiresAt: Date;
     },
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ): Promise<IPAccessRule> {
     return this.accessControlService.createRule({
       ruleType: AccessRuleType.WHITELIST,
       name: `Emergency Access - ${emergencyData.reason}`,
-      description: `Emergency access granted by ${((req as Record<string, unknown>).user as Record<string, unknown>)?.name as string}`,
+      description: `Emergency access granted by ${req.user.name}`,
       ipAddress: emergencyData.ipAddress,
       ipType: IPType.SINGLE,
       isEmergency: true,
@@ -246,9 +237,7 @@ export class AccessControlController {
       isTemporary: true,
       expiresAt: emergencyData.expiresAt,
       priority: 1000, // Highest priority
-      createdBy: (
-        (req as Record<string, unknown>).user as Record<string, unknown>
-      )?.userId as string,
+      createdBy: req.user.userId,
     });
   }
 

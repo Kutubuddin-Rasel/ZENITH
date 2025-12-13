@@ -11,6 +11,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { BoardsService } from './boards.service';
+import { UsersService } from '../users/users.service';
 import { CreateBoardDto } from './dto/create-board.dto';
 import { UpdateBoardDto } from './dto/update-board.dto';
 import { CreateColumnDto } from './dto/create-column.dto';
@@ -23,7 +24,20 @@ import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 @Controller('projects/:projectId/boards')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class BoardsController {
-  constructor(private svc: BoardsService) {}
+  constructor(
+    private svc: BoardsService,
+    private readonly usersService: UsersService,
+  ) {}
+
+  /**
+   * Helper: Get user's organization ID
+   */
+  private async getUserOrganization(
+    userId: string,
+  ): Promise<string | undefined> {
+    const user = await this.usersService.findOneById(userId);
+    return user.organizationId;
+  }
 
   @RequirePermission('boards:create')
   @Post()
@@ -32,7 +46,8 @@ export class BoardsController {
     @Body() dto: CreateBoardDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.create(projectId, req.user.userId, dto);
+    const orgId = await this.getUserOrganization(req.user.userId);
+    return this.svc.create(projectId, req.user.userId, dto, orgId);
   }
 
   @RequirePermission('boards:view')
@@ -41,7 +56,8 @@ export class BoardsController {
     @Param('projectId') projectId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.findAll(projectId, req.user.userId);
+    const orgId = await this.getUserOrganization(req.user.userId);
+    return this.svc.findAll(projectId, req.user.userId, orgId);
   }
 
   @RequirePermission('boards:view')
@@ -51,7 +67,8 @@ export class BoardsController {
     @Param('boardId') boardId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.findOne(projectId, boardId, req.user.userId);
+    const orgId = await this.getUserOrganization(req.user.userId);
+    return this.svc.findOne(projectId, boardId, req.user.userId, orgId);
   }
 
   @RequirePermission('boards:update')
@@ -62,7 +79,8 @@ export class BoardsController {
     @Body() dto: UpdateBoardDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.update(projectId, boardId, req.user.userId, dto);
+    const orgId = await this.getUserOrganization(req.user.userId);
+    return this.svc.update(projectId, boardId, req.user.userId, dto, orgId);
   }
 
   @RequirePermission('boards:delete')
@@ -72,7 +90,8 @@ export class BoardsController {
     @Param('boardId') boardId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.remove(projectId, boardId, req.user.userId);
+    const orgId = await this.getUserOrganization(req.user.userId);
+    await this.svc.remove(projectId, boardId, req.user.userId, orgId);
     return { message: 'Board deleted' };
   }
 
@@ -86,7 +105,8 @@ export class BoardsController {
     @Body() dto: CreateColumnDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.addColumn(projectId, boardId, req.user.userId, dto);
+    const orgId = await this.getUserOrganization(req.user.userId);
+    return this.svc.addColumn(projectId, boardId, req.user.userId, dto, orgId);
   }
 
   @RequirePermission('columns:update')
@@ -98,12 +118,14 @@ export class BoardsController {
     @Body() dto: UpdateColumnDto,
     @Request() req: { user: JwtRequestUser },
   ) {
+    const orgId = await this.getUserOrganization(req.user.userId);
     return this.svc.updateColumn(
       projectId,
       boardId,
       columnId,
       req.user.userId,
       dto,
+      orgId,
     );
   }
 
@@ -115,7 +137,14 @@ export class BoardsController {
     @Param('columnId') columnId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.removeColumn(projectId, boardId, columnId, req.user.userId);
+    const orgId = await this.getUserOrganization(req.user.userId);
+    await this.svc.removeColumn(
+      projectId,
+      boardId,
+      columnId,
+      req.user.userId,
+      orgId,
+    );
     return { message: 'Column deleted' };
   }
 
@@ -134,6 +163,7 @@ export class BoardsController {
     },
     @Request() req: { user: JwtRequestUser },
   ) {
+    const orgId = await this.getUserOrganization(req.user.userId);
     await this.svc.moveIssue(
       projectId,
       boardId,
@@ -142,6 +172,7 @@ export class BoardsController {
       body.toColumn,
       body.newOrder,
       req.user.userId,
+      orgId,
     );
     return { message: 'Issue moved' };
   }
@@ -155,13 +186,35 @@ export class BoardsController {
     @Body() body: { columnId: string; orderedIssueIds: string[] },
     @Request() req: { user: JwtRequestUser },
   ) {
+    const orgId = await this.getUserOrganization(req.user.userId);
     await this.svc.reorderIssues(
       projectId,
       boardId,
       body.columnId,
       body.orderedIssueIds,
       req.user.userId,
+      orgId,
     );
     return { message: 'Issues reordered' };
+  }
+
+  /** OPTIMIZED: Bulk reorder columns (replaces N individual calls) */
+  @RequirePermission('columns:update')
+  @Patch(':boardId/reorder-columns')
+  async reorderColumns(
+    @Param('projectId') projectId: string,
+    @Param('boardId') boardId: string,
+    @Body() body: { orderedColumnIds: string[] },
+    @Request() req: { user: JwtRequestUser },
+  ) {
+    const orgId = await this.getUserOrganization(req.user.userId);
+    await this.svc.reorderColumns(
+      projectId,
+      boardId,
+      body.orderedColumnIds,
+      req.user.userId,
+      orgId,
+    );
+    return { message: 'Columns reordered' };
   }
 }

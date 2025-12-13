@@ -9,7 +9,7 @@ import {
 import { Project } from '../../projects/entities/project.entity';
 
 @Entity('resource_forecasts')
-@Check('confidence_score >= 0 AND confidence_score <= 1')
+@Check('"confidenceScore" >= 0 AND "confidenceScore" <= 1')
 export class ResourceForecast {
   @PrimaryGeneratedColumn('uuid')
   id: string;

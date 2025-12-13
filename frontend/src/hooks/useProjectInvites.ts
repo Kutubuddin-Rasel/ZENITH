@@ -64,7 +64,7 @@ export function useProjectInvites() {
 
   const respondToInviteMutation = useMutation({
     mutationFn: ({ inviteId, accept, reason }: { inviteId: string; accept: boolean; reason?: string }) => {
-      console.log('🔍 respondToInviteMutation: Calling API with:', { inviteId, accept, reason });
+
       return apiFetch(`/invites/${inviteId}/respond`, {
         method: 'PATCH',
         body: JSON.stringify({ accept, reason }),

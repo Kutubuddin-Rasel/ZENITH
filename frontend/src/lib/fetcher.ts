@@ -1,17 +1,25 @@
+
 const API_URL = 'http://localhost:3000';
 
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
   const fullUrl = `${API_URL}${path.startsWith('/') ? path : `/${path}`}`;
   const res = await fetch(fullUrl, {
     ...options,
     headers: {
-      ...(options.headers || {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       'Content-Type': 'application/json',
+      ...(options.headers || {}),
     },
-    // credentials: 'include', // should be removed for Bearer token auth
+    credentials: 'include', //  Essential for HttpOnly Cookies
   });
   if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  const json = await res.json();
+  // Standardized API Response unwrapping
+  if (json && typeof json === 'object' && 'success' in json && 'data' in json) {
+    if (!json.success) {
+      throw new Error(json.message || 'Operation failed');
+    }
+    return json.data as T;
+  }
+  // Fallback for non-standard responses (should rely on standard via interceptor now)
+  return json as T;
 } 

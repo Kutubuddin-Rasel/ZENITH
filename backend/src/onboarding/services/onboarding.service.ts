@@ -39,7 +39,8 @@ export class OnboardingService {
   ): Promise<OnboardingProgress> {
     // Check if onboarding already exists
     const existing = await this.onboardingRepo.findOne({
-      where: { userId, isCompleted: false },
+      where: { userId },
+      order: { createdAt: 'DESC' },
     });
 
     if (existing) {
@@ -75,7 +76,7 @@ export class OnboardingService {
     userId: string,
     stepId: string,
     status: OnboardingStepStatus,
-    data?: Record<string, any>,
+    data?: Record<string, unknown>,
   ): Promise<OnboardingProgress> {
     const onboarding = await this.onboardingRepo.findOne({
       where: { userId, isCompleted: false },

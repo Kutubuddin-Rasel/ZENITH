@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -15,13 +17,12 @@ import { AttachmentsModule } from './attachments/attachments.module';
 import { BoardsModule } from './boards/boards.module';
 import { ReleasesModule } from './releases/releases.module';
 import { TaxonomyModule } from './taxonomy/taxonomy.module';
-import { EpicsModule } from './epics/epics.module';
 import { BacklogModule } from './backlog/backlog.module';
 import { WatchersModule } from './watchers/watchers.module';
 import { RevisionsModule } from './revisions/revisions.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ReportsModule } from './reports/reports.module';
-import { AuditModule } from './audit/audit.module';
+import { AuditLogsModule } from './audit/audit-logs.module';
 import { EncryptionModule } from './encryption/encryption.module';
 import { SessionModule } from './session/session.module';
 import { AccessControlModule } from './access-control/access-control.module';
@@ -39,6 +40,21 @@ import { APP_GUARD } from '@nestjs/core';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { createDatabaseConfig } from './database/config/database.config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { CustomFieldsModule } from './custom-fields/custom-fields.module';
+import { ApiKeysModule } from './api-keys/api-keys.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
+import { OrganizationsModule } from './organizations/organizations.module';
+import { CommonModule } from './common/common.module';
+import { TelemetryModule } from './telemetry/telemetry.module';
+import { RagModule } from './rag/rag.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { AiModule } from './ai/ai.module';
+import { CaslModule } from './auth/casl/casl.module';
+import { GamificationModule } from './gamification/gamification.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { BillingModule } from './billing/billing.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -46,15 +62,28 @@ import { createDatabaseConfig } from './database/config/database.config';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ScheduleModule.forRoot(),
     // Configure TypeORM asynchronously using ConfigService with optimizations
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: createDatabaseConfig,
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
+    // AI Module - provides AI-powered smart setup capabilities
+    AiModule,
     CacheModule,
     DatabaseModule,
     PerformanceModule,
+    CommonModule,
+    EncryptionModule,
+    SessionModule,
+    OrganizationsModule,
     UsersModule,
     AuthModule,
     InvitesModule,
@@ -67,13 +96,12 @@ import { createDatabaseConfig } from './database/config/database.config';
     BoardsModule,
     ReleasesModule,
     TaxonomyModule,
-    EpicsModule,
     BacklogModule,
     WatchersModule,
     RevisionsModule,
     NotificationsModule,
     ReportsModule,
-    AuditModule,
+    AuditLogsModule,
     EncryptionModule,
     SessionModule,
     AccessControlModule,
@@ -84,6 +112,28 @@ import { createDatabaseConfig } from './database/config/database.config';
     WorkflowsModule,
     IntegrationsModule,
     ResourceManagementModule,
+    CustomFieldsModule,
+    ApiKeysModule,
+    WebhooksModule,
+    TelemetryModule,
+    RagModule,
+    AnalyticsModule,
+    CaslModule, // RBAC Refactor
+    GamificationModule,
+    DashboardModule,
+    BillingModule,
+    SearchModule,
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        connection: {
+          host: configService.get('REDIS_HOST', 'localhost'),
+          port: configService.get('REDIS_PORT', 6379),
+          password: configService.get('REDIS_PASSWORD'),
+        },
+      }),
+      inject: [ConfigService],
+    }),
   ],
   controllers: [AppController],
   providers: [
@@ -95,6 +145,10 @@ import { createDatabaseConfig } from './database/config/database.config';
     {
       provide: APP_GUARD,
       useClass: PermissionsGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })

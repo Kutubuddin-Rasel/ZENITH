@@ -4,7 +4,7 @@ import { apiFetch } from '../lib/fetcher';
 export interface Notification {
   id: string;
   message: string;
-  type?: 'info' | 'success' | 'error';
+  type?: 'info' | 'success' | 'error' | 'warning';
   read: boolean;
   createdAt: string;
   link?: string;
@@ -47,27 +47,27 @@ export function useNotifications() {
     refetch();
   };
 
-  return { 
-    notifications: data, 
-    isLoading, 
-    isError, 
-    markAsRead, 
-    markAllAsRead, 
+  return {
+    notifications: data,
+    isLoading,
+    isError,
+    markAsRead,
+    markAllAsRead,
     forceRefresh,
-    refetch 
+    refetch
   };
 }
 
 export function useProjectNotifications(projectId: string) {
   const { notifications, isLoading, isError, markAsRead, markAllAsRead, forceRefresh, refetch } = useNotifications();
   const filtered = notifications?.filter(n => n.context?.projectId === projectId) || [];
-  return { 
-    notifications: filtered, 
-    isLoading, 
-    isError, 
-    markAsRead, 
-    markAllAsRead, 
+  return {
+    notifications: filtered,
+    isLoading,
+    isError,
+    markAsRead,
+    markAllAsRead,
     forceRefresh,
-    refetch 
+    refetch
   };
 } 

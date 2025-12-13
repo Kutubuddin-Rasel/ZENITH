@@ -156,7 +156,7 @@ export class SAMLController {
   @Get('configs/:id/metadata')
   async getMetadata(@Param('id') id: string) {
     const config = await this.samlService.getConfig(id);
-    const metadata = await this.samlService.generateMetadata(config);
+    const metadata = this.samlService.generateMetadata(config);
     return { metadata };
   }
 

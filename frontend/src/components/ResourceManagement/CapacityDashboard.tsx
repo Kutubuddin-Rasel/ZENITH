@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, TrendingUp, AlertTriangle, Clock, Target } from 'lucide-react';
+import { Calendar, TrendingUp, AlertTriangle, Target } from 'lucide-react';
 
 interface CapacityData {
   userCapacity: Array<{

@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
-import * as CryptoJS from 'crypto-js';
 
 export interface EncryptionResult {
   encrypted: string;
@@ -12,6 +11,12 @@ export interface EncryptionResult {
 export interface DecryptionResult {
   decrypted: string;
   success: boolean;
+}
+
+interface EncryptedFieldData {
+  encrypted: string;
+  iv: string;
+  tag: string;
 }
 
 @Injectable()
@@ -126,10 +131,10 @@ export class EncryptionService {
    * Encrypt sensitive fields in an object
    */
   encryptObject(
-    obj: Record<string, any>,
+    obj: Record<string, unknown>,
     fieldsToEncrypt: string[],
     key?: string,
-  ): Record<string, any> {
+  ): Record<string, unknown> {
     const encryptedObj = { ...obj };
 
     for (const field of fieldsToEncrypt) {
@@ -150,16 +155,16 @@ export class EncryptionService {
    * Decrypt sensitive fields in an object
    */
   decryptObject(
-    obj: Record<string, any>,
+    obj: Record<string, unknown>,
     fieldsToDecrypt: string[],
     key?: string,
-  ): Record<string, any> {
+  ): Record<string, unknown> {
     const decryptedObj = { ...obj };
 
     for (const field of fieldsToDecrypt) {
       if (obj[field] && typeof obj[field] === 'string') {
         try {
-          const encryptedData = JSON.parse(obj[field]);
+          const encryptedData = JSON.parse(obj[field]) as EncryptedFieldData;
           if (
             encryptedData.encrypted &&
             encryptedData.iv &&
@@ -277,7 +282,9 @@ export class EncryptionService {
   /**
    * Encrypt audit log sensitive data
    */
-  encryptAuditData(auditData: Record<string, any>): Record<string, any> {
+  encryptAuditData(
+    auditData: Record<string, unknown>,
+  ): Record<string, unknown> {
     const sensitiveFields = ['details', 'oldValues', 'newValues', 'metadata'];
     return this.encryptObject(auditData, sensitiveFields);
   }
@@ -285,7 +292,9 @@ export class EncryptionService {
   /**
    * Decrypt audit log sensitive data
    */
-  decryptAuditData(auditData: Record<string, any>): Record<string, any> {
+  decryptAuditData(
+    auditData: Record<string, unknown>,
+  ): Record<string, unknown> {
     const sensitiveFields = ['details', 'oldValues', 'newValues', 'metadata'];
     return this.decryptObject(auditData, sensitiveFields);
   }

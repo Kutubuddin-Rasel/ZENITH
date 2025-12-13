@@ -33,8 +33,8 @@ export class AutomationRulesController {
       description?: string;
       triggerType: string;
       triggerConfig: any;
-      conditions?: any[];
-      actions: any[];
+      conditions?: any;
+      actions: any;
       tags?: string[];
       category?: string;
     },
@@ -115,8 +115,8 @@ export class AutomationRulesController {
       name?: string;
       description?: string;
       triggerConfig?: any;
-      conditions?: any[];
-      actions?: any[];
+      conditions?: any;
+      actions?: any;
       isActive?: boolean;
       tags?: string[];
       category?: string;
@@ -193,7 +193,7 @@ export class AutomationRulesController {
     @Param('id') id: string,
     @Body()
     body: {
-      context: any;
+      context: Record<string, unknown>;
     },
   ) {
     try {
@@ -220,7 +220,7 @@ export class AutomationRulesController {
     @Param('id') id: string,
     @Body()
     body: {
-      testContext: any;
+      testContext: Record<string, unknown>;
     },
   ) {
     try {

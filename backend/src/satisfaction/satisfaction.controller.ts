@@ -13,6 +13,7 @@ import { SatisfactionService } from './satisfaction.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
+import { AuthenticatedRequest } from '../common/types/authenticated-request.interface';
 
 @Controller('api/satisfaction')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -23,17 +24,17 @@ export class SatisfactionController {
   @HttpCode(HttpStatus.OK)
   @RequirePermission('projects:view')
   async trackMetric(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Body()
     body: {
       metric: string;
       value: number;
-      context?: Record<string, any>;
+      context?: Record<string, unknown>;
       timestamp: Date;
     },
   ) {
     const metric = await this.satisfactionService.trackMetric(
-      req.user.id,
+      req.user.userId,
       body.metric,
       body.value,
       body.context,
@@ -48,7 +49,7 @@ export class SatisfactionController {
   @Post('submit-survey')
   @RequirePermission('projects:view')
   async submitSurvey(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Body()
     body: {
       type: 'onboarding' | 'feature' | 'general';
@@ -64,7 +65,7 @@ export class SatisfactionController {
     },
   ) {
     const survey = await this.satisfactionService.submitSurvey(
-      req.user.id,
+      req.user.userId,
       body.type,
       body.questions,
       body.overallScore,
@@ -79,9 +80,12 @@ export class SatisfactionController {
 
   @Get('metrics')
   @RequirePermission('projects:view')
-  async getMetrics(@Request() req: any, @Param('metric') metric?: string) {
+  async getMetrics(
+    @Request() req: AuthenticatedRequest,
+    @Param('metric') metric?: string,
+  ) {
     const metrics = await this.satisfactionService.getMetrics(
-      req.user.id,
+      req.user.userId,
       metric,
     );
 
@@ -93,9 +97,12 @@ export class SatisfactionController {
 
   @Get('surveys')
   @RequirePermission('projects:view')
-  async getSurveys(@Request() req: any, @Param('type') type?: string) {
+  async getSurveys(
+    @Request() req: AuthenticatedRequest,
+    @Param('type') type?: string,
+  ) {
     const surveys = await this.satisfactionService.getSurveys(
-      req.user.id,
+      req.user.userId,
       type,
     );
 
@@ -107,9 +114,12 @@ export class SatisfactionController {
 
   @Get('average-score/:metric')
   @RequirePermission('projects:view')
-  async getAverageScore(@Request() req: any, @Param('metric') metric: string) {
+  async getAverageScore(
+    @Request() req: AuthenticatedRequest,
+    @Param('metric') metric: string,
+  ) {
     const score = await this.satisfactionService.getAverageScore(
-      req.user.id,
+      req.user.userId,
       metric,
     );
 
@@ -121,9 +131,9 @@ export class SatisfactionController {
 
   @Get('overall-satisfaction')
   @RequirePermission('projects:view')
-  async getOverallSatisfaction(@Request() req: any) {
+  async getOverallSatisfaction(@Request() req: AuthenticatedRequest) {
     const score = await this.satisfactionService.getOverallSatisfaction(
-      req.user.id,
+      req.user.userId,
     );
 
     return {

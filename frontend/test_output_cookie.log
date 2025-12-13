@@ -1,0 +1,416 @@
+[1A[2K[2m[WebServer] [22m [33m[1m⚠[22m[39m Warning: Next.js inferred your workspace root, but it may not be correct.
+[2m[WebServer] [22m We detected multiple lockfiles and selected the directory of /Users/kutubuddin/Downloads/Zenith/package-lock.json as the root directory.
+[2m[WebServer] [22m To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+[2m[WebServer] [22m   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+[2m[WebServer] [22m Detected additional lockfiles: 
+[2m[WebServer] [22m   * /Users/kutubuddin/Downloads/Zenith/frontend/package-lock.json
+[2m[WebServer] [22m
+
+[1A[2K[2m[WebServer] [22m(node:10060) Warning: `--localstorage-file` was provided without a valid path
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 3 tests using 3 workers
+
+[1A[2K[1/3] [chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+[1A[2K[2/3] [chromium] › e2e/smart-setup-ai.spec.ts:59:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template
+[1A[2K[3/3] [chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+[1A[2K[2m[WebServer] [22mReact does not recognize the `showPasswordToggle` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `showpasswordtoggle` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+BROWSER LOG: Failed to load resource: the server responded with a status of 404 (Not Found)
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+BROWSER LOG: Failed to load resource: the server responded with a status of 404 (Not Found)
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:59:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template
+BROWSER LOG: Failed to load resource: the server responded with a status of 404 (Not Found)
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+BROWSER LOG: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:59:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template
+BROWSER LOG: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+BROWSER LOG: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:59:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template
+BROWSER LOG: React does not recognize the `%s` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `%s` instead. If you accidentally passed it from a parent component, remove it from the DOM element. showPasswordToggle showpasswordtoggle
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+BROWSER LOG: React does not recognize the `%s` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `%s` instead. If you accidentally passed it from a parent component, remove it from the DOM element. showPasswordToggle showpasswordtoggle
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+BROWSER LOG: React does not recognize the `%s` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `%s` instead. If you accidentally passed it from a parent component, remove it from the DOM element. showPasswordToggle showpasswordtoggle
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+BROWSER LOG: TypeError: Cannot read properties of undefined (reading 'restoreClient')
+    at persistQueryClientRestore (webpack-internal:///(app-pages-browser)/./node_modules/@tanstack/query-persist-client-core/build/modern/persist.js:23:45)
+    at PersistQueryClientProvider.useEffect (webpack-internal:///(app-pages-browser)/./node_modules/@tanstack/react-query-persist-client/build/modern/PersistQueryClientProvider.js:43:111)
+    at Object.react_stack_bottom_frame (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:23669:20)
+    at runWithFiberInDEV (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:872:30)
+    at commitHookEffectListMount (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:12345:29)
+    at commitHookPassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:12466:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14387:13)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14390:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14390:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+
+[1A[2KBROWSER LOG: Encountered an error attempting to restore client cache from persisted location. As a precaution, the persisted cache will be discarded.
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:59:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template
+BROWSER LOG: TypeError: Cannot read properties of undefined (reading 'restoreClient')
+    at persistQueryClientRestore (webpack-internal:///(app-pages-browser)/./node_modules/@tanstack/query-persist-client-core/build/modern/persist.js:23:45)
+    at PersistQueryClientProvider.useEffect (webpack-internal:///(app-pages-browser)/./node_modules/@tanstack/react-query-persist-client/build/modern/PersistQueryClientProvider.js:43:111)
+    at Object.react_stack_bottom_frame (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:23669:20)
+    at runWithFiberInDEV (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:872:30)
+    at commitHookEffectListMount (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:12345:29)
+    at commitHookPassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:12466:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14387:13)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14390:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14390:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+
+[1A[2KBROWSER LOG: Encountered an error attempting to restore client cache from persisted location. As a precaution, the persisted cache will be discarded.
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+BROWSER LOG: TypeError: Cannot read properties of undefined (reading 'restoreClient')
+    at persistQueryClientRestore (webpack-internal:///(app-pages-browser)/./node_modules/@tanstack/query-persist-client-core/build/modern/persist.js:23:45)
+    at PersistQueryClientProvider.useEffect (webpack-internal:///(app-pages-browser)/./node_modules/@tanstack/react-query-persist-client/build/modern/PersistQueryClientProvider.js:43:111)
+    at Object.react_stack_bottom_frame (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:23669:20)
+    at runWithFiberInDEV (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:872:30)
+    at commitHookEffectListMount (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:12345:29)
+    at commitHookPassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:12466:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14387:13)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14390:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14390:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+
+[1A[2KBROWSER LOG: Encountered an error attempting to restore client cache from persisted location. As a precaution, the persisted cache will be discarded.
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+BROWSER LOG: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+BROWSER LOG: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+
+[1A[2KBROWSER LOG: Failed to fetch user data: Error: {"success":false,"statusCode":401,"message":"Unauthorized","data":null,"meta":{"details":{"message":"Unauthorized","statusCode":401}},"timestamp":"2025-12-12T05:59:16.844Z"}
+    at apiFetch (webpack-internal:///(app-pages-browser)/./src/lib/fetcher.ts:17:24)
+    at async fetchUserData (webpack-internal:///(app-pages-browser)/./src/context/AuthContext.tsx:33:30)
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+BROWSER LOG: Failed to fetch user data: Error: {"success":false,"statusCode":401,"message":"Unauthorized","data":null,"meta":{"details":{"message":"Unauthorized","statusCode":401}},"timestamp":"2025-12-12T05:59:16.835Z"}
+    at apiFetch (webpack-internal:///(app-pages-browser)/./src/lib/fetcher.ts:17:24)
+    at async fetchUserData (webpack-internal:///(app-pages-browser)/./src/context/AuthContext.tsx:33:30)
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:59:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template
+BROWSER LOG: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+
+[1A[2KBROWSER LOG: Failed to fetch user data: Error: {"success":false,"statusCode":401,"message":"Unauthorized","data":null,"meta":{"details":{"message":"Unauthorized","statusCode":401}},"timestamp":"2025-12-12T05:59:16.843Z"}
+    at apiFetch (webpack-internal:///(app-pages-browser)/./src/lib/fetcher.ts:17:24)
+    at async fetchUserData (webpack-internal:///(app-pages-browser)/./src/context/AuthContext.tsx:33:30)
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+Clicking Create Workspace...
+
+[1A[2KWaiting for URL /projects...
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+Clicking Create Workspace...
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:59:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template
+Clicking Create Workspace...
+
+[1A[2KWaiting for URL /projects...
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+Waiting for URL /projects...
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:59:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template
+BROWSER LOG: Failed to load resource: the server responded with a status of 409 (Conflict)
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+BROWSER LOG: Failed to load resource: the server responded with a status of 409 (Conflict)
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+BROWSER LOG: Login successful, setting user data: {id: 0f32eb94-ca7e-4270-88a0-5110c6bb553b, email: ai-test-1765519154751-8kmnmo@example.com, name: AI Test User, isSuperAdmin: true, organizationId: bc96c4ab-3c94-4d88-a30c-2f5608abf151}
+
+[1A[2KBROWSER LOG: [Fast Refresh] rebuilding
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+BROWSER LOG: [Fast Refresh] rebuilding
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:59:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template
+BROWSER LOG: [Fast Refresh] rebuilding
+
+[1A[2KBROWSER LOG: [Fast Refresh] done in 1210ms
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+BROWSER LOG: [Fast Refresh] done in 1209ms
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+BROWSER LOG: [Fast Refresh] done in 1212ms
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+Navigation to /projects successful
+
+[1A[2KBROWSER LOG: ProtectedRoute state: {user: Object, token: null, loading: false}
+
+[1A[2KBROWSER LOG: ProtectedRoute state: {user: Object, token: null, loading: false}
+
+[1A[2KBROWSER LOG: [Fast Refresh] rebuilding
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:59:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template
+BROWSER LOG: [Fast Refresh] rebuilding
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+BROWSER LOG: [Fast Refresh] rebuilding
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+BROWSER LOG: [Fast Refresh] done in 366ms
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:59:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template
+BROWSER LOG: [Fast Refresh] done in 368ms
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+BROWSER LOG: [Fast Refresh] done in 367ms
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+--- PAGE CONTENT DUMP ---
+
+[1A[2K<!DOCTYPE html><html lang="en" style=""><head><link rel="stylesheet" href="/_next/static/css/app/layout.css?v=1765519155528" data-precedence="next_static/css/app/layout.css"><link rel="preload" as="script" fetchpriority="low" href="/_next/static/chunks/webpack.js?v=1765519155528"><script src="/_next/static/chunks/main-app.js?v=1765519155528" async=""></script><script src="/_next/static/chunks/app-pages-internals.js" async=""></script><script src="/_next/static/chunks/app/layout.js" async=""></script><script src="/_next/static/chunks/app/error.js" async=""></script><script src="/_next/static/chunks/app/auth/register/page.js" async=""></script><script src="/_next/static/chunks/app/global-error.js" async=""></script><script src="/_next/static/chunks/polyfills.js" nomodule=""></script><link rel="preload" href="/_next/static/media/e4af272ccee01ff0-s.p.woff2" as="font" crossorigin="" type="font/woff2"><style>@font-face{font-family:'__nextjs-Geist';font-style:normal;font-weight:400 600;font-display:swap;src:url(/__nextjs_font/geist-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}@font-face{font-family:'__nextjs-Geist Mono';font-style:normal;font-weight:400 600;font-display:swap;src:url(/__nextjs_font/geist-mono-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}@font-face{font-family:'__nextjs-Geist';font-style:normal;font-weight:400 600;font-display:swap;src:url(/__nextjs_font/geist-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}@font-face{font-family:'__nextjs-Geist Mono';font-style:normal;font-weight:400 600;font-display:swap;src:url(/__nextjs_font/geist-mono-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}</style><meta http-equiv="X-Content-Type-Options" content="nosniff"><meta http-equiv="X-XSS-Protection" content="1; mode=block"><meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin"><meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="next-size-adjust" content=""><title>Zenith - Project Management</title><meta name="description" content="Project management for modern software teams"><link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="16x16"></head><body class="__className_f367f3"><div hidden=""></div><script>
+  (function() {
+    try {
+      var theme = localStorage.getItem('theme');
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    } catch {
+      console.warn('Could not set theme from localStorage');
+    }
+  })();
+</script><!--$--><!--/$--><div class="h-screen w-full flex bg-neutral-50 dark:bg-neutral-950 font-sans selection:bg-primary-500/30 overflow-hidden"><div class="hidden lg:flex lg:w-1/2 relative h-full bg-neutral-900 border-r border-neutral-800"><div class="absolute inset-0 w-full h-full overflow-hidden pointer-events-none"><div class="absolute -top-[20%] -right-[20%] w-[80%] h-[80%] rounded-full bg-primary-600/20 blur-[120px] will-change-transform" style="transform: scale(1.18454) rotate(83.043deg);"></div><div class="absolute top-[40%] -left-[20%] w-[60%] h-[60%] rounded-full bg-primary-500/20 blur-[100px] will-change-transform" style="transform: translateX(89.084px) scale(1.26725);"></div><div class="absolute -bottom-[20%] right-[20%] w-[50%] h-[50%] rounded-full bg-primary-400/15 blur-[80px] will-change-transform" style="transform: translateY(-2.40317px) scale(1.00481);"></div><div class="absolute w-1 h-1 rounded-full bg-primary-400/40" style="left: 15%; top: 20%; transform: translateY(-20.6825px);"></div><div class="absolute w-1 h-1 rounded-full bg-primary-400/40" style="left: 30%; top: 45%; transform: translateY(-15.4723px);"></div><div class="absolute w-1 h-1 rounded-full bg-primary-400/40" style="left: 45%; top: 70%; transform: translateY(-25.8837px);"></div><div class="absolute w-1 h-1 rounded-full bg-primary-400/40" style="left: 60%; top: 20%; transform: translateY(-2.64257px);"></div><div class="absolute w-1 h-1 rounded-full bg-primary-400/40" style="left: 75%; top: 45%; transform: translateY(-2.28567px);"></div><div class="absolute w-1 h-1 rounded-full bg-primary-400/40" style="left: 90%; top: 70%; transform: translateY(-15.2746px);"></div><div class="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-[0.03] dark:invert"></div><div class="absolute inset-0 opacity-[0.02] mix-blend-overlay bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJhIiB4PSIwIiB5PSIwIj48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Ii43NSIgc3RpdGNoVGlsZXM9InN0aXRjaCIgdHlwZT0iZnJhY3RhbE5vaXNlIi8+PGZlQ29sb3JNYXRyaXggdHlwZT0ic2F0dXJhdGUiIHZhbHVlcz0iMCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNhKSIvPjwvc3ZnPg==')]"></div></div><div class="relative z-10 w-full h-full flex flex-col justify-between p-12 text-white" style="opacity: 1;"><div style="opacity: 1; transform: none;"><a class="flex items-center gap-3 group hover:opacity-90 transition-opacity" href="/"><div class="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-900/30 group-hover:shadow-xl group-hover:shadow-primary-900/40 transition-shadow"><span class="text-white font-bold text-xl leading-none">Z</span></div><span class="text-2xl font-bold tracking-tight">Zenith PM</span></a></div><div class="max-w-md space-y-8"><h2 class="text-5xl font-bold leading-tight tracking-tight" style="opacity: 1; transform: none;"><span class="block bg-gradient-to-r from-primary-400 to-primary-300 bg-clip-text text-transparent">Build faster,</span><span class="bg-gradient-to-r from-primary-400 to-primary-300 bg-clip-text text-transparent">together.</span></h2><p class="text-lg text-neutral-400 leading-relaxed" style="opacity: 1; transform: none;">Join thousands of teams who use Zenith to plan, track, and release great software.</p><div class="flex flex-wrap gap-4 pt-4" style="opacity: 1; transform: none;"><div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 backdrop-blur-sm border border-white/10" style="opacity: 1; transform: none;"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" class="h-4 w-4 text-primary-400"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"></path></svg><span class="text-sm text-neutral-300">Enterprise Security</span></div><div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 backdrop-blur-sm border border-white/10" style="opacity: 1; transform: none;"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" class="h-4 w-4 text-primary-400"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"></path></svg><span class="text-sm text-neutral-300">10,000+ Teams</span></div><div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 backdrop-blur-sm border border-white/10" style="opacity: 1; transform: none;"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" class="h-4 w-4 text-primary-400"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path></svg><span class="text-sm text-neutral-300">99.9% Uptime</span></div></div></div><div class="flex gap-6 text-sm font-medium text-neutral-500" style="opacity: 1; transform: none;"><span>© 2025 Zenith Inc.</span><a class="hover:text-white transition-colors" href="/privacy">Privacy</a><a class="hover:text-white transition-colors" href="/terms">Terms</a></div></div></div><div class="w-full lg:w-1/2 h-full overflow-y-auto flex items-center justify-center p-4 sm:p-8 relative bg-white dark:bg-neutral-950"><div class="lg:hidden absolute inset-0 z-0 overflow-hidden"><div class="absolute top-0 right-0 w-[500px] h-[500px] bg-primary-500/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2"></div><div class="absolute bottom-0 left-0 w-[300px] h-[300px] bg-primary-400/5 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2"></div></div><div class="w-full max-w-[420px] relative z-10 py-12" style="opacity: 1; transform: none;"><div class="lg:hidden flex justify-center mb-8" style="opacity: 1; transform: none;"><a class="flex items-center gap-2 group" href="/"><div class="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow"><span class="text-white font-bold text-xl leading-none">Z</span></div><span class="text-2xl font-bold bg-gradient-to-r from-neutral-900 to-neutral-700 dark:from-white dark:to-neutral-300 bg-clip-text text-transparent">Zenith PM</span></a></div><div class="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl lg:backdrop-blur-none lg:bg-transparent border lg:border-none border-neutral-200/50 dark:border-neutral-800/50 shadow-2xl lg:shadow-none rounded-2xl p-8 lg:p-0"><div class="text-center lg:text-left mb-8" style="opacity: 1;"><h1 class="text-3xl font-bold text-neutral-900 dark:text-white mb-2 tracking-tight">Welcome back</h1><p class="text-base text-neutral-500 dark:text-neutral-400">Sign in to continue to Zenith PM</p></div><div style="opacity: 1;"><div class="mb-6"><div class="flex gap-3"><button type="button" disabled="" class="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-neutral-200 dark:border-neutral-700 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"><svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"></path><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"></path><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"></path><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"></path></svg><span class="text-sm font-medium text-neutral-700 dark:text-neutral-300 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors">Google</span></button><button type="button" disabled="" class="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-neutral-200 dark:border-neutral-700 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"><svg class="w-5 h-5 text-neutral-800 dark:text-white" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path></svg><span class="text-sm font-medium text-neutral-700 dark:text-neutral-300 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors">GitHub</span></button></div><p class="text-center text-xs text-neutral-400 mt-2">Social login coming soon</p></div><div class="relative mb-6"><div class="absolute inset-0 flex items-center"><div class="w-full border-t border-neutral-200 dark:border-neutral-700"></div></div><div class="relative flex justify-center text-sm"><span class="px-4 bg-white dark:bg-neutral-900 text-neutral-500">or continue with email</span></div></div><form class="flex flex-col gap-5"><div class="w-full"><label class="block mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Email address</label><input class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-400 transition-colors  " autocomplete="email" placeholder="you@company.com" type="email" name="email"></div><div class="space-y-2"><div class="w-full"><label class="block mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Password</label><input class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-400 transition-colors  " autocomplete="current-password" placeholder="••••••••" type="password" name="password"></div><div class="flex items-center justify-between"><label class="flex items-center gap-2 cursor-pointer group"><input class="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary-600 focus:ring-primary-500 focus:ring-offset-0 transition-colors" type="checkbox"><span class="text-sm text-neutral-600 dark:text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-neutral-200 transition-colors">Remember me</span></label><a class="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition-colors" href="/auth/forgot-password">Forgot password?</a></div></div><button class="inline-flex items-center justify-center font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 border border-primary-600 px-4 py-2.5 text-sm w-full mt-2 py-3 text-base font-semibold shadow-lg shadow-primary-600/20 hover:shadow-xl hover:shadow-primary-600/30 transition-shadow" type="submit">Sign in</button><p class="mt-4 text-center text-sm text-neutral-600 dark:text-neutral-400">Don't have an account? <a class="font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition-colors" href="/auth/register">Create account</a></p></form></div></div></div></div></div><div class="fixed top-4 right-4 z-50 flex flex-col items-end space-y-2"></div><script src="/_next/static/chunks/webpack.js?v=1765519155528" id="_R_" async=""></script><script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push([1,"6:I[\"(app-pages-browser)/./node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js\",[\"app-pages-internals\",\"static/chunks/app-pages-internals.js\"],\"SegmentViewNode\"]\n8:\"$Sreact.fragment\"\n15:I[\"(app-pages-browser)/./src/components/AppProviders.tsx\",[\"app/layout\",\"static/chunks/app/layout.js\"],\"default\"]\n17:I[\"(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js\",[\"app-pages-internals\",\"static/chunks/app-pages-internals.js\"],\"\"]\n18:I[\"(app-pages-browser)/./src/app/error.tsx\",[\"app/error\",\"static/chunks/app/error.js\"],\"default\"]\n1b:I[\"(app-pages-browser)/./node_modules/next/dist/client/components/render-from-template-context.js\",[\"app-pages-internals\",\"static/chunks/app-pages-internals.js\"],\"\"]\n2b:I[\"(app-pages-browser)/./src/components/CommandMenu.tsx\",[\"app/layout\",\"static/chunks/app/layout.js\"],\"CommandMenu\"]\n35:I[\"(app-pages-browser)/./node_modules/next/dist/client/components/client-page.js\",[\"app-pages-internals\",\"static/chunks/app-pages-internals.js\"],\"ClientPageRoot\"]\n36:I[\"(app-pages-browser)/./src/app/auth/register/page.tsx\",[\"app/auth/register/page\",\"static/chunks/app/auth/register/page.js\"],\"default\"]\n38:I[\"(app-pages-browser)/./node_modules/next/dist/lib/framework/boundary-components.js\",[\"app-pages-internals\",\"static/chunks/app-pages-internals.js\"],\"OutletBoundary\"]\n3f:I[\"(app-pages-browser)/./node_modules/next/dist/client/components/metadata/async-metadata.js\",[\"app-pages-internals\",\"static/chunks/app-pages-internals.js\"],\"AsyncMetadataOutlet\"]\n47:I[\"(app-pages-browser)/./node_modules/next/dist/lib/framework/boundary-components.js\",[\"app-pages-internals\",\"static/chunks/app-pages-internals.js\"],\"ViewportBoundary\"]\n4e:I[\"(app-pages-browser)/./node_modules/next/dist/lib/framework/boundary-components.js\",[\"app-pages-internals\",\"static/chunks/app-pages-internals.js\"],\"MetadataBoundary\"]\n53:\"$Sreact.suspense\"\n57:I[\"(app-pages-browser)/./src/app/global-error.tsx\",[\"app/global-error\",\"static/chunks/app/global-error.js\"],\"default\"]\n5f:I[\"(app-pages-browser)/./node_"])</script><script>self.__next_f.push([1,"modules/next/dist/lib/metadata/generate/icon-mark.js\",[\"app-pages-internals\",\"static/chunks/app-pages-internals.js\"],\"IconMark\"]\n:HL[\"/_next/static/media/e4af272ccee01ff0-s.p.woff2\",\"font\",{\"crossOrigin\":\"\",\"type\":\"font/woff2\"}]\n:HL[\"/_next/static/css/app/layout.css?v=1765519155528\",\"style\"]\n:N1765519155531.0576\n3:\"$EObject.defineProperty(()=\u003e{ctx.componentMod.preloadFont(href,type,ctx.renderOpts.crossOrigin,ctx.nonce)},\\\"name\\\",{value:\\\"\\\"})\"\n4:\"$EObject.defineProperty(()=\u003e{ctx.componentMod.preloadStyle(fullHref,ctx.renderOpts.crossOrigin,ctx.nonce)},\\\"name\\\",{value:\\\"\\\"})\"\n2:{\"name\":\"Preloads\",\"key\":null,\"env\":\"Server\",\"stack\":[],\"props\":{\"preloadCallbacks\":[\"$3\",\"$4\"]}}\n5:[]\n7:[]\n9:[[\"Array.map\",\"\",0,0,0,0,false]]\nc:I[\"(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js\",[\"app-pages-internals\",\"static/chunks/app-pages-internals.js\"],\"\"]\ne:I[\"(app-pages-browser)/./src/app/error.tsx\",[\"app/error\",\"static/chunks/app/error.js\"],\"default\"]\nf:{\"type\":\"error\",\"pagePath\":\"error.tsx\",\"children\":[]}\n10:[[\"Promise.all\",\"\",0,0,0,0,true]]\nd:{\"parallelRouterKey\":\"children\",\"error\":\"$e\",\"errorStyles\":[\"$\",\"$L6\",null,\"$f\",null,\"$10\",0],\"errorScripts\":\"$Y\",\"template\":\"$Y\",\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$Y\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\",\"segmentViewBoundaries\":\"$Y\"}\n11:[[\"Promise.all\",\"\",0,0,0,0,true]]\nb:{\"name\":\"RootLayout\",\"key\":null,\"env\":\"Server\",\"stack\":[],\"props\":{\"children\":[\"$\",\"$Lc\",null,\"$d\",null,\"$11\",1],\"params\":\"$Y\"}}\n12:[[\"RootLayout\",\"webpack-internal:///(rsc)/./src/app/layout.tsx\",23,87,22,1,false]]\n13:[[\"RootLayout\",\"webpack-internal:///(rsc)/./src/app/layout.tsx\",25,94,22,1,false]]\n14:[[\"RootLayout\",\"webpack-internal:///(rsc)/./src/app/layout.tsx\",27,98,22,1,false]]\n16:[[\"Promise.all\",\"\",0,0,0,0,true]]\n19:[[\"Promise.all\",\"\",0,0,0,0,true]]\n1a:[[\"Promise.all\",\"\",0,0,0,0,true]]\n1c:[]\n1e:{\"name\":\"NotFound\",\"key\":null,\"env\":\"Server\",\"stack\":[],\"props\":{}}\n1f:{\"name\":\"HTTPAccessErrorFallback\",\"key\":null,\"env\":\"Server\",\"owner"])</script><script>self.__next_f.push([1,"\":\"$1e\",\"stack\":[],\"props\":{\"status\":404,\"message\":\"This page could not be found.\"}}\n20:[]\n21:[]\n22:[]\n23:[]\n24:[]\n25:[]\n26:[]\n27:[[\"Promise.all\",\"\",0,0,0,0,true]]\n28:[[\"Promise.all\",\"\",0,0,0,0,true]]\n29:[[\"Promise.all\",\"\",0,0,0,0,true]]\n2a:[[\"RootLayout\",\"webpack-internal:///(rsc)/./src/app/layout.tsx\",30,96,22,1,false]]\n2c:[[\"Promise.all\",\"\",0,0,0,0,true]]\n2d:[[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true]]\n2e:[[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true]]\n2f:[[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true]]\n30:[[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true]]\n31:[[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true]]\n32:[[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true]]\n33:[[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true]]\n34:[[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true]]\n37:[[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true]]\n3b:\"$EObject.defineProperty(async function getViewportReady() {\\n        await viewport();\\n        return undefined;\\n    },\\\"name\\\",{value:\\\"getViewportReady\\\"})\"\n3a:{\"name\":\"__next_outlet_boundary__\",\"key\":null,\"env\":\"Server\",\"stack\":[[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true]],\"props\":{\"ready\":\"$3b\"}}\n3d:{\"name\":\"StreamingMetadataOutletImpl\",\"key\":null,\"env\":\"Server\",\"stack\":[[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true],[\"Promise.all\",\"\",0,0,0,0,true]],\"props\":{}}\n3e:[]\n41:[]\n43:{\"name\":\"NonIndex\",\"key\":null,\"env\":\"Server\",\"stack\":[],\"props\":{\"pagePath\":\"/auth/register\",\"statusCode\":200,\"isPossibleServerAction\":false}}\n45:{\"name\":\"ViewportTree\",\"key\":null,\"env\":\"Server\",\"stack\":[],\"props\":{}}\n46:[]\n49:{\"name\":\"__next_viewport_boundary__\",\"key\":null,\"env\":\"Server\",\"owner\":\"$45\",\"stack\":[]"])</script><script>self.__next_f.push([1,",\"props\":{}}\n4a:[]\n4c:{\"name\":\"MetadataTree\",\"key\":null,\"env\":\"Server\",\"stack\":[],\"props\":{}}\n4d:[]\n50:{\"name\":\"__next_metadata_boundary__\",\"key\":null,\"env\":\"Server\",\"owner\":\"$4c\",\"stack\":[],\"props\":{}}\n51:[]\n52:[]\n55:{\"name\":\"MetadataResolver\",\"key\":null,\"env\":\"Server\",\"owner\":\"$50\",\"stack\":[],\"props\":{}}\n58:[]\n59:[]\n5a:[]\n5b:[]\n5c:[]\n5d:[[\"Array.map\",\"\",0,0,0,0,false]]\n5e:[]\n1:D\"$2\"\n1:null\na:D\"$b\"\n1d:D\"$1e\"\n1d:D\"$1f\"\n"])</script><script>self.__next_f.push([1,"1d:[[\"$\",\"title\",null,{\"children\":\"404: This page could not be found.\"},\"$1f\",\"$20\",1],[\"$\",\"div\",null,{\"style\":{\"fontFamily\":\"system-ui,\\\"Segoe UI\\\",Roboto,Helvetica,Arial,sans-serif,\\\"Apple Color Emoji\\\",\\\"Segoe UI Emoji\\\"\",\"height\":\"100vh\",\"textAlign\":\"center\",\"display\":\"flex\",\"flexDirection\":\"column\",\"alignItems\":\"center\",\"justifyContent\":\"center\"},\"children\":[\"$\",\"div\",null,{\"children\":[[\"$\",\"style\",null,{\"dangerouslySetInnerHTML\":{\"__html\":\"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}\"}},\"$1f\",\"$23\",1],[\"$\",\"h1\",null,{\"className\":\"next-error-h1\",\"style\":{\"display\":\"inline-block\",\"margin\":\"0 20px 0 0\",\"padding\":\"0 23px 0 0\",\"fontSize\":24,\"fontWeight\":500,\"verticalAlign\":\"top\",\"lineHeight\":\"49px\"},\"children\":404},\"$1f\",\"$24\",1],[\"$\",\"div\",null,{\"style\":{\"display\":\"inline-block\"},\"children\":[\"$\",\"h2\",null,{\"style\":{\"fontSize\":14,\"fontWeight\":400,\"lineHeight\":\"49px\",\"margin\":0},\"children\":\"This page could not be found.\"},\"$1f\",\"$26\",1]},\"$1f\",\"$25\",1]]},\"$1f\",\"$22\",1]},\"$1f\",\"$21\",1]]\n"])</script><script>self.__next_f.push([1,"a:[\"$\",\"html\",null,{\"lang\":\"en\",\"children\":[\"$\",\"body\",null,{\"className\":\"__className_f367f3\",\"children\":[\"$\",\"$L15\",null,{\"children\":[[\"$\",\"$L17\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$18\",\"errorStyles\":[\"$\",\"$L6\",null,{\"type\":\"error\",\"pagePath\":\"error.tsx\",\"children\":[]},null,\"$19\",0],\"errorScripts\":[],\"template\":[\"$\",\"$L1b\",null,{},null,\"$1a\",1],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[\"$\",\"$L6\",\"c-not-found\",{\"type\":\"not-found\",\"pagePath\":\"__next_builtin__not-found.js\",\"children\":[\"$1d\",[]]},null,\"$1c\",0],\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\",\"segmentViewBoundaries\":[[\"$\",\"$L6\",null,{\"type\":\"boundary:not-found\",\"pagePath\":\"__next_builtin__not-found.js@boundary\"},null,\"$27\",1],\"$undefined\",[\"$\",\"$L6\",null,{\"type\":\"boundary:error\",\"pagePath\":\"error.tsx@boundary\"},null,\"$28\",1],[\"$\",\"$L6\",null,{\"type\":\"boundary:global-error\",\"pagePath\":\"global-error.tsx\"},null,\"$29\",1]]},null,\"$16\",1],[\"$\",\"$L2b\",null,{},\"$b\",\"$2a\",1]]},\"$b\",\"$14\",1]},\"$b\",\"$13\",1]},\"$b\",\"$12\",1]\n"])</script><script>self.__next_f.push([1,"39:D\"$3a\"\n3c:D\"$3d\"\n3c:[\"$\",\"$L3f\",null,{\"promise\":\"$@40\"},\"$3d\",\"$3e\",1]\n42:D\"$43\"\n42:null\n44:D\"$45\"\n48:D\"$49\"\n44:[[\"$\",\"$L47\",null,{\"children\":\"$L48\"},\"$45\",\"$46\",1],[\"$\",\"meta\",null,{\"name\":\"next-size-adjust\",\"content\":\"\"},\"$45\",\"$4a\",1]]\n4b:D\"$4c\"\n4f:D\"$50\"\n54:D\"$55\"\n4f:[\"$\",\"div\",null,{\"hidden\":true,\"children\":[\"$\",\"$53\",null,{\"fallback\":null,\"children\":\"$L54\"},\"$50\",\"$52\",1]},\"$50\",\"$51\",1]\n4b:[\"$\",\"$L4e\",null,{\"children\":\"$4f\"},\"$4c\",\"$4d\",1]\n56:[]\n"])</script><script>self.__next_f.push([1,"0:{\"P\":\"$1\",\"b\":\"development\",\"p\":\"\",\"c\":[\"\",\"auth\",\"register\"],\"i\":false,\"f\":[[[\"\",{\"children\":[\"auth\",{\"children\":[\"register\",{\"children\":[\"__PAGE__\",{}]}]}]},\"$undefined\",\"$undefined\",true],[\"\",[\"$\",\"$L6\",\"layout\",{\"type\":\"layout\",\"pagePath\":\"layout.tsx\",\"children\":[\"$\",\"$8\",\"c\",{\"children\":[[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/_next/static/css/app/layout.css?v=1765519155528\",\"precedence\":\"next_static/css/app/layout.css\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"},null,\"$9\",0]],\"$a\"]},null,\"$7\",1]},null,\"$5\",0],{\"children\":[\"auth\",[\"$\",\"$8\",\"c\",{\"children\":[null,[\"$\",\"$L17\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L1b\",null,{},null,\"$2e\",1],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\",\"segmentViewBoundaries\":[\"$undefined\",\"$undefined\",\"$undefined\",\"$undefined\"]},null,\"$2d\",1]]},null,\"$2c\",0],{\"children\":[\"register\",[\"$\",\"$8\",\"c\",{\"children\":[null,[\"$\",\"$L17\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L1b\",null,{},null,\"$31\",1],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\",\"segmentViewBoundaries\":[\"$undefined\",\"$undefined\",\"$undefined\",\"$undefined\"]},null,\"$30\",1]]},null,\"$2f\",0],{\"children\":[\"__PAGE__\",[\"$\",\"$8\",\"c\",{\"children\":[[\"$\",\"$L6\",\"c-page\",{\"type\":\"page\",\"pagePath\":\"auth/register/page.tsx\",\"children\":[\"$\",\"$L35\",null,{\"Component\":\"$36\",\"searchParams\":{},\"params\":{}},null,\"$34\",1]},null,\"$33\",1],null,[\"$\",\"$L38\",null,{\"children\":[\"$L39\",\"$3c\"]},null,\"$37\",1]]},null,\"$32\",0],{},null,false]},null,false]},null,false]},null,false],[\"$\",\"$8\",\"h\",{\"children\":[\"$42\",\"$44\",\"$4b\"]},null,\"$41\",0],false]],\"m\":\"$W56\",\"G\":[\"$57\",[\"$\",\"$L6\",\"ge-svn\",{\"type\":\"global-error\",\"pagePath\":\"global-error.tsx\",\"children\":[]},null,\"$58\",0]],\"s\":false,\"S\":false}\n"])</script><script>self.__next_f.push([1,"48:[[\"$\",\"meta\",\"0\",{\"charSet\":\"utf-8\"},\"$3a\",\"$59\",0],[\"$\",\"meta\",\"1\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1\"},\"$3a\",\"$5a\",0]]\n39:null\n40:{\"metadata\":[[\"$\",\"title\",\"0\",{\"children\":\"Zenith - Project Management\"},\"$3d\",\"$5b\",0],[\"$\",\"meta\",\"1\",{\"name\":\"description\",\"content\":\"Project management for modern software teams\"},\"$3d\",\"$5c\",0],[\"$\",\"link\",\"2\",{\"rel\":\"icon\",\"href\":\"/favicon.ico\",\"type\":\"image/x-icon\",\"sizes\":\"16x16\"},\"$3d\",\"$5d\",0],[\"$\",\"$L5f\",\"3\",{},\"$3d\",\"$5e\",0]],\"error\":null,\"digest\":\"$undefined\"}\n54:\"$40:metadata\"\n"])</script><script data-nextjs-dev-overlay="true" style="display: block; position: absolute;"><nextjs-portal style="--nextjs-dev-tools-scale: 1;"></nextjs-portal></script><next-route-announcer style="position: absolute;"></next-route-announcer></body></html>
+
+[1A[2K--- END DUMP ---
+
+[1A[2K  1) [chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('text=projects found').or(locator('text=Create New Project'))
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for locator('text=projects found').or(locator('text=Create New Project'))[22m
+
+
+      48 |         // Wait for Loading to finish (Projects skeleton)
+      49 |         try {
+    > 50 |             await expect(page.locator('text=projects found').or(page.locator('text=Create New Project'))).toBeVisible({ timeout: 10000 });
+         |                                                                                                           ^
+      51 |         } catch (e) {
+      52 |             console.log('--- PAGE CONTENT DUMP ---');
+      53 |             console.log(await page.content());
+        at /Users/kutubuddin/Downloads/Zenith/frontend/e2e/smart-setup-ai.spec.ts:50:107
+
+    Error Context: test-results/smart-setup-ai-Smart-Setup-30f87-le-Yes-No-conversation-flow-chromium/error-context.md
+
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:59:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template
+Navigation timeout. Current URL: http://localhost:3001/auth/register
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+Navigation timeout. Current URL: http://localhost:3001/auth/register
+
+[1A[2K  2) [chromium] › e2e/smart-setup-ai.spec.ts:59:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template 
+
+    [31mTest timeout of 30000ms exceeded while running "beforeEach" hook.[39m
+
+      2 |
+      3 | test.describe('Smart Setup (AI Mode)', () => {
+    > 4 |     test.beforeEach(async ({ page }) => {
+        |          ^
+      5 |         // Capture console logs
+      6 |         page.on('console', msg => console.log(`BROWSER LOG: ${msg.text()}`));
+      7 |         page.on('pageerror', err => console.log(`BROWSER ERROR: ${err}`));
+        at /Users/kutubuddin/Downloads/Zenith/frontend/e2e/smart-setup-ai.spec.ts:4:10
+
+    TimeoutError: page.waitForURL: Timeout 20000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation to "**/projects" until "load"
+    ============================================================
+
+      34 |         try {
+      35 |             console.log('Waiting for URL /projects...');
+    > 36 |             await page.waitForURL('**/projects', { timeout: 20000 });
+         |                        ^
+      37 |             console.log('Navigation to /projects successful');
+      38 |         } catch (e) {
+      39 |             console.log('Navigation timeout. Current URL:', page.url());
+        at /Users/kutubuddin/Downloads/Zenith/frontend/e2e/smart-setup-ai.spec.ts:36:24
+
+    Error Context: test-results/smart-setup-ai-Smart-Setup-98373-uage-and-recommend-template-chromium/error-context.md
+
+
+[1A[2K  3) [chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size 
+
+    [31mTest timeout of 30000ms exceeded while running "beforeEach" hook.[39m
+
+      2 |
+      3 | test.describe('Smart Setup (AI Mode)', () => {
+    > 4 |     test.beforeEach(async ({ page }) => {
+        |          ^
+      5 |         // Capture console logs
+      6 |         page.on('console', msg => console.log(`BROWSER LOG: ${msg.text()}`));
+      7 |         page.on('pageerror', err => console.log(`BROWSER ERROR: ${err}`));
+        at /Users/kutubuddin/Downloads/Zenith/frontend/e2e/smart-setup-ai.spec.ts:4:10
+
+    TimeoutError: page.waitForURL: Timeout 20000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation to "**/projects" until "load"
+    ============================================================
+
+      34 |         try {
+      35 |             console.log('Waiting for URL /projects...');
+    > 36 |             await page.waitForURL('**/projects', { timeout: 20000 });
+         |                        ^
+      37 |             console.log('Navigation to /projects successful');
+      38 |         } catch (e) {
+      39 |             console.log('Navigation timeout. Current URL:', page.url());
+        at /Users/kutubuddin/Downloads/Zenith/frontend/e2e/smart-setup-ai.spec.ts:36:24
+
+    Error Context: test-results/smart-setup-ai-Smart-Setup-dcaad-ecific-number-for-team-size-chromium/error-context.md
+
+
+[1A[2K  3 failed
+    [chromium] › e2e/smart-setup-ai.spec.ts:59:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template 
+    [chromium] › e2e/smart-setup-ai.spec.ts:145:9 › Smart Setup (AI Mode) › AI should handle specific number for team size 
+    [chromium] › e2e/smart-setup-ai.spec.ts:225:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow 
+
+[36m  Serving HTML report at http://localhost:62390. Press Ctrl+C to quit.[39m

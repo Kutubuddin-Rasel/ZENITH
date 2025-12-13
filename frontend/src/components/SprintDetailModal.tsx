@@ -8,7 +8,26 @@ import { Sprint, useArchiveSprint } from '../hooks/useSprints';
 import { useSprintIssues, useReorderSprintIssues } from '../hooks/useSprintIssues';
 import { useBacklog } from '../hooks/useBacklog';
 import { useMoveIssueToSprint } from '../hooks/useMoveIssueToSprint';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import {
+  DndContext,
+  closestCenter,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  KeyboardSensor,
+  DragStartEvent,
+  DragEndEvent,
+  useDroppable,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Issue } from '../hooks/useProjectIssues';
 import { useSprintAttachments, SprintAttachment } from '../hooks/useSprints';
 import { TrashIcon, Bars3Icon, TagIcon, BookmarkSquareIcon, CheckCircleIcon, BugAntIcon, PlusIcon } from '@heroicons/react/24/outline';
@@ -29,6 +48,197 @@ const typeBadge: Record<Issue['type'], { icon: React.ReactElement; text: string;
   'Sub-task': { icon: <PlusIcon className="h-3 w-3" />, text: 'Sub-task', color: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-200' },
 };
 
+// Sortable Issue Card Component
+function SortableModalIssueCard({
+  issue,
+  containerId,
+  onRemove
+}: {
+  issue: Issue;
+  containerId: string;
+  onRemove?: (id: string) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: `${containerId}-${issue.id}`,
+    data: { issue, containerId }
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  const isSprint = containerId === 'sprint';
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${isDragging
+        ? 'shadow-2xl rotate-1 scale-105 z-50 border-blue-400'
+        : 'hover:shadow-lg hover:border-neutral-300 dark:hover:border-neutral-600'
+        }`}
+    >
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          {/* Drag Handle */}
+          <div
+            {...attributes}
+            {...listeners}
+            className="mt-1 p-2 rounded-md bg-neutral-100 dark:bg-neutral-700 transition-colors group-hover:bg-neutral-200 dark:group-hover:bg-neutral-600 cursor-grab"
+          >
+            <Bars3Icon className="h-4 w-4 text-neutral-400" />
+          </div>
+
+          {/* Issue Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between mb-3">
+              <Typography variant="body" className="font-medium text-neutral-900 dark:text-neutral-100 line-clamp-2">
+                {issue.title}
+              </Typography>
+              {isSprint && onRemove && (
+                <button
+                  className="ml-2 p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                  aria-label="Remove from sprint"
+                  title="Remove from sprint"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm('Remove this issue from the sprint?')) {
+                      onRemove(issue.id);
+                    }
+                  }}
+                >
+                  <TrashIcon className="h-4 w-4 text-red-500" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2 items-center">
+              {/* Issue Type */}
+              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${typeBadge[issue.type]?.color || 'bg-neutral-100 text-neutral-700'}`}>
+                {typeBadge[issue.type]?.icon || <TagIcon className="h-3 w-3" />}
+                {typeBadge[issue.type]?.text || issue.type}
+              </span>
+
+              {/* Priority */}
+              {issue.priority && (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${issue.priority === 'Highest' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200' :
+                  issue.priority === 'High' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200' :
+                    issue.priority === 'Medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200' :
+                      issue.priority === 'Low' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' :
+                        'bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-200'
+                  }`}>
+                  {issue.priority}
+                </span>
+              )}
+
+              {/* Story Points */}
+              {issue.storyPoints !== undefined && (
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+                  {issue.storyPoints} pts
+                </span>
+              )}
+
+              {/* Issue Key */}
+              <span className="px-2 py-1 rounded text-xs font-mono text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-700">
+                {issue.key}
+              </span>
+            </div>
+          </div>
+
+          {/* Assignee */}
+          {issue.assignee && (
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-300 dark:border-neutral-600" title={typeof issue.assignee === 'object' ? issue.assignee.name : issue.assignee}>
+              {typeof issue.assignee === 'object' && issue.assignee.avatarUrl ? (
+                <Image src={issue.assignee.avatarUrl} alt={issue.assignee.name || ''} className="w-8 h-8 object-cover" width={32} height={32} unoptimized />
+              ) : (
+                <span>{
+                  typeof issue.assignee === 'object'
+                    ? (issue.assignee.name ? issue.assignee.name[0] : '')
+                    : typeof issue.assignee === 'string' && issue.assignee
+                      ? (issue.assignee as string)[0]?.toUpperCase() || ''
+                      : ''
+                }</span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Drag Overlay Card
+function DragOverlayModalCard({ issue, isSprint }: { issue: Issue; isSprint: boolean }) {
+  return (
+    <div className={`bg-white dark:bg-neutral-800 rounded-lg border-2 ${isSprint ? 'border-blue-400' : 'border-green-400'} p-4 shadow-2xl scale-105 w-full max-w-md`}>
+      <div className="flex items-start gap-3">
+        <Bars3Icon className="h-4 w-4 text-neutral-400 mt-1" />
+        <div className="flex-1 min-w-0">
+          <Typography variant="body" className={`font-medium ${isSprint ? 'text-blue-600' : 'text-green-600'} mb-2`}>
+            {issue.title}
+          </Typography>
+          <div className="flex flex-wrap gap-2">
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${typeBadge[issue.type]?.color || 'bg-neutral-100 text-neutral-700'}`}>
+              {issue.type}
+            </span>
+            {issue.priority && (
+              <span className="px-2 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700">
+                {issue.priority}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Droppable Container
+function DroppableModalContainer({ id, children, isEmpty, isDraggingOver }: {
+  id: string;
+  children: React.ReactNode;
+  isEmpty: boolean;
+  isDraggingOver: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  const highlight = isDraggingOver || isOver;
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`min-h-[400px] space-y-3 p-4 rounded-lg border-2 border-dashed transition-all duration-200 ${highlight
+        ? id === 'sprint' ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/20 shadow-lg' : 'border-green-400 bg-green-50 dark:bg-green-950/20 shadow-lg'
+        : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800'
+        }`}
+    >
+      {isEmpty && (
+        <div className="flex flex-col items-center justify-center py-16 text-neutral-500 dark:text-neutral-400">
+          <div className="w-16 h-16 rounded-lg bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center mb-4">
+            <TagIcon className="h-8 w-8" />
+          </div>
+          <Typography variant="body" className="text-center font-medium mb-2">
+            No issues in {id === 'sprint' ? 'this sprint' : 'backlog'}
+          </Typography>
+          <Typography variant="body-sm" className="text-center">
+            Drag issues from {id === 'sprint' ? 'backlog' : 'sprint'} to add them
+          </Typography>
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
 const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailModalProps) => {
   const { issues: sprintIssues, isLoading: loadingSprint, isError: errorSprint } = useSprintIssues(projectId, sprint.id);
   const { issues: backlogIssues, isLoading: loadingBacklog, isError: errorBacklog } = useBacklog(projectId);
@@ -36,11 +246,24 @@ const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailMod
   const archiveSprint = useArchiveSprint(projectId, sprint.id);
   const { assignIssueToSprint, removeIssueFromSprint } = useMoveIssueToSprint(projectId, sprint.id);
   const [activeTab, setActiveTab] = React.useState<'issues' | 'attachments'>('issues');
+  const [activeIssue, setActiveIssue] = useState<{ issue: Issue; containerId: string } | null>(null);
 
   const [localSprintIssues, setLocalSprintIssues] = useState(sprintIssues || []);
   const [localBacklogIssues, setLocalBacklogIssues] = useState(backlogIssues || []);
 
   const { currentUserRole } = useProject(projectId);
+
+  // Sensors for smooth DnD
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   React.useEffect(() => {
     setLocalSprintIssues(sprintIssues || []);
@@ -49,44 +272,85 @@ const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailMod
     setLocalBacklogIssues(backlogIssues || []);
   }, [backlogIssues]);
 
-  const onDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
-    const { source, destination } = result;
-    
-    // Sprint <-> Sprint (reorder)
-    if (source.droppableId === 'sprint-issues' && destination.droppableId === 'sprint-issues') {
-      const reordered = Array.from(localSprintIssues);
-      const [removed] = reordered.splice(source.index, 1);
-      reordered.splice(destination.index, 0, removed);
-      setLocalSprintIssues(reordered);
-      reorderIssues.mutate(reordered.map((i) => i.id));
+  function handleDragStart(event: DragStartEvent) {
+    const data = event.active.data.current as { issue: Issue; containerId: string } | undefined;
+    if (data) {
+      setActiveIssue(data);
     }
-    // Backlog -> Sprint
-    else if (source.droppableId === 'backlog-issues' && destination.droppableId === 'sprint-issues') {
-      const backlogCopy = Array.from(localBacklogIssues);
-      const sprintCopy = Array.from(localSprintIssues);
-      const [moved] = backlogCopy.splice(source.index, 1);
-      sprintCopy.splice(destination.index, 0, moved);
-      setLocalBacklogIssues(backlogCopy);
-      setLocalSprintIssues(sprintCopy);
-      assignIssueToSprint.mutate(moved.id);
-    }
-    // Sprint -> Backlog
-    else if (source.droppableId === 'sprint-issues' && destination.droppableId === 'backlog-issues') {
-      const sprintCopy = Array.from(localSprintIssues);
-      const backlogCopy = Array.from(localBacklogIssues);
-      const [moved] = sprintCopy.splice(source.index, 1);
-      backlogCopy.splice(destination.index, 0, moved);
-      setLocalSprintIssues(sprintCopy);
-      setLocalBacklogIssues(backlogCopy);
-      removeIssueFromSprint.mutate(moved.id);
-    }
-  };
+  }
 
-  // Progress bar: % of issues with status 'Done'
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveIssue(null);
+
+    if (!over) return;
+
+    const activeData = active.data.current as { issue: Issue; containerId: string } | undefined;
+    const overId = over.id as string;
+
+    if (!activeData) return;
+
+    const sourceContainer = activeData.containerId;
+    const issueId = activeData.issue.id;
+
+    // Determine target container
+    let targetContainer = sourceContainer;
+    if (overId === 'sprint' || overId === 'backlog') {
+      targetContainer = overId;
+    } else if (overId.startsWith('sprint-')) {
+      targetContainer = 'sprint';
+    } else if (overId.startsWith('backlog-')) {
+      targetContainer = 'backlog';
+    }
+
+    // Moving between containers
+    if (sourceContainer !== targetContainer) {
+      if (sourceContainer === 'backlog' && targetContainer === 'sprint') {
+        // Move from backlog to sprint
+        const backlogCopy = localBacklogIssues.filter(i => i.id !== issueId);
+        const movedIssue = localBacklogIssues.find(i => i.id === issueId);
+        if (movedIssue) {
+          setLocalBacklogIssues(backlogCopy);
+          setLocalSprintIssues([...localSprintIssues, movedIssue]);
+          assignIssueToSprint.mutate(issueId);
+        }
+      } else if (sourceContainer === 'sprint' && targetContainer === 'backlog') {
+        // Move from sprint to backlog
+        const sprintCopy = localSprintIssues.filter(i => i.id !== issueId);
+        const movedIssue = localSprintIssues.find(i => i.id === issueId);
+        if (movedIssue) {
+          setLocalSprintIssues(sprintCopy);
+          setLocalBacklogIssues([...localBacklogIssues, movedIssue]);
+          removeIssueFromSprint.mutate(issueId);
+        }
+      }
+      return;
+    }
+
+    // Reordering within sprint
+    if (sourceContainer === 'sprint' && targetContainer === 'sprint') {
+      const oldIndex = localSprintIssues.findIndex(i => `sprint-${i.id}` === active.id);
+      const newIndex = localSprintIssues.findIndex(i => `sprint-${i.id}` === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        const reordered = arrayMove(localSprintIssues, oldIndex, newIndex);
+        setLocalSprintIssues(reordered);
+        reorderIssues.mutate(reordered.map(i => i.id));
+      }
+    }
+  }
+
+  function handleRemoveFromSprint(issueId: string) {
+    removeIssueFromSprint.mutate(issueId);
+  }
+
+  // Progress bar
   const total = localSprintIssues.length;
   const done = localSprintIssues.filter(i => i.status === 'Done').length;
   const percent = total ? Math.round((done / total) * 100) : 0;
+
+  const sprintIssueIds = localSprintIssues.map(i => `sprint-${i.id}`);
+  const backlogIssueIds = localBacklogIssues.map(i => `backlog-${i.id}`);
 
   return (
     <Modal open={open} onClose={onClose} title={sprint.name} maxWidthClass="sm:max-w-6xl">
@@ -122,12 +386,12 @@ const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailMod
             </Button>
           )}
         </div>
-        
+
         <div className="flex gap-6 text-sm text-neutral-600 dark:text-neutral-400 mb-3">
           {sprint.startDate && <span>📅 Start: {new Date(sprint.startDate).toLocaleDateString()}</span>}
           {sprint.endDate && <span>📅 End: {new Date(sprint.endDate).toLocaleDateString()}</span>}
         </div>
-        
+
         <div className="mb-2">
           <div className="flex justify-between text-sm text-neutral-600 dark:text-neutral-400 mb-1">
             <span>Progress</span>
@@ -138,7 +402,7 @@ const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailMod
           </div>
         </div>
       </div>
-      
+
       {/* Tabs */}
       <div className="mb-6 flex gap-2 border-b border-neutral-200 dark:border-neutral-700">
         <button
@@ -154,9 +418,14 @@ const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailMod
           Attachments
         </button>
       </div>
-      
+
       {activeTab === 'issues' && (
-        <DragDropContext onDragEnd={onDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Sprint Issues Column */}
             <div className="space-y-4">
@@ -167,148 +436,34 @@ const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailMod
                 <Typography variant="body-sm" className="text-neutral-500 dark:text-neutral-400">
                   Drag to reorder or move to backlog
                 </Typography>
-            </div>
-              
-            {loadingSprint ? (
+              </div>
+
+              {loadingSprint ? (
                 <div className="flex justify-center py-12">
                   <Spinner className="h-8 w-8" />
                 </div>
-            ) : errorSprint ? (
+              ) : errorSprint ? (
                 <div className="p-6 text-center bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg">
                   <Typography variant="body-sm" className="text-red-600 dark:text-red-400">
                     Failed to load sprint issues.
                   </Typography>
                 </div>
               ) : (
-                <Droppable droppableId="sprint-issues">
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={`min-h-[400px] space-y-3 p-4 rounded-lg border-2 border-dashed transition-all duration-200 ${
-                        snapshot.isDraggingOver 
-                          ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/20 shadow-lg' 
-                          : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800'
-                      }`}
-                    >
-                      {localSprintIssues.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-16 text-neutral-500 dark:text-neutral-400">
-                          <div className="w-16 h-16 rounded-lg bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center mb-4">
-                            <TagIcon className="h-8 w-8" />
-                          </div>
-                          <Typography variant="body" className="text-center font-medium mb-2">
-                            No issues in this sprint
-                          </Typography>
-                          <Typography variant="body-sm" className="text-center">
-                            Drag issues from backlog to add them
-                          </Typography>
-                        </div>
-                      )}
-                      
-                      {localSprintIssues.map((issue: Issue, idx: number) => (
-                        <Draggable key={issue.id} draggableId={issue.id} index={idx}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              className={`group bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${
-                                snapshot.isDragging 
-                                  ? 'shadow-2xl rotate-1 scale-105 z-50 border-blue-400' 
-                                  : 'hover:shadow-lg hover:border-neutral-300 dark:hover:border-neutral-600'
-                              }`}
-                            >
-                              <div className="p-4">
-                                <div className="flex items-start gap-3">
-                                  {/* Visual Drag Handle Indicator */}
-                                  <div className="mt-1 p-2 rounded-md bg-neutral-100 dark:bg-neutral-700 transition-colors group-hover:bg-neutral-200 dark:group-hover:bg-neutral-600">
-                                    <Bars3Icon className="h-4 w-4 text-neutral-400" />
-                                  </div>
-                                  
-                                  {/* Issue Content */}
-                              <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between mb-3">
-                                      <Typography variant="body" className="font-medium text-neutral-900 dark:text-neutral-100 line-clamp-2">
-                                        {issue.title}
-                                      </Typography>
-                                      <button
-                                        className="ml-2 p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                                        aria-label="Remove from sprint"
-                                        title="Remove from sprint"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (confirm('Remove this issue from the sprint?')) {
-                                            removeIssueFromSprint.mutate(issue.id);
-                                          }
-                                        }}
-                                      >
-                                        <TrashIcon className="h-4 w-4 text-red-500" />
-                                      </button>
-                                    </div>
-                                    
-                                    <div className="flex flex-wrap gap-2 items-center">
-                                      {/* Issue Type */}
-                                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${typeBadge[issue.type]?.color || 'bg-neutral-100 text-neutral-700'}`}>
-                                        {typeBadge[issue.type]?.icon || <TagIcon className="h-3 w-3" />}
-                                        {typeBadge[issue.type]?.text || issue.type}
-                                      </span>
-                                      
-                                      {/* Priority */}
-                                      {issue.priority && (
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                          issue.priority === 'Highest' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200' :
-                                          issue.priority === 'High' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200' :
-                                          issue.priority === 'Medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200' :
-                                          issue.priority === 'Low' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' :
-                                          'bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-200'
-                                        }`}>
-                                          {issue.priority}
-                                        </span>
-                                      )}
-                                      
-                                      {/* Story Points */}
-                                      {issue.storyPoints !== undefined && (
-                                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">
-                                        {issue.storyPoints} pts
-                                        </span>
-                                      )}
-                                      
-                                      {/* Issue Key */}
-                                      <span className="px-2 py-1 rounded text-xs font-mono text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-700">
-                                        {issue.key}
-                                      </span>
-                                </div>
-                              </div>
-                                  
-                                  {/* Assignee */}
-                              {issue.assignee && (
-                                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-300 dark:border-neutral-600" title={typeof issue.assignee === 'object' ? issue.assignee.name : issue.assignee}>
-                                  {typeof issue.assignee === 'object' && issue.assignee.avatarUrl ? (
-                                    <Image src={issue.assignee.avatarUrl} alt={issue.assignee.name || ''} className="w-8 h-8 object-cover" width={32} height={32} />
-                                  ) : (
-                                    <span>{
-                                      typeof issue.assignee === 'object'
-                                        ? (issue.assignee.name ? issue.assignee.name[0] : '')
-                                        : typeof issue.assignee === 'string' && issue.assignee
-                                          ? (issue.assignee as string)[0]?.toUpperCase() || ''
-                                          : ''
-                                    }</span>
-                                  )}
-                                </div>
-                              )}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-            )}
-          </div>
-            
+                <SortableContext items={sprintIssueIds} strategy={verticalListSortingStrategy}>
+                  <DroppableModalContainer id="sprint" isEmpty={localSprintIssues.length === 0} isDraggingOver={false}>
+                    {localSprintIssues.map((issue) => (
+                      <SortableModalIssueCard
+                        key={`sprint-${issue.id}`}
+                        issue={issue}
+                        containerId="sprint"
+                        onRemove={handleRemoveFromSprint}
+                      />
+                    ))}
+                  </DroppableModalContainer>
+                </SortableContext>
+              )}
+            </div>
+
             {/* Backlog Column */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -319,135 +474,45 @@ const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailMod
                   Drag to add to sprint
                 </Typography>
               </div>
-              
-            {loadingBacklog ? (
+
+              {loadingBacklog ? (
                 <div className="flex justify-center py-12">
                   <Spinner className="h-8 w-8" />
                 </div>
-            ) : errorBacklog ? (
+              ) : errorBacklog ? (
                 <div className="p-6 text-center bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg">
                   <Typography variant="body-sm" className="text-red-600 dark:text-red-400">
                     Failed to load backlog.
                   </Typography>
                 </div>
               ) : (
-                <Droppable droppableId="backlog-issues">
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={`min-h-[400px] space-y-3 p-4 rounded-lg border-2 border-dashed transition-all duration-200 ${
-                        snapshot.isDraggingOver 
-                          ? 'border-green-400 bg-green-50 dark:bg-green-950/20 shadow-lg' 
-                          : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800'
-                      }`}
-                    >
-                      {localBacklogIssues.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-16 text-neutral-500 dark:text-neutral-400">
-                          <div className="w-16 h-16 rounded-lg bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center mb-4">
-                            <TagIcon className="h-8 w-8" />
-                          </div>
-                          <Typography variant="body" className="text-center font-medium mb-2">
-                            No issues in backlog
-                          </Typography>
-                          <Typography variant="body-sm" className="text-center">
-                            Create issues to see them here
-                          </Typography>
-                        </div>
-                      )}
-                      
-                      {localBacklogIssues.map((issue: Issue, idx: number) => (
-                        <Draggable key={issue.id} draggableId={issue.id} index={idx}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              className={`group bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${
-                                snapshot.isDragging 
-                                  ? 'shadow-2xl rotate-1 scale-105 z-50 border-green-400' 
-                                  : 'hover:shadow-lg hover:border-neutral-300 dark:hover:border-neutral-600'
-                              }`}
-                            >
-                              <div className="p-4">
-                                <div className="flex items-start gap-3">
-                                  {/* Visual Drag Handle Indicator */}
-                                  <div className="mt-1 p-2 rounded-md bg-neutral-100 dark:bg-neutral-700 transition-colors group-hover:bg-neutral-200 dark:group-hover:bg-neutral-600">
-                                    <Bars3Icon className="h-4 w-4 text-neutral-400" />
-                                  </div>
-                                  
-                                  {/* Issue Content */}
-                              <div className="flex-1 min-w-0">
-                                    <Typography variant="body" className="font-medium text-neutral-900 dark:text-neutral-100 line-clamp-2 mb-3">
-                                      {issue.title}
-                                    </Typography>
-                                    
-                                    <div className="flex flex-wrap gap-2 items-center">
-                                      {/* Issue Type */}
-                                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${typeBadge[issue.type]?.color || 'bg-neutral-100 text-neutral-700'}`}>
-                                        {typeBadge[issue.type]?.icon || <TagIcon className="h-3 w-3" />}
-                                        {typeBadge[issue.type]?.text || issue.type}
-                                      </span>
-                                      
-                                      {/* Priority */}
-                                      {issue.priority && (
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                          issue.priority === 'Highest' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200' :
-                                          issue.priority === 'High' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200' :
-                                          issue.priority === 'Medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200' :
-                                          issue.priority === 'Low' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' :
-                                          'bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-200'
-                                        }`}>
-                                          {issue.priority}
-                                        </span>
-                                      )}
-                                      
-                                      {/* Story Points */}
-                                      {issue.storyPoints !== undefined && (
-                                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">
-                                          {issue.storyPoints} pts
-                                        </span>
-                                      )}
-                                      
-                                      {/* Issue Key */}
-                                      <span className="px-2 py-1 rounded text-xs font-mono text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-700">
-                                        {issue.key}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Assignee */}
-                                  {issue.assignee && (
-                                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-300 dark:border-neutral-600" title={typeof issue.assignee === 'object' ? issue.assignee.name : issue.assignee}>
-                                      {typeof issue.assignee === 'object' && issue.assignee.avatarUrl ? (
-                                        <Image src={issue.assignee.avatarUrl} alt={issue.assignee.name || ''} className="w-8 h-8 object-cover" width={32} height={32} />
-                                      ) : (
-                                        <span>{
-                                          typeof issue.assignee === 'object'
-                                            ? (issue.assignee.name ? issue.assignee.name[0] : '')
-                                            : typeof issue.assignee === 'string' && issue.assignee
-                                              ? (issue.assignee as string)[0]?.toUpperCase() || ''
-                                              : ''
-                                        }</span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                                </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-            )}
+                <SortableContext items={backlogIssueIds} strategy={verticalListSortingStrategy}>
+                  <DroppableModalContainer id="backlog" isEmpty={localBacklogIssues.length === 0} isDraggingOver={false}>
+                    {localBacklogIssues.map((issue) => (
+                      <SortableModalIssueCard
+                        key={`backlog-${issue.id}`}
+                        issue={issue}
+                        containerId="backlog"
+                      />
+                    ))}
+                  </DroppableModalContainer>
+                </SortableContext>
+              )}
+            </div>
           </div>
-        </div>
-        </DragDropContext>
+
+          {/* Drag Overlay */}
+          <DragOverlay dropAnimation={{
+            duration: 250,
+            easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
+          }}>
+            {activeIssue ? (
+              <DragOverlayModalCard issue={activeIssue.issue} isSprint={activeIssue.containerId === 'sprint'} />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
-      
+
       {activeTab === 'attachments' && (
         <SprintAttachmentsTab projectId={projectId} sprintId={sprint.id} />
       )}
@@ -502,14 +567,10 @@ function SprintAttachmentsTab({ projectId, sprintId }: { projectId: string; spri
       if (!a.filepath) {
         return <span className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded text-xl">📎</span>;
       }
-      
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-        const imageUrl = a.filepath.startsWith('http') 
-          ? a.filepath 
-          : `${baseUrl}${a.filepath.startsWith('/') ? '' : '/'}${a.filepath}`;
-        
-        return <Image src={imageUrl} alt={a.filename || 'Image'} className="w-10 h-10 object-cover rounded" width={40} height={40} />;
+        const imageUrl = a.filepath.startsWith('http') ? a.filepath : `${baseUrl}${a.filepath.startsWith('/') ? '' : '/'}${a.filepath}`;
+        return <Image src={imageUrl} alt={a.filename || 'Image'} className="w-10 h-10 object-cover rounded" width={40} height={40} unoptimized />;
       } catch {
         return <span className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded text-xl">📎</span>;
       }
@@ -551,20 +612,18 @@ function SprintAttachmentsTab({ projectId, sprintId }: { projectId: string; spri
             >
               {renderFileIconOrThumb(a)}
               <div className="flex-1">
-                <a 
+                <a
                   href={(() => {
                     if (!a.filepath) return '#';
                     try {
                       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-                      return a.filepath.startsWith('http') 
-                        ? a.filepath 
-                        : `${baseUrl}${a.filepath.startsWith('/') ? '' : '/'}${a.filepath}`;
+                      return a.filepath.startsWith('http') ? a.filepath : `${baseUrl}${a.filepath.startsWith('/') ? '' : '/'}${a.filepath}`;
                     } catch {
                       return '#';
                     }
                   })()}
-                  target="_blank" 
-                  rel="noopener noreferrer" 
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-accent-blue font-medium hover:underline"
                   onClick={(e) => !a.filepath && e.preventDefault()}
                 >
@@ -586,4 +645,4 @@ function SprintAttachmentsTab({ projectId, sprintId }: { projectId: string; spri
   );
 }
 
-export default SprintDetailModal; 
+export default SprintDetailModal;

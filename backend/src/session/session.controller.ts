@@ -17,6 +17,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CreateSessionData, SessionInfo } from './session.service';
 import { SessionType } from './entities/session.entity';
+import { AuthenticatedRequest } from '../common/types/authenticated-request.interface';
 
 export class TerminateSessionDto {
   sessionId: string;
@@ -45,14 +46,14 @@ export class SessionController {
   @HttpCode(HttpStatus.CREATED)
   @RequirePermission('session:create')
   async createSession(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Body() createSessionData: CreateSessionData,
   ): Promise<{ sessionId: string; expiresAt: Date }> {
     const session = await this.sessionService.createSession({
       ...createSessionData,
       userId: req.user.userId,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
+      ipAddress: req.ip || '',
+      userAgent: req.headers?.['user-agent'] || '',
     });
 
     return {
@@ -63,7 +64,9 @@ export class SessionController {
 
   @Get('my-sessions')
   @RequirePermission('session:read')
-  async getMySessions(@Request() req: any): Promise<SessionInfo[]> {
+  async getMySessions(
+    @Request() req: AuthenticatedRequest,
+  ): Promise<SessionInfo[]> {
     return this.sessionService.getUserSessions(req.user.userId);
   }
 
@@ -90,7 +93,7 @@ export class SessionController {
 
   @Get('stats')
   @RequirePermission('session:read:stats')
-  async getSessionStats(): Promise<any> {
+  async getSessionStats(): Promise<Record<string, unknown>> {
     return this.sessionService.getSessionStats();
   }
 
@@ -99,7 +102,7 @@ export class SessionController {
   @RequirePermission('session:terminate')
   async terminateSession(
     @Param('sessionId') sessionId: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Body() body: { reason?: string },
   ): Promise<void> {
     await this.sessionService.terminateSession(
@@ -113,7 +116,7 @@ export class SessionController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission('session:terminate:own')
   async terminateAllMySessions(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest & { sessionID?: string },
     @Body() body: { reason?: string; exceptCurrent?: boolean },
   ): Promise<{ terminatedCount: number }> {
     const exceptSessionId = body.exceptCurrent ? req.sessionID : undefined;
@@ -133,7 +136,7 @@ export class SessionController {
   async lockSession(
     @Param('sessionId') sessionId: string,
     @Body() lockSessionDto: LockSessionDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ): Promise<void> {
     await this.sessionService.lockSession(
       sessionId,
@@ -153,9 +156,14 @@ export class SessionController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @RequirePermission('session:refresh')
-  async refreshSession(@Request() req: any): Promise<{ expiresAt: Date }> {
-    await this.sessionService.updateSessionActivity(req.sessionID, req.ip);
-    const session = await this.sessionService.getSession(req.sessionID);
+  async refreshSession(
+    @Request() req: AuthenticatedRequest,
+  ): Promise<{ expiresAt: Date }> {
+    await this.sessionService.updateSessionActivity(
+      req.sessionID || '',
+      req.ip || '',
+    );
+    const session = await this.sessionService.getSession(req.sessionID || '');
 
     return {
       expiresAt: session?.expiresAt || new Date(),

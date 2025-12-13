@@ -3,8 +3,7 @@ import { apiFetch } from '../lib/fetcher';
 
 export interface BoardColumn {
   id: string;
-  name: string;
-  status: string;
+  name: string; // Linear-style: column name IS the status
   columnOrder: number;
 }
 
@@ -46,12 +45,12 @@ export function useBoard(projectId: string, boardId: string) {
     mutationFn: (columnId: string) => apiFetch(`/projects/${projectId}/boards/${boardId}/columns/${columnId}`, { method: 'DELETE' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['board', projectId, boardId] }),
   });
-  
+
   const reorderColumns = useMutation({
     mutationFn: (orderedIds: string[]) => {
       // In a real app, you'd likely have a dedicated endpoint for this
       // For now, we'll update each column's order individually
-      return Promise.all(orderedIds.map((id, idx) => 
+      return Promise.all(orderedIds.map((id, idx) =>
         apiFetch(`/projects/${projectId}/boards/${boardId}/columns/${id}`, { method: 'PATCH', body: JSON.stringify({ columnOrder: idx }) })
       ));
     },
@@ -60,7 +59,7 @@ export function useBoard(projectId: string, boardId: string) {
 
   return {
     board: data,
-    columns: data?.columns.sort((a,b) => (a.columnOrder ?? 0) - (b.columnOrder ?? 0)) || [],
+    columns: data?.columns.sort((a, b) => (a.columnOrder ?? 0) - (b.columnOrder ?? 0)) || [],
     isLoading,
     isError,
     updateBoard: updateBoard.mutateAsync,

@@ -23,7 +23,7 @@ export class SatisfactionMetric {
   value: number;
 
   @Column({ type: 'jsonb', nullable: true })
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 
   @CreateDateColumn()
   timestamp: Date;

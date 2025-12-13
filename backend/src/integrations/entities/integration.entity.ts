@@ -25,6 +25,7 @@ export enum IntegrationStatus {
   WARNING = 'warning',
   ERROR = 'error',
   DISCONNECTED = 'disconnected',
+  PENDING = 'pending',
 }
 
 export interface IntegrationConfig {
@@ -52,6 +53,7 @@ export interface AuthConfig {
   type: 'oauth' | 'api_key' | 'webhook';
   accessToken?: string;
   refreshToken?: string;
+  clientSecret?: string;
   apiKey?: string;
   webhookSecret?: string;
   expiresAt?: Date;
@@ -94,14 +96,28 @@ export class Integration {
   })
   healthStatus: IntegrationStatus;
 
-  @Column({ nullable: true })
-  lastSyncAt: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  lastSyncAt: Date | null;
 
-  @Column({ nullable: true })
-  lastErrorAt: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  lastErrorAt: Date | null;
 
-  @Column({ nullable: true })
-  lastErrorMessage: string;
+  @Column({ type: 'text', nullable: true })
+  lastErrorMessage: string | null;
+
+  /**
+   * @deprecated UNUSED - Tokens are stored in authConfig.accessToken (encrypted there).
+   * TODO: Remove this column via a migration.
+   */
+  @Column({ type: 'text', nullable: true })
+  encryptedAccessToken: string;
+
+  /**
+   * @deprecated UNUSED - Tokens are stored in authConfig.refreshToken (encrypted there).
+   * TODO: Remove this column via a migration.
+   */
+  @Column({ type: 'text', nullable: true })
+  encryptedRefreshToken: string;
 
   @OneToMany(() => SyncLog, (log) => log.integration)
   syncLogs: SyncLog[];

@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Menu } from '@headlessui/react';
-import { ChevronDownIcon, ArrowRightOnRectangleIcon, UserIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ArrowRightOnRectangleIcon, UserIcon, Cog6ToothIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -43,7 +43,7 @@ const UserMenu = () => {
   return (
     <Menu as="div" className="relative inline-block text-left ml-2">
       <Menu.Button ref={buttonRef} className="flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-accent-blue rounded-full" onClick={() => setMenuOpen((v) => !v)}>
-        <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center font-bold text-sm">
+        <div className="w-8 h-8 rounded-full bg-gray-300 text-gray-900 dark:bg-gray-700 flex items-center justify-center font-bold text-sm">
           {initials}
         </div>
         <ChevronDownIcon className="h-4 w-4 text-gray-500" />
@@ -64,10 +64,25 @@ const UserMenu = () => {
           </div>
           <div className="py-1">
             <button
-              className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
               onClick={() => { setMenuOpen(false); router.push('/profile'); }}
             >
               <UserIcon className="h-5 w-5" /> Profile
+            </button>
+            <button
+              className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 text-primary-600 dark:text-primary-400"
+              onClick={() => {
+                setMenuOpen(false);
+                window.dispatchEvent(new CustomEvent('zenith:reopen-onboarding'));
+              }}
+            >
+              <SparklesIcon className="h-5 w-5" /> Getting Started
+            </button>
+            <button
+              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
+              onClick={() => { setMenuOpen(false); router.push('/settings/preferences'); }}
+            >
+              <Cog6ToothIcon className="h-5 w-5" /> Preferences
             </button>
             <button
               className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-800"

@@ -12,8 +12,8 @@ import { Project } from '../../projects/entities/project.entity';
 import { UserCapacity } from './user-capacity.entity';
 
 @Entity('resource_allocations')
-@Check('allocation_percentage > 0 AND allocation_percentage <= 100')
-@Check('start_date <= end_date')
+@Check('"allocationPercentage" > 0 AND "allocationPercentage" <= 100')
+@Check('"startDate" <= "endDate"')
 export class ResourceAllocation {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -12,7 +12,7 @@ import { User } from '../../users/entities/user.entity';
 
 @Entity('skill_matrix')
 @Unique(['user', 'skill'])
-@Check('proficiency_level >= 1 AND proficiency_level <= 5')
+@Check('"proficiencyLevel" >= 1 AND "proficiencyLevel" <= 5')
 export class SkillMatrix {
   @PrimaryGeneratedColumn('uuid')
   id: string;

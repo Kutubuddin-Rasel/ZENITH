@@ -5,6 +5,7 @@ import {
   CallHandler,
   Logger,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { Observable } from 'rxjs';
 import { tap, map } from 'rxjs/operators';
 import { EncryptionService } from '../encryption.service';
@@ -15,9 +16,8 @@ export class DatabaseEncryptionInterceptor implements NestInterceptor {
 
   constructor(private encryptionService: EncryptionService) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const request = context.switchToHttp().getRequest();
-    const response = context.switchToHttp().getResponse();
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const request = context.switchToHttp().getRequest<Request>();
 
     // Encrypt sensitive data before saving to database
     if (
@@ -29,7 +29,7 @@ export class DatabaseEncryptionInterceptor implements NestInterceptor {
     }
 
     return next.handle().pipe(
-      map((data) => {
+      map((data: unknown) => {
         // Decrypt sensitive data when reading from database
         if (request.method === 'GET') {
           return this.decryptResponseData(data);
@@ -42,9 +42,9 @@ export class DatabaseEncryptionInterceptor implements NestInterceptor {
     );
   }
 
-  private encryptRequestBody(request: any): void {
+  private encryptRequestBody(request: Request): void {
     try {
-      const body = request.body;
+      const body = request.body as Record<string, unknown>;
       if (!body) return;
 
       // Define sensitive fields that need encryption
@@ -64,7 +64,7 @@ export class DatabaseEncryptionInterceptor implements NestInterceptor {
     }
   }
 
-  private decryptResponseData(data: any): any {
+  private decryptResponseData(data: unknown): unknown {
     try {
       if (!data) return data;
 
@@ -79,10 +79,10 @@ export class DatabaseEncryptionInterceptor implements NestInterceptor {
       }
 
       // Handle paginated response
-      if (data.logs && Array.isArray(data.logs)) {
+      if (this.isPaginatedResponse(data)) {
         return {
           ...data,
-          logs: data.logs.map((log: any) => this.decryptObject(log)),
+          logs: data.logs.map((log: unknown) => this.decryptObject(log)),
         };
       }
 
@@ -93,10 +93,10 @@ export class DatabaseEncryptionInterceptor implements NestInterceptor {
     }
   }
 
-  private decryptObject(obj: any): any {
+  private decryptObject(obj: unknown): unknown {
     if (!obj || typeof obj !== 'object') return obj;
 
-    const decrypted = { ...obj };
+    const decrypted = { ...(obj as Record<string, unknown>) };
 
     // Decrypt common sensitive fields
     const sensitiveFields = [
@@ -111,9 +111,13 @@ export class DatabaseEncryptionInterceptor implements NestInterceptor {
     ];
 
     for (const field of sensitiveFields) {
-      if (obj[field] && typeof obj[field] === 'string') {
+      if (field in decrypted && typeof decrypted[field] === 'string') {
         try {
-          const encryptedData = JSON.parse(obj[field]);
+          const encryptedData = JSON.parse(decrypted[field]) as {
+            encrypted: string;
+            iv: string;
+            tag: string;
+          };
           if (
             encryptedData.encrypted &&
             encryptedData.iv &&
@@ -128,7 +132,7 @@ export class DatabaseEncryptionInterceptor implements NestInterceptor {
               decrypted[field] = result.decrypted;
             }
           }
-        } catch (error) {
+        } catch {
           // Field is not encrypted, keep as is
         }
       }
@@ -155,5 +159,14 @@ export class DatabaseEncryptionInterceptor implements NestInterceptor {
     }
 
     return [];
+  }
+
+  private isPaginatedResponse(data: unknown): data is { logs: unknown[] } {
+    return (
+      typeof data === 'object' &&
+      data !== null &&
+      'logs' in data &&
+      Array.isArray((data as Record<string, unknown>).logs)
+    );
   }
 }

@@ -55,7 +55,7 @@ export class FileEncryptionService {
 
       // Generate encrypted filename
       const fileExtension = path.extname(originalName);
-      const baseName = path.basename(originalName, fileExtension);
+      // const baseName = path.basename(originalName, fileExtension);
       const encryptedName = `${this.generateSecureId()}.enc${fileExtension}`;
 
       // Calculate checksum
@@ -156,7 +156,7 @@ export class FileEncryptionService {
         size: stats.size,
         exists: true,
       };
-    } catch (error) {
+    } catch {
       return {
         size: 0,
         exists: false,

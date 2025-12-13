@@ -3,13 +3,30 @@ import Modal from './Modal';
 import Button from './Button';
 import Input from './Input';
 import Typography from './Typography';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import {
+  DndContext,
+  closestCenter,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  KeyboardSensor,
+  DragStartEvent,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Cog6ToothIcon, Bars3Icon, PencilSquareIcon, TrashIcon, PlusIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 export interface BoardColumn {
   id: string;
-  name: string;
-  status: string;
+  name: string; // Linear-style: column name IS the status
   columnOrder: number;
 }
 
@@ -28,6 +45,99 @@ interface BoardManagementModalProps {
   onColumnsReorder: (orderedIds: string[]) => Promise<void>;
 }
 
+// Sortable Column Item
+function SortableColumnItem({
+  column,
+  isEditing,
+  editingName,
+  onEditingNameChange,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onDelete
+}: {
+  column: BoardColumn;
+  isEditing: boolean;
+  editingName: string;
+  onEditingNameChange: (name: string) => void;
+  onStartEdit: () => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onDelete: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: column.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-3 rounded-md bg-neutral-50 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 p-3 transition-colors ${isDragging ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/20 shadow-lg' : 'hover:bg-neutral-100 dark:hover:bg-neutral-600'
+        }`}
+    >
+      <span
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+      >
+        <Bars3Icon className="h-5 w-5" />
+      </span>
+      {isEditing ? (
+        <>
+          <Input
+            value={editingName}
+            onChange={e => onEditingNameChange(e.target.value)}
+            className="flex-1"
+          />
+          <Button size="sm" onClick={onSaveEdit} variant="primary">
+            <CheckIcon className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="secondary" onClick={onCancelEdit}>
+            <XMarkIcon className="h-4 w-4" />
+          </Button>
+        </>
+      ) : (
+        <>
+          <Typography variant="body" className="flex-1 text-neutral-900 dark:text-neutral-100">
+            {column.name}
+          </Typography>
+          <Button size="sm" variant="secondary" onClick={onStartEdit}>
+            <PencilSquareIcon className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="danger" onClick={onDelete}>
+            <TrashIcon className="h-4 w-4" />
+          </Button>
+        </>
+      )}
+    </li>
+  );
+}
+
+// Drag Overlay for Column
+function DragOverlayColumn({ column }: { column: BoardColumn }) {
+  return (
+    <div className="flex items-center gap-3 rounded-md bg-white dark:bg-neutral-700 border-2 border-blue-500 p-3 shadow-2xl">
+      <Bars3Icon className="h-5 w-5 text-neutral-400" />
+      <Typography variant="body" className="flex-1 text-neutral-900 dark:text-neutral-100 font-medium">
+        {column.name}
+      </Typography>
+    </div>
+  );
+}
+
 const BoardManagementModal: React.FC<BoardManagementModalProps> = ({
   open, onClose, columns, boardName,
   onBoardRename, onBoardDelete, onColumnAdd, onColumnEdit, onColumnDelete, onColumnsReorder
@@ -40,7 +150,7 @@ const BoardManagementModal: React.FC<BoardManagementModalProps> = ({
   const [editingColId, setEditingColId] = useState<string | null>(null);
   const [editingColName, setEditingColName] = useState('');
   const [localCols, setLocalCols] = useState(columns);
-  const [, setReordering] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const COMMON_COLUMN_NAMES = [
     'To Do',
@@ -56,6 +166,18 @@ const BoardManagementModal: React.FC<BoardManagementModalProps> = ({
   const [colNameMode, setColNameMode] = useState<'dropdown' | 'custom'>("dropdown");
   const [dropdownColName, setDropdownColName] = useState(COMMON_COLUMN_NAMES[0]);
 
+  // Sensors for smooth DnD
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   React.useEffect(() => { setLocalCols(columns); }, [columns]);
 
   const handleRename = async () => {
@@ -63,11 +185,13 @@ const BoardManagementModal: React.FC<BoardManagementModalProps> = ({
     await onBoardRename(editingBoardName);
     setRenaming(false);
   };
+
   const handleDelete = async () => {
     setDeleting(true);
     await onBoardDelete();
     setDeleting(false);
   };
+
   const handleAddCol = async () => {
     setAddingCol(true);
     const name = colNameMode === 'dropdown' ? dropdownColName : newColName;
@@ -77,24 +201,35 @@ const BoardManagementModal: React.FC<BoardManagementModalProps> = ({
     setColNameMode('dropdown');
     setAddingCol(false);
   };
+
   const handleEditCol = async (colId: string) => {
     await onColumnEdit(colId, editingColName);
     setEditingColId(null);
     setEditingColName('');
   };
+
   const handleDeleteCol = async (colId: string) => {
     await onColumnDelete(colId);
   };
-  const handleDragEnd = async (result: DropResult) => {
-    if (!result.destination) return;
-    const reordered = Array.from(localCols);
-    const [removed] = reordered.splice(result.source.index, 1);
-    reordered.splice(result.destination.index, 0, removed);
-    setLocalCols(reordered);
-    setReordering(true);
-    await onColumnsReorder(reordered.map(c => c.id));
-    setReordering(false);
-  };
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(event.active.id as string);
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (over && active.id !== over.id) {
+      const oldIndex = localCols.findIndex(c => c.id === active.id);
+      const newIndex = localCols.findIndex(c => c.id === over.id);
+      const reordered = arrayMove(localCols, oldIndex, newIndex);
+      setLocalCols(reordered);
+      await onColumnsReorder(reordered.map(c => c.id));
+    }
+  }
+
+  const activeColumn = activeId ? localCols.find(c => c.id === activeId) : null;
 
   return (
     <Modal open={open} onClose={onClose} title={
@@ -112,29 +247,29 @@ const BoardManagementModal: React.FC<BoardManagementModalProps> = ({
             Board Name
           </Typography>
           <div className="flex gap-3 items-center">
-            <Input 
-              value={editingBoardName} 
-              onChange={e => setEditingBoardName(e.target.value)} 
-              className="flex-1" 
+            <Input
+              value={editingBoardName}
+              onChange={e => setEditingBoardName(e.target.value)}
+              className="flex-1"
             />
-            <Button 
-              size="sm" 
-              onClick={handleRename} 
-              loading={renaming} 
+            <Button
+              size="sm"
+              onClick={handleRename}
+              loading={renaming}
               disabled={renaming}
               variant="primary"
             >
-              <PencilSquareIcon className="h-4 w-4 mr-1" /> 
+              <PencilSquareIcon className="h-4 w-4 mr-1" />
               Rename
             </Button>
-            <Button 
-              size="sm" 
-              variant="danger" 
-              onClick={handleDelete} 
-              loading={deleting} 
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={handleDelete}
+              loading={deleting}
               disabled={deleting}
             >
-              <TrashIcon className="h-4 w-4 mr-1" /> 
+              <TrashIcon className="h-4 w-4 mr-1" />
               Delete Board
             </Button>
           </div>
@@ -148,74 +283,38 @@ const BoardManagementModal: React.FC<BoardManagementModalProps> = ({
             </Typography>
             <PlusIcon className="h-4 w-4 text-neutral-500" />
           </div>
-          
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId="columns">
-              {(provided) => (
-                <ul ref={provided.innerRef} {...provided.droppableProps} className="space-y-2">
-                  {localCols.map((col, idx) => (
-                    <Draggable draggableId={col.id} index={idx} key={col.id}>
-                      {(provided, snapshot) => (
-                        <li
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          className={`flex items-center gap-3 rounded-md bg-neutral-50 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 p-3 transition-colors ${snapshot.isDragging ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'hover:bg-neutral-100 dark:hover:bg-neutral-600'}`}
-                        >
-                          <span {...provided.dragHandleProps} className="cursor-grab text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors">
-                            <Bars3Icon className="h-5 w-5" />
-                          </span>
-                          {editingColId === col.id ? (
-                            <>
-                              <Input 
-                                value={editingColName} 
-                                onChange={e => setEditingColName(e.target.value)} 
-                                className="flex-1" 
-                              />
-                              <Button 
-                                size="sm" 
-                                onClick={() => handleEditCol(col.id)}
-                                variant="primary"
-                              >
-                                <CheckIcon className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="secondary" 
-                                onClick={() => setEditingColId(null)}
-                              >
-                                <XMarkIcon className="h-4 w-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Typography variant="body" className="flex-1 text-neutral-900 dark:text-neutral-100">
-                                {col.name}
-                              </Typography>
-                              <Button 
-                                size="sm" 
-                                variant="secondary"
-                                onClick={() => { setEditingColId(col.id); setEditingColName(col.name); }}
-                              >
-                                <PencilSquareIcon className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="danger" 
-                                onClick={() => handleDeleteCol(col.id)}
-                              >
-                                <TrashIcon className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </li>
-                      )}
-                    </Draggable>
-                  ))}
-                  {provided.placeholder}
-                </ul>
-              )}
-            </Droppable>
-          </DragDropContext>
+
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={localCols.map(c => c.id)} strategy={verticalListSortingStrategy}>
+              <ul className="space-y-2">
+                {localCols.map((col) => (
+                  <SortableColumnItem
+                    key={col.id}
+                    column={col}
+                    isEditing={editingColId === col.id}
+                    editingName={editingColName}
+                    onEditingNameChange={setEditingColName}
+                    onStartEdit={() => { setEditingColId(col.id); setEditingColName(col.name); }}
+                    onSaveEdit={() => handleEditCol(col.id)}
+                    onCancelEdit={() => setEditingColId(null)}
+                    onDelete={() => handleDeleteCol(col.id)}
+                  />
+                ))}
+              </ul>
+            </SortableContext>
+
+            <DragOverlay dropAnimation={{
+              duration: 250,
+              easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
+            }}>
+              {activeColumn ? <DragOverlayColumn column={activeColumn} /> : null}
+            </DragOverlay>
+          </DndContext>
 
           {/* Add new column */}
           <form onSubmit={e => { e.preventDefault(); handleAddCol(); }} className="flex gap-3 mt-6 items-center">
@@ -246,14 +345,14 @@ const BoardManagementModal: React.FC<BoardManagementModalProps> = ({
                 required
               />
             )}
-            <Button 
-              type="submit" 
-              size="sm" 
-              loading={addingCol} 
+            <Button
+              type="submit"
+              size="sm"
+              loading={addingCol}
               disabled={addingCol || (colNameMode === 'custom' && !newColName.trim())}
               variant="primary"
             >
-              <PlusIcon className="h-4 w-4 mr-1" /> 
+              <PlusIcon className="h-4 w-4 mr-1" />
               Add Column
             </Button>
           </form>
@@ -263,4 +362,4 @@ const BoardManagementModal: React.FC<BoardManagementModalProps> = ({
   );
 };
 
-export default BoardManagementModal; 
+export default BoardManagementModal;

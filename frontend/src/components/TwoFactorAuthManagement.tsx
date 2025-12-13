@@ -1,19 +1,20 @@
-"use client";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { apiClient } from '../lib/api-client';
+import { getErrorMessage } from '../lib/error-utils';
 import Button from './Button';
 import Typography from './Typography';
 import Card from './Card';
 import TwoFactorAuthSetup from './TwoFactorAuthSetup';
-import { 
-  ShieldCheckIcon, 
-  ExclamationTriangleIcon, 
+import {
+  ShieldCheckIcon,
+  ExclamationTriangleIcon,
   KeyIcon,
-  TrashIcon 
+  TrashIcon
 } from '@heroicons/react/24/outline';
 
 export default function TwoFactorAuthManagement() {
-  const { token } = useAuth();
+  const { } = useAuth();
   const [isEnabled, setIsEnabled] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showSetup, setShowSetup] = useState(false);
@@ -23,22 +24,14 @@ export default function TwoFactorAuthManagement() {
 
   const check2FAStatus = React.useCallback(async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/2fa/status`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setIsEnabled(data.isEnabled);
-      }
+      const data = await apiClient.get<{ isEnabled: boolean }>('/auth/2fa/status');
+      setIsEnabled(data.isEnabled);
     } catch (err) {
       console.error('Failed to check 2FA status:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     check2FAStatus();
@@ -46,45 +39,20 @@ export default function TwoFactorAuthManagement() {
 
   const handleDisable2FA = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/2fa/disable`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ password: 'dummy' }), // In real implementation, ask for password
-      });
-
-      if (response.ok) {
-        setIsEnabled(false);
-        setShowDisable(false);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.message || 'Failed to disable 2FA');
-      }
-    } catch {
-      setError('Failed to disable 2FA');
+      await apiClient.delete('/auth/2fa/disable', { password: 'dummy' });
+      setIsEnabled(false);
+      setShowDisable(false);
+    } catch (err) {
+      setError(getErrorMessage(err));
     }
   };
 
   const handleRegenerateBackupCodes = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/2fa/regenerate-backup-codes`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setBackupCodes(data.backupCodes);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.message || 'Failed to regenerate backup codes');
-      }
-    } catch {
-      setError('Failed to regenerate backup codes');
+      const data = await apiClient.post<{ backupCodes: string[] }>('/auth/2fa/regenerate-backup-codes', {});
+      setBackupCodes(data.backupCodes);
+    } catch (err) {
+      setError(getErrorMessage(err));
     }
   };
 
@@ -112,11 +80,10 @@ export default function TwoFactorAuthManagement() {
             <ShieldCheckIcon className="h-6 w-6 text-blue-600" />
             <Typography variant="h3">Two-Factor Authentication</Typography>
           </div>
-          <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-            isEnabled 
-              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-          }`}>
+          <div className={`px-3 py-1 rounded-full text-sm font-medium ${isEnabled
+            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+            : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+            }`}>
             {isEnabled ? 'Enabled' : 'Disabled'}
           </div>
         </div>

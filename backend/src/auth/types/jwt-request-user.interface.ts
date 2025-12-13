@@ -3,4 +3,5 @@ export interface JwtRequestUser {
   email: string;
   isSuperAdmin: boolean;
   name: string;
+  organizationId?: string; // Added for workspace context
 }

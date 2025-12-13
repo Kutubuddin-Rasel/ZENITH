@@ -14,11 +14,10 @@ export type EntityType =
   | 'Board'
   | 'Release'
   | 'Label'
-  | 'Component'
-  | 'Epic'
-  | 'Story';
+  | 'Component';
 
 @Entity({ name: 'revisions' })
+// @Index('idx_revisions_snapshot', ['snapshot'], { using: 'gin' })
 export class Revision {
   @PrimaryGeneratedColumn('uuid')
   id: string;

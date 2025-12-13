@@ -17,5 +17,6 @@ import { MembershipModule } from '../membership/membership.module';
     { provide: APP_INTERCEPTOR, useClass: UserIdInterceptor },
   ],
   controllers: [RevisionsController],
+  exports: [RevisionsService],
 })
-export class RevisionsModule {}
+export class RevisionsModule { }

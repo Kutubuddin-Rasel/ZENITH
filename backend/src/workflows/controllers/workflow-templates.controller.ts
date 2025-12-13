@@ -10,7 +10,10 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { WorkflowTemplateService } from '../services/workflow-template.service';
+import {
+  WorkflowTemplateService,
+  TemplateSearchFilters,
+} from '../services/workflow-template.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermission } from '../../auth/decorators/require-permission.decorator';
@@ -82,7 +85,7 @@ export class WorkflowTemplatesController {
       };
 
       const result = await this.workflowTemplateService.getTemplates(
-        filters,
+        filters as TemplateSearchFilters,
         limit || 20,
         offset || 0,
       );
@@ -337,7 +340,7 @@ export class WorkflowTemplatesController {
     @Body()
     body: {
       projectId: string;
-      customizations?: any;
+      customizations?: Record<string, unknown>;
     },
   ) {
     try {

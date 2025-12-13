@@ -1,0 +1,365 @@
+[1A[2K[2m[WebServer] [22m [33m[1m⚠[22m[39m Warning: Next.js inferred your workspace root, but it may not be correct.
+[2m[WebServer] [22m We detected multiple lockfiles and selected the directory of /Users/kutubuddin/Downloads/Zenith/package-lock.json as the root directory.
+[2m[WebServer] [22m To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+[2m[WebServer] [22m   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+[2m[WebServer] [22m Detected additional lockfiles: 
+[2m[WebServer] [22m   * /Users/kutubuddin/Downloads/Zenith/frontend/package-lock.json
+[2m[WebServer] [22m
+
+[1A[2K[2m[WebServer] [22m(node:17002) Warning: `--localstorage-file` was provided without a valid path
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 3 tests using 1 worker
+
+[1A[2K[1/3] [chromium] › e2e/smart-setup-ai.spec.ts:129:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template
+[1A[2K[2m[WebServer] [22mReact does not recognize the `showPasswordToggle` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `showpasswordtoggle` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:129:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template
+BROWSER LOG: Failed to load resource: the server responded with a status of 404 (Not Found)
+
+[1A[2KBROWSER LOG: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+[1A[2KBROWSER LOG: React does not recognize the `%s` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `%s` instead. If you accidentally passed it from a parent component, remove it from the DOM element. showPasswordToggle showpasswordtoggle
+
+[1A[2KBROWSER LOG: TypeError: Cannot read properties of undefined (reading 'restoreClient')
+    at persistQueryClientRestore (webpack-internal:///(app-pages-browser)/./node_modules/@tanstack/query-persist-client-core/build/modern/persist.js:23:45)
+    at PersistQueryClientProvider.useEffect (webpack-internal:///(app-pages-browser)/./node_modules/@tanstack/react-query-persist-client/build/modern/PersistQueryClientProvider.js:43:111)
+    at Object.react_stack_bottom_frame (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:23669:20)
+    at runWithFiberInDEV (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:872:30)
+    at commitHookEffectListMount (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:12345:29)
+    at commitHookPassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:12466:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14387:13)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14390:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14390:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+
+[1A[2KBROWSER LOG: Encountered an error attempting to restore client cache from persisted location. As a precaution, the persisted cache will be discarded.
+
+[1A[2KBROWSER LOG: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+
+[1A[2KBROWSER LOG: Failed to fetch user data: Error: {"success":false,"statusCode":401,"message":"Unauthorized","data":null,"meta":{"details":{"message":"Unauthorized","statusCode":401}},"timestamp":"2025-12-12T06:39:49.014Z"}
+    at apiFetch (webpack-internal:///(app-pages-browser)/./src/lib/fetcher.ts:17:24)
+    at async fetchUserData (webpack-internal:///(app-pages-browser)/./src/context/AuthContext.tsx:33:30)
+
+[1A[2KClicking Create Workspace...
+
+[1A[2KWaiting for URL /projects...
+
+[1A[2KBROWSER LOG: Login successful, setting user data: {id: 3398e52b-f27c-4a44-a030-86b8d488be4b, email: ai-test-1765521587583-ef621q@example.com, name: AI Test User, isSuperAdmin: true, organizationId: c2571175-217e-428a-9d06-d37a9a703919}
+
+[1A[2KBROWSER LOG: [Fast Refresh] rebuilding
+
+[1A[2KBROWSER LOG: [Fast Refresh] done in 1206ms
+
+[1A[2KNavigation to /projects successful
+
+[1A[2KBROWSER LOG: ProtectedRoute state: {user: Object, token: null, loading: false}
+
+[1A[2KBROWSER LOG: ProtectedRoute state: {user: Object, token: null, loading: false}
+
+[1A[2KBROWSER LOG: Failed to stick cache to IndexedDB: DataCloneError: Failed to execute 'put' on 'IDBObjectStore': #<Promise> could not be cloned.
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/idb-keyval/dist/index.js:67:15)
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/idb-keyval/dist/index.js:40:55)
+    at async Object.persistClient (webpack-internal:///(app-pages-browser)/./src/lib/idb-persister.ts:16:17)
+    at async persistQueryClientSave (webpack-internal:///(app-pages-browser)/./node_modules/@tanstack/query-persist-client-core/build/modern/persist.js:59:3)
+
+[1A[2KClicking "Use Wizard" (Center CTA)...
+
+[1A[2K"Use Wizard" click failed. Trying generic modal cleanup...
+
+[1A[2KAttempting to clear blocking modals...
+
+[1A[2KRetrying Use Wizard click (force)...
+
+[1A[2K  1) [chromium] › e2e/smart-setup-ai.spec.ts:129:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('button:has-text("AI Assistant")')[22m
+
+
+      178 |         const chatInput = page.getByPlaceholder('Describe your project...');
+      179 |         if (!await chatInput.isVisible()) {
+    > 180 |             await page.click('button:has-text("AI Assistant")');
+          |                        ^
+      181 |         }
+      182 |
+      183 |         // Type user intent
+        at /Users/kutubuddin/Downloads/Zenith/frontend/e2e/smart-setup-ai.spec.ts:180:24
+
+    Error Context: test-results/smart-setup-ai-Smart-Setup-98373-uage-and-recommend-template-chromium/error-context.md
+
+
+[1A[2K[2/3] [chromium] › e2e/smart-setup-ai.spec.ts:208:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:208:9 › Smart Setup (AI Mode) › AI should handle specific number for team size
+BROWSER LOG: Failed to load resource: the server responded with a status of 404 (Not Found)
+
+[1A[2KBROWSER LOG: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+[1A[2KBROWSER LOG: React does not recognize the `%s` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `%s` instead. If you accidentally passed it from a parent component, remove it from the DOM element. showPasswordToggle showpasswordtoggle
+
+[1A[2KBROWSER LOG: TypeError: Cannot read properties of undefined (reading 'restoreClient')
+    at persistQueryClientRestore (webpack-internal:///(app-pages-browser)/./node_modules/@tanstack/query-persist-client-core/build/modern/persist.js:23:45)
+    at PersistQueryClientProvider.useEffect (webpack-internal:///(app-pages-browser)/./node_modules/@tanstack/react-query-persist-client/build/modern/PersistQueryClientProvider.js:43:111)
+    at Object.react_stack_bottom_frame (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:23669:20)
+    at runWithFiberInDEV (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:872:30)
+    at commitHookEffectListMount (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:12345:29)
+    at commitHookPassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:12466:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14387:13)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14390:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14390:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+
+[1A[2KBROWSER LOG: Encountered an error attempting to restore client cache from persisted location. As a precaution, the persisted cache will be discarded.
+
+[1A[2KBROWSER LOG: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+
+[1A[2KBROWSER LOG: Failed to fetch user data: Error: {"success":false,"statusCode":401,"message":"Unauthorized","data":null,"meta":{"details":{"message":"Unauthorized","statusCode":401}},"timestamp":"2025-12-12T06:40:18.727Z"}
+    at apiFetch (webpack-internal:///(app-pages-browser)/./src/lib/fetcher.ts:17:24)
+    at async fetchUserData (webpack-internal:///(app-pages-browser)/./src/context/AuthContext.tsx:33:30)
+
+[1A[2KClicking Create Workspace...
+
+[1A[2KWaiting for URL /projects...
+
+[1A[2KBROWSER LOG: Login successful, setting user data: {id: 08cdf684-c1a8-4040-a932-abd6e36415f7, email: ai-test-1765521618090-yisyfc@example.com, name: AI Test User, isSuperAdmin: true, organizationId: af3c8034-9546-4794-9e53-f30ce620d7bf}
+
+[1A[2KNavigation to /projects successful
+
+[1A[2KBROWSER LOG: ProtectedRoute state: {user: Object, token: null, loading: false}
+
+[1A[2KBROWSER LOG: ProtectedRoute state: {user: Object, token: null, loading: false}
+
+[1A[2KClicking "Use Wizard" (Center CTA)...
+
+[1A[2K"Use Wizard" click failed. Trying generic modal cleanup...
+
+[1A[2KAttempting to clear blocking modals...
+
+[1A[2KRetrying Use Wizard click (force)...
+
+[1A[2K  2) [chromium] › e2e/smart-setup-ai.spec.ts:208:9 › Smart Setup (AI Mode) › AI should handle specific number for team size 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('button:has-text("AI Assistant")')[22m
+
+
+      247 |
+      248 |         const chatInput = page.getByPlaceholder('Describe your project...');
+    > 249 |         if (!await chatInput.isVisible()) await page.click('button:has-text("AI Assistant")');
+          |                                                      ^
+      250 |
+      251 |         // Send message
+      252 |         await chatInput.fill('We offer services with 7 people');
+        at /Users/kutubuddin/Downloads/Zenith/frontend/e2e/smart-setup-ai.spec.ts:249:54
+
+    Error Context: test-results/smart-setup-ai-Smart-Setup-dcaad-ecific-number-for-team-size-chromium/error-context.md
+
+
+[1A[2K[3/3] [chromium] › e2e/smart-setup-ai.spec.ts:274:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+[1A[2K[chromium] › e2e/smart-setup-ai.spec.ts:274:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow
+BROWSER LOG: Failed to load resource: the server responded with a status of 404 (Not Found)
+
+[1A[2KBROWSER LOG: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+[1A[2KBROWSER LOG: React does not recognize the `%s` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `%s` instead. If you accidentally passed it from a parent component, remove it from the DOM element. showPasswordToggle showpasswordtoggle
+
+[1A[2KBROWSER LOG: TypeError: Cannot read properties of undefined (reading 'restoreClient')
+    at persistQueryClientRestore (webpack-internal:///(app-pages-browser)/./node_modules/@tanstack/query-persist-client-core/build/modern/persist.js:23:45)
+    at PersistQueryClientProvider.useEffect (webpack-internal:///(app-pages-browser)/./node_modules/@tanstack/react-query-persist-client/build/modern/PersistQueryClientProvider.js:43:111)
+    at Object.react_stack_bottom_frame (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:23669:20)
+    at runWithFiberInDEV (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:872:30)
+    at commitHookEffectListMount (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:12345:29)
+    at commitHookPassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:12466:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14387:13)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14514:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14390:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14390:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+    at commitPassiveMountOnFiber (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14380:11)
+    at recursivelyTraversePassiveMountEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14360:11)
+
+[1A[2KBROWSER LOG: Encountered an error attempting to restore client cache from persisted location. As a precaution, the persisted cache will be discarded.
+
+[1A[2KBROWSER LOG: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+
+[1A[2KBROWSER LOG: Failed to fetch user data: Error: {"success":false,"statusCode":401,"message":"Unauthorized","data":null,"meta":{"details":{"message":"Unauthorized","statusCode":401}},"timestamp":"2025-12-12T06:40:49.180Z"}
+    at apiFetch (webpack-internal:///(app-pages-browser)/./src/lib/fetcher.ts:17:24)
+    at async fetchUserData (webpack-internal:///(app-pages-browser)/./src/context/AuthContext.tsx:33:30)
+
+[1A[2KClicking Create Workspace...
+
+[1A[2KWaiting for URL /projects...
+
+[1A[2KBROWSER LOG: Login successful, setting user data: {id: 5617fd60-dc21-4f43-adc2-03ca9f3ec7f4, email: ai-test-1765521648714-x8lff2@example.com, name: AI Test User, isSuperAdmin: true, organizationId: 43466d82-679c-4721-8820-97035c26a285}
+
+[1A[2KNavigation to /projects successful
+
+[1A[2KBROWSER LOG: ProtectedRoute state: {user: Object, token: null, loading: false}
+
+[1A[2KBROWSER LOG: ProtectedRoute state: {user: Object, token: null, loading: false}
+
+[1A[2KBROWSER LOG: Failed to stick cache to IndexedDB: DataCloneError: Failed to execute 'put' on 'IDBObjectStore': #<Promise> could not be cloned.
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/idb-keyval/dist/index.js:67:15)
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/idb-keyval/dist/index.js:40:55)
+    at async Object.persistClient (webpack-internal:///(app-pages-browser)/./src/lib/idb-persister.ts:16:17)
+    at async persistQueryClientSave (webpack-internal:///(app-pages-browser)/./node_modules/@tanstack/query-persist-client-core/build/modern/persist.js:59:3)
+
+[1A[2KClicking "Use Wizard" (Center CTA)...
+
+[1A[2K"Use Wizard" click failed. Trying generic modal cleanup...
+
+[1A[2KAttempting to clear blocking modals...
+
+[1A[2KRetrying Use Wizard click (force)...
+
+[1A[2K  3) [chromium] › e2e/smart-setup-ai.spec.ts:274:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('button:has-text("AI Assistant")')[22m
+
+
+      327 |
+      328 |         const chatInput = page.getByPlaceholder('Describe your project...');
+    > 329 |         if (!await chatInput.isVisible()) await page.click('button:has-text("AI Assistant")');
+          |                                                      ^
+      330 |
+      331 |         // Turn 1
+      332 |         await chatInput.fill('I want to manage tasks');
+        at /Users/kutubuddin/Downloads/Zenith/frontend/e2e/smart-setup-ai.spec.ts:329:54
+
+    Error Context: test-results/smart-setup-ai-Smart-Setup-30f87-le-Yes-No-conversation-flow-chromium/error-context.md
+
+
+[1A[2K  3 failed
+    [chromium] › e2e/smart-setup-ai.spec.ts:129:9 › Smart Setup (AI Mode) › AI should understand natural language and recommend template 
+    [chromium] › e2e/smart-setup-ai.spec.ts:208:9 › Smart Setup (AI Mode) › AI should handle specific number for team size 
+    [chromium] › e2e/smart-setup-ai.spec.ts:274:9 › Smart Setup (AI Mode) › AI should handle "Yes/No" conversation flow 
+
+[36m  Serving HTML report at http://localhost:64476. Press Ctrl+C to quit.[39m

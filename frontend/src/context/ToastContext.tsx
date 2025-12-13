@@ -1,6 +1,10 @@
 "use client";
 import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
-import Toast from '../components/Toast';
+import dynamic from 'next/dynamic';
+
+const Toast = dynamic(() => import('../components/Toast'), {
+  ssr: false,
+});
 
 interface ToastItem {
   id: number;
@@ -31,14 +35,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }
 
     const toastDuration = duration || defaultDuration;
-    
-    const newToast = { 
-      id: Date.now() + Math.random(), 
-      message, 
-      type, 
-      duration: toastDuration 
+
+    const newToast = {
+      id: Date.now() + Math.random(),
+      message,
+      type,
+      duration: toastDuration
     };
-    
+
     setToasts((prev) => [...prev, newToast]);
   };
 
@@ -49,7 +53,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       clearTimeout(timer);
       timersRef.current.delete(id);
     }
-    
+
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
@@ -61,7 +65,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         const timer = setTimeout(() => {
           removeToast(toast.id);
         }, toast.duration || 4000);
-        
+
         timersRef.current.set(toast.id, timer);
       }
     });

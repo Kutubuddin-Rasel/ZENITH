@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { RespondToInviteDto } from './dto/respond-to-invite.dto';
+import { AuthenticatedRequest } from '../common/types/authenticated-request.interface';
 // import { ProjectsService } from '../projects/projects.service';
 
 @Controller('invites')
@@ -28,10 +29,10 @@ export class InvitesController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermission('invites:create')
   @Post()
-  createInvite(@Body() dto: CreateInviteDto, @Req() req: any) {
+  createInvite(@Body() dto: CreateInviteDto, @Req() req: AuthenticatedRequest) {
     return this.invitesService.createInvite({
       ...dto,
-      inviterId: (req.user as Record<string, unknown>).userId as string,
+      inviterId: req.user.userId,
     });
   }
 
@@ -41,11 +42,11 @@ export class InvitesController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermission('invites:create') // Same perm as creating
   @Patch(':id/revoke')
-  async revokeInvite(@Param('id') id: string, @Req() req: any) {
-    await this.invitesService.revokeInvite(
-      id,
-      (req.user as Record<string, unknown>).userId as string,
-    );
+  async revokeInvite(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    await this.invitesService.revokeInvite(id, req.user.userId);
     return { message: 'Invite revoked' };
   }
 
@@ -55,11 +56,11 @@ export class InvitesController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermission('invites:create') // Same perm as creating
   @Post(':id/resend')
-  async resendInvite(@Param('id') id: string, @Req() req: any) {
-    await this.invitesService.resendInvite(
-      id,
-      (req.user as Record<string, unknown>).userId as string,
-    );
+  async resendInvite(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    await this.invitesService.resendInvite(id, req.user.userId);
     return { message: 'Invite notification resent' };
   }
 
@@ -72,11 +73,11 @@ export class InvitesController {
   async respondToInvite(
     @Param('id') id: string,
     @Body() dto: RespondToInviteDto,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
   ) {
     await this.invitesService.respondToInvite(
       id,
-      (req.user as Record<string, unknown>).userId as string,
+      req.user.userId,
       dto.accept,
       dto.reason,
     );

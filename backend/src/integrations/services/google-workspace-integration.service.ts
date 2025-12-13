@@ -1,9 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Integration, IntegrationType } from '../entities/integration.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Integration, IntegrationType } from '../entities/integration.entity';
-import { ExternalData } from '../entities/external-data.entity';
+import { ExternalData, MappedData } from '../entities/external-data.entity';
 import { SearchIndex } from '../entities/search-index.entity';
+import { RateLimitService } from './rate-limit.service';
+import { TokenManagerService } from './token-manager.service';
+import { EncryptionService } from '../../common/services/encryption.service';
+import { BaseIntegrationService } from './base-integration.service';
 
 export interface GoogleCalendarEvent {
   id: string;
@@ -81,18 +85,33 @@ export interface GmailMessage {
 }
 
 @Injectable()
-export class GoogleWorkspaceIntegrationService {
-  private readonly logger = new Logger(GoogleWorkspaceIntegrationService.name);
+export class GoogleWorkspaceIntegrationService extends BaseIntegrationService {
+  protected readonly logger = new Logger(
+    GoogleWorkspaceIntegrationService.name,
+  );
+  protected readonly source = 'google_workspace';
   private readonly googleApiBase = 'https://www.googleapis.com';
 
   constructor(
     @InjectRepository(Integration)
-    private integrationRepo: Repository<Integration>,
+    integrationRepo: Repository<Integration>,
     @InjectRepository(ExternalData)
-    private externalDataRepo: Repository<ExternalData>,
+    externalDataRepo: Repository<ExternalData>,
     @InjectRepository(SearchIndex)
-    private searchIndexRepo: Repository<SearchIndex>,
-  ) {}
+    searchIndexRepo: Repository<SearchIndex>,
+    rateLimitService: RateLimitService,
+    tokenManagerService: TokenManagerService,
+    encryptionService: EncryptionService,
+  ) {
+    super(
+      integrationRepo,
+      externalDataRepo,
+      searchIndexRepo,
+      rateLimitService,
+      tokenManagerService,
+      encryptionService,
+    );
+  }
 
   async syncCalendarEvents(
     integrationId: string,
@@ -403,59 +422,14 @@ export class GoogleWorkspaceIntegrationService {
     }
   }
 
-  private async storeExternalData(
-    integrationId: string,
-    type: string,
-    externalId: string,
-    data: Record<string, unknown>,
-  ): Promise<void> {
-    try {
-      // Check if data already exists
-      const existing = await this.externalDataRepo.findOne({
-        where: {
-          integrationId,
-          externalId,
-          externalType: type,
-        },
-      });
-
-      const mappedData = this.mapGoogleData(type, data);
-
-      if (existing) {
-        existing.rawData = data;
-        existing.mappedData = mappedData;
-        existing.lastSyncAt = new Date();
-        await this.externalDataRepo.save(existing);
-      } else {
-        const externalData = this.externalDataRepo.create({
-          integrationId,
-          externalId,
-          externalType: type,
-          rawData: data,
-          mappedData,
-          lastSyncAt: new Date(),
-        });
-        await this.externalDataRepo.save(externalData);
-      }
-
-      // Update search index
-      if (mappedData) {
-        await this.updateSearchIndex(
-          integrationId,
-          type,
-          externalId,
-          mappedData,
-        );
-      }
-    } catch (error) {
-      this.logger.error('Failed to store external data:', error);
-    }
-  }
-
-  private mapGoogleData(
+  /**
+   * Maps Google data to standard MappedData format.
+   * Implements abstract method from BaseIntegrationService.
+   */
+  protected mapExternalData(
     type: string,
     data: Record<string, unknown>,
-  ): Record<string, unknown> {
+  ): MappedData | null {
     switch (type) {
       case 'calendar_event':
         return {
@@ -527,48 +501,7 @@ export class GoogleWorkspaceIntegrationService {
         };
       }
       default:
-        return null as unknown as Record<string, unknown>;
-    }
-  }
-
-  private async updateSearchIndex(
-    integrationId: string,
-    type: string,
-    externalId: string,
-    mappedData: Record<string, unknown>,
-  ): Promise<void> {
-    try {
-      const searchContent =
-        `${mappedData.title as string} ${mappedData.content as string}`.toLowerCase();
-
-      const existing = await this.searchIndexRepo.findOne({
-        where: {
-          integrationId,
-          contentType: type,
-        },
-      });
-
-      if (existing) {
-        existing.title = mappedData.title as string;
-        existing.content = mappedData.content as string;
-        existing.metadata =
-          (mappedData as { metadata?: Record<string, unknown> }).metadata || {};
-        existing.searchVector = searchContent;
-        existing.updatedAt = new Date();
-        await this.searchIndexRepo.save(existing);
-      } else {
-        const searchIndex = this.searchIndexRepo.create({
-          integrationId,
-          contentType: type,
-          title: mappedData.title as string,
-          content: mappedData.content as string,
-          metadata: mappedData.metadata as Record<string, unknown>,
-          searchVector: searchContent,
-        });
-        await this.searchIndexRepo.save(searchIndex);
-      }
-    } catch (error) {
-      this.logger.error('Failed to update search index:', error);
+        return null;
     }
   }
 }

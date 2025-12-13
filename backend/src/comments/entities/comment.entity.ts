@@ -7,11 +7,16 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { Issue } from '../../issues/entities/issue.entity';
 import { User } from '../../users/entities/user.entity';
 
 @Entity({ name: 'comments' })
+@Index('IDX_comment_issue_id', ['issueId'])
+@Index('IDX_comment_user_id', ['authorId'])
+@Index('IDX_comment_created_at', ['createdAt'])
+@Index('IDX_comment_content_search', { synchronize: false }) // GIN index placeholder
 export class Comment {
   @PrimaryGeneratedColumn('uuid')
   id: string;

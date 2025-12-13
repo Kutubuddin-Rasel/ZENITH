@@ -13,8 +13,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Menu, Transition } from "@headlessui/react";
-import { EllipsisVerticalIcon, PencilIcon, ArchiveBoxIcon, PlusIcon, RocketLaunchIcon } from "@heroicons/react/24/solid";
+import { EllipsisVerticalIcon, PencilIcon, ArchiveBoxIcon, PlusIcon, RocketLaunchIcon, SparklesIcon } from "@heroicons/react/24/solid";
 import ConfirmationModal from "../../../../components/ConfirmationModal";
+import { apiFetch } from "../../../../lib/fetcher";
+
 
 const schema = z.object({
   name: z.string().min(2),
@@ -76,19 +78,44 @@ export default function ReleasesPage() {
   const updateRelease = useUpdateRelease(projectId, editingRelease?.id || '');
   const archiveRelease = useArchiveRelease(projectId, releaseToArchive?.id || '');
 
+  // Version suggestion state
+  const [versionSuggestion, setVersionSuggestion] = useState<{
+    suggested: string;
+    current: string | null;
+  } | null>(null);
+  const [loadingSuggestion, setLoadingSuggestion] = useState(false);
+
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
     setError,
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
+  const fetchVersionSuggestion = async (bumpType: 'major' | 'minor' | 'patch' = 'patch') => {
+    setLoadingSuggestion(true);
+    try {
+      const data = await apiFetch<{ suggested: string; current: string | null }>(`/projects/${projectId}/releases/suggest-version/${bumpType}`);
+      setVersionSuggestion(data);
+      setValue('name', data.suggested);
+    } catch {
+      // Ignore errors
+    } finally {
+      setLoadingSuggestion(false);
+    }
+  };
+
   const handleOpenCreateModal = () => {
     setEditingRelease(null);
     reset({ name: '', description: '', releaseDate: '' });
+    setVersionSuggestion(null);
     setModalOpen(true);
+    // Fetch initial suggestion
+    fetchVersionSuggestion('patch');
   }
+
 
   const handleOpenEditModal = (release: Release) => {
     setEditingRelease(release);
@@ -143,7 +170,7 @@ export default function ReleasesPage() {
               {releaseList.map((release: Release) => (
                 <Card key={release.id} className="flex flex-col gap-2 group !p-5 transition-all hover:shadow-2xl hover:-translate-y-1">
                   <div className="flex items-start justify-between">
-                    <div 
+                    <div
                       className="font-bold text-accent-blue text-lg cursor-pointer hover:underline"
                       onClick={() => setSelectedRelease(release)}
                     >
@@ -166,7 +193,7 @@ export default function ReleasesPage() {
                           <div className="px-1 py-1">
                             <Menu.Item>
                               {({ active }) => (
-                                <button 
+                                <button
                                   onClick={() => handleOpenEditModal(release)}
                                   className={`${active ? 'bg-gray-100 dark:bg-gray-800' : ''} group flex w-full items-center rounded-md px-2 py-2 text-sm text-gray-900 dark:text-gray-200`}>
                                   <PencilIcon className="mr-2 h-4 w-4" /> Edit
@@ -218,9 +245,9 @@ export default function ReleasesPage() {
       ) : (
         renderEmptyState()
       )}
-      
+
       {releases && releases.length > 0 && (
-         <button
+        <button
           onClick={handleOpenCreateModal}
           className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-6 py-4 rounded-full bg-gradient-to-r from-green-400 to-blue-500 text-white font-bold shadow-2xl hover:scale-105 hover:shadow-green-400/30 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-blue-300"
           aria-label="Create Release"
@@ -232,6 +259,42 @@ export default function ReleasesPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingRelease ? "Edit Release" : "Create Release"}>
         <form onSubmit={handleSubmit(onSubmit)}>
+          {/* Version Suggestion (only for new releases) */}
+          {!editingRelease && (
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <SparklesIcon className="h-4 w-4 text-yellow-500" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Version Suggestion</span>
+                {loadingSuggestion && <Spinner className="h-4 w-4" />}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => fetchVersionSuggestion('patch')}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-md bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-200"
+                >
+                  Patch
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fetchVersionSuggestion('minor')}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                >
+                  Minor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fetchVersionSuggestion('major')}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-md bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200"
+                >
+                  Major
+                </button>
+              </div>
+              {versionSuggestion?.current && (
+                <p className="text-xs text-gray-500 mt-1">Current: {versionSuggestion.current}</p>
+              )}
+            </div>
+          )}
           <Input label="Name" {...register("name")}
             error={errors.name?.message} autoFocus />
           <Input label="Release Date" type="date" {...register("releaseDate")}
@@ -241,6 +304,7 @@ export default function ReleasesPage() {
           {errors.root?.message && <div className="text-red-500 text-sm mt-2">{errors.root.message}</div>}
           <Button type="submit" loading={createRelease.isPending || updateRelease.isPending} fullWidth className="mt-4">
             {editingRelease ? 'Save Changes' : 'Create Release'}
+
           </Button>
         </form>
       </Modal>

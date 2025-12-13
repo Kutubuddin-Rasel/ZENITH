@@ -16,19 +16,25 @@ export class BoardsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // Track which socket is in which project/board room
   handleConnection(socket: Socket) {
     // Client should join a project/board room after connecting
-    socket.on('join-board', ({ projectId, boardId }) => {
-      if (projectId && boardId) {
-        socket.join(`project:${projectId}:board:${boardId}`);
-      }
-    });
-    socket.on('leave-board', ({ projectId, boardId }) => {
-      if (projectId && boardId) {
-        socket.leave(`project:${projectId}:board:${boardId}`);
-      }
-    });
+    socket.on(
+      'join-board',
+      ({ projectId, boardId }: { projectId?: string; boardId?: string }) => {
+        if (projectId && boardId) {
+          void socket.join(`project:${projectId}:board:${boardId}`);
+        }
+      },
+    );
+    socket.on(
+      'leave-board',
+      ({ projectId, boardId }: { projectId?: string; boardId?: string }) => {
+        if (projectId && boardId) {
+          void socket.leave(`project:${projectId}:board:${boardId}`);
+        }
+      },
+    );
   }
 
-  handleDisconnect(socket: Socket) {
+  handleDisconnect() {
     // No-op for now; could clean up if tracking sockets
   }
 
@@ -40,6 +46,13 @@ export class BoardsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     fromColumn,
     toColumn,
     newOrder,
+  }: {
+    projectId: string;
+    boardId: string;
+    issueId: string;
+    fromColumn: string;
+    toColumn: string;
+    newOrder: number;
   }) {
     this.server
       .to(`project:${projectId}:board:${boardId}`)
@@ -54,7 +67,17 @@ export class BoardsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /** Emit when issues are reordered within a column */
-  emitIssueReordered({ projectId, boardId, columnId, issues }) {
+  emitIssueReordered({
+    projectId,
+    boardId,
+    columnId,
+    issues,
+  }: {
+    projectId: string;
+    boardId: string;
+    columnId: string;
+    issues: string[];
+  }) {
     this.server
       .to(`project:${projectId}:board:${boardId}`)
       .emit('issue-reordered', {
@@ -62,6 +85,25 @@ export class BoardsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         boardId,
         columnId,
         issues, // array of issueIds in new order
+      });
+  }
+
+  /** Emit when columns are reordered on a board */
+  emitColumnsReordered({
+    projectId,
+    boardId,
+    orderedColumnIds,
+  }: {
+    projectId: string;
+    boardId: string;
+    orderedColumnIds: string[];
+  }) {
+    this.server
+      .to(`project:${projectId}:board:${boardId}`)
+      .emit('columns-reordered', {
+        projectId,
+        boardId,
+        orderedColumnIds,
       });
   }
 }

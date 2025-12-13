@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserPreferences } from '../entities/user-preferences.entity';
 import { ProjectTemplate } from '../../project-templates/entities/project-template.entity';
+import { ProjectIntelligenceService } from '../../ai/services/project-intelligence.service';
+import { IssueDefaults } from '../../ai/interfaces/ai-types';
 
 export interface SmartDefaultSuggestion {
   field: string;
@@ -23,17 +25,104 @@ export interface UserBehaviorPattern {
 
 @Injectable()
 export class SmartDefaultsService {
+  private readonly logger = new Logger(SmartDefaultsService.name);
+
   constructor(
     @InjectRepository(UserPreferences)
     private preferencesRepo: Repository<UserPreferences>,
     @InjectRepository(ProjectTemplate)
     private templateRepo: Repository<ProjectTemplate>,
+    @Optional() private projectIntelligence?: ProjectIntelligenceService,
   ) {}
 
-  /**
+  /*
    * Get smart default suggestions for a new issue
+   * Now AI-powered with fallback to rule-based logic
    */
   async getIssueDefaults(
+    userId: string,
+    projectId: string,
+    context?: {
+      issueType?: string;
+      projectType?: string;
+      teamMembers?: string[];
+    },
+  ): Promise<SmartDefaultSuggestion[]> {
+    // Try AI-powered suggestions first
+    if (this.projectIntelligence?.isAvailable && context) {
+      try {
+        const aiDefaults = await this.projectIntelligence.generateIssueDefaults(
+          {
+            projectType: context.projectType || 'general',
+            issueType: context.issueType,
+            teamMembers: context.teamMembers || [],
+          },
+        );
+
+        if (aiDefaults) {
+          this.logger.debug('Using AI-generated issue defaults');
+          return this.convertAIToSuggestions(aiDefaults);
+        }
+      } catch {
+        this.logger.warn('AI issue defaults failed, falling back to rules');
+      }
+    }
+
+    // Fallback to existing rule-based logic
+    return this.getManualIssueDefaults(userId, projectId, context);
+  }
+
+  /**
+   * Convert AI defaults to suggestion format
+   */
+  private convertAIToSuggestions(
+    aiDefaults: IssueDefaults,
+  ): SmartDefaultSuggestion[] {
+    const suggestions: SmartDefaultSuggestion[] = [];
+
+    if (aiDefaults.suggestedType) {
+      suggestions.push({
+        field: 'type',
+        value: aiDefaults.suggestedType,
+        confidence: 0.85,
+        reason: `AI: ${aiDefaults.reasoning}`,
+      });
+    }
+
+    if (aiDefaults.suggestedPriority) {
+      suggestions.push({
+        field: 'priority',
+        value: aiDefaults.suggestedPriority,
+        confidence: 0.8,
+        reason: 'AI-optimized priority based on context',
+      });
+    }
+
+    if (aiDefaults.suggestedAssignee) {
+      suggestions.push({
+        field: 'assignee',
+        value: aiDefaults.suggestedAssignee,
+        confidence: 0.7,
+        reason: 'AI-suggested based on team patterns',
+      });
+    }
+
+    if (aiDefaults.estimatedDueDate) {
+      suggestions.push({
+        field: 'dueDate',
+        value: aiDefaults.estimatedDueDate,
+        confidence: 0.65,
+        reason: 'AI-estimated timeline',
+      });
+    }
+
+    return suggestions;
+  }
+
+  /**
+   * Original rule-based issue defaults (fallback)
+   */
+  private async getManualIssueDefaults(
     userId: string,
     projectId: string,
     context?: {
@@ -68,9 +157,7 @@ export class SmartDefaultsService {
 
     // Suggest assignee based on workload and patterns
     if (context?.teamMembers && context.teamMembers.length > 0) {
-      const assigneeSuggestion = await this.suggestAssignee(
-        userId,
-        projectId,
+      const assigneeSuggestion = this.suggestAssignee(
         context.teamMembers,
         behaviorPattern,
       );
@@ -122,7 +209,7 @@ export class SmartDefaultsService {
     const suggestions: SmartDefaultSuggestion[] = [];
 
     if (!preferences) {
-      return this.getBasicProjectDefaults(projectType);
+      return this.getBasicProjectDefaults();
     }
 
     // Suggest methodology based on user experience and preferences
@@ -144,16 +231,13 @@ export class SmartDefaultsService {
     }
 
     // Suggest team roles based on project type and user experience
-    const teamRolesSuggestion = this.suggestTeamRoles(projectType, preferences);
+    const teamRolesSuggestion = this.suggestTeamRoles(projectType);
     if (teamRolesSuggestion) {
       suggestions.push(teamRolesSuggestion);
     }
 
     // Suggest issue types based on project type and user preferences
-    const issueTypesSuggestion = this.suggestIssueTypes(
-      projectType,
-      preferences,
-    );
+    const issueTypesSuggestion = this.suggestIssueTypes(projectType);
     if (issueTypesSuggestion) {
       suggestions.push(issueTypesSuggestion);
     }
@@ -168,7 +252,7 @@ export class SmartDefaultsService {
     userId: string,
     behavior: {
       action: string;
-      context: Record<string, any>;
+      context: Record<string, unknown>;
       timestamp: Date;
     },
   ): Promise<void> {
@@ -202,7 +286,7 @@ export class SmartDefaultsService {
     await this.preferencesRepo.update(
       { userId },
       {
-        learningData,
+        learningData: learningData as object,
         updatedAt: new Date(),
       },
     );
@@ -257,12 +341,10 @@ export class SmartDefaultsService {
     return null;
   }
 
-  private async suggestAssignee(
-    userId: string,
-    projectId: string,
+  private suggestAssignee(
     teamMembers: string[],
     behaviorPattern: UserBehaviorPattern,
-  ): Promise<SmartDefaultSuggestion | null> {
+  ): SmartDefaultSuggestion | null {
     // Simple logic: suggest based on workload and patterns
     // In a real implementation, you'd query actual workload data
 
@@ -310,10 +392,7 @@ export class SmartDefaultsService {
   ): SmartDefaultSuggestion | null {
     // Calculate due date based on working hours and project type
     const baseDays = this.getBaseDueDateDays(projectType);
-    const workingDays = this.calculateWorkingDays(
-      baseDays,
-      behaviorPattern.mostActiveDays,
-    );
+    const workingDays = this.calculateWorkingDays(baseDays);
 
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + workingDays);
@@ -395,10 +474,7 @@ export class SmartDefaultsService {
     };
   }
 
-  private suggestTeamRoles(
-    projectType: string,
-    preferences: UserPreferences,
-  ): SmartDefaultSuggestion {
+  private suggestTeamRoles(projectType: string): SmartDefaultSuggestion {
     const roleMap: Record<string, string[]> = {
       software_development: [
         'Product Owner',
@@ -432,10 +508,7 @@ export class SmartDefaultsService {
     };
   }
 
-  private suggestIssueTypes(
-    projectType: string,
-    preferences: UserPreferences,
-  ): SmartDefaultSuggestion {
+  private suggestIssueTypes(projectType: string): SmartDefaultSuggestion {
     const typeMap: Record<string, string[]> = {
       software_development: ['Bug', 'Task', 'Story', 'Epic', 'Sub-task'],
       marketing: ['Campaign', 'Content', 'Design', 'Research', 'Analysis'],
@@ -471,9 +544,7 @@ export class SmartDefaultsService {
     ];
   }
 
-  private getBasicProjectDefaults(
-    projectType: string,
-  ): SmartDefaultSuggestion[] {
+  private getBasicProjectDefaults(): SmartDefaultSuggestion[] {
     return [
       {
         field: 'methodology',
@@ -490,7 +561,12 @@ export class SmartDefaultsService {
     ];
   }
 
-  private updateIssueCreationPattern(learningData: any, context: any): void {
+  private updateIssueCreationPattern(
+    learningData: {
+      issueCreationPattern?: Record<string, number>;
+    },
+    context: { type?: string },
+  ): void {
     if (!learningData.issueCreationPattern) {
       learningData.issueCreationPattern = {};
     }
@@ -500,7 +576,12 @@ export class SmartDefaultsService {
       (learningData.issueCreationPattern[type] || 0) + 1;
   }
 
-  private updateAssignmentPattern(learningData: any, context: any): void {
+  private updateAssignmentPattern(
+    learningData: {
+      assignmentPattern?: Record<string, number>;
+    },
+    context: { assignee?: string },
+  ): void {
     if (!learningData.assignmentPattern) {
       learningData.assignmentPattern = {};
     }
@@ -512,7 +593,12 @@ export class SmartDefaultsService {
     }
   }
 
-  private updateVelocityPattern(learningData: any, context: any): void {
+  private updateVelocityPattern(
+    learningData: {
+      velocityHistory?: { velocity: number; timestamp: Date }[];
+    },
+    context: { velocity?: number },
+  ): void {
     if (!learningData.velocityHistory) {
       learningData.velocityHistory = [];
     }
@@ -529,7 +615,12 @@ export class SmartDefaultsService {
     }
   }
 
-  private updateTimeTrackingPattern(learningData: any, context: any): void {
+  private updateTimeTrackingPattern(
+    learningData: {
+      timeTrackingPattern?: Record<string, number[]>;
+    },
+    context: { hours?: number; issueType?: string },
+  ): void {
     if (!learningData.timeTrackingPattern) {
       learningData.timeTrackingPattern = {};
     }
@@ -566,12 +657,104 @@ export class SmartDefaultsService {
     return baseDaysMap[projectType || 'default'] || 7;
   }
 
-  private calculateWorkingDays(
-    totalDays: number,
-    activeDays: number[],
-  ): number {
+  private calculateWorkingDays(totalDays: number): number {
     // Simple calculation - in reality, you'd account for weekends and holidays
     return totalDays;
+  }
+
+  /**
+   * Get full user preferences
+   */
+  async getUserPreferences(userId: string): Promise<UserPreferences> {
+    let preferences = await this.preferencesRepo.findOne({
+      where: { userId },
+    });
+
+    if (!preferences) {
+      // Create default preferences if not found
+      const defaultPreferences: Partial<UserPreferences> = {
+        userId,
+        preferences: {
+          ui: {
+            theme: 'auto',
+            sidebarCollapsed: false,
+            defaultView: 'board',
+            itemsPerPage: 20,
+            showAdvancedFeatures: true,
+            compactMode: false,
+          },
+          notifications: {
+            email: true,
+            push: true,
+            inApp: true,
+            frequency: 'immediate',
+            types: {
+              issueAssigned: true,
+              issueUpdated: true,
+              commentAdded: true,
+              sprintStarted: true,
+              sprintCompleted: true,
+              projectInvited: true,
+            },
+          },
+          work: {
+            workingHours: {
+              start: '09:00',
+              end: '17:00',
+              timezone: 'UTC',
+              workingDays: [1, 2, 3, 4, 5],
+            },
+            defaultSprintDuration: 14,
+            autoAssignToMe: false,
+            enableTimeTracking: true,
+            storyPointScale: [1, 2, 3, 5, 8, 13, 21],
+          },
+          learning: {
+            experienceLevel: 'intermediate',
+            workingStyle: 'mixed',
+            preferredIssueTypes: ['Task', 'Bug'],
+            preferredPriorities: ['Medium'],
+            commonAssigneePatterns: {},
+            averageSprintVelocity: 0,
+          },
+          onboarding: {
+            isCompleted: false,
+            currentStep: 'welcome',
+            completedSteps: [],
+            skippedSteps: [],
+          },
+        },
+      };
+      preferences = this.preferencesRepo.create(defaultPreferences);
+      await this.preferencesRepo.save(preferences);
+    }
+
+    return preferences;
+  }
+
+  /**
+   * Update user preferences
+   */
+  async updateUserPreferences(
+    userId: string,
+    updates: Partial<UserPreferences['preferences']>,
+  ): Promise<UserPreferences> {
+    const preferences = await this.getUserPreferences(userId);
+
+    // Deep merge updates
+    preferences.preferences = {
+      ...preferences.preferences,
+      ...updates,
+      ui: { ...preferences.preferences.ui, ...updates.ui },
+      notifications: {
+        ...preferences.preferences.notifications,
+        ...updates.notifications,
+      },
+      work: { ...preferences.preferences.work, ...updates.work },
+      learning: { ...preferences.preferences.learning, ...updates.learning },
+    };
+
+    return this.preferencesRepo.save(preferences);
   }
 
   private getDefaultBehaviorPattern(): UserBehaviorPattern {

@@ -13,7 +13,8 @@ import {
 import { OnboardingService } from '../services/onboarding.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
-import { RequirePermission } from '../../auth/decorators/require-permission.decorator';
+import { OnboardingStepStatus } from '../entities/onboarding-progress.entity';
+import { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
 
 @Controller('api/onboarding')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -21,31 +22,31 @@ export class OnboardingController {
   constructor(private onboardingService: OnboardingService) {}
 
   @Post('initialize')
-  @RequirePermission('projects:view')
-  async initializeOnboarding(
-    @Request() req: any,
+  @HttpCode(HttpStatus.OK)
+  async initialize(
+    @Request() req: AuthenticatedRequest,
     @Body()
-    body: {
+    context?: {
       projectType?: string;
       teamSize?: number;
       methodology?: string;
       userRole?: string;
     },
   ) {
-    const onboarding = await this.onboardingService.initializeOnboarding(
+    const progress = await this.onboardingService.initializeOnboarding(
       req.user.id,
-      body,
+      context,
     );
 
     return {
       success: true,
-      data: onboarding,
+      data: progress,
+      message: 'Onboarding initialized successfully',
     };
   }
 
   @Get('progress')
-  @RequirePermission('projects:view')
-  async getOnboardingProgress(@Request() req: any) {
+  async getProgress(@Request() req: AuthenticatedRequest) {
     const progress = await this.onboardingService.getOnboardingProgress(
       req.user.id,
     );
@@ -57,8 +58,7 @@ export class OnboardingController {
   }
 
   @Get('steps')
-  @RequirePermission('projects:view')
-  async getOnboardingSteps(@Request() req: any) {
+  async getSteps(@Request() req: AuthenticatedRequest) {
     const steps = await this.onboardingService.getOnboardingSteps(req.user.id);
 
     return {
@@ -68,34 +68,34 @@ export class OnboardingController {
   }
 
   @Put('step/:stepId')
-  @RequirePermission('projects:view')
-  async updateStepProgress(
-    @Request() req: any,
+  @HttpCode(HttpStatus.OK)
+  async updateStep(
+    @Request() req: AuthenticatedRequest,
     @Param('stepId') stepId: string,
     @Body()
     body: {
-      status: 'pending' | 'in_progress' | 'completed' | 'skipped';
-      data?: Record<string, any>;
+      status: OnboardingStepStatus;
+      data?: Record<string, unknown>;
     },
   ) {
     const progress = await this.onboardingService.updateStepProgress(
       req.user.id,
       stepId,
-      body.status as any,
+      body.status,
       body.data,
     );
 
     return {
       success: true,
       data: progress,
+      message: 'Step progress updated successfully',
     };
   }
 
   @Post('step/:stepId/skip')
   @HttpCode(HttpStatus.OK)
-  @RequirePermission('projects:view')
   async skipStep(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param('stepId') stepId: string,
     @Body() body: { reason?: string },
   ) {
@@ -108,13 +108,13 @@ export class OnboardingController {
     return {
       success: true,
       data: progress,
+      message: 'Step skipped successfully',
     };
   }
 
   @Post('complete')
   @HttpCode(HttpStatus.OK)
-  @RequirePermission('projects:view')
-  async completeOnboarding(@Request() req: any) {
+  async complete(@Request() req: AuthenticatedRequest) {
     const progress = await this.onboardingService.completeOnboarding(
       req.user.id,
     );
@@ -122,18 +122,19 @@ export class OnboardingController {
     return {
       success: true,
       data: progress,
+      message: 'Onboarding completed successfully! 🎉',
     };
   }
 
   @Post('reset')
   @HttpCode(HttpStatus.OK)
-  @RequirePermission('projects:view')
-  async resetOnboarding(@Request() req: any) {
+  async reset(@Request() req: AuthenticatedRequest) {
     const progress = await this.onboardingService.resetOnboarding(req.user.id);
 
     return {
       success: true,
       data: progress,
+      message: 'Onboarding reset successfully',
     };
   }
 }

@@ -5,11 +5,13 @@ import {
   PrimaryGeneratedColumn,
   Column,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Sprint } from './sprint.entity';
 import { Issue } from '../../issues/entities/issue.entity';
 
 @Entity({ name: 'sprint_issues' })
+@Index('IDX_sprint_issue_lookup', ['sprintId', 'issueId'])
 export class SprintIssue {
   @PrimaryGeneratedColumn('uuid')
   id: string;

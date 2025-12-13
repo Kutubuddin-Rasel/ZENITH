@@ -7,27 +7,100 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Attachment } from './entities/attachment.entity';
+import { AttachmentHistory } from './entities/attachment-history.entity';
 import { IssuesService } from '../issues/issues.service';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import { ReleasesService } from '../releases/releases.service';
-import { EpicsService } from '../epics/epics.service';
 import { SprintsService } from '../sprints/sprints.service';
 import { CommentsService } from '../comments/comments.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import { ProjectRole } from '../membership/enums/project-role.enum';
 
 @Injectable()
 export class AttachmentsService {
   constructor(
     @InjectRepository(Attachment)
     private repo: Repository<Attachment>,
+    @InjectRepository(AttachmentHistory)
+    private historyRepo: Repository<AttachmentHistory>,
     private issuesService: IssuesService,
     private membersService: ProjectMembersService,
     private releasesService: ReleasesService,
-    private epicsService: EpicsService,
     private sprintsService: SprintsService,
     private commentsService: CommentsService,
   ) {}
+
+  // History logging methods
+  private async logUpload(
+    attachment: Attachment,
+    userId: string,
+  ): Promise<void> {
+    const history = this.historyRepo.create({
+      projectId: attachment.projectId || '',
+      attachmentId: attachment.id,
+      filename: attachment.filename,
+      originalName: attachment.originalName || attachment.filename,
+      action: 'UPLOADED',
+      performedById: userId,
+      fileSize: attachment.fileSize,
+      mimeType: attachment.mimeType,
+      metadata: {
+        issueId: attachment.issueId,
+        releaseId: attachment.releaseId,
+        epicId: attachment.epicId,
+        sprintId: attachment.sprintId,
+        commentId: attachment.commentId,
+      },
+    });
+    await this.historyRepo.save(history);
+  }
+
+  private async logDelete(
+    attachment: Attachment,
+    userId: string,
+  ): Promise<void> {
+    const history = this.historyRepo.create({
+      projectId: attachment.projectId || '',
+      attachmentId: attachment.id,
+      filename: attachment.filename,
+      originalName: attachment.originalName || attachment.filename,
+      action: 'DELETED',
+      performedById: userId,
+      fileSize: attachment.fileSize,
+      mimeType: attachment.mimeType,
+      metadata: {
+        issueId: attachment.issueId,
+        releaseId: attachment.releaseId,
+        epicId: attachment.epicId,
+        sprintId: attachment.sprintId,
+        commentId: attachment.commentId,
+      },
+    });
+    await this.historyRepo.save(history);
+  }
+
+  async getHistory(
+    projectId: string,
+    userId: string,
+  ): Promise<AttachmentHistory[]> {
+    // Verify user is ProjectLead or Super-Admin
+    const role = await this.membersService.getUserRole(projectId, userId);
+    if (
+      role !== ProjectRole.PROJECT_LEAD &&
+      (role as unknown as string) !== 'Super-Admin'
+    ) {
+      throw new ForbiddenException(
+        'Only ProjectLead and Super-Admin can view attachment history',
+      );
+    }
+
+    return this.historyRepo.find({
+      where: { projectId },
+      relations: ['performedBy'],
+      order: { createdAt: 'DESC' },
+    });
+  }
 
   // Project-level attachments (general project files)
   async createForProject(
@@ -51,7 +124,9 @@ export class AttachmentsService {
       fileSize,
       mimeType,
     });
-    return this.repo.save(att);
+    const saved = await this.repo.save(att);
+    await this.logUpload(saved, uploaderId);
+    return saved;
   }
 
   async findAllForProject(
@@ -91,11 +166,14 @@ export class AttachmentsService {
     const role = await this.membersService.getUserRole(projectId, userId);
     if (
       att.uploaderId !== userId &&
-      role !== 'ProjectLead' &&
-      role !== 'Super-Admin'
+      role !== ProjectRole.PROJECT_LEAD &&
+      (role as unknown as string) !== 'Super-Admin'
     ) {
       throw new ForbiddenException('Cannot delete this attachment');
     }
+
+    // Log before deletion
+    await this.logDelete(att, userId);
 
     // Delete file from disk
     const filePath = path.join(process.cwd(), 'uploads', att.filename);
@@ -143,7 +221,7 @@ export class AttachmentsService {
     if (!att) throw new NotFoundException('Attachment not found');
     // only uploader or ProjectLead
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (att.uploaderId !== userId && role !== 'ProjectLead') {
+    if (att.uploaderId !== userId && role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Cannot delete this attachment');
     }
     await this.repo.remove(att);
@@ -202,7 +280,7 @@ export class AttachmentsService {
     const att = await this.repo.findOneBy({ id: attachmentId, issueId });
     if (!att) throw new NotFoundException('Attachment not found');
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (att.uploaderId !== userId && role !== 'ProjectLead') {
+    if (att.uploaderId !== userId && role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Cannot delete this attachment');
     }
     await this.repo.remove(att);
@@ -218,45 +296,7 @@ export class AttachmentsService {
     const att = await this.repo.findOneBy({ id: attachmentId, releaseId });
     if (!att) throw new NotFoundException('Attachment not found');
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (att.uploaderId !== userId && role !== 'ProjectLead') {
-      throw new ForbiddenException('Cannot delete this attachment');
-    }
-    await this.repo.remove(att);
-  }
-
-  // Epic attachments
-  async createForEpic(
-    projectId: string,
-    epicId: string,
-    uploaderId: string,
-    filename: string,
-    filepath: string,
-  ): Promise<Attachment> {
-    await this.epicsService.getEpic(projectId, epicId, uploaderId);
-    const att = this.repo.create({ epicId, uploaderId, filename, filepath });
-    return this.repo.save(att);
-  }
-
-  async findAllForEpic(
-    projectId: string,
-    epicId: string,
-    userId: string,
-  ): Promise<Attachment[]> {
-    await this.epicsService.getEpic(projectId, epicId, userId);
-    return this.repo.find({ where: { epicId } });
-  }
-
-  async removeForEpic(
-    projectId: string,
-    epicId: string,
-    attachmentId: string,
-    userId: string,
-  ): Promise<void> {
-    await this.epicsService.getEpic(projectId, epicId, userId);
-    const att = await this.repo.findOneBy({ id: attachmentId, epicId });
-    if (!att) throw new NotFoundException('Attachment not found');
-    const role = await this.membersService.getUserRole(projectId, userId);
-    if (att.uploaderId !== userId && role !== 'ProjectLead') {
+    if (att.uploaderId !== userId && role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Cannot delete this attachment');
     }
     await this.repo.remove(att);
@@ -297,7 +337,7 @@ export class AttachmentsService {
     const att = await this.repo.findOneBy({ id: attachmentId, sprintId });
     if (!att) throw new NotFoundException('Attachment not found');
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (att.uploaderId !== userId && role !== 'ProjectLead') {
+    if (att.uploaderId !== userId && role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Cannot delete this attachment');
     }
     await this.repo.remove(att);
@@ -356,7 +396,7 @@ export class AttachmentsService {
     const att = await this.repo.findOneBy({ id: attachmentId, commentId });
     if (!att) throw new NotFoundException('Attachment not found');
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (att.uploaderId !== userId && role !== 'ProjectLead') {
+    if (att.uploaderId !== userId && role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Cannot delete this attachment');
     }
     await this.repo.remove(att);

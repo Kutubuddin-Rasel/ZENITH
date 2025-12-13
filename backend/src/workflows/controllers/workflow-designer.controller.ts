@@ -3,6 +3,7 @@ import { WorkflowDesignerService } from '../services/workflow-designer.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermission } from '../../auth/decorators/require-permission.decorator';
+import { WorkflowDefinition } from '../entities/workflow.entity';
 
 @Controller('api/workflow-designer')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -40,7 +41,7 @@ export class WorkflowDesignerController {
 
   @Post('validate')
   @RequirePermission('projects:edit')
-  validateWorkflow(@Body() body: { definition: any }) {
+  validateWorkflow(@Body() body: { definition: WorkflowDefinition }) {
     try {
       const validation = this.workflowDesignerService.validateWorkflow(
         body.definition,
@@ -60,7 +61,13 @@ export class WorkflowDesignerController {
 
   @Post('simulate')
   @RequirePermission('projects:edit')
-  async simulateWorkflow(@Body() body: { definition: any; testData?: any }) {
+  async simulateWorkflow(
+    @Body()
+    body: {
+      definition: WorkflowDefinition;
+      testData?: Record<string, unknown>;
+    },
+  ) {
     try {
       const result = await this.workflowDesignerService.simulateWorkflow(
         body.definition,
@@ -81,7 +88,7 @@ export class WorkflowDesignerController {
 
   @Post('generate-code')
   @RequirePermission('projects:edit')
-  generateWorkflowCode(@Body() body: { definition: any }) {
+  generateWorkflowCode(@Body() body: { definition: WorkflowDefinition }) {
     try {
       const code = this.workflowDesignerService.generateWorkflowCode(
         body.definition,

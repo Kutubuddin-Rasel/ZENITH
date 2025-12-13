@@ -6,7 +6,8 @@
 @font-face {
   font-family: 'Inter';
   font-style: normal;
-  font-weight: 100 900; /* Variable font */
+  font-weight: 100 900;
+  /* Variable font */
   font-display: swap;
   src: url('/fonts/inter-var.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
@@ -45,64 +46,72 @@ body {
 
 /* Typography Scale */
 @layer base {
-  h1, .h1 {
+
+  h1,
+  .h1 {
     @apply text-3xl font-bold leading-tight tracking-tight text-neutral-900 dark:text-neutral-100;
   }
-  
-  h2, .h2 {
+
+  h2,
+  .h2 {
     @apply text-2xl font-semibold leading-tight tracking-tight text-neutral-900 dark:text-neutral-100;
   }
-  
-  h3, .h3 {
+
+  h3,
+  .h3 {
     @apply text-xl font-semibold leading-tight text-neutral-900 dark:text-neutral-100;
   }
-  
-  h4, .h4 {
+
+  h4,
+  .h4 {
     @apply text-lg font-medium leading-tight text-neutral-900 dark:text-neutral-100;
   }
-  
-  h5, .h5 {
+
+  h5,
+  .h5 {
     @apply text-base font-medium leading-tight text-neutral-900 dark:text-neutral-100;
   }
-  
-  h6, .h6 {
+
+  h6,
+  .h6 {
     @apply text-sm font-medium leading-tight text-neutral-900 dark:text-neutral-100;
   }
-  
-  p, .body {
+
+  p,
+  .body {
     @apply text-base leading-relaxed text-neutral-700 dark:text-neutral-300;
   }
-  
+
   .body-sm {
     @apply text-sm leading-relaxed text-neutral-600 dark:text-neutral-400;
   }
-  
+
   .body-xs {
     @apply text-xs leading-relaxed text-neutral-500 dark:text-neutral-500;
   }
-  
+
   .caption {
     @apply text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide;
   }
-  
+
   .label {
     @apply text-sm font-medium text-neutral-700 dark:text-neutral-300;
   }
-  
+
   .label-sm {
     @apply text-xs font-medium text-neutral-600 dark:text-neutral-400;
   }
-  
+
   /* Link styles */
   a {
     @apply text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-200;
   }
-  
+
   /* Code styles */
   code {
     @apply text-sm font-mono bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 px-1.5 py-0.5 rounded;
   }
-  
+
   pre {
     @apply text-sm font-mono bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 p-4 rounded-lg overflow-x-auto;
   }
@@ -110,50 +119,94 @@ body {
 
 /* Utility Classes */
 @layer utilities {
+
   /* Text truncation */
   .text-truncate {
     @apply overflow-hidden text-ellipsis whitespace-nowrap;
   }
-  
+
   .line-clamp-1 {
     overflow: hidden;
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 1;
   }
-  
+
   .line-clamp-2 {
     overflow: hidden;
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
   }
-  
+
   .line-clamp-3 {
     overflow: hidden;
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
   }
-  
+
   /* Font weights */
-  .font-thin { font-weight: 100; }
-  .font-extralight { font-weight: 200; }
-  .font-light { font-weight: 300; }
-  .font-normal { font-weight: 400; }
-  .font-medium { font-weight: 500; }
-  .font-semibold { font-weight: 600; }
-  .font-bold { font-weight: 700; }
-  .font-extrabold { font-weight: 800; }
-  .font-black { font-weight: 900; }
-  
+  .font-thin {
+    font-weight: 100;
+  }
+
+  .font-extralight {
+    font-weight: 200;
+  }
+
+  .font-light {
+    font-weight: 300;
+  }
+
+  .font-normal {
+    font-weight: 400;
+  }
+
+  .font-medium {
+    font-weight: 500;
+  }
+
+  .font-semibold {
+    font-weight: 600;
+  }
+
+  .font-bold {
+    font-weight: 700;
+  }
+
+  .font-extrabold {
+    font-weight: 800;
+  }
+
+  .font-black {
+    font-weight: 900;
+  }
+
   /* Letter spacing */
-  .tracking-tighter { letter-spacing: -0.05em; }
-  .tracking-tight { letter-spacing: -0.025em; }
-  .tracking-normal { letter-spacing: 0em; }
-  .tracking-wide { letter-spacing: 0.025em; }
-  .tracking-wider { letter-spacing: 0.05em; }
-  .tracking-widest { letter-spacing: 0.1em; }
+  .tracking-tighter {
+    letter-spacing: -0.05em;
+  }
+
+  .tracking-tight {
+    letter-spacing: -0.025em;
+  }
+
+  .tracking-normal {
+    letter-spacing: 0em;
+  }
+
+  .tracking-wide {
+    letter-spacing: 0.025em;
+  }
+
+  .tracking-wider {
+    letter-spacing: 0.05em;
+  }
+
+  .tracking-widest {
+    letter-spacing: 0.1em;
+  }
 }
 
 /* Project avatar pop-in animation */
@@ -162,6 +215,7 @@ body {
   transform: scale(0.75);
   animation: profilePop 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
+
 @keyframes profilePop {
   to {
     opacity: 1;
@@ -172,6 +226,7 @@ body {
 .dnd-anim-row {
   transition: box-shadow 0.2s, transform 0.2s, background 0.2s;
 }
+
 .dnd-anim-row:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: -2px;
@@ -184,6 +239,7 @@ body {
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -195,6 +251,7 @@ body {
     opacity: 0;
     transform: translateX(-30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -206,6 +263,7 @@ body {
     opacity: 0;
     transform: translateX(30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -217,6 +275,7 @@ body {
     opacity: 0;
     transform: scale(0.9);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -224,9 +283,12 @@ body {
 }
 
 @keyframes pulseGlow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
   }
+
   50% {
     box-shadow: 0 0 40px rgba(59, 130, 246, 0.6);
   }
@@ -236,15 +298,19 @@ body {
   0% {
     background-position: -200px 0;
   }
+
   100% {
     background-position: calc(200px + 100%) 0;
   }
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(-10px);
   }
@@ -254,6 +320,7 @@ body {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -358,8 +425,15 @@ body {
 }
 
 @keyframes gradient-x {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 .animate-gradient-x {
@@ -367,8 +441,15 @@ body {
 }
 
 @keyframes confetti {
-  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
 }
 
 .animate-confetti {
@@ -379,16 +460,24 @@ body {
   .animate-drag-bounce {
     animation: drag-bounce 0.2s ease-out;
   }
-  
+
   .animate-drag-drop {
     animation: drag-drop 0.2s ease-out;
   }
 }
 
 @keyframes drag-bounce {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 .animate-drag-bounce {
@@ -396,8 +485,15 @@ body {
 }
 
 @keyframes drag-drop {
-  0% { transform: scale(0.95); opacity: 0.5; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0.95);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .animate-drag-drop {
@@ -410,7 +506,27 @@ body {
 }
 
 @keyframes gradient-move {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* CMDK OVERLAY & ANIMATIONS */
+[cmdk-dialog] {
+    z-index: 9999;
+}
+[cmdk-overlay] {
+    position: fixed;
+    inset: 0;
+    backdrop-filter: blur(4px);
+    background-color: rgba(0, 0, 0, 0.4);
+    z-index: 9998;
 }

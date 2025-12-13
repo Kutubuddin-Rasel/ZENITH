@@ -8,6 +8,7 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { SprintIssue } from './sprint-issue.entity';
@@ -20,6 +21,12 @@ export enum SprintStatus {
 }
 
 @Entity({ name: 'sprints' })
+@Index('IDX_sprint_project_id', ['projectId'])
+@Index('IDX_sprint_status', ['status'])
+@Index('IDX_sprint_is_active', ['isActive'])
+@Index('IDX_sprint_start_date', ['startDate'])
+@Index('IDX_sprint_end_date', ['endDate'])
+@Index('IDX_sprint_active_project', ['projectId', 'status'])
 export class Sprint {
   @PrimaryGeneratedColumn('uuid')
   id: string;

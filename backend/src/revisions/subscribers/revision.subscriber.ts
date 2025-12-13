@@ -7,55 +7,25 @@ import {
   UpdateEvent,
   RemoveEvent,
   DataSource,
+  ObjectLiteral,
 } from 'typeorm';
+import { Project } from '../../projects/entities/project.entity';
+import { Issue } from '../../issues/entities/issue.entity';
+import { Sprint } from '../../sprints/entities/sprint.entity';
+import { Board } from '../../boards/entities/board.entity';
+import { Release } from '../../releases/entities/release.entity';
+import { Label } from '../../taxonomy/entities/label.entity';
+import { Component } from '../../taxonomy/entities/component.entity';
 import { Revision, EntityType } from '../entities/revision.entity';
 
-const WATCHED: { target: () => any; type: EntityType }[] = [
-  {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    target: () => require('../../projects/entities/project.entity').Project,
-    type: 'Project',
-  },
-  {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    target: () => require('../../issues/entities/issue.entity').Issue,
-    type: 'Issue',
-  },
-  {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    target: () => require('../../sprints/entities/sprint.entity').Sprint,
-    type: 'Sprint',
-  },
-  {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    target: () => require('../../boards/entities/board.entity').Board,
-    type: 'Board',
-  },
-  {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    target: () => require('../../releases/entities/release.entity').Release,
-    type: 'Release',
-  },
-  {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    target: () => require('../../taxonomy/entities/label.entity').Label,
-    type: 'Label',
-  },
-  {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    target: () => require('../../taxonomy/entities/component.entity').Component,
-    type: 'Component',
-  },
-  {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    target: () => require('../../epics/entities/epic.entity').Epic,
-    type: 'Epic',
-  },
-  {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    target: () => require('../../epics/entities/story.entity').Story,
-    type: 'Story',
-  },
+const WATCHED: { target: () => { name: string }; type: EntityType }[] = [
+  { target: () => Project, type: 'Project' },
+  { target: () => Issue, type: 'Issue' },
+  { target: () => Sprint, type: 'Sprint' },
+  { target: () => Board, type: 'Board' },
+  { target: () => Release, type: 'Release' },
+  { target: () => Label, type: 'Label' },
+  { target: () => Component, type: 'Component' },
 ];
 
 @EventSubscriber()
@@ -75,22 +45,25 @@ export class RevisionSubscriber implements EntitySubscriberInterface {
     return entry ? entry.type : null;
   }
 
-  async afterInsert(event: InsertEvent<any>) {
+  async afterInsert(event: InsertEvent<ObjectLiteral>) {
     await this.record(event, 'CREATE', event.entity);
   }
-  async beforeUpdate(event: UpdateEvent<any>) {
+  async beforeUpdate(event: UpdateEvent<ObjectLiteral>) {
     // record snapshot before update
     await this.record(event, 'UPDATE', event.databaseEntity);
   }
-  async beforeRemove(event: RemoveEvent<any>) {
+  async beforeRemove(event: RemoveEvent<ObjectLiteral>) {
     // record snapshot before delete
     await this.record(event, 'DELETE', event.databaseEntity);
   }
 
   private async record(
-    event: InsertEvent<any> | UpdateEvent<any> | RemoveEvent<any>,
+    event:
+      | InsertEvent<ObjectLiteral>
+      | UpdateEvent<ObjectLiteral>
+      | RemoveEvent<ObjectLiteral>,
     action: 'CREATE' | 'UPDATE' | 'DELETE',
-    snapshotEntity: any,
+    snapshotEntity: ObjectLiteral,
   ) {
     const entityName = event.metadata.name;
     const entityType = this.getEntityType(entityName);
@@ -99,7 +72,7 @@ export class RevisionSubscriber implements EntitySubscriberInterface {
     const revRepo = this.dataSource.getRepository(Revision);
     const revision = revRepo.create({
       entityType,
-      entityId: snapshotEntity.id,
+      entityId: (snapshotEntity as { id: string }).id,
       snapshot: snapshotEntity,
       action,
       // assume you attached userId to the query runner context:

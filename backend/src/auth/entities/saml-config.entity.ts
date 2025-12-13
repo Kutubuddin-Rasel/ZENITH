@@ -114,6 +114,13 @@ export class SAMLConfig {
   @Column({ type: 'timestamp', nullable: true })
   lastUsedAt: Date;
 
+  @Column({ nullable: true })
+  organizationId: string;
+
+  @ManyToOne('Organization', { nullable: true })
+  @JoinColumn({ name: 'organizationId' })
+  organization: any;
+
   @Column({ default: 0 })
   usageCount: number;
 }

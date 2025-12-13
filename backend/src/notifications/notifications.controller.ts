@@ -6,13 +6,19 @@ import {
   Param,
   UseGuards,
   Request,
+  Query,
+  Body,
+  Post,
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
-import { NotificationType } from './entities/notification.entity';
+import {
+  NotificationType,
+  NotificationStatus,
+} from './entities/notification.entity';
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -21,9 +27,14 @@ export class NotificationsController {
 
   /** Get current user's unread notifications */
   @RequirePermission('notifications:view')
+  /** Get current user's unread notifications */
+  @RequirePermission('notifications:view')
   @Get()
-  async list(@Request() req: { user: JwtRequestUser }) {
-    return this.svc.listForUser(req.user.userId);
+  async list(
+    @Request() req: { user: JwtRequestUser },
+    @Query('status') status?: NotificationStatus,
+  ) {
+    return this.svc.listForUser(req.user.userId, status);
   }
 
   /** Get current user's all notifications (both read and unread) */
@@ -33,33 +44,49 @@ export class NotificationsController {
     return this.svc.listAllForUser(req.user.userId);
   }
 
-  /** Mark one as read */
+  /** Mark one as read (Legacy) */
   @RequirePermission('notifications:update')
   @Patch(':id/read')
   async markRead(
     @Param('id') id: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.markRead(req.user.userId, id);
+    await this.svc.markStatus(req.user.userId, id, NotificationStatus.DONE);
     return { message: 'Marked read' };
   }
 
-  /** Mark all as read */
+  /** Update Notification Status (Inbox Zero) */
+  @RequirePermission('notifications:update')
+  @Patch(':id/status')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: NotificationStatus,
+    @Request() req: { user: JwtRequestUser },
+  ) {
+    await this.svc.markStatus(req.user.userId, id, status);
+    return { message: `Status updated to ${status}` };
+  }
+
+  /** Mark all as read (Legacy) */
   @RequirePermission('notifications:update')
   @Patch('read/all')
   async markAllRead(@Request() req: { user: JwtRequestUser }) {
-    await this.svc.markAllRead(req.user.userId);
+    await this.svc.archiveAll(req.user.userId);
     return { message: 'Marked all as read' };
+  }
+
+  /** Inbox Zero: Archive all unread */
+  @RequirePermission('notifications:update')
+  @Post('archive-all')
+  async archiveAll(@Request() req: { user: JwtRequestUser }) {
+    await this.svc.archiveAll(req.user.userId);
+    return { message: 'All notifications archived' };
   }
 
   /** Test endpoint to create a notification */
   @RequirePermission('notifications:create')
   @Get('test')
   async testNotification(@Request() req: { user: JwtRequestUser }) {
-    console.log(
-      '🧪 Test notification endpoint called for user:',
-      req.user.userId,
-    );
     await this.svc.createMany(
       [req.user.userId],
       'This is a test notification',

@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder, ObjectLiteral } from 'typeorm';
+import { SelectQueryBuilder, ObjectLiteral } from 'typeorm';
 import { CacheService } from '../../cache/cache.service';
 
 export interface QueryOptions {
@@ -9,8 +8,8 @@ export interface QueryOptions {
   cacheKey?: string;
   select?: string[];
   relations?: string[];
-  where?: any;
-  order?: any;
+  where?: Record<string, unknown> | Record<string, unknown>[];
+  order?: Record<string, 'ASC' | 'DESC'>;
   limit?: number;
   offset?: number;
 }
@@ -49,12 +48,6 @@ export class QueryOptimizerService {
       useCache = true,
       cacheTtl = 300, // 5 minutes default
       cacheKey,
-      select,
-      relations,
-      where,
-      order,
-      limit,
-      offset,
     } = options;
 
     // Build cache key if not provided
@@ -111,7 +104,7 @@ export class QueryOptimizerService {
     queryBuilder.select('COUNT(*)', 'count');
 
     const startTime = Date.now();
-    const result = await queryBuilder.getRawOne();
+    const result = (await queryBuilder.getRawOne()) as { count: string };
     const executionTime = Date.now() - startTime;
 
     this.logger.debug(`Count query executed in ${executionTime}ms`);
@@ -193,7 +186,7 @@ export class QueryOptimizerService {
     // Apply ordering
     if (order) {
       Object.entries(order).forEach(([field, direction]) => {
-        queryBuilder.addOrderBy(field, direction as 'ASC' | 'DESC');
+        queryBuilder.addOrderBy(field, direction);
       });
     }
 
@@ -263,7 +256,7 @@ export class QueryOptimizerService {
   /**
    * Get query execution plan (PostgreSQL specific)
    */
-  async getQueryPlan<T extends ObjectLiteral>(
+  getQueryPlan<T extends ObjectLiteral>(
     queryBuilder: SelectQueryBuilder<T>,
   ): Promise<any> {
     const sql = queryBuilder.getSql();
@@ -271,11 +264,11 @@ export class QueryOptimizerService {
 
     // This would need to be implemented with raw SQL execution
     // For now, return the SQL for analysis
-    return {
+    return Promise.resolve({
       sql: sql,
       parameters: parameters,
       // In a real implementation, you would execute EXPLAIN ANALYZE here
-    };
+    });
   }
 
   /**

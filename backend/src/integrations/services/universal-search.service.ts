@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { SearchIndex } from '../entities/search-index.entity';
+import { SearchIndex, SearchMetadata } from '../entities/search-index.entity';
 import { Integration } from '../entities/integration.entity';
 
 export interface SearchQuery {
@@ -243,7 +243,7 @@ export class UniversalSearchService {
 
   async indexExternalContent(
     integrationId: string,
-    content: any[],
+    content: Record<string, unknown>[],
   ): Promise<void> {
     try {
       const integration = await this.integrationRepo.findOne({
@@ -256,40 +256,30 @@ export class UniversalSearchService {
 
       for (const item of content) {
         const searchContent =
-          `${((item as Record<string, unknown>).title as string) || ''} ${((item as Record<string, unknown>).content as string) || ''}`.toLowerCase();
+          `${(item.title as string) || ''} ${(item.content as string) || ''}`.toLowerCase();
 
         const existing = await this.searchIndexRepo.findOne({
           where: {
             integrationId,
-            contentType: (item as Record<string, unknown>).type as string,
+            contentType: item.type as string,
           },
         });
 
         if (existing) {
-          existing.title =
-            ((item as Record<string, unknown>).title as string) || '';
-          existing.content =
-            ((item as Record<string, unknown>).content as string) || '';
+          existing.title = (item.title as string) || '';
+          existing.content = (item.content as string) || '';
           existing.metadata =
-            ((item as Record<string, unknown>).metadata as Record<
-              string,
-              unknown
-            >) || {};
+            (item.metadata as SearchMetadata) || existing.metadata || {};
           existing.searchVector = searchContent;
           existing.updatedAt = new Date();
           await this.searchIndexRepo.save(existing);
         } else {
           const searchIndex = this.searchIndexRepo.create({
             integrationId,
-            contentType: (item as Record<string, unknown>).type as string,
-            title: ((item as Record<string, unknown>).title as string) || '',
-            content:
-              ((item as Record<string, unknown>).content as string) || '',
-            metadata:
-              ((item as Record<string, unknown>).metadata as Record<
-                string,
-                unknown
-              >) || {},
+            contentType: item.type as string,
+            title: (item.title as string) || '',
+            content: (item.content as string) || '',
+            metadata: (item.metadata as Record<string, unknown>) || {},
             searchVector: searchContent,
           });
           await this.searchIndexRepo.save(searchIndex);
@@ -328,7 +318,13 @@ export class UniversalSearchService {
     }
   }
 
-  async getSearchAnalytics(days = 30): Promise<any> {
+  async getSearchAnalytics(days = 30): Promise<{
+    period: string;
+    totalSearches: number;
+    bySource: Record<string, number>;
+    byContentType: Record<string, number>;
+    details: Record<string, unknown>[];
+  } | null> {
     try {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
@@ -361,8 +357,8 @@ export class UniversalSearchService {
             acc[source] += parseInt(item.count as string);
             return acc;
           },
-          {},
-        ),
+          {} as Record<string, number>,
+        ) as Record<string, number>,
         byContentType: analyticsData.reduce(
           (acc: Record<string, number>, item: Record<string, unknown>) => {
             const contentType = item.contentType as string;
@@ -370,8 +366,8 @@ export class UniversalSearchService {
             acc[contentType] += parseInt(item.count as string);
             return acc;
           },
-          {},
-        ),
+          {} as Record<string, number>,
+        ) as Record<string, number>,
         details: analyticsData,
       };
     } catch (error) {

@@ -1,12 +1,12 @@
 "use client";
 import React from 'react';
-import Card from '../../../../../components/Card';
-import { CardHeader, CardContent, CardTitle } from '../../../../../components/CardComponents';
-import Button from '../../../../../components/Button';
-import Input from '../../../../../components/Input';
-import Label from '../../../../../components/Label';
-import Switch from '../../../../../components/Switch';
-import Alert, { AlertDescription } from '../../../../../components/Alert';
+import Card from '@/components/Card';
+import { CardHeader, CardContent, CardTitle } from '@/components/CardComponents';
+import Button from '@/components/Button';
+import Input from '@/components/Input';
+import Label from '@/components/Label';
+import Switch from '@/components/Switch';
+import Alert, { AlertDescription } from '@/components/Alert';
 import { 
   Shield, 
   Clock, 
@@ -16,7 +16,7 @@ import {
   Info,
   Settings
 } from 'lucide-react';
-import AccessControlManagement from '../../../../../components/AccessControlManagement';
+import AccessControlManagement from '@/components/AccessControlManagement';
 
 export default function AccessControlSettingsPage() {
   const [settings, setSettings] = React.useState({

@@ -1,8 +1,8 @@
 "use client";
 import React from 'react';
-import Sidebar from '../../../components/Sidebar';
-import Topbar from '../../../components/Topbar';
-import ProtectedRoute from '../../../components/ProtectedRoute';
+import Sidebar from '@/components/Sidebar';
+import Topbar from '@/components/Topbar';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 type LayoutParams = { id: string };
 

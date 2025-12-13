@@ -1,0 +1,128 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { RevisionsService } from '../../revisions/revisions.service';
+import { Revision } from '../../revisions/entities/revision.entity';
+
+export interface CycleTimeMetric {
+  issueId: string;
+  issueTitle: string;
+  cycleTimeHours: number;
+  completedAt: Date;
+}
+
+interface CycleTimeIssueRow {
+  id: string;
+  title: string;
+  status: string;
+  updatedAt: Date;
+}
+
+@Injectable()
+export class CycleTimeService {
+  private readonly logger = new Logger(CycleTimeService.name);
+
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly revisionsService: RevisionsService,
+  ) {}
+
+  async calculateProjectCycleTime(
+    projectId: string,
+    usage: 'summary' | 'detailed' = 'summary',
+    daysLookback = 30,
+  ) {
+    // 1. Fetch issues that are 'Done' within the lookback period
+
+    const issues: CycleTimeIssueRow[] = await this.dataSource.query(
+      `
+      SELECT id, title, status, "updatedAt"
+      FROM issues
+      WHERE "projectId" = $1
+      AND status = 'Done'
+      AND "updatedAt" > NOW() - INTERVAL '${Number(daysLookback)} days'
+      `,
+      [projectId],
+    );
+
+    if (issues.length === 0) {
+      return {
+        averageDays: 0,
+        trend: 'flat',
+        totalIssues: 0,
+        data: [],
+      };
+    }
+
+    const metrics: CycleTimeMetric[] = [];
+
+    // 2. Calculate Cycle Time for each issue
+    for (const issue of issues) {
+      try {
+        const revisions: Revision[] = await this.revisionsService.list(
+          'Issue',
+          issue.id,
+        );
+
+        // Find when it moved to Done (Latest transition to Done)
+        const doneRev = revisions.find(
+          (r) => (r.snapshot as { status?: string })?.status === 'Done',
+        );
+        const doneTime = doneRev
+          ? new Date(doneRev.createdAt)
+          : new Date(issue.updatedAt);
+
+        // Find Start Time (First transition to In Progress/Active)
+        let startTime: Date | null = null;
+
+        // Revisions are DESC. Iterate ASC to find first transition from Backlog/Todo
+        const ascendingRevs = [...revisions].reverse();
+
+        for (const rev of ascendingRevs) {
+          const oldStatus = (rev.snapshot as { status?: string })?.status;
+          if (
+            (oldStatus === 'Backlog' || oldStatus === 'To Do' || !oldStatus) &&
+            rev.action === 'UPDATE'
+          ) {
+            startTime = new Date(rev.createdAt);
+            break;
+          }
+        }
+
+        if (!startTime) {
+          // Default 1 hour if valid history missing
+          startTime = new Date(doneTime.getTime() - 1000 * 60 * 60);
+        }
+
+        const diffMs = doneTime.getTime() - startTime.getTime();
+        const cycleTimeHours = diffMs / (1000 * 60 * 60);
+
+        metrics.push({
+          issueId: issue.id,
+          issueTitle: issue.title,
+          cycleTimeHours: Math.max(0, cycleTimeHours),
+          completedAt: doneTime,
+        });
+      } catch (err: any) {
+        this.logger.warn(
+          `Failed to calc cycle time for issue ` + issue.id,
+          err,
+        );
+      }
+    }
+
+    if (metrics.length === 0)
+      return { averageDays: 0, totalIssues: 0, trend: 'flat', data: [] };
+
+    // 3. Aggregate
+    const totalHours = metrics.reduce((sum, m) => sum + m.cycleTimeHours, 0);
+    const averageHours = totalHours / metrics.length;
+    const averageDays = parseFloat((averageHours / 24).toFixed(2));
+
+    return {
+      averageDays,
+      totalIssues: metrics.length,
+      trend: averageDays < 3 ? 'down' : 'up', // Mock trend logic
+      data: usage === 'detailed' ? metrics : [],
+    };
+  }
+}

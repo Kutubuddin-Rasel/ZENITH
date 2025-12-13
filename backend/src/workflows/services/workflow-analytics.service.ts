@@ -7,7 +7,10 @@ import {
   ExecutionStatus,
 } from '../entities/workflow-execution.entity';
 import { AutomationRule } from '../entities/automation-rule.entity';
-import { WorkflowTemplate } from '../entities/workflow-template.entity';
+import {
+  WorkflowTemplate,
+  WorkflowTemplateStatus,
+} from '../entities/workflow-template.entity';
 
 export interface WorkflowPerformanceMetrics {
   workflowId: string;
@@ -440,7 +443,9 @@ export class WorkflowAnalyticsService {
 
     // Top templates
     const topTemplates = templates
-      .filter((t) => t.isPublic && t.status === 'published')
+      .filter(
+        (t) => t.isPublic && t.status === WorkflowTemplateStatus.PUBLISHED,
+      )
       .sort((a, b) => b.usageCount - a.usageCount)
       .slice(0, 10)
       .map((template) => ({

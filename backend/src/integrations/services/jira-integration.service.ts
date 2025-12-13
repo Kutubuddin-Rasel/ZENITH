@@ -2,8 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Integration, IntegrationType } from '../entities/integration.entity';
-import { ExternalData } from '../entities/external-data.entity';
+import { ExternalData, MappedData } from '../entities/external-data.entity';
 import { SearchIndex } from '../entities/search-index.entity';
+import { RateLimitService } from './rate-limit.service';
+import { TokenManagerService } from './token-manager.service';
+import { EncryptionService } from '../../common/services/encryption.service';
+import { BaseIntegrationService } from './base-integration.service';
 
 export interface JiraIssue {
   id: string;
@@ -91,18 +95,42 @@ export interface JiraWebhookPayload {
   };
 }
 
+import { UsersService } from '../../users/users.service';
+import { IssuesService } from '../../issues/issues.service';
+import {
+  IssuePriority,
+  IssueType,
+  IssueStatus,
+} from '../../issues/entities/issue.entity';
+
 @Injectable()
-export class JiraIntegrationService {
-  private readonly logger = new Logger(JiraIntegrationService.name);
+export class JiraIntegrationService extends BaseIntegrationService {
+  protected readonly logger = new Logger(JiraIntegrationService.name);
+  protected readonly source = 'jira';
+  private readonly jiraApiBase = 'https://api.atlassian.com/ex/jira'; // Placeholder base, usually dynamically constructed with cloudId
 
   constructor(
     @InjectRepository(Integration)
-    private integrationRepo: Repository<Integration>,
+    integrationRepo: Repository<Integration>,
     @InjectRepository(ExternalData)
-    private externalDataRepo: Repository<ExternalData>,
+    externalDataRepo: Repository<ExternalData>,
     @InjectRepository(SearchIndex)
-    private searchIndexRepo: Repository<SearchIndex>,
-  ) {}
+    searchIndexRepo: Repository<SearchIndex>,
+    rateLimitService: RateLimitService,
+    tokenManagerService: TokenManagerService,
+    encryptionService: EncryptionService,
+    private readonly usersService: UsersService,
+    private readonly issuesService: IssuesService,
+  ) {
+    super(
+      integrationRepo,
+      externalDataRepo,
+      searchIndexRepo,
+      rateLimitService,
+      tokenManagerService,
+      encryptionService,
+    );
+  }
 
   async syncProjects(integrationId: string): Promise<JiraProject[]> {
     try {
@@ -143,7 +171,16 @@ export class JiraIntegrationService {
               projectTypeKey?: string;
               projectCategory?: { name: string };
             };
-            syncedProjects.push(project);
+            syncedProjects.push({
+              ...project,
+              description: project.description || '',
+              projectTypeKey: project.projectTypeKey || '',
+              lead: project.lead
+                ? { displayName: project.lead.displayName, emailAddress: '' }
+                : { displayName: '', emailAddress: '' },
+              avatarUrls: project.avatarUrls || { '48x48': '' },
+              projectCategory: project.projectCategory ?? null,
+            });
             await this.storeExternalData(
               integrationId,
               'project',
@@ -221,7 +258,41 @@ export class JiraIntegrationService {
       const syncedIssues: JiraIssue[] = [];
 
       for (const issue of issues) {
-        syncedIssues.push(issue.fields);
+        // Map to proper JiraIssue structure
+        syncedIssues.push({
+          id: issue.id,
+          key: issue.key,
+          summary: issue.fields.summary,
+          description: issue.fields.description || '',
+          status: {
+            name: issue.fields.status.name,
+            statusCategory: { name: '' },
+          },
+          priority: issue.fields.priority || { name: 'Medium' },
+          issueType: {
+            name: issue.fields.issuetype.name,
+            iconUrl: '',
+          },
+          assignee: issue.fields.assignee
+            ? {
+                displayName: issue.fields.assignee.displayName,
+                emailAddress: '',
+                avatarUrls: { '48x48': '' },
+              }
+            : null,
+          reporter: {
+            displayName: issue.fields.reporter?.displayName || '',
+            emailAddress: '',
+            avatarUrls: { '48x48': '' },
+          },
+          created: '',
+          updated: '',
+          resolution: null,
+          labels: issue.fields.labels || [],
+          components: issue.fields.components || [],
+          fixVersions: issue.fields.fixVersions || [],
+          customFields: {},
+        });
         await this.storeExternalData(integrationId, 'issue', issue.id, {
           ...issue.fields,
           id: issue.id,
@@ -241,18 +312,97 @@ export class JiraIntegrationService {
     }
   }
 
+  private mapJiraPriorityToZenith(jiraPriority: string): IssuePriority {
+    const p = (jiraPriority || '').toLowerCase();
+    if (
+      p.includes('highest') ||
+      p.includes('critical') ||
+      p.includes('blocker')
+    )
+      return IssuePriority.HIGHEST;
+    if (p.includes('high')) return IssuePriority.HIGH;
+    if (p.includes('low')) return IssuePriority.LOW;
+    if (p.includes('lowest')) return IssuePriority.LOWEST;
+    return IssuePriority.MEDIUM;
+  }
+
+  private mapJiraTypeToZenith(jiraType: string): IssueType {
+    const t = (jiraType || '').toLowerCase();
+    if (t === 'story') return IssueType.STORY;
+    if (t === 'bug') return IssueType.BUG;
+    if (t === 'epic') return IssueType.EPIC;
+    if (t === 'sub-task' || t === 'subtask') return IssueType.SUBTASK;
+    return IssueType.TASK;
+  }
+
   async importIssue(
     integrationId: string,
     jiraIssue: JiraIssue,
     targetProjectId: string,
   ): Promise<any> {
     try {
-      // This would create an issue in the project management system based on the Jira issue
       this.logger.log(
         `Importing Jira issue ${jiraIssue.key} to project ${targetProjectId}`,
       );
 
-      // For now, just store the import mapping
+      const integration = await this.integrationRepo.findOneBy({
+        id: integrationId,
+      });
+      if (!integration) throw new Error('Integration not found');
+
+      // Resolve Reporter
+      let reporterId: string;
+      const reporterEmail = jiraIssue.reporter?.emailAddress;
+      if (reporterEmail) {
+        const reporter = await this.usersService.findOneByEmail(reporterEmail);
+        if (reporter) {
+          reporterId = reporter.id;
+        } else {
+          // Fallback: throw error or find a default.
+          // For now, fail if reporter not found.
+          throw new Error(
+            `Zenith user not found for Jira reporter email: ${reporterEmail}`,
+          );
+        }
+      } else {
+        // No email (GDPR hidden).
+        throw new Error(
+          'Jira issue reporter has no email visible. Cannot map to Zenith user.',
+        );
+      }
+
+      // Resolve Assignee
+      let assigneeId: string | undefined;
+      const assigneeEmail = jiraIssue.assignee?.emailAddress;
+      if (assigneeEmail) {
+        const assignee = await this.usersService.findOneByEmail(assigneeEmail);
+        if (assignee) assigneeId = assignee.id;
+      }
+
+      // Create Issue
+      const issue = await this.issuesService.create(
+        targetProjectId,
+        reporterId,
+        {
+          title: jiraIssue.summary,
+          description:
+            jiraIssue.description || `Imported from Jira ${jiraIssue.key}`,
+          status: (jiraIssue.status?.name ||
+            'Backlog') as unknown as IssueStatus, // Will default to Backlog if not valid board column? Issue service allows string.
+          priority: this.mapJiraPriorityToZenith(jiraIssue.priority?.name),
+          type: this.mapJiraTypeToZenith(jiraIssue.issueType?.name),
+          assigneeId,
+          storyPoints: undefined,
+          metadata: {
+            jiraKey: jiraIssue.key,
+            jiraId: jiraIssue.id,
+            jiraLink: `https://jira.atlassian.com/browse/${jiraIssue.key}`, // Base URL assumption?
+          },
+        },
+        integration.organizationId,
+      );
+
+      // Store the import mapping
       await this.storeExternalData(
         integrationId,
         'imported_issue',
@@ -261,12 +411,15 @@ export class JiraIntegrationService {
           jiraIssue,
           targetProjectId,
           importedAt: new Date(),
+          zenithIssueId: issue.id,
+          zenithIssueNumber: issue.number,
         },
       );
 
       return {
         success: true,
-        message: `Issue ${jiraIssue.key} imported successfully`,
+        message: `Issue ${jiraIssue.key} imported successfully as ${issue.title}`,
+        zenithIssueId: issue.id,
       };
     } catch (error) {
       this.logger.error('Failed to import Jira issue:', error);
@@ -276,9 +429,9 @@ export class JiraIntegrationService {
 
   async exportIssue(
     integrationId: string,
-    localIssue: any,
+    localIssue: Record<string, unknown>,
     jiraProjectKey: string,
-  ): Promise<any> {
+  ): Promise<Record<string, unknown>> {
     try {
       const integration = await this.integrationRepo.findOne({
         where: { id: integrationId, type: IntegrationType.JIRA },
@@ -294,11 +447,15 @@ export class JiraIntegrationService {
       const jiraIssue = {
         fields: {
           project: { key: jiraProjectKey },
-          summary: localIssue.title,
-          description: localIssue.description,
+          summary: (localIssue.title as string) || '',
+          description: (localIssue.description as string) || '',
           issuetype: { name: 'Task' },
-          priority: { name: this.mapPriority(localIssue.priority) },
-          labels: localIssue.labels || [],
+          priority: {
+            name: this.mapZenithPriorityToJira(
+              (localIssue.priority as string) || 'medium',
+            ),
+          },
+          labels: (localIssue.labels as string[]) || [],
         },
       };
 
@@ -313,14 +470,16 @@ export class JiraIntegrationService {
       });
 
       if (response.ok) {
-        const createdIssue = await response.json();
-        this.logger.log(`Exported issue to Jira: ${createdIssue.key}`);
+        const createdIssue = (await response.json()) as Record<string, unknown>;
+        this.logger.log(
+          `Exported issue to Jira: ${(createdIssue.key as string) || ''}`,
+        );
 
         // Store the export mapping
         await this.storeExternalData(
           integrationId,
           'exported_issue',
-          createdIssue.id,
+          (createdIssue.id as string) || '',
           {
             localIssue,
             jiraIssue: createdIssue,
@@ -370,9 +529,15 @@ export class JiraIntegrationService {
         throw new Error(`Jira API error: ${transitionsResponse.status}`);
       }
 
-      const transitionsData = await transitionsResponse.json();
-      const transition = transitionsData.transitions.find(
-        (t: any) => t.name.toLowerCase() === newStatus.toLowerCase(),
+      const transitionsData = (await transitionsResponse.json()) as Record<
+        string,
+        unknown
+      >;
+      const transitions =
+        (transitionsData.transitions as Array<Record<string, unknown>>) || [];
+      const transition = transitions.find(
+        (t) =>
+          ((t.name as string) || '').toLowerCase() === newStatus.toLowerCase(),
       );
 
       if (!transition) {
@@ -390,7 +555,7 @@ export class JiraIntegrationService {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            transition: { id: transition.id },
+            transition: { id: (transition.id as string) || '' },
           }),
         },
       );
@@ -462,15 +627,15 @@ export class JiraIntegrationService {
     username: string;
     apiToken: string;
   } {
-    const config = integration.config as any;
+    const config = integration.config as Record<string, unknown>;
     return {
-      baseUrl: config.jiraUrl || '',
+      baseUrl: (config.jiraUrl as string) || '',
       username: integration.authConfig.apiKey || '',
       apiToken: integration.authConfig.accessToken || '',
     };
   }
 
-  private mapPriority(priority: string): string {
+  private mapZenithPriorityToJira(priority: string): string {
     const priorityMap: Record<string, string> = {
       critical: 'Highest',
       high: 'High',
@@ -503,132 +668,69 @@ export class JiraIntegrationService {
     });
   }
 
-  private async storeExternalData(
-    integrationId: string,
+  /**
+   * Maps Jira data to standard MappedData format.
+   * Implements abstract method from BaseIntegrationService.
+   */
+  protected mapExternalData(
     type: string,
-    externalId: string,
-    data: any,
-  ): Promise<void> {
-    try {
-      // Check if data already exists
-      const existing = await this.externalDataRepo.findOne({
-        where: {
-          integrationId,
-          externalId,
-          externalType: type,
-        },
-      });
-
-      const mappedData = this.mapJiraData(type, data);
-
-      if (existing) {
-        existing.rawData = data;
-        existing.mappedData = mappedData;
-        existing.lastSyncAt = new Date();
-        await this.externalDataRepo.save(existing);
-      } else {
-        const externalData = this.externalDataRepo.create({
-          integrationId,
-          externalId,
-          externalType: type,
-          rawData: data,
-          mappedData,
-          lastSyncAt: new Date(),
-        });
-        await this.externalDataRepo.save(externalData);
-      }
-
-      // Update search index
-      if (mappedData) {
-        await this.updateSearchIndex(
-          integrationId,
-          type,
-          externalId,
-          mappedData,
-        );
-      }
-    } catch (error) {
-      this.logger.error('Failed to store external data:', error);
-    }
-  }
-
-  private mapJiraData(type: string, data: any): any {
+    data: Record<string, unknown>,
+  ): MappedData | null {
     switch (type) {
       case 'project':
         return {
-          title: data.name,
-          content: data.description || '',
-          author: data.lead.displayName,
+          title: (data.name as string) || '',
+          content: (data.description as string) || '',
+          author:
+            ((data.lead as Record<string, unknown>)?.displayName as string) ||
+            '',
           source: 'jira',
-          url: `${data.avatarUrls['48x48']}`,
+          url: (data.avatarUrls as Record<string, string>)?.['48x48'] || '',
           metadata: {
-            key: data.key,
-            projectType: data.projectTypeKey,
-            category: data.projectCategory?.name,
-            lead: data.lead.emailAddress,
+            key: (data.key as string) || '',
+            projectType: (data.projectTypeKey as string) || '',
+            category:
+              ((data.projectCategory as Record<string, unknown>)
+                ?.name as string) || '',
+            lead:
+              ((data.lead as Record<string, unknown>)
+                ?.emailAddress as string) || '',
           },
         };
       case 'issue':
         return {
-          title: `${data.key}: ${data.summary}`,
-          content: data.description || '',
-          author: data.reporter.displayName,
+          title: `${data.key as string}: ${data.summary as string}`,
+          content: (data.description as string) || '',
+          author:
+            ((data.reporter as Record<string, unknown>)
+              ?.displayName as string) || '',
           source: 'jira',
-          url: `${data.key}`,
+          url: (data.key as string) || '',
           metadata: {
-            key: data.key,
-            status: data.status.name,
-            priority: data.priority.name,
-            issueType: data.issueType.name,
-            assignee: data.assignee?.displayName,
-            labels: data.labels,
-            components: data.components.map((c: any) => c.name),
-            fixVersions: data.fixVersions.map((v: any) => v.name),
-            projectKey: data.projectKey,
+            key: (data.key as string) || '',
+            status:
+              ((data.status as Record<string, unknown>)?.name as string) || '',
+            priority:
+              ((data.priority as Record<string, unknown>)?.name as string) ||
+              '',
+            issueType:
+              ((data.issueType as Record<string, unknown>)?.name as string) ||
+              '',
+            assignee:
+              ((data.assignee as Record<string, unknown>)
+                ?.displayName as string) || '',
+            labels: (data.labels as string[]) || [],
+            components: (
+              (data.components as Array<Record<string, unknown>>) || []
+            ).map((c) => c.name as string),
+            fixVersions: (
+              (data.fixVersions as Array<Record<string, unknown>>) || []
+            ).map((v) => v.name as string),
+            projectKey: (data.projectKey as string) || '',
           },
         };
       default:
         return null;
-    }
-  }
-
-  private async updateSearchIndex(
-    integrationId: string,
-    type: string,
-    externalId: string,
-    mappedData: any,
-  ): Promise<void> {
-    try {
-      const searchContent =
-        `${mappedData.title} ${mappedData.content}`.toLowerCase();
-
-      const existing = await this.searchIndexRepo.findOne({
-        where: {
-          integrationId,
-          contentType: type,
-        },
-      });
-
-      if (existing) {
-        existing.title = mappedData.title;
-        existing.content = mappedData.content;
-        existing.metadata = mappedData.metadata;
-        existing.searchVector = searchContent;
-        existing.updatedAt = new Date();
-        await this.searchIndexRepo.save(existing);
-      } else {
-        const searchIndex = this.searchIndexRepo.create({
-          integrationId,
-          contentType: type,
-          title: mappedData.title,
-          content: mappedData.content,
-          metadata: mappedData.metadata,
-          searchVector: searchContent,
-        });
-        await this.searchIndexRepo.save(searchIndex);
-      }
-    } catch (error) {
-      this.logger.error('Failed to update search index:', error);
     }
   }
 }

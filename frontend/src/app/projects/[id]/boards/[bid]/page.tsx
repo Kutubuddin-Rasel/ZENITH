@@ -15,20 +15,25 @@ import {
   useDroppable,
   DragStartEvent,
   DragEndEvent,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  KeyboardSensor,
 } from '@dnd-kit/core';
 import {
   SortableContext,
   arrayMove,
   useSortable,
+  sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
-import { Issue } from '../../../../../hooks/useProjectIssues';
-import { connectSocket, getSocket } from '../../../../../lib/socket';
-import { useToast } from '../../../../../context/ToastContext';
-import { useAuth } from '../../../../../context/AuthContext';
+import { Issue } from '@/hooks/useProjectIssues';
+import { connectSocket, getSocket } from '@/lib/socket';
+import { useToast } from '@/context/ToastContext';
+import { useAuth } from '@/context/AuthContext';
 import BoardManagementModal from "../../../../../components/BoardManagementModal";
 import { useProject } from "../../../../../hooks/useProject";
 import Button from "../../../../../components/Button";
-import { 
+import {
   PlusIcon as PlusIconSolid,
   BookmarkSquareIcon,
   BugAntIcon,
@@ -64,11 +69,11 @@ const priorityBadge: Record<Issue['priority'], { icon: React.ReactElement; text:
 
 function SortableIssueCard({ issue, children }: { issue: Issue; children: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: issue.id });
+
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform), // Use Translate instead of Transform to avoid scaling distortions
     transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0 : 1, // Hide original element while dragging (the overlay shows the item)
   };
   return (
     <div
@@ -102,30 +107,35 @@ const BoardColumn: React.FC<BoardColumnProps> = ({
   refetch,
 }) => {
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id: col.id });
-  const issueIds = (issuesByColumn[col.name] || []).filter(issue => !issue.parentId).map(issue => issue.id);
+  const issueIds = (issuesByColumn[col.id] || []).filter(issue => !issue.parentId).map(issue => issue.id);
   return (
     <SortableContext id={col.id} items={issueIds}>
       <div
         ref={setDroppableRef}
-        className={`relative flex-1 min-w-[280px] max-w-[340px] flex flex-col rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 shadow-sm transition-all duration-200 ${isOver ? 'ring-2 ring-blue-500 ring-opacity-50 bg-blue-50 dark:bg-blue-950/20' : ''}`}
-        style={{ marginBottom: 8, marginTop: 4 }}
+        className={`relative flex-shrink-0 w-[280px] max-h-full flex flex-col rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 shadow-sm transition-all duration-200 ${isOver ? 'ring-2 ring-blue-500 ring-opacity-50 bg-blue-50 dark:bg-blue-950/20' : ''}`}
       >
         {/* Header */}
-        <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
+        <div className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 rounded-t-lg sticky top-0 z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Typography variant="h3" className="text-neutral-900 dark:text-white font-semibold">
-              {col.name}
+              <Typography variant="h4" className="text-neutral-700 dark:text-neutral-200 font-semibold uppercase text-sm tracking-wider">
+                {col.name}
               </Typography>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300">
-                {(issuesByColumn[col.name] || []).length}
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300">
+                {(issuesByColumn[col.id] || []).length}
               </span>
+            </div>
+            {/* Simple actions menu placeholder */}
+            <div className="flex items-center">
+              <button className="p-1 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded text-neutral-400">
+                <EllipsisHorizontalIcon className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </div>
-        
-        {/* Issues list */}
-        <div className="flex-1 flex flex-col gap-2 p-3">
+
+        {/* Issues list - Scrollable Area */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 flex flex-col gap-2 min-h-0 custom-scrollbar">
           {issueIds.length === 0 && !showCreateForm && (
             <div className={`flex flex-col items-center justify-center text-neutral-400 text-sm text-center py-8 ${isOver ? 'bg-blue-50 dark:bg-blue-950/20 border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-lg' : ''}`} style={{ minHeight: 80 }}>
               <svg width="32" height="32" fill="none" viewBox="0 0 32 32" aria-hidden="true" className="mb-2 text-neutral-300">
@@ -138,7 +148,7 @@ const BoardColumn: React.FC<BoardColumnProps> = ({
             </div>
           )}
           {issueIds.map(issueId => {
-            const issue = (issuesByColumn[col.name] || []).find(i => i.id === issueId);
+            const issue = (issuesByColumn[col.id] || []).find(i => i.id === issueId);
             if (!issue) return null;
             return (
               <SortableIssueCard key={issue.id} issue={issue}>
@@ -159,9 +169,9 @@ const BoardColumn: React.FC<BoardColumnProps> = ({
                   {/* Labels (if any) */}
                   {issue.labels && issue.labels.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-1">
-                      {issue.labels.map((label) => (
-                        <span key={label.id} className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: (label.color || '#888') + '22', color: label.color || '#555' }}>
-                          {label.name}
+                      {issue.labels.map((label, index) => (
+                        <span key={`${label}-${index}`} className="px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
+                          {label}
                         </span>
                       ))}
                     </div>
@@ -225,8 +235,8 @@ const BoardColumn: React.FC<BoardColumnProps> = ({
 export default function BoardPage() {
   const { id: projectId, bid: boardId } = useParams<{ id: string; bid: string }>();
   const { board, columns, isLoading: loadingBoard, isError: errorBoard,
-          updateBoard, deleteBoard, addColumn, updateColumn, deleteColumn, reorderColumns 
-        } = useBoard(projectId, boardId);
+    updateBoard, deleteBoard, addColumn, updateColumn, deleteColumn, reorderColumns
+  } = useBoard(projectId, boardId);
   const { issuesByColumn, isLoading: loadingIssues, isError: errorIssues, refetch } = useBoardIssues(projectId, columns);
   const updateIssueStatus = useUpdateIssueStatus(projectId);
   const reorderIssues = useReorderBoardIssues(projectId, boardId);
@@ -237,31 +247,59 @@ export default function BoardPage() {
   const [showCreateForm, setShowCreateForm] = useState<string | null>(null);
   const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
 
+  // Sensors for better control and prevention of accidental drags
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // Require 5px movement to start drag
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   // Real-time board events
   React.useEffect(() => {
     // Connect and join board room
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
-    const socket = getSocket() || connectSocket(token || '');
-    socket.emit('join-board', { projectId, boardId });
-    // Listen for board events
-    const handleBoardEvent = (event: unknown) => {
-      if (typeof event === 'object' && event !== null && 'userId' in event) {
-        const evt = event as { userId: string };
-        refetch(); // refetch issues on any board event
-        if (evt.userId && user && evt.userId !== user.id) {
-          showToast('Board updated by another user', 'info');
-        }
-        return;
+    // Connect and join board room
+    const initSocket = async () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
+      const socket = getSocket() || await connectSocket(token || '');
+
+      if (socket) {
+        socket.emit('join-board', { projectId, boardId });
+
+        // Listen for board events
+        const handleBoardEvent = (event: unknown) => {
+          if (typeof event === 'object' && event !== null && 'userId' in event) {
+            const evt = event as { userId: string };
+            refetch(); // refetch issues on any board event
+            if (evt.userId && user && evt.userId !== user.id) {
+              showToast('Board updated by another user', 'info');
+            }
+            return;
+          }
+          refetch();
+        };
+
+        socket.on('issue-moved', handleBoardEvent);
+        socket.on('issue-reordered', handleBoardEvent);
+
+        // Store cleanup function
+        return () => {
+          socket.emit('leave-board', { projectId, boardId });
+          socket.off('issue-moved', handleBoardEvent);
+          socket.off('issue-reordered', handleBoardEvent);
+        };
       }
-      refetch();
     };
-    socket.on('issue-moved', handleBoardEvent);
-    socket.on('issue-reordered', handleBoardEvent);
+
+    const cleanupPromise = initSocket();
+
     // Cleanup on unmount
     return () => {
-      socket.emit('leave-board', { projectId, boardId });
-      socket.off('issue-moved', handleBoardEvent);
-      socket.off('issue-reordered', handleBoardEvent);
+      cleanupPromise.then(cleanup => cleanup && cleanup());
     };
   }, [projectId, boardId, refetch, showToast, user]);
 
@@ -277,29 +315,34 @@ export default function BoardPage() {
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    // Find source and destination columns
-    let sourceCol: string | undefined;
-    let destCol: string | undefined;
+    // Find source and destination columns by ID
+    let sourceColId: string | undefined;
+    let destColId: string | undefined;
     for (const col of columns) {
-      const ids = (issuesByColumn[col.name] || []).filter(issue => !issue.parentId).map(issue => issue.id);
-      if (ids.includes(activeId)) sourceCol = col.name;
-      if (ids.includes(overId)) destCol = col.name;
+      const ids = (issuesByColumn[col.id] || []).filter(issue => !issue.parentId).map(issue => issue.id);
+      if (ids.includes(activeId)) sourceColId = col.id;
+      if (ids.includes(overId)) destColId = col.id;
     }
     // If dropped on a column (not an issue), use that column
-    if (!destCol) {
+    if (!destColId) {
       const col = columns.find(c => c.id === overId);
-      if (col) destCol = col.name;
+      if (col) destColId = col.id;
     }
-    if (!sourceCol || !destCol) return;
+    if (!sourceColId || !destColId) return;
 
     // If moved to a new column (including dropping on a column itself)
-    if (sourceCol !== destCol) {
-      updateIssueStatus.mutate({ issueId: activeId, status: destCol });
+    if (sourceColId !== destColId) {
+      // Find the destination column to get its status
+      const destColumn = columns.find(c => c.id === destColId);
+      if (destColumn) {
+        // Linear-style: column name IS the status
+        updateIssueStatus.mutate({ issueId: activeId, status: destColumn.name });
+      }
       return;
     }
 
     // If reordered within the same column
-    const colIssues = (issuesByColumn[sourceCol] || []).filter(issue => !issue.parentId);
+    const colIssues = (issuesByColumn[sourceColId] || []).filter(issue => !issue.parentId);
     const oldIndex = colIssues.findIndex(issue => issue.id === activeId);
     let newIndex = colIssues.findIndex(issue => issue.id === overId);
     // If dropped on the column itself (not an issue), move to end
@@ -308,13 +351,10 @@ export default function BoardPage() {
     }
     if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
       const newOrder = arrayMove(colIssues, oldIndex, newIndex).map(i => i.id);
-      const colObj = columns.find(c => c.name === sourceCol);
-      if (colObj) {
-        reorderIssues.mutate({ columnId: colObj.id, orderedIssueIds: newOrder });
-      }
+      reorderIssues.mutate({ columnId: sourceColId, orderedIssueIds: newOrder });
     }
   }
-  
+
   // Handlers for board/column management
   const handleBoardRename = async (name: string) => {
     await updateBoard(name);
@@ -383,25 +423,27 @@ export default function BoardPage() {
     );
   }
 
+
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
       {/* Clean Board Header */}
       <header className="bg-white dark:bg-neutral-800 border-b-2 border-neutral-300 dark:border-neutral-600 px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
             <Typography variant="h2" className="text-neutral-900 dark:text-white font-semibold">
-            {board.name}
+              {board.name}
             </Typography>
-        </div>
-        {currentUserRole === 'ProjectLead' && (
-          <Button
-            onClick={() => setIsManageModalOpen(true)}
+          </div>
+          {currentUserRole === 'ProjectLead' && (
+            <Button
+              onClick={() => setIsManageModalOpen(true)}
               variant="primary"
               size="md"
-          >
+            >
               Manage Board
-          </Button>
-        )}
+            </Button>
+          )}
         </div>
       </header>
 
@@ -423,9 +465,15 @@ export default function BoardPage() {
       )}
 
       {/* Board Content Area */}
-      <main className="p-6">
-        <DndContext onDragEnd={onDragEnd} onDragStart={handleDragStart} collisionDetection={closestCenter}>
-          <div className="flex flex-row flex-wrap gap-6 justify-start items-start w-full">
+      <main className="flex-1 overflow-hidden h-[calc(100vh-65px)] p-0 bg-neutral-50 dark:bg-neutral-900">
+        <DndContext
+          sensors={sensors}
+          onDragEnd={onDragEnd}
+          onDragStart={handleDragStart}
+          collisionDetection={closestCenter}
+        >
+          {/* Horizontal scrolling container */}
+          <div className="flex flex-row flex-nowrap gap-4 overflow-x-auto h-[calc(100vh-140px)] items-start justify-start w-full px-1 pb-4">
             {columns.map((col) => (
               <BoardColumn
                 key={col.id}
@@ -441,30 +489,30 @@ export default function BoardPage() {
           </div>
           <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18,0.67,0.6,1.22)' }}>
             {activeIssueId ? (() => {
-              const issue = columns.flatMap(col => (issuesByColumn[col.name] || [])).find(i => i.id === activeIssueId);
+              const issue = columns.flatMap(col => (issuesByColumn[col.id] || [])).find(i => i.id === activeIssueId);
               if (!issue) return null;
               return (
-                <div className="pointer-events-none scale-105 shadow-2xl opacity-90">
-                  <Card className="p-4 min-h-[100px] w-[320px]">
+                <div className="cursor-grabbing scale-105 rotate-2 shadow-2xl opacity-100 ring-1 ring-black/10 dark:ring-white/10 rounded-lg">
+                  <Card className="p-4 min-h-[100px] w-[320px] bg-white dark:bg-neutral-800 border-none transition-transform duration-200 ease-out">
                     <div className="flex gap-2 mb-2">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${typeBadge[issue.type]?.color || 'bg-gray-100 text-gray-500'}`}> 
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${typeBadge[issue.type]?.color || 'bg-gray-100 text-gray-500'}`}>
                         {typeBadge[issue.type]?.icon || <TagIcon className="h-4 w-4 mr-1" />} {typeBadge[issue.type]?.text || issue.type}
                       </span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${priorityBadge[issue.priority]?.color || 'bg-gray-100 text-gray-500'}`}> 
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${priorityBadge[issue.priority]?.color || 'bg-gray-100 text-gray-500'}`}>
                         {priorityBadge[issue.priority]?.icon || <EllipsisHorizontalIcon className="h-4 w-4 mr-1" />} {priorityBadge[issue.priority]?.text || issue.priority}
                       </span>
                     </div>
                     <Typography variant="body" className="font-semibold text-neutral-900 dark:text-neutral-100 mb-1 line-clamp-2">
                       {issue.title}
                     </Typography>
-                              {issue.labels && issue.labels.length > 0 && (
+                    {issue.labels && issue.labels.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-1">
-                                  {issue.labels.map((label) => (
-                          <span key={label.id} className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: (label.color || '#888') + '22', color: label.color || '#555' }}>
-                                      {label.name}
-                                    </span>
-                                  ))}
-                                </div>
+                        {issue.labels.map((label, index) => (
+                          <span key={`${label}-${index}`} className="px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
+                            {label}
+                          </span>
+                        ))}
+                      </div>
                     )}
                     <div className="flex items-center justify-between mt-auto pt-1">
                       <Typography variant="body-xs" className="text-neutral-400 font-mono">{issue.key}</Typography>
@@ -475,8 +523,8 @@ export default function BoardPage() {
                               <Image src={issue.assignee.avatarUrl} alt={issue.assignee.name || '?'} className="w-full h-full object-cover" width={32} height={32} />
                             ) : (
                               <span>{issue.assignee.name ? issue.assignee.name[0] : <UserIcon className="h-4 w-4 text-neutral-400" />}</span>
-                              )}
-                            </div>
+                            )}
+                          </div>
                         ) : (
                           <div className="w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-300 dark:border-neutral-600" title={issue.assignee}>
                             <span>{issue.assignee[0] || <UserIcon className="h-4 w-4 text-neutral-400" />}</span>
@@ -489,7 +537,7 @@ export default function BoardPage() {
                       )}
                     </div>
                   </Card>
-          </div>
+                </div>
               );
             })() : null}
           </DragOverlay>

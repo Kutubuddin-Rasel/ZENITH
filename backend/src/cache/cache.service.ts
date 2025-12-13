@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
-import { promisify } from 'util';
+// import { promisify } from 'util';
 
 export interface CacheOptions {
   ttl?: number; // Time to live in seconds
@@ -77,17 +77,17 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       try {
         await Promise.race([pingPromise, timeoutPromise]);
         this.logger.log('Cache service initialized successfully');
-      } catch (error) {
+      } catch (error: unknown) {
         this.logger.warn(
           'Redis not available, cache will be disabled:',
-          error.message,
+          error instanceof Error ? error.message : 'Unknown error',
         );
         this.isConnected = false;
       }
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.warn(
         'Failed to initialize cache service (cache will be disabled):',
-        error.message,
+        error instanceof Error ? error.message : 'Unknown error',
       );
       this.isConnected = false;
     }
@@ -119,9 +119,12 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         return null;
       }
 
-      return JSON.parse(value);
-    } catch (error) {
-      this.logger.error(`Error getting cache key ${key}:`, error);
+      return JSON.parse(value) as T;
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error getting cache key ${key}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
       return null;
     }
   }
@@ -154,8 +157,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       }
 
       return result === 'OK';
-    } catch (error) {
-      this.logger.error(`Error setting cache key ${key}:`, error);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error setting cache key ${key}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
       return false;
     }
   }
@@ -170,8 +176,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       const fullKey = this.buildKey(key, options);
       const result = await this.redis.del(fullKey);
       return result > 0;
-    } catch (error) {
-      this.logger.error(`Error deleting cache key ${key}:`, error);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error deleting cache key ${key}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
       return false;
     }
   }
@@ -185,8 +194,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       const fullKey = this.buildKey(key, options);
       const result = await this.redis.exists(fullKey);
       return result === 1;
-    } catch (error) {
-      this.logger.error(`Error checking cache key existence ${key}:`, error);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error checking cache key existence ${key}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
       return false;
     }
   }
@@ -204,10 +216,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       const fullKey = this.buildKey(key, options);
       const result = await this.redis.expire(fullKey, ttl);
       return result === 1;
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(
         `Error setting expiration for cache key ${key}:`,
-        error,
+        error instanceof Error ? error.message : 'Unknown error',
       );
       return false;
     }
@@ -221,8 +233,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     try {
       const fullKey = this.buildKey(key, options);
       return await this.redis.ttl(fullKey);
-    } catch (error) {
-      this.logger.error(`Error getting TTL for cache key ${key}:`, error);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error getting TTL for cache key ${key}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
       return -1;
     }
   }
@@ -242,8 +257,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
       const result = await this.redis.del(...keys);
       return result > 0;
-    } catch (error) {
-      this.logger.error(`Error flushing namespace ${namespace}:`, error);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error flushing namespace ${namespace}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
       return false;
     }
   }
@@ -268,8 +286,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
       const results = await pipeline.exec();
       return results?.every((result) => result[1] !== null) || false;
-    } catch (error) {
-      this.logger.error(`Error invalidating cache by tags ${tags}:`, error);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error invalidating cache by tags ${tags.join(',')}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
       return false;
     }
   }
@@ -289,8 +310,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       }
 
       await pipeline.exec();
-    } catch (error) {
-      this.logger.error(`Error adding tags to key ${key}:`, error);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error adding tags to key ${key}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
     }
   }
 
@@ -322,8 +346,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         info: this.parseRedisInfo(info),
         keyspace: this.parseRedisInfo(keyspace),
       };
-    } catch (error) {
-      this.logger.error('Error getting cache stats:', error);
+    } catch (error: unknown) {
+      this.logger.error(
+        'Error getting cache stats:',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
       return {
         connected: false,
         memory: null,
@@ -333,8 +360,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private parseRedisInfo(info: string): Record<string, any> {
-    const result: Record<string, any> = {};
+  private parseRedisInfo(info: string): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
     const lines = info.split('\r\n');
 
     for (const line of lines) {
@@ -401,5 +428,75 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
   async invalidateUserCache(userId: string): Promise<boolean> {
     return this.invalidateByTags([`user:${userId}`]);
+  }
+
+  // --- List Operations ---
+
+  async lpush(
+    key: string,
+    value: any,
+    options?: CacheOptions,
+  ): Promise<number> {
+    if (!this.isConnected) return 0;
+    try {
+      const fullKey = this.buildKey(key, options);
+      const serializedValue = JSON.stringify(value);
+      const length = await this.redis.lpush(fullKey, serializedValue);
+      if (options?.ttl) {
+        await this.redis.expire(fullKey, options.ttl);
+      }
+      return length;
+    } catch (error) {
+      this.logger.error(`Error lpush to ${key}`, error);
+      return 0;
+    }
+  }
+
+  async rpush(
+    key: string,
+    value: any,
+    options?: CacheOptions,
+  ): Promise<number> {
+    if (!this.isConnected) return 0;
+    try {
+      const fullKey = this.buildKey(key, options);
+      const serializedValue = JSON.stringify(value);
+      const length = await this.redis.rpush(fullKey, serializedValue);
+      if (options?.ttl) {
+        await this.redis.expire(fullKey, options.ttl);
+      }
+      return length;
+    } catch (error) {
+      this.logger.error(`Error rpush to ${key}`, error);
+      return 0;
+    }
+  }
+
+  async lrange<T>(
+    key: string,
+    start: number,
+    stop: number,
+    options?: CacheOptions,
+  ): Promise<T[]> {
+    if (!this.isConnected) return [];
+    try {
+      const fullKey = this.buildKey(key, options);
+      const items = await this.redis.lrange(fullKey, start, stop);
+      return items.map((item) => JSON.parse(item) as T);
+    } catch (error) {
+      this.logger.error(`Error lrange from ${key}`, error);
+      return [];
+    }
+  }
+
+  async llen(key: string, options?: CacheOptions): Promise<number> {
+    if (!this.isConnected) return 0;
+    try {
+      const fullKey = this.buildKey(key, options);
+      return await this.redis.llen(fullKey);
+    } catch (error) {
+      this.logger.error(`Error llen for ${key}`, error);
+      return 0;
+    }
   }
 }

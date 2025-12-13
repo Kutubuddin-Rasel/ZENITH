@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useProjectIssues } from '../hooks/useProjectIssues';
 import Input from './Input';
+import { StatusBadge } from './ui/StatusBadge';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 interface ProjectIssueSidebarProps {
@@ -48,12 +49,12 @@ const ProjectIssueSidebar: React.FC<ProjectIssueSidebarProps> = ({ projectId }) 
                   <span className="font-medium truncate flex-1 text-sm">{issue.title}</span>
                 </div>
                 <div className="flex gap-2 mt-1 text-xs items-center">
-                  <span className="px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-300">{issue.status}</span>
-                  {issue.priority && <span className="px-2 py-0.5 rounded bg-accent-blue/10 text-accent-blue font-semibold">{issue.priority}</span>}
+                  <StatusBadge variant="neutral">{issue.status}</StatusBadge>
+                  {issue.priority && <StatusBadge variant="primary">{issue.priority}</StatusBadge>}
                   {issue.assignee && (
-                    <span className="ml-auto px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-300">
+                    <StatusBadge variant="default" className="ml-auto">
                       {typeof issue.assignee === 'string' ? issue.assignee : (issue.assignee.name || 'Unassigned')}
-                    </span>
+                    </StatusBadge>
                   )}
                 </div>
               </li>

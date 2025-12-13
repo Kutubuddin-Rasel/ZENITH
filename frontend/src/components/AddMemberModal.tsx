@@ -10,6 +10,7 @@ const ROLES = [
   'ProjectLead',
   'Developer',
   'QA',
+  'Designer',
   'Viewer',
 ];
 
@@ -28,7 +29,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ open, onClose, projectI
   const [role, setRole] = useState(ROLES[1]);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   const inviteMutation = useInviteProjectMember(projectId);
   const { data: availableEmployees = [], isLoading: loadingEmployees, refetch: refetchAvailableEmployees } = useAvailableEmployees();
 
@@ -94,11 +95,10 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ open, onClose, projectI
           <button
             type="button"
             onClick={() => setActiveTab('email')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-              activeTab === 'email'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'email'
+              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
           >
             <EnvelopeIcon className="h-4 w-4" />
             Email Invite
@@ -106,11 +106,10 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ open, onClose, projectI
           <button
             type="button"
             onClick={() => setActiveTab('select')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-              activeTab === 'select'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'select'
+              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
           >
             <UserGroupIcon className="h-4 w-4" />
             Select Employee
@@ -142,7 +141,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ open, onClose, projectI
                   placeholder="Search by name or email..."
                 />
               </div>
-              
+
               <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-xl">
                 {loadingEmployees ? (
                   <div className="p-4 text-center text-gray-500">Loading available employees...</div>
@@ -155,9 +154,8 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ open, onClose, projectI
                     {filteredEmployees.map(employee => (
                       <label
                         key={employee.id}
-                        className={`flex items-center p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
-                          selectedUserId === employee.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                        }`}
+                        className={`flex items-center p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${selectedUserId === employee.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                          }`}
                       >
                         <input
                           type="radio"
@@ -204,7 +202,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ open, onClose, projectI
           </div>
 
           {error && <div className="text-red-500 text-sm">{error}</div>}
-          
+
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel

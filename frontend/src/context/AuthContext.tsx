@@ -3,12 +3,14 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '../lib/fetcher';
 import { connectSocket } from '../lib/socket';
+import { safeLocalStorage } from '../lib/safe-local-storage';
 
 type User = {
   id: string;
   email: string;
   name?: string;
   isSuperAdmin?: boolean;
+  organizationId?: string;
 };
 
 interface ProjectMembership {
@@ -22,8 +24,8 @@ interface AuthContextProps {
   loading: boolean;
   isSuperAdmin: boolean;
   projectRoles: { [projectId: string]: string };
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name?: string) => Promise<void>;
+  login: (email: string, password: string, redirectPath?: string) => Promise<void>;
+  register: (email: string, password: string, name?: string, workspaceName?: string, redirectPath?: string) => Promise<void>;
   logout: () => void;
   refreshUserData: () => Promise<void>;
 }
@@ -32,33 +34,36 @@ const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  // Token state removed as it is now HttpOnly cookie
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [projectRoles, setProjectRoles] = useState<{ [projectId: string]: string }>({});
   const router = useRouter();
 
-  const fetchUserData = async (authToken: string) => {
+  const fetchUserData = async () => {
     try {
-      // Fetch user profile
-      const userData = await apiFetch<{ 
-        userId: string; 
-        email: string; 
-        isSuperAdmin: boolean; 
-        name: string 
-      }>('/auth/me', {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
+      // Fetch user profile - Cookie is sent automatically
+      const userData = await apiFetch<{
+        userId: string;
+        email: string;
+        isSuperAdmin: boolean;
+        name: string;
+        organizationId?: string;
+      }>('/auth/me');
 
-      const mappedUser = { 
-        id: userData.userId, 
-        email: userData.email, 
+      const mappedUser = {
+        id: userData.userId,
+        email: userData.email,
         name: userData.name,
-        isSuperAdmin: userData.isSuperAdmin 
+        isSuperAdmin: userData.isSuperAdmin,
+        organizationId: userData.organizationId
       };
-      
+
       setUser(mappedUser);
       setIsSuperAdmin(!!userData.isSuperAdmin);
+
+      // Update local storage with fresh user data (ignoring token)
+      safeLocalStorage.setItem('user_data', JSON.stringify(mappedUser));
 
       // If super-admin, skip memberships fetch
       if (userData.isSuperAdmin) {
@@ -66,10 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         // Fetch project memberships
         try {
-          const memberships = await apiFetch<ProjectMembership[]>('/users/me/project-memberships', {
-            headers: { Authorization: `Bearer ${authToken}` },
-          });
-          
+          const memberships = await apiFetch<ProjectMembership[]>('/users/me/project-memberships');
+
           const roles: { [projectId: string]: string } = {};
           memberships.forEach((m: ProjectMembership) => {
             roles[m.projectId] = m.roleName;
@@ -81,9 +84,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Connect to notifications socket
-      connectSocket(authToken, userData.userId);
-      
+      // Connect to notifications socket (Socket needs cookie auth or ticket)
+      // For now, let's assume socket auth needs potential refactor if it depended on Bearer.
+      // But typically sockets use cookies too if on same domain.
+      await connectSocket(null, userData.userId);
+
     } catch (err) {
       console.error('Failed to fetch user data:', err);
       if (err instanceof Response) {
@@ -91,73 +96,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Response body:', text);
       }
       setUser(null);
-      setToken(null);
       setIsSuperAdmin(false);
       setProjectRoles({});
-      localStorage.removeItem('access_token');
+      // safeLocalStorage.removeItem('access_token'); // Gone
     }
   };
 
   const refreshUserData = async () => {
-    if (token) {
-      await fetchUserData(token);
-    }
+    await fetchUserData();
   };
 
   useEffect(() => {
-    const storedToken = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    if (storedToken) {
-      setToken(storedToken);
-      setLoading(true);
-      fetchUserData(storedToken).finally(() => setLoading(false));
-    } else {
-      setLoading(false);
+    // Initial load check
+    const storedUserData = safeLocalStorage.getItem('user_data');
+
+    // Optimistically set user from storage if available
+    if (storedUserData) {
+      try {
+        const parsedUser = JSON.parse(storedUserData);
+        setUser(parsedUser);
+        setIsSuperAdmin(!!parsedUser.isSuperAdmin);
+      } catch (e) {
+        console.error('Failed to parse stored user data', e);
+      }
     }
+
+    setLoading(true);
+    // Attempt to hit /auth/me. If cookies are valid, it works.
+    fetchUserData().finally(() => setLoading(false));
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, redirectPath?: string) => {
     setLoading(true);
     try {
-      const data = await apiFetch<{ access_token: string; user: User }>('/auth/login', {
+      // Login sets cookies
+      const data = await apiFetch<{ user: User }>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      localStorage.setItem('access_token', data.access_token);
-      setToken(data.access_token);
+      console.log('Login successful, setting user data:', data.user);
+
+      // No token to store
+      // safeLocalStorage.setItem('access_token', data.access_token);
+      safeLocalStorage.setItem('user_data', JSON.stringify(data.user));
+
       setUser(data.user);
-      
-      // Fetch complete user data including roles
-      await fetchUserData(data.access_token);
-      
-      router.push('/projects');
+      setIsSuperAdmin(!!data.user.isSuperAdmin);
+
+      // Fetch complete user data including roles (async, but UI is unlocked)
+      fetchUserData();
+
+      router.push(redirectPath || '/projects');
     } finally {
       setLoading(false);
     }
   };
 
-  const register = async (email: string, password: string, name?: string) => {
+  const register = async (email: string, password: string, name?: string, workspaceName?: string, redirectPath?: string) => {
     setLoading(true);
     try {
-      const data = await apiFetch<{ access_token: string; user: User }>('/auth/register', {
+      // Registration returns user data, we need to login after
+      await apiFetch<{ id: string; email: string; name: string }>('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ email, password, name }),
+        body: JSON.stringify({ email, password, name, workspaceName }),
       });
-      localStorage.setItem('access_token', data.access_token);
-      setToken(data.access_token);
-      setUser(data.user);
-      
-      // Fetch complete user data including roles
-      await fetchUserData(data.access_token);
-      
-      router.push('/projects');
+
+      // After successful registration, login to get cookies
+      await login(email, password, redirectPath);
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('access_token');
-    setToken(null);
+  const logout = async () => {
+    try {
+      await apiFetch('/auth/logout'); // Call backend to clear cookies
+    } catch (e) {
+      console.error('Logout failed', e);
+    }
+    // safeLocalStorage.removeItem('access_token');
     setUser(null);
     setIsSuperAdmin(false);
     setProjectRoles({});
@@ -165,16 +182,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      token, 
-      loading, 
-      isSuperAdmin, 
-      projectRoles, 
-      login, 
-      register, 
+    <AuthContext.Provider value={{
+      user,
+      token: null, // Computed property if needed, but we don't have it.
+      loading,
+      isSuperAdmin,
+      projectRoles,
+      login,
+      register,
       logout,
-      refreshUserData 
+      refreshUserData
     }}>
       {children}
     </AuthContext.Provider>
@@ -185,4 +202,4 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
-} 
+}

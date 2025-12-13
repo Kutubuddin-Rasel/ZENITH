@@ -14,9 +14,9 @@ export interface AuditLogData {
   severity?: AuditSeverity;
   status?: AuditStatus;
   description: string;
-  details?: Record<string, any>;
-  oldValues?: Record<string, any>;
-  newValues?: Record<string, any>;
+  details?: Record<string, unknown>;
+  oldValues?: Record<string, unknown>;
+  newValues?: Record<string, unknown>;
   userId?: string;
   userEmail?: string;
   userName?: string;
@@ -30,7 +30,7 @@ export interface AuditLogData {
   country?: string;
   city?: string;
   region?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   correlationId?: string;
 }
 
@@ -121,7 +121,7 @@ export class AuditService {
     ipAddress: string,
     userAgent: string,
     sessionId: string,
-    details?: Record<string, any>,
+    details?: Record<string, unknown>,
     status: AuditStatus = AuditStatus.SUCCESS,
   ): Promise<AuditLog> {
     return this.log({
@@ -152,9 +152,9 @@ export class AuditService {
     userEmail: string,
     userName: string,
     projectId?: string,
-    oldValues?: Record<string, any>,
-    newValues?: Record<string, any>,
-    details?: Record<string, any>,
+    oldValues?: Record<string, unknown>,
+    newValues?: Record<string, unknown>,
+    details?: Record<string, unknown>,
   ): Promise<AuditLog> {
     return this.log({
       eventType,
@@ -188,7 +188,7 @@ export class AuditService {
     userName?: string,
     ipAddress?: string,
     userAgent?: string,
-    details?: Record<string, any>,
+    details?: Record<string, unknown>,
     severity: AuditSeverity = AuditSeverity.HIGH,
   ): Promise<AuditLog> {
     return this.log({

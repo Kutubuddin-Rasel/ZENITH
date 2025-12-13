@@ -4,9 +4,9 @@ import { useRouter } from 'next/navigation';
 import Card from '../Card';
 import Button from '../Button';
 import Spinner from '../Spinner';
-import { 
-  CheckIcon, 
-  XMarkIcon, 
+import {
+  CheckIcon,
+  XMarkIcon,
   ArrowRightIcon,
   LightBulbIcon,
   ClockIcon,
@@ -26,87 +26,133 @@ interface OnboardingStep {
   estimatedTime: number;
 }
 
+// Fallback steps when backend returns empty
+const FALLBACK_STEPS: OnboardingStep[] = [
+  {
+    stepId: 'welcome',
+    title: 'Welcome to Zenith',
+    description: 'Let\'s get you started with your project management journey. We\'ll guide you through the key features.',
+    isCompleted: false,
+    isSkipped: false,
+    hints: ['Zenith helps you manage projects, sprints, and team collaboration', 'You can always access this guide from the user menu'],
+    nextSteps: ['Set up your profile', 'Create your first project'],
+    estimatedTime: 1,
+  },
+  {
+    stepId: 'profile_setup',
+    title: 'Set Up Your Profile',
+    description: 'Complete your profile to help your team identify you and personalize your experience.',
+    isCompleted: false,
+    isSkipped: false,
+    hints: ['Add a profile picture to make collaboration more personal', 'Set your timezone and preferences for better notifications'],
+    nextSteps: ['Create a project', 'Explore the dashboard'],
+    estimatedTime: 2,
+  },
+  {
+    stepId: 'first_project',
+    title: 'Create Your First Project',
+    description: 'Projects are the foundation of Zenith. Create one to start organizing your work.',
+    isCompleted: false,
+    isSkipped: false,
+    hints: ['Use descriptive names for easy identification', 'You can add team members after creation'],
+    nextSteps: ['Add team members', 'Create your first issue'],
+    estimatedTime: 3,
+  },
+  {
+    stepId: 'team_invite',
+    title: 'Invite Your Team',
+    description: 'Collaboration is key. Invite team members to start working together.',
+    isCompleted: false,
+    isSkipped: false,
+    hints: ['Assign roles to control access levels', 'Team members will receive an email invitation'],
+    nextSteps: ['Create issues', 'Plan your first sprint'],
+    estimatedTime: 2,
+  },
+  {
+    stepId: 'issue_creation',
+    title: 'Create Your First Issue',
+    description: 'Issues help you track tasks, bugs, and features. Create one to see how it works.',
+    isCompleted: false,
+    isSkipped: false,
+    hints: ['Use labels to categorize issues', 'Assign priority levels for better organization'],
+    nextSteps: ['Plan a sprint', 'Use the board view'],
+    estimatedTime: 2,
+  },
+  {
+    stepId: 'board_view',
+    title: 'Explore the Board View',
+    description: 'The Kanban board gives you a visual overview of your work in progress.',
+    isCompleted: false,
+    isSkipped: false,
+    hints: ['Drag and drop issues between columns', 'Customize columns to match your workflow'],
+    nextSteps: ['Set up notifications', 'Explore reports'],
+    estimatedTime: 2,
+  },
+];
+
 interface OnboardingOverlayProps {
   isOpen: boolean;
   onClose: () => void;
   currentStep?: string;
+  steps: OnboardingStep[];
   onStepComplete?: (stepId: string) => void;
+  onSkipStep: (stepId: string) => Promise<void>;
+  onCompleteOnboarding: () => Promise<void>;
 }
 
 const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
   isOpen,
   onClose,
   currentStep,
+  steps,
   onStepComplete,
+  onSkipStep,
+  onCompleteOnboarding,
 }) => {
   const router = useRouter();
-  const [steps, setSteps] = useState<OnboardingStep[]>([]);
+
+  // Use fallback steps when backend returns empty
+  const activeSteps = steps.length > 0 ? steps : FALLBACK_STEPS;
+
+  // We use props for steps now, but we track index locally for UI flow
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false); // setLoading unused
   const [error, setError] = useState<string>('');
+  const [showCelebration, setShowCelebration] = useState(false);
 
+  // Track when we've made local (optimistic) updates to prevent useEffect from overriding
+  const localUpdateRef = React.useRef(false);
+
+  // Sync currentStepIndex with prop currentStep - but only when no local updates pending
   useEffect(() => {
-    if (isOpen) {
-      loadOnboardingSteps();
+    // Skip sync if we just made a local update (optimistic update in progress)
+    if (localUpdateRef.current) {
+      console.log('Skipping sync - local update in progress');
+      localUpdateRef.current = false; // Reset after skipping once
+      return;
     }
-  }, [isOpen]);
 
-  useEffect(() => {
-    if (currentStep && steps.length > 0) {
-      const stepIndex = steps.findIndex(step => step.stepId === currentStep);
-      if (stepIndex !== -1) {
+    if (currentStep && activeSteps.length > 0) {
+      const stepIndex = activeSteps.findIndex(step => step.stepId === currentStep);
+      // Only update if valid and different to prevent jumps specific cases
+      if (stepIndex !== -1 && activeSteps[stepIndex].stepId !== activeSteps[currentStepIndex]?.stepId) {
+        console.log('Syncing from prop currentStep:', currentStep, '-> index:', stepIndex);
         setCurrentStepIndex(stepIndex);
       }
     }
-  }, [currentStep, steps]);
+  }, [currentStep, activeSteps, currentStepIndex]);
 
-  const loadOnboardingSteps = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/onboarding/steps', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-      });
-      
-      if (!response.ok) throw new Error('Failed to load onboarding steps');
-      
-      const data = await response.json();
-      setSteps(data.data);
-    } catch (err) {
-      console.error('Failed to load onboarding steps:', err);
-      setError('Failed to load onboarding steps');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Removed redundant loadOnboardingSteps - simplified
 
   const completeStep = async (stepId: string) => {
     try {
-      const response = await fetch(`/api/onboarding/step/${stepId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-        body: JSON.stringify({
-          status: 'completed',
-        }),
-      });
+      if (onStepComplete) {
+        onStepComplete(stepId);
+      }
 
-      if (!response.ok) throw new Error('Failed to complete step');
-
-      // Update local state
-      setSteps(prev => prev.map(step => 
-        step.stepId === stepId 
-          ? { ...step, isCompleted: true }
-          : step
-      ));
-
-      onStepComplete?.(stepId);
-
-      // Move to next step
-      if (currentStepIndex < steps.length - 1) {
+      // Move to next step locally for smoothness, parent will eventually sync
+      if (currentStepIndex < activeSteps.length - 1) {
+        localUpdateRef.current = true; // Prevent useEffect from overriding
         setCurrentStepIndex(prev => prev + 1);
       }
     } catch (err) {
@@ -116,52 +162,36 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
   };
 
   const skipStep = async (stepId: string) => {
+    console.log('skipStep called with:', stepId, 'currentIndex:', currentStepIndex, 'activeSteps.length:', activeSteps.length);
+
+    // Move to next step immediately (optimistic update)
+    if (currentStepIndex < activeSteps.length - 1) {
+      console.log('Setting step index to:', currentStepIndex + 1);
+      localUpdateRef.current = true; // Prevent useEffect from overriding
+      setCurrentStepIndex(prev => prev + 1);
+    } else {
+      console.log('Already at last step, cannot skip further');
+    }
+
+    // Try to sync with backend (non-blocking for fallback mode)
     try {
-      const response = await fetch(`/api/onboarding/step/${stepId}/skip`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-        body: JSON.stringify({
-          reason: 'User skipped',
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to skip step');
-
-      // Update local state
-      setSteps(prev => prev.map(step => 
-        step.stepId === stepId 
-          ? { ...step, isSkipped: true }
-          : step
-      ));
-
-      // Move to next step
-      if (currentStepIndex < steps.length - 1) {
-        setCurrentStepIndex(prev => prev + 1);
-      }
+      await onSkipStep(stepId);
     } catch (err) {
-      console.error('Failed to skip step:', err);
-      setError('Failed to skip step');
+      // Silently log - skip still works locally even if backend sync fails
+      console.warn('Backend sync failed for skip step (fallback mode):', err);
     }
   };
 
   const completeOnboarding = async () => {
+    // Show celebration immediately (optimistic update)
+    setShowCelebration(true);
+
+    // Try to sync with backend (non-blocking for fallback mode)
     try {
-      const response = await fetch('/api/onboarding/complete', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-      });
-
-      if (!response.ok) throw new Error('Failed to complete onboarding');
-
-      onClose();
+      await onCompleteOnboarding();
     } catch (err) {
-      console.error('Failed to complete onboarding:', err);
-      setError('Failed to complete onboarding');
+      // Silently log - completion still works locally even if backend sync fails
+      console.warn('Backend sync failed for complete onboarding (fallback mode):', err);
     }
   };
 
@@ -197,12 +227,47 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
     return actionMap[stepId];
   };
 
-  if (!isOpen || steps.length === 0) return null;
+  if (!isOpen) return null;
 
-  const currentStepData = steps[currentStepIndex];
-  const isLastStep = currentStepIndex === steps.length - 1;
-  const completedSteps = steps.filter(step => step.isCompleted).length;
-  const totalSteps = steps.length;
+  if (showCelebration) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <Card className="w-full max-w-lg text-center p-8 relative overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none opacity-10">
+            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-500 to-purple-500 transform rotate-12 scale-150" />
+          </div>
+
+          <div className="relative z-10">
+            <div className="w-20 h-20 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckIcon className="h-10 w-10 text-green-600 dark:text-green-400" />
+            </div>
+
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+              You&apos;re All Set!
+            </h2>
+
+            <p className="text-gray-600 dark:text-gray-400 mb-8 text-lg">
+              Congratulations! You&apos;ve completed the onboarding. You&apos;re now ready to manage your projects like a pro with Zenith.
+            </p>
+
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={onClose}
+            >
+              Get Started
+              <ArrowRightIcon className="h-5 w-5 ml-2" />
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  const currentStepData = activeSteps[currentStepIndex];
+  const isLastStep = currentStepIndex === activeSteps.length - 1;
+  const completedSteps = activeSteps.filter(step => step.isCompleted).length;
+  const totalSteps = activeSteps.length;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -252,7 +317,7 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
           ) : error ? (
             <div className="text-center py-12">
               <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
-              <Button onClick={loadOnboardingSteps}>
+              <Button onClick={() => window.location.reload()}>
                 Try Again
               </Button>
             </div>
@@ -333,13 +398,19 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
             <div className="flex gap-3">
               {!isLastStep && (
                 <Button
+                  type="button"
                   variant="ghost"
-                  onClick={() => skipStep(currentStepData.stepId)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Skip clicked, moving to next step');
+                    skipStep(currentStepData.stepId);
+                  }}
                 >
                   Skip
                 </Button>
               )}
-              
+
               {isLastStep ? (
                 <Button onClick={completeOnboarding}>
                   Complete Onboarding

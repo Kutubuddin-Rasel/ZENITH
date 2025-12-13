@@ -83,10 +83,7 @@ export class ResourceAllocationService {
     const optimizedAllocations = this.performOptimization(allocations);
     const conflictsResolved = this.resolveConflicts(conflicts);
 
-    const efficiencyImprovement = this.calculateEfficiencyImprovement(
-      allocations,
-      optimizedAllocations,
-    );
+    const efficiencyImprovement = this.calculateEfficiencyImprovement();
 
     const recommendations = this.generateOptimizationRecommendations(
       optimizedAllocations,
@@ -102,7 +99,7 @@ export class ResourceAllocationService {
     };
   }
 
-  suggestResourceAssignment(_taskId: string): ResourceSuggestion[] {
+  suggestResourceAssignment(): ResourceSuggestion[] {
     // This would integrate with task requirements and skill matching
     // For now, returning a placeholder structure
     const suggestions: ResourceSuggestion[] = [];
@@ -146,7 +143,7 @@ export class ResourceAllocationService {
 
         if (totalPercentage > 100) {
           const conflict = this.conflictRepo.create({
-            user: { id: userId } as any,
+            user: { id: userId } as Record<string, unknown>,
             conflictDate: new Date(date),
             totalAllocationPercentage: totalPercentage,
             conflictingAllocations: dayAllocations.map((a) => ({
@@ -154,7 +151,7 @@ export class ResourceAllocationService {
               projectId: a.project.id,
               projectName: a.project.name,
               allocationPercentage: a.allocationPercentage,
-            })) as any,
+            })) as unknown as Record<string, unknown>,
             severity: totalPercentage > 150 ? 'critical' : 'high',
             status: 'active',
           });
@@ -247,10 +244,7 @@ export class ResourceAllocationService {
     return resolved;
   }
 
-  private calculateEfficiencyImprovement(
-    _before: ResourceAllocation[],
-    _after: ResourceAllocation[],
-  ): number {
+  private calculateEfficiencyImprovement(): number {
     // Calculate efficiency improvement percentage
     // This would compare utilization, conflicts, etc.
     return 0; // Placeholder

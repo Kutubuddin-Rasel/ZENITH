@@ -141,7 +141,7 @@ export class CapacityPlanningService {
     if (!capacity) {
       // Create default capacity if none exists
       const newCapacity = this.userCapacityRepo.create({
-        user: { id: userId } as any,
+        user: { id: userId } as Record<string, unknown>,
         date,
         availableHours: 8.0,
         allocatedHours: 0,
@@ -183,7 +183,7 @@ export class CapacityPlanningService {
   ): Promise<CapacityBottleneck[]> {
     const allocations = await this.allocationRepo.find({
       where: {
-        project: { id: projectId },
+        project: { id: projectId } as Record<string, unknown>,
       },
       relations: ['user'],
     });

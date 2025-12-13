@@ -13,94 +13,93 @@ import {
   ExclamationCircleIcon,
   PaperClipIcon,
   UserGroupIcon,
+  PresentationChartLineIcon,
 } from '@heroicons/react/24/outline';
 import Button from './Button';
 import { useProjectRole, useRole } from '../context/RoleContext';
 import { useActiveSprint } from '../hooks/useSprints';
 import Typography from './Typography';
 import Card from './Card';
+import { useQueryClient } from '@tanstack/react-query';
+import { apiFetch } from '../lib/fetcher';
+import Tooltip from './Tooltip';
 
 // Sidebar item config with role access
 const sidebarItems = [
-  { 
-    name: 'Overview', 
-    href: '', 
-    icon: HomeIcon, 
-    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer'] 
+  {
+    name: 'Overview',
+    href: '',
+    icon: HomeIcon,
+    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer']
   },
-  { 
-    name: 'Backlog', 
-    href: 'backlog', 
-    icon: ListBulletIcon, 
-    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer'] 
+  {
+    name: 'Backlog',
+    href: 'backlog',
+    icon: ListBulletIcon,
+    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer']
   },
-  { 
-    name: 'Board', 
-    href: 'boards', 
-    icon: ClipboardIcon, 
-    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer'] 
+  {
+    name: 'Board',
+    href: 'boards',
+    icon: ClipboardIcon,
+    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer']
   },
-  { 
-    name: 'Active Sprint', 
-    href: 'sprints', 
-    icon: Squares2X2Icon, 
+  {
+    name: 'Active Sprint',
+    href: 'sprints',
+    icon: Squares2X2Icon,
     roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer'],
     conditional: 'activeSprint' // Only show if there's an active sprint
   },
-  { 
-    name: 'All Sprints', 
-    href: 'sprints', 
-    icon: Squares2X2Icon, 
-    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer'] 
+  {
+    name: 'All Sprints',
+    href: 'sprints',
+    icon: Squares2X2Icon,
+    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer']
   },
-  { 
-    name: 'Releases', 
-    href: 'releases', 
-    icon: TagIcon, 
-    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer'] 
+  {
+    name: 'Releases',
+    href: 'releases',
+    icon: TagIcon,
+    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer']
   },
-  { 
-    name: 'Epics', 
-    href: 'epics', 
-    icon: ExclamationCircleIcon, 
-    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer'] 
+  {
+    name: 'Issues',
+    href: 'issues',
+    icon: ExclamationCircleIcon,
+    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer']
   },
-  { 
-    name: 'Issues', 
-    href: 'issues', 
-    icon: ExclamationCircleIcon, 
-    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer'] 
+  {
+    name: 'Attachments',
+    href: 'attachments',
+    icon: PaperClipIcon,
+    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer']
   },
-  { 
-    name: 'Attachments', 
-    href: 'attachments', 
-    icon: PaperClipIcon, 
-    roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer'] 
-  },
-  { 
-    name: 'Reports', 
-    href: 'reports', 
-    icon: ChartBarIcon, 
+  {
+    name: 'Reports',
+    href: 'reports',
+    icon: ChartBarIcon,
     roles: ['Super-Admin', 'ProjectLead'] // Only Super-Admin & ProjectLead
   },
-  { 
-    name: 'Team', 
-    href: 'team', 
-    icon: UserGroupIcon, 
+  {
+    name: 'Analytics',
+    href: 'analytics',
+    icon: PresentationChartLineIcon,
+    roles: ['Super-Admin', 'ProjectLead', 'Developer']
+  },
+  {
+    name: 'Team',
+    href: 'team',
+    icon: UserGroupIcon,
     roles: ['Super-Admin', 'ProjectLead'] // Only Super-Admin & ProjectLead
   },
-  { 
-    name: 'Manage Employees', 
-    href: '/manageemployees', 
-    icon: UserGroupIcon, 
-    roles: ['Super-Admin'] // Only Super-Admin
-  },
-  { 
-    name: 'Settings', 
-    href: 'settings', 
-    icon: Cog6ToothIcon, 
+  {
+    name: 'Settings',
+    href: 'settings',
+    icon: Cog6ToothIcon,
     roles: ['Super-Admin', 'ProjectLead'] // Only Super-Admin & ProjectLead
   },
+
 ];
 
 const Sidebar = ({ projectId }: { projectId?: string }) => {
@@ -108,10 +107,41 @@ const Sidebar = ({ projectId }: { projectId?: string }) => {
   const { isSuperAdmin } = useRole();
   const projectRole = useProjectRole(projectId || '');
   const [showCreateModal, setShowCreateModal] = React.useState(false);
+  const [isCollapsed, setIsCollapsed] = React.useState(false); // Collapsed state
+  const queryClient = useQueryClient();
 
   // Always use 'Super-Admin' for effectiveRole if isSuperAdmin is true
   const effectiveRole = isSuperAdmin ? 'Super-Admin' : projectRole;
 
+  // Prefetching handlers
+  const handlePrefetch = (name: string) => {
+    if (!projectId) return;
+
+    switch (name) {
+      case 'Issues':
+        queryClient.prefetchQuery({
+          queryKey: ['project-issues', projectId, undefined],
+          queryFn: () => apiFetch(`/projects/${projectId}/issues`),
+          staleTime: 1000 * 60 * 5, // 5 minutes
+        });
+        break;
+      case 'All Sprints':
+      case 'Active Sprint':
+        queryClient.prefetchQuery({
+          queryKey: ['sprints', projectId],
+          queryFn: () => apiFetch(`/projects/${projectId}/sprints`),
+          staleTime: 1000 * 60 * 5,
+        });
+        break;
+      case 'Board':
+        queryClient.prefetchQuery({
+          queryKey: ['project-boards', projectId],
+          queryFn: () => apiFetch(`/projects/${projectId}/boards`),
+          staleTime: 1000 * 60 * 5,
+        });
+        break;
+    }
+  };
 
   // Fetch active sprint for badge and link
   const { activeSprint } = useActiveSprint(projectId || '');
@@ -121,44 +151,61 @@ const Sidebar = ({ projectId }: { projectId?: string }) => {
   const isOnActiveSprint = activeSprint && pathname === `/projects/${projectId}/sprints/${activeSprint.id}`;
 
   return (
-    <aside className="w-64 h-screen flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 shadow-sm">
+    <aside
+      className={`h-screen flex flex-col bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-56'
+        }`}
+    >
       {/* Header section */}
-      <div className="p-6 border-b border-neutral-200 dark:border-neutral-800">
-        <Link 
-          href="/projects" 
+      <div className={`p-6 border-b border-neutral-200 dark:border-neutral-800 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+        <Link
+          href="/projects"
           className="flex items-center justify-center hover:opacity-80 transition-opacity duration-200 group"
         >
-          <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow duration-200">
+          <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow duration-200 shrink-0">
             <span className="text-white font-semibold text-sm">Z</span>
           </div>
-          <Typography variant="h5" className="ml-3 text-primary-600 dark:text-primary-400 font-bold hidden sm:block">
-            Zenith
-          </Typography>
+          {!isCollapsed && (
+            <Typography variant="h5" className="ml-3 text-primary-600 dark:text-primary-400 font-bold hidden sm:block truncate">
+              Zenith
+            </Typography>
+          )}
         </Link>
+
       </div>
 
-      {/* Navigation - Only show when a project is selected */}
-      {projectId && projectId.trim() !== '' && effectiveRole && (
-        <nav className="flex-1 py-6 px-3">
+      {/* Navigation */}
+      {(projectId && projectId.trim() !== '' && effectiveRole) || isSuperAdmin ? (
+        <nav className="flex-1 py-4 px-2 overflow-y-auto no-scrollbar space-y-0.5">
           <ul className="space-y-1">
             {sidebarItems
               .filter(item => {
+                // If no project selected, only show global items (Manage Employees)
+                if (!projectId || projectId.trim() === '') {
+                  return item.href === '/manageemployees';
+                }
+
                 // Check role access
-                if (!item.roles.includes(effectiveRole)) {
+                if (!effectiveRole || !item.roles.includes(effectiveRole)) {
                   return false;
                 }
-                
+
                 // Check conditional visibility
                 if (item.conditional === 'activeSprint') {
                   return !!activeSprint; // Only show Active Sprint if there is an active sprint
                 }
-                
+
                 return true;
               })
               .map((link) => {
-                let href = link.href.startsWith('/') ? link.href : `/projects/${projectId}/${link.href}`.replace(/\/$/, '');
+                let href = link.href;
+
+                // If it's a project-specific link, prepend project ID
+                if (projectId && projectId.trim() !== '' && !link.href.startsWith('/')) {
+                  href = `/projects/${projectId}/${link.href}`.replace(/\/$/, '');
+                }
+
                 let isActive = false;
-                
+
                 // Special logic for sprints
                 if (link.name === 'Active Sprint' && activeSprint) {
                   href = `/projects/${projectId}/sprints/${activeSprint.id}`;
@@ -169,46 +216,74 @@ const Sidebar = ({ projectId }: { projectId?: string }) => {
                 } else {
                   isActive = pathname === href;
                 }
-                
+
                 const Icon = link.icon;
-                
+
                 // Show badge only if there is an active sprint
                 const showActiveSprintBadge = link.name === 'Active Sprint' && !!activeSprint;
-                
+
                 return (
                   <li key={link.name}>
-                    <Link
-                      href={href}
-                      className={`group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 relative
-                        ${isActive
-                          ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 border-r-2 border-primary-600'
-                          : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
-                        }`
-                      }
-                    >
-                      <Icon className={`h-5 w-5 transition-colors duration-200 ${
-                        isActive 
-                          ? 'text-primary-600 dark:text-primary-400' 
-                          : 'text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300'
-                      }`} />
-                      
-                      <Typography variant="body-sm" className="font-medium">
-                        {link.name}
-                      </Typography>
-                      
-                      {/* Active Sprint Badge */}
-                      {showActiveSprintBadge && (
-                        <span className="ml-auto inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200">
-                          Active
-                        </span>
-                      )}
-                    </Link>
+                    <Tooltip label={isCollapsed ? link.name : ''}>
+                      <Link
+                        href={href}
+                        onMouseEnter={() => handlePrefetch(link.name)}
+                        className={`group flex items-center w-full ${isCollapsed ? 'justify-center px-0' : 'justify-start px-3'} py-2.5 rounded-lg transition-all duration-200 relative
+                          ${isActive
+                            ? 'bg-primary-50 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 font-semibold shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                            : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 hover:text-neutral-900 dark:hover:text-neutral-200'
+                          }`
+                        }
+                      >
+                        <Icon className={`h-5 w-5 shrink-0 transition-colors duration-200 ${isActive
+                          ? 'text-primary-600 dark:text-primary-400'
+                          : 'text-neutral-500 group-hover:text-neutral-700 dark:group-hover:text-neutral-300'
+                          }`} />
+
+                        {!isCollapsed && (
+                          <Typography variant="body-sm" className={`ml-3 truncate ${isActive ? 'font-semibold' : 'font-medium'}`}>
+                            {link.name}
+                          </Typography>
+                        )}
+
+                        {/* Active Sprint Badge */}
+                        {showActiveSprintBadge && !isCollapsed && (
+                          <span className="ml-auto inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200">
+                            Active
+                          </span>
+                        )}
+
+                        {/* Dot for collapsed active state */}
+                        {showActiveSprintBadge && isCollapsed && (
+                          <span className="absolute top-2 right-2 flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-success-500"></span>
+                          </span>
+                        )}
+                      </Link>
+                    </Tooltip>
                   </li>
                 );
               })}
           </ul>
         </nav>
-      )}
+      ) : null}
+
+      {/* Collapse Toggle Footer */}
+      <div className="p-3 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50">
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'justify-start px-3'} py-2 rounded-lg text-neutral-500 hover:bg-white dark:hover:bg-neutral-800 hover:shadow-sm hover:text-neutral-900 dark:hover:text-neutral-200 transition-all duration-200 border border-transparent hover:border-neutral-200 dark:hover:border-neutral-700`}
+          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          <div className={`p-1 rounded-md ${isCollapsed ? '' : 'bg-neutral-200/50 dark:bg-neutral-800 mr-3'}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`}>
+              <path fillRule="evenodd" d="M15.28 9.47a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 1 1-1.06-1.06L13.69 10 9.97 6.28a.75.75 0 0 1 1.06-1.06l4.25 4.25ZM6.03 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.69 10 6.03 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+            </svg>
+          </div>
+          {!isCollapsed && <span className="text-sm font-medium">Collapse Sidebar</span>}
+        </button>
+      </div>
 
       {/* Create Issue Modal */}
       {showCreateModal && (
