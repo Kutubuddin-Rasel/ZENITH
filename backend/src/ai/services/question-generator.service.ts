@@ -14,8 +14,15 @@ import {
 
 /**
  * Fallback questions when AI is unavailable
+ * Used for each field type with context-awareness
  */
 const FALLBACK_QUESTIONS: Record<string, string> = {
+  projectName: 'What would you like to call this project?',
+  description:
+    "Tell me more about what you're building - what problem does it solve?",
+  // NEW: Industry question - critical for matching with 19 templates
+  industry:
+    'What industry is this for? Healthcare, fintech, e-commerce, education, or something else?',
   projectType:
     'What type of project are you building? (e.g., mobile app, website, marketing campaign)',
   teamSize: 'How many people will be working on this project?',
@@ -25,6 +32,22 @@ const FALLBACK_QUESTIONS: Record<string, string> = {
     'Will clients or external stakeholders need access to this project?',
   timeline:
     "What's your expected timeline? (Quick: 1-3 months, Medium: 3-6 months, Long: 6+ months)",
+};
+
+/**
+ * Context-aware industry questions based on project type
+ */
+const INDUSTRY_QUESTIONS_BY_TYPE: Record<string, string> = {
+  software_development:
+    'What kind of software? A healthcare app, fintech platform, e-commerce system, or something else?',
+  mobile_development:
+    'What industry is your mobile app for? Healthcare, finance, retail, education, or something else?',
+  website_development:
+    'What industry is this website for? E-commerce, healthcare, education, or something else?',
+  marketing:
+    'What industry is your marketing campaign for? Tech, retail, healthcare, or something else?',
+  default:
+    'What industry is this project for? Healthcare, fintech, e-commerce, education, or something else?',
 };
 
 @Injectable()
@@ -155,10 +178,57 @@ Just respond with the question, nothing else.`;
     field: keyof IntelligentCriteria,
     criteria: IntelligentCriteria,
   ): string {
-    // Add context to fallback questions when possible
+    // Special handling for description when we already have a name
+    if (field === 'description' && criteria.projectName) {
+      return `Great name! Tell me what ${criteria.projectName} will do - what problem does it solve?`;
+    }
+
+    // Special handling for projectType when we have name and description
+    if (
+      field === 'projectType' &&
+      criteria.projectName &&
+      criteria.description
+    ) {
+      return `What type of project is ${criteria.projectName}? (mobile app, website, software, etc.)`;
+    }
+
+    // NEW: Special handling for industry - use context-aware questions
+    if (field === 'industry') {
+      // If we know the project type, ask more specific industry question
+      if (criteria.projectType) {
+        const typeKey = criteria.projectType.toLowerCase().replace(/_/g, '_');
+        const specificQuestion = INDUSTRY_QUESTIONS_BY_TYPE[typeKey];
+        if (specificQuestion) {
+          // Add project name context if known
+          if (criteria.projectName) {
+            return specificQuestion.replace(
+              'your',
+              `${criteria.projectName}'s`,
+            );
+          }
+          return specificQuestion;
+        }
+      }
+      // Fall back to default industry question with project name context
+      if (criteria.projectName) {
+        return `What industry is ${criteria.projectName} for? Healthcare, fintech, e-commerce, education, or something else?`;
+      }
+      return INDUSTRY_QUESTIONS_BY_TYPE.default;
+    }
+
+    // Get base question
     const base =
       FALLBACK_QUESTIONS[field] ||
       `Could you tell me more about your ${field}?`;
+
+    // Add project name context if known
+    if (
+      criteria.projectName &&
+      field !== 'projectName' &&
+      field !== 'description'
+    ) {
+      return base.replace('this project', criteria.projectName);
+    }
 
     // Add project type context if known
     if (criteria.projectType && field !== 'projectType') {
@@ -253,5 +323,40 @@ Just respond with the question, nothing else.`;
     }
 
     return `Perfect! Based on what you've told me:\n${parts.map((p) => `• ${p}`).join('\n')}\n\nHere are my recommendations 👇`;
+  }
+
+  /**
+   * Generate a name confirmation question with suggested name
+   */
+  generateNameConfirmationQuestion(
+    suggestedName: string,
+    alternatives?: string[],
+  ): string {
+    if (alternatives && alternatives.length > 0) {
+      const allNames = [suggestedName, ...alternatives.slice(0, 2)];
+      return `Based on your project, how about one of these names: **${allNames[0]}**, ${allNames
+        .slice(1)
+        .map((n) => `**${n}**`)
+        .join(', or ')}? Or type a different name if you prefer.`;
+    }
+    return `Based on your project, how about calling it **"${suggestedName}"**? Or type a different name if you prefer.`;
+  }
+
+  /**
+   * Generate a question asking for project name
+   */
+  generateProjectNameQuestion(context: ConversationContext): string {
+    const projectType =
+      context.criteria.projectType?.replace('_', ' ') || 'project';
+    return `What would you like to call this ${projectType}?`;
+  }
+
+  /**
+   * Generate a question asking for description (when name was skipped)
+   */
+  generateDescriptionQuestion(context: ConversationContext): string {
+    const projectType =
+      context.criteria.projectType?.replace('_', ' ') || 'project';
+    return `No problem! Tell me more about what this ${projectType} will do - that'll help me suggest a good name.`;
   }
 }

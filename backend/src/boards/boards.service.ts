@@ -3,6 +3,8 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -25,12 +27,13 @@ export class BoardsService {
     private boardRepo: Repository<Board>,
     @InjectRepository(BoardColumn)
     private colRepo: Repository<BoardColumn>,
+    @Inject(forwardRef(() => ProjectsService))
     private projectsService: ProjectsService,
     private membersService: ProjectMembersService,
     private dataSource: DataSource,
     private eventEmitter: EventEmitter2,
     private boardsGateway: BoardsGateway,
-  ) {}
+  ) { }
 
   /** Create a new board (and seed default columns) */
   async create(
@@ -85,7 +88,7 @@ export class BoardsService {
     this.eventEmitter.emit('board.event', {
       projectId,
       issueId: null,
-      action: `created board ${saved.name}`,
+      action: `created board ${saved.name} `,
       actorId: userId,
       boardName: saved.name,
     });
@@ -158,7 +161,7 @@ export class BoardsService {
     this.eventEmitter.emit('board.event', {
       projectId,
       issueId: null,
-      action: `updated board ${updated.name}`,
+      action: `updated board ${updated.name} `,
       actorId: userId,
       boardName: updated.name,
     });
@@ -188,7 +191,7 @@ export class BoardsService {
     this.eventEmitter.emit('board.event', {
       projectId,
       issueId: null,
-      action: `deleted board ${board.name}`,
+      action: `deleted board ${board.name} `,
       actorId: userId,
       boardName: board.name,
     });
@@ -218,7 +221,7 @@ export class BoardsService {
     this.eventEmitter.emit('board.event', {
       projectId,
       issueId: null,
-      action: `added column ${saved.name} to board ${board.name}`,
+      action: `added column ${saved.name} to board ${board.name} `,
       actorId: userId,
       boardName: board.name,
       columnName: saved.name,
@@ -254,7 +257,7 @@ export class BoardsService {
     this.eventEmitter.emit('board.event', {
       projectId,
       issueId: null,
-      action: `updated column ${updated.name}`,
+      action: `updated column ${updated.name} `,
       actorId: userId,
       boardName: board.name,
       columnName: updated.name,
@@ -317,7 +320,7 @@ export class BoardsService {
 
     // Single bulk update with CASE statement
     const caseStatements = orderedColumnIds
-      .map((id, idx) => `WHEN '${id}' THEN ${idx}`)
+      .map((id, idx) => `WHEN '${id}' THEN ${idx} `)
       .join(' ');
 
     await this.colRepo.query(
@@ -392,7 +395,7 @@ export class BoardsService {
     // OPTIMIZED: Single bulk update with CASE statement
     // This replaces N update queries with 1 query
     const caseStatements = orderedIssueIds
-      .map((id, idx) => `WHEN '${id}' THEN ${idx}`)
+      .map((id, idx) => `WHEN '${id}' THEN ${idx} `)
       .join(' ');
 
     await this.dataSource.query(

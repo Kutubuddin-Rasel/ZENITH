@@ -5,6 +5,8 @@ import {
   BadRequestException,
   ForbiddenException,
   ConflictException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -34,6 +36,7 @@ export class IssuesService {
     private readonly issueRepo: Repository<Issue>,
     @InjectRepository(IssueLink)
     private readonly issueLinkRepo: Repository<IssueLink>,
+    @Inject(forwardRef(() => ProjectsService))
     private readonly projectsService: ProjectsService,
     private readonly projectMembersService: ProjectMembersService,
     private readonly usersService: UsersService,
@@ -42,7 +45,7 @@ export class IssuesService {
     private workLogRepo: Repository<WorkLog>,
     private readonly cacheService: CacheService,
     private readonly transitionsService: WorkflowTransitionsService,
-  ) {}
+  ) { }
 
   /**
    * Compute friendly issue key from project key and issue number.
@@ -50,7 +53,7 @@ export class IssuesService {
    */
   private computeKey(projectKey: string, issueNumber: number | null): string {
     if (!issueNumber) return '';
-    return `${projectKey}-${issueNumber}`;
+    return `${projectKey} -${issueNumber} `;
   }
 
   /**
@@ -141,7 +144,7 @@ export class IssuesService {
     const saved = await this.issueRepo.save(issue);
 
     // Invalidate project issues cache if it existed (e.g. list cache)
-    await this.cacheService.invalidateByTags([`project:${projectId}:issues`]);
+    await this.cacheService.invalidateByTags([`project:${projectId}: issues`]);
 
     this.eventEmitter.emit('issue.created', {
       projectId,
@@ -201,7 +204,7 @@ export class IssuesService {
       if (filters.search) {
         qb.andWhere(
           '(issue.title ILIKE :search OR issue.description ILIKE :search)',
-          { search: `%${filters.search}%` },
+          { search: `% ${filters.search}% ` },
         );
       }
       if (filters.label) {
@@ -213,7 +216,7 @@ export class IssuesService {
         // If simple-array, it's a string like "label1,label2".
         // Use LIKE for simple-array
         qb.andWhere('issue.labels ILIKE :label', {
-          label: `%${filters.label}%`,
+          label: `% ${filters.label}% `,
         });
       }
       // Sprint filter - uses sprint_issues join table
@@ -289,7 +292,7 @@ export class IssuesService {
     organizationId?: string,
   ): Promise<Issue> {
     // Try cache first
-    const cacheKey = `issue:${issueId}`;
+    const cacheKey = `issue:${issueId} `;
     const cachedIssue = await this.cacheService.get<Issue>(cacheKey);
 
     if (cachedIssue) {
@@ -341,7 +344,7 @@ export class IssuesService {
     // Cache the issue
     await this.cacheService.set(cacheKey, issue, {
       ttl: 900, // 15 minutes
-      tags: [`issue:${issueId}`, `project:${projectId}:issues`],
+      tags: [`issue:${issueId} `, `project:${projectId}: issues`],
     });
 
     return issue;
@@ -427,7 +430,7 @@ export class IssuesService {
           projectId,
           issueId: issue.id,
           actorId: userId,
-          action: `reassigned issue to ${dto.assigneeId}`,
+          action: `reassigned issue to ${dto.assigneeId} `,
         });
       }
     }
@@ -439,7 +442,7 @@ export class IssuesService {
         projectId,
         issueId: issue.id,
         actorId: userId,
-        action: `changed status to ${dto.status}`,
+        action: `changed status to ${dto.status} `,
       });
     }
 
@@ -471,7 +474,7 @@ export class IssuesService {
     const savedIssue = await this.issueRepo.save(issue);
 
     // Invalidate cache
-    await this.cacheService.del(`issue:${issueId}`);
+    await this.cacheService.del(`issue:${issueId} `);
 
     // Return the issue with relations loaded
     return this.findOne(projectId, savedIssue.id, userId, organizationId);
@@ -513,7 +516,7 @@ export class IssuesService {
     await this.issueRepo.save(issue);
 
     // Invalidate cache
-    await this.cacheService.del(`issue:${issueId}`);
+    await this.cacheService.del(`issue:${issueId} `);
 
     this.eventEmitter.emit('issue.archived', {
       projectId,
@@ -568,7 +571,7 @@ export class IssuesService {
     await this.issueRepo.save(issue);
 
     // Invalidate cache
-    await this.cacheService.del(`issue:${issueId}`);
+    await this.cacheService.del(`issue:${issueId} `);
 
     this.eventEmitter.emit('issue.unarchived', {
       projectId,
@@ -606,7 +609,7 @@ export class IssuesService {
     await this.issueRepo.remove(issue);
 
     // Invalidate cache
-    await this.cacheService.del(`issue:${issueId}`);
+    await this.cacheService.del(`issue:${issueId} `);
 
     this.eventEmitter.emit('issue.deleted', {
       projectId,
@@ -655,7 +658,7 @@ export class IssuesService {
       projectId,
       issueId: issue.id,
       actorId: userId,
-      action: `changed status to ${status}`,
+      action: `changed status to ${status} `,
       transitionName: transitionCheck.transitionName,
     });
 
@@ -929,7 +932,7 @@ export class IssuesService {
         created++;
       } catch (err) {
         failed++;
-        errors.push(`Row ${index + 2}: ${(err as Error).message}`);
+        errors.push(`Row ${index + 2}: ${(err as Error).message} `);
       }
     }
 
@@ -987,7 +990,7 @@ export class WorkLogsService {
     @InjectRepository(Issue)
     private issueRepo: Repository<Issue>,
     private membersService: ProjectMembersService,
-  ) {}
+  ) { }
 
   async listWorkLogs(projectId: string, issueId: string) {
     return this.workLogRepo.find({

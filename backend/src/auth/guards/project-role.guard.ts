@@ -11,6 +11,7 @@ import { ProjectMembersService } from '../../membership/project-members/project-
 import { CacheService } from '../../cache/cache.service';
 import { REQUIRED_PROJECT_ROLES_KEY } from '../decorators/require-project-role.decorator';
 import { ProjectRole } from '../../membership/enums/project-role.enum';
+import { JwtRequestUser } from '../types/jwt-request-user.interface';
 
 /**
  * Guard that enforces project role requirements with Redis caching.
@@ -34,7 +35,7 @@ export class ProjectRoleGuard implements CanActivate {
     private reflector: Reflector,
     private projectMembersService: ProjectMembersService,
     private cacheService: CacheService,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Get required roles from decorator
@@ -52,12 +53,19 @@ export class ProjectRoleGuard implements CanActivate {
 
     // Extract user and project from request
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    const userId = (request.user as any)?.id;
+    const userId = (request.user as any)?.userId;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const projectId =
       request.params?.id ||
       request.params?.projectId ||
       (request.body as Record<string, any>)?.projectId;
+
+    // SUPER ADMIN BYPASS: Allow super admins to bypass project role checks
+    const user = request.user as unknown as JwtRequestUser;
+    if (user?.isSuperAdmin) {
+      this.logger.debug('Super Admin bypass for ProjectRoleGuard');
+      return true;
+    }
 
     if (!userId) {
       throw new ForbiddenException('User not authenticated');

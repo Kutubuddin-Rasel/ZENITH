@@ -83,6 +83,11 @@ export class ConversationManagerService {
       corrections: [],
       turnCount: 0,
       lastActivityAt: now,
+      // NEW: Smart name flow fields
+      phase: 'initial',
+      nameGenerationAttempts: 0,
+      pendingNameSuggestions: undefined,
+      userSkippedName: false,
     };
 
     // CRITICAL: Persist to Redis immediately
@@ -100,7 +105,6 @@ export class ConversationManagerService {
 
     return context;
   }
-
   /**
    * Get existing conversation context from Redis
    */
@@ -307,6 +311,63 @@ export class ConversationManagerService {
     }
 
     return totalWeight > 0 ? weightedSum / totalWeight : 0;
+  }
+
+  /**
+   * Set the conversation phase
+   */
+  setPhase(
+    context: ConversationContext,
+    phase: ConversationContext['phase'],
+  ): void {
+    context.phase = phase;
+  }
+
+  /**
+   * Check if context has enough info for name generation
+   */
+  hasContextForNameGeneration(context: ConversationContext): boolean {
+    const { criteria } = context;
+    // Need either description or project type to generate meaningful name
+    return !!(
+      criteria.description ||
+      criteria.projectType ||
+      criteria.industry
+    );
+  }
+
+  /**
+   * Check if we should ask for name (user hasn't provided and hasn't skipped)
+   */
+  needsProjectName(context: ConversationContext): boolean {
+    return !context.criteria.projectName && !context.userSkippedName;
+  }
+
+  /**
+   * Mark that user skipped providing project name
+   */
+  markNameSkipped(context: ConversationContext): void {
+    context.userSkippedName = true;
+  }
+
+  /**
+   * Set pending name suggestions
+   */
+  setPendingNameSuggestions(
+    context: ConversationContext,
+    names: string[],
+  ): void {
+    context.pendingNameSuggestions = names;
+    context.nameGenerationAttempts++;
+  }
+
+  /**
+   * Accept a suggested name
+   */
+  acceptSuggestedName(context: ConversationContext, name: string): void {
+    context.criteria.projectName = name;
+    context.pendingNameSuggestions = undefined;
+    context.phase = 'gathering_details';
   }
 
   /**

@@ -1,6 +1,6 @@
 /**
  * Template Scorer Service
- * 6-factor weighted scoring for template recommendations
+ * 7-factor weighted scoring for template recommendations
  */
 
 import { Injectable, Logger } from '@nestjs/common';
@@ -16,18 +16,23 @@ import {
   TemplateScoringResult,
   TeamSizeRange,
 } from '../interfaces/intelligent-criteria.interface';
+import { matchIndustry } from '../../project-templates/constants/industry.constants';
 
 /**
  * Scoring weights for different factors
+ * Updated for enhanced industry-level matching and experience/timeline fit
+ * Total: 100%
  */
 const SCORING_WEIGHTS = {
-  categoryMatch: 0.25, // Project type match
-  methodologyMatch: 0.2, // Work style match
-  teamSizeFit: 0.15, // Template complexity vs team size
-  stakeholderFit: 0.15, // External stakeholder handling
-  industryMatch: 0.1, // Industry vertical match
-  userPreference: 0.1, // User's historical preferences
-  popularity: 0.05, // Usage count boost
+  categoryMatch: 0.2, // Project type match (was 0.22)
+  methodologyMatch: 0.16, // Work style match (was 0.18)
+  teamSizeFit: 0.14, // Template complexity vs team size (was 0.15)
+  stakeholderFit: 0.08, // External stakeholder handling (was 0.10)
+  industryMatch: 0.16, // Industry vertical match (was 0.18)
+  complexityFit: 0.1, // Complexity matching
+  userPreference: 0.04, // User's historical preferences (was 0.07)
+  experienceFit: 0.06, // NEW: User experience level match
+  timelineFit: 0.06, // NEW: Timeline duration match
 };
 
 /**
@@ -90,12 +95,14 @@ export class TemplateScorerService {
       teamSizeFit: 0,
       stakeholderFit: 0,
       industryMatch: 0,
+      complexityFit: 0,
       userPreference: 0,
-      popularity: 0,
+      experienceFit: 0, // NEW: User experience level match
+      timelineFit: 0, // NEW: Timeline duration match
     };
     const reasons: string[] = [];
 
-    // 1. Category Match (25%)
+    // 1. Category Match (22%)
     if (criteria.projectType && template.category === criteria.projectType) {
       breakdown.categoryMatch = 1;
       reasons.push(
@@ -105,7 +112,7 @@ export class TemplateScorerService {
       breakdown.categoryMatch = 0.3; // Custom templates are flexible
     }
 
-    // 2. Methodology Match (20%)
+    // 2. Methodology Match (18%)
     if (criteria.workStyle) {
       if (template.methodology === criteria.workStyle) {
         breakdown.methodologyMatch = 1;
@@ -121,7 +128,7 @@ export class TemplateScorerService {
       }
     }
 
-    // 3. Team Size Fit (15%)
+    // 3. Team Size Fit (15%) - Enhanced with idealTeamSize
     if (criteria.teamSize) {
       const teamSizeFit = this.calculateTeamSizeFit(
         template,
@@ -137,11 +144,14 @@ export class TemplateScorerService {
       breakdown.teamSizeFit = 0.5; // Unknown team size, neutral
     }
 
-    // 4. Stakeholder Fit (15%)
+    // 4. Stakeholder Fit (10%) - Use features if available
     if (criteria.hasExternalStakeholders) {
-      const hasApprovalWorkflow = this.hasApprovalWorkflow(template);
-      if (hasApprovalWorkflow) {
+      // NEW: Check features.supportsExternalStakeholders if available
+      if (template.features?.supportsExternalStakeholders) {
         breakdown.stakeholderFit = 1;
+        reasons.push('Designed for external stakeholder collaboration');
+      } else if (this.hasApprovalWorkflow(template)) {
+        breakdown.stakeholderFit = 0.8;
         reasons.push('Has approval workflow for external stakeholders');
       } else {
         breakdown.stakeholderFit = 0.3;
@@ -156,20 +166,26 @@ export class TemplateScorerService {
       }
     }
 
-    // 5. Industry Match (10%)
-    if (criteria.industry && template.tags) {
-      const industryLower = criteria.industry.toLowerCase();
-      if (template.tags.some((tag) => tag.toLowerCase() === industryLower)) {
-        breakdown.industryMatch = 1;
-        reasons.push(`Tagged for ${criteria.industry}`);
-      } else if (
-        template.tags.some((tag) => industryLower.includes(tag.toLowerCase()))
-      ) {
-        breakdown.industryMatch = 0.5;
+    // 5. Industry Match (18%) - Enhanced with industries array
+    if (criteria.industry) {
+      breakdown.industryMatch = this.calculateIndustryMatch(
+        template,
+        criteria.industry,
+      );
+      if (breakdown.industryMatch >= 0.8) {
+        reasons.push(`Optimized for ${criteria.industry} industry`);
       }
+    } else {
+      breakdown.industryMatch = 0.3; // Unknown industry, neutral
     }
 
-    // 6. User Preference (10%)
+    // 6. Complexity Fit (10%) - NEW
+    breakdown.complexityFit = this.calculateComplexityFit(template, criteria);
+    if (breakdown.complexityFit >= 0.8) {
+      reasons.push(`Matches your project complexity`);
+    }
+
+    // 7. User Preference (4%)
     if (userPrefs) {
       const prefScore = this.calculatePreferenceMatch(template, userPrefs);
       breakdown.userPreference = prefScore;
@@ -178,13 +194,16 @@ export class TemplateScorerService {
       }
     }
 
-    // 7. Popularity (5%)
-    if (template.usageCount > 100) {
-      breakdown.popularity = 1;
-    } else if (template.usageCount > 50) {
-      breakdown.popularity = 0.7;
-    } else if (template.usageCount > 10) {
-      breakdown.popularity = 0.4;
+    // 8. Experience Fit (6%) - NEW: Match template complexity to user experience
+    breakdown.experienceFit = this.calculateExperienceFit(template, criteria);
+    if (breakdown.experienceFit >= 0.8 && criteria.experienceLevel) {
+      reasons.push(`Great for ${criteria.experienceLevel} users`);
+    }
+
+    // 9. Timeline Fit (6%) - NEW: Match methodology to timeline
+    breakdown.timelineFit = this.calculateTimelineFit(template, criteria);
+    if (breakdown.timelineFit >= 0.8 && criteria.timeline) {
+      reasons.push(`Suits ${criteria.timeline}-term projects`);
     }
 
     // Calculate weighted score
@@ -212,8 +231,26 @@ export class TemplateScorerService {
     template: ProjectTemplate,
     teamSize: TeamSizeRange,
   ): number {
-    const roleCount = template.templateConfig?.suggestedRoles?.length || 3;
     const teamNum = TEAM_SIZE_MAP[teamSize] || 5;
+
+    // NEW: Use idealTeamSize if available for direct matching
+    if (template.idealTeamSize) {
+      const { min, max } = template.idealTeamSize;
+
+      // Perfect fit
+      if (teamNum >= min && teamNum <= max) {
+        return 1.0;
+      }
+
+      // Calculate distance-based score
+      const distance =
+        teamNum < min ? (min - teamNum) / min : (teamNum - max) / max;
+
+      return Math.max(0.2, 1 - distance);
+    }
+
+    // Fallback: use role count heuristic
+    const roleCount = template.templateConfig?.suggestedRoles?.length || 3;
 
     // Small team (1-5): prefer 2-4 roles
     if (teamNum <= 5) {
@@ -232,6 +269,216 @@ export class TemplateScorerService {
     // Large team (11+): prefer 5+ roles
     if (roleCount >= 5) return 1.0;
     if (roleCount >= 4) return 0.7;
+    return 0.5;
+  }
+
+  /**
+   * Calculate industry match using new industries array
+   */
+  private calculateIndustryMatch(
+    template: ProjectTemplate,
+    industry: string,
+  ): number {
+    const industryLower = industry.toLowerCase();
+
+    // NEW: Use industries array if available (preferred)
+    if (template.industries && template.industries.length > 0) {
+      // Direct match
+      if (
+        template.industries.some((ind) => ind.toLowerCase() === industryLower)
+      ) {
+        return 1.0;
+      }
+
+      // Use matchIndustry helper for alias matching
+      const matchedIndustry = matchIndustry(industry);
+      if (matchedIndustry && template.industries.includes(matchedIndustry)) {
+        return 0.9;
+      }
+
+      // Partial match (any word matches)
+      if (
+        template.industries.some(
+          (ind) =>
+            industryLower.includes(ind.toLowerCase()) ||
+            ind.toLowerCase().includes(industryLower.slice(0, 4)),
+        )
+      ) {
+        return 0.6;
+      }
+    }
+
+    // Fallback: use tags array
+    if (template.tags && template.tags.length > 0) {
+      if (template.tags.some((tag) => tag.toLowerCase() === industryLower)) {
+        return 0.8;
+      }
+      if (
+        template.tags.some((tag) => industryLower.includes(tag.toLowerCase()))
+      ) {
+        return 0.4;
+      }
+    }
+
+    return 0; // No match
+  }
+
+  /**
+   * Calculate complexity fit between template and inferred user complexity
+   */
+  private calculateComplexityFit(
+    template: ProjectTemplate,
+    criteria: IntelligentCriteria,
+  ): number {
+    const userComplexity = this.inferUserComplexity(criteria);
+    const templateComplexity = template.complexity || 'medium';
+
+    // Perfect match
+    if (userComplexity === templateComplexity) {
+      return 1.0;
+    }
+
+    // Adjacent complexity levels get partial score
+    const levels = ['simple', 'medium', 'complex'];
+    const userIdx = levels.indexOf(userComplexity);
+    const templateIdx = levels.indexOf(templateComplexity);
+    const distance = Math.abs(userIdx - templateIdx);
+
+    return distance === 1 ? 0.6 : 0.2;
+  }
+
+  /**
+   * Infer user's expected complexity from criteria
+   */
+  private inferUserComplexity(criteria: IntelligentCriteria): string {
+    const teamNum = criteria.teamSize
+      ? TEAM_SIZE_MAP[criteria.teamSize] || 5
+      : 5;
+
+    // Solo/tiny team + no external stakeholders = simple
+    if (teamNum <= 3 && !criteria.hasExternalStakeholders) {
+      return 'simple';
+    }
+
+    // Large team OR has external stakeholders = complex
+    if (teamNum >= 15 || (criteria.hasExternalStakeholders && teamNum > 5)) {
+      return 'complex';
+    }
+
+    return 'medium';
+  }
+
+  /**
+   * Calculate experience fit between template complexity and user experience level
+   * NEW: Maps user experience (beginner/intermediate/advanced) to appropriate template
+   */
+  private calculateExperienceFit(
+    template: ProjectTemplate,
+    criteria: IntelligentCriteria,
+  ): number {
+    const experience = criteria.experienceLevel;
+    if (!experience) {
+      return 0.5; // No experience specified, neutral score
+    }
+
+    const templateComplexity = template.complexity || 'medium';
+    const stageCount = template.templateConfig?.workflowStages?.length || 4;
+
+    // Beginner: prefer simple templates with fewer stages (1-4)
+    if (experience === 'beginner') {
+      if (templateComplexity === 'simple' && stageCount <= 4) return 1.0;
+      if (templateComplexity === 'simple' || stageCount <= 5) return 0.7;
+      if (templateComplexity === 'medium') return 0.4;
+      return 0.2; // Complex templates not recommended for beginners
+    }
+
+    // Intermediate: prefer medium complexity (3-6 stages)
+    if (experience === 'intermediate') {
+      if (templateComplexity === 'medium') return 1.0;
+      if (stageCount >= 3 && stageCount <= 6) return 0.8;
+      return 0.5; // Either too simple or too complex
+    }
+
+    // Advanced: prefer complex templates with many stages
+    if (experience === 'advanced') {
+      if (templateComplexity === 'complex' && stageCount >= 5) return 1.0;
+      if (templateComplexity === 'complex' || stageCount >= 5) return 0.8;
+      if (templateComplexity === 'medium') return 0.6;
+      return 0.4; // Simple templates may feel limiting
+    }
+
+    return 0.5;
+  }
+
+  /**
+   * Calculate timeline fit between project methodology and timeline duration
+   * NEW: Matches methodology to project duration expectations
+   */
+  private calculateTimelineFit(
+    template: ProjectTemplate,
+    criteria: IntelligentCriteria,
+  ): number {
+    const timeline = criteria.timeline;
+    if (!timeline) {
+      return 0.5; // No timeline specified, neutral score
+    }
+
+    const methodology = template.methodology;
+
+    // Short-term projects (< 3 months): Kanban, Agile preferred
+    if (timeline === 'short') {
+      switch (methodology) {
+        case ProjectMethodology.KANBAN:
+          return 1.0; // Best for quick, continuous delivery
+        case ProjectMethodology.AGILE:
+          return 0.9; // Good flexibility
+        case ProjectMethodology.SCRUM:
+          return 0.7; // Sprints may feel rushed
+        case ProjectMethodology.HYBRID:
+          return 0.6;
+        case ProjectMethodology.WATERFALL:
+          return 0.3; // Too rigid for short projects
+        default:
+          return 0.5;
+      }
+    }
+
+    // Medium-term projects (3-6 months): Scrum, Agile preferred
+    if (timeline === 'medium') {
+      switch (methodology) {
+        case ProjectMethodology.SCRUM:
+          return 1.0; // Sweet spot for sprints
+        case ProjectMethodology.AGILE:
+          return 0.9;
+        case ProjectMethodology.HYBRID:
+          return 0.8;
+        case ProjectMethodology.KANBAN:
+          return 0.6;
+        case ProjectMethodology.WATERFALL:
+          return 0.5;
+        default:
+          return 0.5;
+      }
+    }
+
+    // Long-term projects (6+ months): Waterfall, Hybrid preferred
+    if (timeline === 'long') {
+      switch (methodology) {
+        case ProjectMethodology.WATERFALL:
+          return 1.0; // Planning-heavy approach suits long projects
+        case ProjectMethodology.HYBRID:
+          return 0.9;
+        case ProjectMethodology.SCRUM:
+          return 0.7; // Many sprints can work
+        case ProjectMethodology.AGILE:
+          return 0.6;
+        case ProjectMethodology.KANBAN:
+          return 0.5; // May lack structure
+        default:
+          return 0.5;
+      }
+    }
+
     return 0.5;
   }
 

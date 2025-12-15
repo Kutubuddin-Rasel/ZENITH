@@ -5,6 +5,7 @@ import {
   MinLength,
   MaxLength,
   Matches,
+  IsUUID,
 } from 'class-validator';
 
 export class CreateProjectDto {
@@ -29,4 +30,9 @@ export class CreateProjectDto {
   @IsString()
   @IsOptional()
   projectLeadId?: string; // ID of the user who will be Project Lead (optional, defaults to creator)
+
+  // NEW: Optional template ID for pre-configured project setup
+  @IsUUID()
+  @IsOptional()
+  templateId?: string;
 }

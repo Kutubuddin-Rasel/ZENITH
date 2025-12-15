@@ -6,6 +6,11 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
+import {
+  IdealTeamSize,
+  TemplateFeatures,
+  TemplateComplexity,
+} from '../constants/industry.constants';
 
 export enum ProjectCategory {
   SOFTWARE_DEVELOPMENT = 'software_development',
@@ -133,6 +138,53 @@ export class ProjectTemplate {
 
   @Column({ type: 'jsonb', nullable: true })
   tags?: string[];
+
+  // ============================================
+  // NEW: Industry-Level Matching Fields
+  // ============================================
+
+  /**
+   * Industries this template is optimized for
+   * e.g., ['technology', 'healthcare', 'fintech']
+   */
+  @Column({ type: 'jsonb', nullable: true, default: [] })
+  industries?: string[];
+
+  /**
+   * Ideal team size range for this template
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  idealTeamSize?: IdealTeamSize;
+
+  /**
+   * Complexity rating: simple, medium, complex
+   */
+  @Column({ type: 'varchar', nullable: true, default: 'medium' })
+  complexity?: TemplateComplexity;
+
+  /**
+   * Feature flags for direct matching
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  features?: TemplateFeatures;
+
+  /**
+   * Keywords for semantic/AI matching
+   * e.g., ['clinic', 'patient', 'medical']
+   */
+  @Column({ type: 'jsonb', nullable: true, default: [] })
+  matchKeywords?: string[];
+
+  /**
+   * Best-for hints (who this template is designed for)
+   * e.g., ['startups', 'agencies', 'enterprise']
+   */
+  @Column({ type: 'jsonb', nullable: true, default: [] })
+  bestFor?: string[];
+
+  // ============================================
+  // Timestamps
+  // ============================================
 
   @CreateDateColumn()
   createdAt: Date;

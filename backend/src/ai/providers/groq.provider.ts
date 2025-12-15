@@ -24,7 +24,7 @@ export class GroqProvider extends BaseAIProvider {
       name: 'Groq',
       apiKey: apiKey || '',
       baseUrl: 'https://api.groq.com/openai/v1',
-      model: 'llama3-70b-8192', // Fast, high-quality, free tier available
+      model: 'llama-3.3-70b-versatile', // Updated from deprecated llama3-70b-8192
       timeout: 30000,
       maxRetries: 2,
     });

@@ -8,7 +8,7 @@ interface QueryClientWrapperProps {
   children: ReactNode;
 }
 
-const CACHE_VERSION = 'v1'; // Bump this to invalidate old caches
+const CACHE_VERSION = 'v2'; // Bumped to fix rehydration errors with persisted pending queries
 
 export default function QueryClientWrapper({ children }: QueryClientWrapperProps) {
   const [queryClient] = useState(() => new QueryClient({
@@ -33,11 +33,25 @@ export default function QueryClientWrapper({ children }: QueryClientWrapperProps
         buster: CACHE_VERSION,
         dehydrateOptions: {
           shouldDehydrateQuery: (query) => {
+            // Don't persist pending or failed queries - they cause rehydration issues
+            if (query.state.status !== 'success') {
+              return false;
+            }
+
             const queryKey = query.queryKey;
-            // Only persist core entities. Don't persist errors or transient search results.
-            // Whitelist-ish approach based on key prefix
             const keyString = String(queryKey[0]);
-            return ['projects', 'issues', 'sprints', 'user', 'dashboard', 'workspace'].includes(keyString);
+
+            // Whitelist-ish approach based on key prefix
+            const allowedPrefixes = ['projects', 'issues', 'sprints', 'user', 'dashboard', 'workspace'];
+
+            // Exclude sensitive sub-queries that require authentication
+            // These cause 403 errors during rehydration before login
+            const keyPath = queryKey.join('/');
+            if (keyPath.includes('invites') || keyPath.includes('members')) {
+              return false;
+            }
+
+            return allowedPrefixes.includes(keyString);
           }
         }
       }}

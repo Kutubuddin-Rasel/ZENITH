@@ -21,6 +21,14 @@ import { BoardsService } from '../../boards/boards.service';
 import { SprintsService } from '../../sprints/sprints.service';
 import { Project } from '../../projects/entities/project.entity';
 import { ProjectIntelligenceService } from '../../ai/services/project-intelligence.service';
+import { TemplateScorerService } from '../../ai/services/template-scorer.service';
+import {
+  IntelligentCriteria,
+  TeamSizeRange,
+  TimelineRange,
+} from '../../ai/interfaces/intelligent-criteria.interface';
+// NEW: Import unified template application service
+import { TemplateApplicationService } from './template-application.service';
 
 export interface WizardQuestion {
   id: string;
@@ -74,6 +82,9 @@ export class ProjectWizardService {
     private dataSource: DataSource,
     @Optional() private projectIntelligence?: ProjectIntelligenceService,
     @Optional() private cacheService?: CacheService,
+    @Optional() private templateScorer?: TemplateScorerService,
+    // NEW: Unified template application service
+    @Optional() private templateApplicationService?: TemplateApplicationService,
   ) {}
 
   /**
@@ -127,19 +138,49 @@ export class ProjectWizardService {
       },
       {
         id: 'industry',
-        question: 'What is the primary industry or category for this project?',
+        question: 'What industry is this project for?',
         type: 'select',
         options: [
-          { value: 'software_development', label: 'Software Development' },
-          { value: 'marketing', label: 'Marketing Campaign' },
-          { value: 'product_launch', label: 'Product Launch' },
-          { value: 'research', label: 'Research & Development' },
-          { value: 'event_planning', label: 'Event Planning' },
-          { value: 'website_development', label: 'Website Design & Dev' },
-          { value: 'mobile_development', label: 'Mobile App' },
-          { value: 'data_analysis', label: 'Data Analysis' },
-          { value: 'design', label: 'Creative & Design' },
-          { value: 'sales', label: 'Sales Pipeline' },
+          {
+            value: 'technology',
+            label: 'Technology / Software',
+            description: 'Software, SaaS, IT',
+          },
+          {
+            value: 'healthcare',
+            label: 'Healthcare / Medical',
+            description: 'Clinics, hospitals, patient care',
+          },
+          {
+            value: 'fintech',
+            label: 'Fintech / Finance',
+            description: 'Banking, payments, trading',
+          },
+          {
+            value: 'ecommerce',
+            label: 'E-commerce / Retail',
+            description: 'Online stores, inventory',
+          },
+          {
+            value: 'education',
+            label: 'Education / EdTech',
+            description: 'Schools, courses, learning',
+          },
+          {
+            value: 'agency',
+            label: 'Agency / Consulting',
+            description: 'Client work, creative',
+          },
+          {
+            value: 'startup',
+            label: 'Startup / General',
+            description: 'MVPs, side projects',
+          },
+          {
+            value: 'enterprise',
+            label: 'Enterprise / Corporate',
+            description: 'Large organizations',
+          },
         ],
         required: true,
         order: 5,
@@ -161,6 +202,31 @@ export class ProjectWizardService {
         category: 'methodology',
       },
       {
+        id: 'complexity',
+        question: 'How complex is this project?',
+        type: 'select',
+        options: [
+          {
+            value: 'simple',
+            label: 'Simple',
+            description: 'Basic workflows, small scope',
+          },
+          {
+            value: 'moderate',
+            label: 'Moderate',
+            description: 'Standard complexity',
+          },
+          {
+            value: 'complex',
+            label: 'Complex',
+            description: 'Approvals, compliance, large scope',
+          },
+        ],
+        required: true,
+        order: 7,
+        category: 'complexity',
+      },
+      {
         id: 'userExperience',
         question: 'What is your experience level with project management?',
         type: 'select',
@@ -179,6 +245,7 @@ export class ProjectWizardService {
 
   /**
    * Process wizard answers and return recommended templates + configuration
+   * Priority: 1. TemplateScorerService (enhanced 7-factor) → 2. AI Intelligence → 3. Local fallback
    */
   async processWizardResponses(
     userId: string,
@@ -186,7 +253,55 @@ export class ProjectWizardService {
   ): Promise<{ recommendations: any[]; suggestedConfig: any }> {
     const wizardData = this.parseWizardResponses(responses);
 
-    // AI-Enhanced Setup
+    // PRIORITY 1: Try TemplateScorerService (enhanced 7-factor scoring)
+    // This works WITHOUT AI and uses the new industry/complexity matching
+    if (this.templateScorer) {
+      try {
+        const criteria = this.convertToIntelligentCriteria(wizardData);
+        const { results, templates } =
+          await this.templateScorer.getTopRecommendations(
+            criteria,
+            null, // userPrefs
+            5, // limit
+          );
+
+        if (results && results.length > 0) {
+          this.logger.log(
+            'Using TemplateScorerService for wizard recommendations',
+          );
+
+          const recommendations = results
+            .map((r) => {
+              const template = templates.get(r.templateId);
+              return {
+                template,
+                score: r.score,
+                reasons: this.generateReasons(r.breakdown),
+                confidence: r.confidence,
+                breakdown: r.breakdown,
+              };
+            })
+            .filter((r) => r.template); // Filter out any without templates
+
+          if (recommendations.length > 0) {
+            return {
+              recommendations,
+              suggestedConfig: this.generateSuggestedConfig(
+                wizardData,
+                recommendations[0]?.template,
+              ),
+            };
+          }
+        }
+      } catch (error) {
+        this.logger.warn(
+          'TemplateScorerService failed, trying AI fallback',
+          error,
+        );
+      }
+    }
+
+    // PRIORITY 2: AI-Enhanced Setup
     if (this.projectIntelligence?.isAvailable) {
       try {
         const aiRecommendation =
@@ -263,7 +378,7 @@ export class ProjectWizardService {
       }
     }
 
-    // Fallback to existing rule-based logic
+    // PRIORITY 3: Fallback to rule-based logic
     return this.getManualWizardRecommendations(userId, wizardData);
   }
 
@@ -364,8 +479,17 @@ export class ProjectWizardService {
         organizationId,
       );
 
-      // Apply template configuration
-      await this.applyTemplateConfiguration(project.id, template, userId);
+      // Apply template configuration using unified service
+      if (this.templateApplicationService) {
+        await this.templateApplicationService.applyTemplate(
+          project.id,
+          templateId,
+          userId,
+        );
+      } else {
+        // Fallback to legacy method if service unavailable
+        await this.applyTemplateConfiguration(project.id, template, userId);
+      }
 
       // Invalidate cache
       if (this.cacheService) {
@@ -497,21 +621,169 @@ export class ProjectWizardService {
   ): number {
     let score = 0;
 
-    // Category match (High weight)
-    if (template.category === (wizardData.industry as ProjectCategory)) {
-      score += 0.4;
+    // Industry match using new 8-industry system (18%)
+    if (template.industries?.includes(wizardData.industry)) {
+      score += 0.18;
+    } else if (
+      template.category === this.mapIndustryToProjectType(wizardData.industry)
+    ) {
+      score += 0.1; // Partial category match
     }
 
-    // Methodology match
+    // Methodology match (18%)
     if (template.methodology === wizardData.methodology) {
-      score += 0.3;
+      score += 0.18;
     }
 
-    // Team Size Fit
-    // ... basic logic ...
-    score += 0.1;
+    // Team Size Fit (15%)
+    if (template.idealTeamSize) {
+      const teamNum = this.parseTeamSize(wizardData.teamSize);
+      if (
+        teamNum >= template.idealTeamSize.min &&
+        teamNum <= template.idealTeamSize.max
+      ) {
+        score += 0.15;
+      } else {
+        score += 0.05; // Partial credit
+      }
+    } else {
+      score += 0.08;
+    }
+
+    // Complexity Fit (10%)
+    if (template.complexity === wizardData.complexity) {
+      score += 0.1;
+    } else if (
+      this.isAdjacentComplexity(template.complexity, wizardData.complexity)
+    ) {
+      score += 0.05;
+    }
+
+    // Category bonus (22%)
+    if (
+      template.category === this.mapIndustryToProjectType(wizardData.industry)
+    ) {
+      score += 0.22;
+    }
 
     return Math.min(score, 1);
+  }
+
+  /**
+   * Convert wizard data to IntelligentCriteria for TemplateScorerService
+   */
+  private convertToIntelligentCriteria(
+    wizardData: ProjectWizardData,
+  ): IntelligentCriteria {
+    return {
+      projectName: wizardData.projectName,
+      description: wizardData.description || null,
+      industry: wizardData.industry,
+      projectType: this.mapIndustryToProjectType(wizardData.industry),
+      teamSize: wizardData.teamSize as TeamSizeRange,
+      workStyle: wizardData.methodology,
+      timeline: wizardData.timeline as TimelineRange,
+      hasExternalStakeholders: wizardData.complexity === 'complex',
+      stakeholderType: undefined,
+      complianceNeeds: [],
+      wantsApprovalWorkflow: wizardData.complexity !== 'simple',
+      wantsTimeTracking: undefined,
+      wantsStoryPoints: undefined,
+      keyFeatures: [],
+      excludedFeatures: [],
+    };
+  }
+
+  /**
+   * Map 8-industry system to ProjectCategory
+   */
+  private mapIndustryToProjectType(industry: string): ProjectCategory {
+    const mapping: Record<string, ProjectCategory> = {
+      technology: ProjectCategory.SOFTWARE_DEVELOPMENT,
+      healthcare: ProjectCategory.CUSTOM,
+      fintech: ProjectCategory.SOFTWARE_DEVELOPMENT,
+      ecommerce: ProjectCategory.CUSTOM,
+      education: ProjectCategory.CUSTOM,
+      agency: ProjectCategory.CUSTOM,
+      startup: ProjectCategory.SOFTWARE_DEVELOPMENT,
+      enterprise: ProjectCategory.CUSTOM,
+      // Legacy mappings for backwards compatibility
+      software_development: ProjectCategory.SOFTWARE_DEVELOPMENT,
+      marketing: ProjectCategory.MARKETING,
+      product_launch: ProjectCategory.PRODUCT_LAUNCH,
+      research: ProjectCategory.RESEARCH,
+      event_planning: ProjectCategory.EVENT_PLANNING,
+      website_development: ProjectCategory.WEBSITE_DEVELOPMENT,
+      mobile_development: ProjectCategory.MOBILE_DEVELOPMENT,
+      data_analysis: ProjectCategory.DATA_ANALYSIS,
+      design: ProjectCategory.DESIGN,
+      sales: ProjectCategory.SALES,
+    };
+    return mapping[industry] || ProjectCategory.CUSTOM;
+  }
+
+  /**
+   * Generate human-readable reasons from scoring breakdown
+   */
+  private generateReasons(breakdown: {
+    categoryMatch: number;
+    methodologyMatch: number;
+    teamSizeFit: number;
+    stakeholderFit: number;
+    industryMatch: number;
+    complexityFit: number;
+    userPreference: number;
+  }): string[] {
+    const reasons: string[] = [];
+
+    if (breakdown.industryMatch > 0.1) {
+      reasons.push('Matches your industry');
+    }
+    if (breakdown.categoryMatch > 0.1) {
+      reasons.push('Fits your project type');
+    }
+    if (breakdown.methodologyMatch > 0.1) {
+      reasons.push('Matches your preferred methodology');
+    }
+    if (breakdown.teamSizeFit > 0.1) {
+      reasons.push('Designed for your team size');
+    }
+    if (breakdown.complexityFit > 0.05) {
+      reasons.push('Appropriate complexity level');
+    }
+    if (breakdown.stakeholderFit > 0.05) {
+      reasons.push('Supports your stakeholder needs');
+    }
+
+    if (reasons.length === 0) {
+      reasons.push('Good general match for your project');
+    }
+
+    return reasons;
+  }
+
+  /**
+   * Parse team size string to number
+   */
+  private parseTeamSize(teamSize: string): number {
+    const mapping: Record<string, number> = {
+      '1': 1,
+      '2-5': 3,
+      '6-10': 8,
+      '11-20': 15,
+      '20+': 25,
+    };
+    return mapping[teamSize] || 5;
+  }
+
+  /**
+   * Check if two complexity levels are adjacent
+   */
+  private isAdjacentComplexity(a?: string, b?: string): boolean {
+    const levels = ['simple', 'moderate', 'complex'];
+    const aIdx = levels.indexOf(a || '');
+    const bIdx = levels.indexOf(b || '');
+    return Math.abs(aIdx - bIdx) === 1;
   }
 
   private generateSuggestedConfig(

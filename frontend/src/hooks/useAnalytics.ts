@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import { apiFetch } from '@/lib/fetcher';
 
 export interface CycleTimeData {
     averageDays: number;
@@ -34,18 +33,8 @@ export function useCycleTime(projectId: string, days = 30) {
     useEffect(() => {
         if (!projectId) return;
         setLoading(true);
-        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
 
-        fetch(`${API_URL}/projects/${projectId}/analytics/cycle-time?days=${days}`, {
-            headers: {
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                'Content-Type': 'application/json',
-            },
-        })
-            .then(res => {
-                if (!res.ok) throw new Error('Failed to fetch cycle time');
-                return res.json();
-            })
+        apiFetch<CycleTimeData>(`/projects/${projectId}/analytics/cycle-time?days=${days}`)
             .then(setData)
             .catch(err => setError(err.message))
             .finally(() => setLoading(false));
@@ -62,18 +51,8 @@ export function useSprintRisk(projectId: string, sprintId: string) {
     useEffect(() => {
         if (!projectId || !sprintId) return;
         setLoading(true);
-        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
 
-        fetch(`${API_URL}/projects/${projectId}/analytics/sprints/${sprintId}/risk`, {
-            headers: {
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                'Content-Type': 'application/json',
-            },
-        })
-            .then(res => {
-                if (!res.ok) throw new Error('Failed to fetch sprint risk');
-                return res.json();
-            })
+        apiFetch<SprintRiskData>(`/projects/${projectId}/analytics/sprints/${sprintId}/risk`)
             .then(setData)
             .catch(err => setError(err.message))
             .finally(() => setLoading(false));

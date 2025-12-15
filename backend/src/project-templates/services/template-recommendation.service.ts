@@ -37,7 +37,7 @@ export class TemplateRecommendationService {
     @InjectRepository(UserPreferences)
     private preferencesRepo: Repository<UserPreferences>,
     @Optional() private cacheService?: CacheService,
-  ) {}
+  ) { }
 
   /**
    * Get personalized template recommendations based on user context
@@ -480,6 +480,26 @@ export class TemplateRecommendationService {
           'sprints',
           'team-focused',
         ],
+        // NEW: Industry-level matching fields
+        industries: ['technology', 'startup', 'fintech', 'ecommerce'],
+        idealTeamSize: { min: 3, max: 15, label: 'small' as const },
+        complexity: 'medium' as const,
+        features: {
+          hasApprovalWorkflow: false,
+          supportsExternalStakeholders: false,
+          hasSprintPlanning: true,
+          hasTimeTracking: true,
+          hasStoryPoints: true,
+        },
+        matchKeywords: [
+          'agile',
+          'sprint',
+          'scrum',
+          'software',
+          'development',
+          'product',
+        ],
+        bestFor: ['startups', 'tech-teams', 'product-teams'],
       },
       {
         name: 'Software Development (Kanban)',
@@ -549,7 +569,8 @@ export class TemplateRecommendationService {
                 { name: 'Backlog', status: 'Backlog', order: 1 },
                 { name: 'Ready', status: 'Ready', order: 2 },
                 { name: 'In Progress', status: 'In Progress', order: 3 },
-                { name: 'Done', status: 'Done', order: 4 },
+                { name: 'In Review', status: 'In Review', order: 4 },
+                { name: 'Done', status: 'Done', order: 5 },
               ],
             },
           ],
@@ -572,6 +593,25 @@ export class TemplateRecommendationService {
           'flow-based',
           'maintenance',
         ],
+        // NEW: Industry-level matching fields
+        industries: ['technology', 'agency', 'startup'],
+        idealTeamSize: { min: 2, max: 10, label: 'small' as const },
+        complexity: 'simple' as const,
+        features: {
+          hasApprovalWorkflow: false,
+          supportsExternalStakeholders: false,
+          hasSprintPlanning: false,
+          hasTimeTracking: true,
+          hasStoryPoints: false,
+        },
+        matchKeywords: [
+          'kanban',
+          'continuous',
+          'flow',
+          'maintenance',
+          'support',
+        ],
+        bestFor: ['small-teams', 'support-teams', 'maintenance'],
       },
       // ========== MARKETING ==========
       {
@@ -702,6 +742,26 @@ export class TemplateRecommendationService {
           'collaborative',
           'visual',
         ],
+        // NEW: Industry-level matching fields
+        industries: ['agency', 'ecommerce', 'startup', 'education'],
+        idealTeamSize: { min: 2, max: 8, label: 'small' as const },
+        complexity: 'medium' as const,
+        features: {
+          hasApprovalWorkflow: true,
+          supportsExternalStakeholders: true,
+          hasSprintPlanning: false,
+          hasTimeTracking: false,
+          hasStoryPoints: false,
+        },
+        matchKeywords: [
+          'marketing',
+          'campaign',
+          'ads',
+          'social',
+          'content',
+          'branding',
+        ],
+        bestFor: ['marketing-teams', 'agencies', 'content-creators'],
       },
       // ========== PRODUCT LAUNCH ==========
       {
@@ -789,7 +849,7 @@ export class TemplateRecommendationService {
                 { name: 'Planning', status: 'Planning', order: 1 },
                 { name: 'In Development', status: 'In Development', order: 2 },
                 { name: 'Beta', status: 'Beta', order: 3 },
-                { name: 'Ready', status: 'Ready', order: 4 },
+                { name: 'Launch Prep', status: 'Launch Prep', order: 4 },
                 { name: 'Launched', status: 'Launched', order: 5 },
               ],
             },
@@ -831,6 +891,25 @@ export class TemplateRecommendationService {
           'deadline-driven',
           'roadmap',
         ],
+        // NEW: Industry-level matching fields
+        industries: ['technology', 'startup', 'enterprise', 'ecommerce'],
+        idealTeamSize: { min: 5, max: 25, label: 'medium' as const },
+        complexity: 'complex' as const,
+        features: {
+          hasApprovalWorkflow: true,
+          supportsExternalStakeholders: true,
+          hasSprintPlanning: true,
+          hasTimeTracking: true,
+          hasStoryPoints: true,
+        },
+        matchKeywords: [
+          'product',
+          'launch',
+          'release',
+          'go-to-market',
+          'roadmap',
+        ],
+        bestFor: ['product-teams', 'cross-functional', 'enterprise'],
       },
       // ========== WEBSITE DEVELOPMENT ==========
       {
@@ -948,6 +1027,26 @@ export class TemplateRecommendationService {
         icon: '🌐',
         color: '#8B5CF6',
         tags: ['website', 'web', 'development'],
+        // NEW: Industry-level matching fields
+        industries: ['technology', 'agency', 'ecommerce'],
+        idealTeamSize: { min: 2, max: 8, label: 'small' as const },
+        complexity: 'medium' as const,
+        features: {
+          hasApprovalWorkflow: false,
+          supportsExternalStakeholders: true,
+          hasSprintPlanning: true,
+          hasTimeTracking: true,
+          hasStoryPoints: true,
+        },
+        matchKeywords: [
+          'website',
+          'web',
+          'landing',
+          'frontend',
+          'backend',
+          'fullstack',
+        ],
+        bestFor: ['web-agencies', 'developers', 'freelancers'],
       },
       // ========== MOBILE DEVELOPMENT ==========
       {
@@ -1037,7 +1136,8 @@ export class TemplateRecommendationService {
                 { name: 'In Progress', status: 'In Progress', order: 2 },
                 { name: 'Code Review', status: 'Code Review', order: 3 },
                 { name: 'Testing', status: 'Testing', order: 4 },
-                { name: 'Released', status: 'Released', order: 5 },
+                { name: 'Ready for Release', status: 'Ready for Release', order: 5 },
+                { name: 'Released', status: 'Released', order: 6 },
               ],
             },
           ],
@@ -1072,6 +1172,27 @@ export class TemplateRecommendationService {
         icon: '📱',
         color: '#EC4899',
         tags: ['mobile', 'ios', 'android', 'app'],
+        // NEW: Industry-level matching fields
+        industries: ['technology', 'startup', 'healthcare', 'fintech'],
+        idealTeamSize: { min: 3, max: 12, label: 'small' as const },
+        complexity: 'medium' as const,
+        features: {
+          hasApprovalWorkflow: false,
+          supportsExternalStakeholders: false,
+          hasSprintPlanning: true,
+          hasTimeTracking: true,
+          hasStoryPoints: true,
+        },
+        matchKeywords: [
+          'mobile',
+          'ios',
+          'android',
+          'app',
+          'swift',
+          'kotlin',
+          'react-native',
+        ],
+        bestFor: ['mobile-teams', 'app-developers', 'startups'],
       },
       // ========== EVENT PLANNING ==========
       {
@@ -1194,6 +1315,26 @@ export class TemplateRecommendationService {
         icon: '🎉',
         color: '#F97316',
         tags: ['event', 'planning', 'coordination'],
+        // NEW: Industry-level matching fields
+        industries: ['agency', 'enterprise', 'education'],
+        idealTeamSize: { min: 2, max: 10, label: 'small' as const },
+        complexity: 'medium' as const,
+        features: {
+          hasApprovalWorkflow: true,
+          supportsExternalStakeholders: true,
+          hasSprintPlanning: false,
+          hasTimeTracking: true,
+          hasStoryPoints: false,
+        },
+        matchKeywords: [
+          'event',
+          'conference',
+          'workshop',
+          'seminar',
+          'venue',
+          'catering',
+        ],
+        bestFor: ['event-managers', 'coordinators', 'marketing-teams'],
       },
       // ========== RESEARCH ==========
       {
@@ -1281,7 +1422,8 @@ export class TemplateRecommendationService {
                 { name: 'Proposed', status: 'Proposed', order: 1 },
                 { name: 'In Progress', status: 'In Progress', order: 2 },
                 { name: 'Analysis', status: 'Analysis', order: 3 },
-                { name: 'Completed', status: 'Completed', order: 4 },
+                { name: 'Review', status: 'Review', order: 4 },
+                { name: 'Completed', status: 'Completed', order: 5 },
               ],
             },
           ],
@@ -1310,6 +1452,26 @@ export class TemplateRecommendationService {
         icon: '🔬',
         color: '#06B6D4',
         tags: ['research', 'r&d', 'experiment'],
+        // NEW: Industry-level matching fields
+        industries: ['healthcare', 'education', 'technology', 'fintech'],
+        idealTeamSize: { min: 2, max: 10, label: 'small' as const },
+        complexity: 'complex' as const,
+        features: {
+          hasApprovalWorkflow: false,
+          supportsExternalStakeholders: false,
+          hasSprintPlanning: false,
+          hasTimeTracking: true,
+          hasStoryPoints: false,
+        },
+        matchKeywords: [
+          'research',
+          'experiment',
+          'hypothesis',
+          'study',
+          'analysis',
+          'lab',
+        ],
+        bestFor: ['researchers', 'scientists', 'academics'],
       },
       // ========== DATA ANALYSIS ==========
       {
@@ -1392,7 +1554,8 @@ export class TemplateRecommendationService {
                 { name: 'Backlog', status: 'Backlog', order: 1 },
                 { name: 'Data Prep', status: 'Data Prep', order: 2 },
                 { name: 'Analysis', status: 'Analysis', order: 3 },
-                { name: 'Delivered', status: 'Delivered', order: 4 },
+                { name: 'Visualization', status: 'Visualization', order: 4 },
+                { name: 'Delivered', status: 'Delivered', order: 5 },
               ],
             },
           ],
@@ -1408,6 +1571,26 @@ export class TemplateRecommendationService {
         icon: '📊',
         color: '#14B8A6',
         tags: ['data', 'analysis', 'reporting'],
+        // NEW: Industry-level matching fields
+        industries: ['fintech', 'healthcare', 'enterprise', 'ecommerce'],
+        idealTeamSize: { min: 1, max: 5, label: 'solo' as const },
+        complexity: 'medium' as const,
+        features: {
+          hasApprovalWorkflow: false,
+          supportsExternalStakeholders: false,
+          hasSprintPlanning: false,
+          hasTimeTracking: true,
+          hasStoryPoints: false,
+        },
+        matchKeywords: [
+          'data',
+          'analytics',
+          'dashboard',
+          'report',
+          'visualization',
+          'bi',
+        ],
+        bestFor: ['data-analysts', 'data-scientists', 'business-analysts'],
       },
       // ========== DESIGN ==========
       {
@@ -1512,6 +1695,27 @@ export class TemplateRecommendationService {
         icon: '🎨',
         color: '#A855F7',
         tags: ['design', 'creative', 'ui', 'ux'],
+        // NEW: Industry-level matching fields
+        industries: ['agency', 'startup', 'technology'],
+        idealTeamSize: { min: 2, max: 8, label: 'small' as const },
+        complexity: 'simple' as const,
+        features: {
+          hasApprovalWorkflow: true,
+          supportsExternalStakeholders: true,
+          hasSprintPlanning: false,
+          hasTimeTracking: false,
+          hasStoryPoints: false,
+        },
+        matchKeywords: [
+          'design',
+          'ui',
+          'ux',
+          'figma',
+          'mockup',
+          'prototype',
+          'creative',
+        ],
+        bestFor: ['designers', 'creative-teams', 'agencies'],
       },
       // ========== SALES ==========
       {
@@ -1596,6 +1800,7 @@ export class TemplateRecommendationService {
                 { name: 'Proposal', status: 'Proposal', order: 3 },
                 { name: 'Negotiation', status: 'Negotiation', order: 4 },
                 { name: 'Won', status: 'Won', order: 5 },
+                { name: 'Lost', status: 'Lost', order: 6 },
               ],
             },
           ],
@@ -1611,6 +1816,26 @@ export class TemplateRecommendationService {
         icon: '💼',
         color: '#EF4444',
         tags: ['sales', 'pipeline', 'crm'],
+        // NEW: Industry-level matching fields
+        industries: ['agency', 'fintech', 'enterprise', 'startup'],
+        idealTeamSize: { min: 3, max: 15, label: 'small' as const },
+        complexity: 'medium' as const,
+        features: {
+          hasApprovalWorkflow: false,
+          supportsExternalStakeholders: true,
+          hasSprintPlanning: false,
+          hasTimeTracking: false,
+          hasStoryPoints: false,
+        },
+        matchKeywords: [
+          'sales',
+          'pipeline',
+          'leads',
+          'deals',
+          'crm',
+          'revenue',
+        ],
+        bestFor: ['sales-teams', 'account-managers', 'bdrs'],
       },
       // ========== BUG TRACKING ==========
       {
@@ -1696,6 +1921,7 @@ export class TemplateRecommendationService {
                 { name: 'In Progress', status: 'In Progress', order: 3 },
                 { name: 'Testing', status: 'Testing', order: 4 },
                 { name: 'Resolved', status: 'Resolved', order: 5 },
+                { name: 'Closed', status: 'Closed', order: 6 },
               ],
             },
           ],
@@ -1711,6 +1937,26 @@ export class TemplateRecommendationService {
         icon: '🐛',
         color: '#DC2626',
         tags: ['bug', 'qa', 'testing', 'defects'],
+        // NEW: Industry-level matching fields
+        industries: ['technology', 'enterprise'],
+        idealTeamSize: { min: 3, max: 20, label: 'medium' as const },
+        complexity: 'simple' as const,
+        features: {
+          hasApprovalWorkflow: false,
+          supportsExternalStakeholders: false,
+          hasSprintPlanning: false,
+          hasTimeTracking: true,
+          hasStoryPoints: false,
+        },
+        matchKeywords: [
+          'bug',
+          'defect',
+          'qa',
+          'testing',
+          'issue',
+          'regression',
+        ],
+        bestFor: ['qa-teams', 'developers', 'support-teams'],
       },
       // ========== HR ONBOARDING ==========
       {
@@ -1825,6 +2071,26 @@ export class TemplateRecommendationService {
         icon: '👤',
         color: '#0EA5E9',
         tags: ['hr', 'onboarding', 'employee', 'recruitment'],
+        // NEW: Industry-level matching fields
+        industries: ['enterprise', 'startup'],
+        idealTeamSize: { min: 2, max: 10, label: 'small' as const },
+        complexity: 'simple' as const,
+        features: {
+          hasApprovalWorkflow: true,
+          supportsExternalStakeholders: false,
+          hasSprintPlanning: false,
+          hasTimeTracking: false,
+          hasStoryPoints: false,
+        },
+        matchKeywords: [
+          'hr',
+          'onboarding',
+          'employee',
+          'hiring',
+          'training',
+          'orientation',
+        ],
+        bestFor: ['hr-teams', 'people-ops', 'managers'],
       },
       // ========== EVENT PLANNING ==========
       {
@@ -1943,6 +2209,25 @@ export class TemplateRecommendationService {
         icon: '🎉',
         color: '#A855F7',
         tags: ['event', 'planning', 'conference', 'meeting'],
+        // NEW: Industry-level matching fields
+        industries: ['agency', 'enterprise', 'education'],
+        idealTeamSize: { min: 3, max: 15, label: 'small' as const },
+        complexity: 'medium' as const,
+        features: {
+          hasApprovalWorkflow: true,
+          supportsExternalStakeholders: true,
+          hasSprintPlanning: false,
+          hasTimeTracking: true,
+          hasStoryPoints: false,
+        },
+        matchKeywords: [
+          'event',
+          'conference',
+          'meeting',
+          'workshop',
+          'seminar',
+        ],
+        bestFor: ['event-planners', 'marketing-teams', 'operations'],
       },
       // ========== CONTENT CALENDAR ==========
       {
@@ -2047,6 +2332,527 @@ export class TemplateRecommendationService {
         icon: '📅',
         color: '#F97316',
         tags: ['content', 'marketing', 'blog', 'social media'],
+        // NEW: Industry-level matching fields
+        industries: ['agency', 'education', 'startup'],
+        idealTeamSize: { min: 1, max: 5, label: 'solo' as const },
+        complexity: 'simple' as const,
+        features: {
+          hasApprovalWorkflow: true,
+          supportsExternalStakeholders: false,
+          hasSprintPlanning: false,
+          hasTimeTracking: false,
+          hasStoryPoints: false,
+        },
+        matchKeywords: [
+          'content',
+          'blog',
+          'social',
+          'editorial',
+          'publish',
+          'schedule',
+        ],
+        bestFor: ['content-teams', 'writers', 'social-media-managers'],
+      },
+      // ========== NEW: IT SERVICE DESK ==========
+      {
+        name: 'IT Service Desk',
+        description:
+          'Manage IT support tickets, incidents, and service requests with SLA tracking',
+        category: ProjectCategory.CUSTOM,
+        methodology: ProjectMethodology.KANBAN,
+        templateConfig: {
+          defaultSprintDuration: 0,
+          defaultIssueTypes: [
+            'Incident',
+            'Service Request',
+            'Problem',
+            'Change Request',
+            'Access Request',
+          ],
+          defaultPriorities: ['Low', 'Medium', 'High', 'Critical', 'Emergency'],
+          defaultStatuses: [
+            'Open',
+            'In Progress',
+            'Pending',
+            'Resolved',
+            'Closed',
+          ],
+          suggestedRoles: [
+            {
+              role: 'IT Manager',
+              description: 'Oversees IT operations',
+              permissions: ['manage_all'],
+            },
+            {
+              role: 'Support Agent',
+              description: 'Handles tickets',
+              permissions: ['manage_issues'],
+            },
+            {
+              role: 'System Admin',
+              description: 'Technical escalation',
+              permissions: ['manage_issues'],
+            },
+          ],
+          workflowStages: [
+            {
+              name: 'Open',
+              description: 'New ticket opened',
+              order: 1,
+              isDefault: true,
+            },
+            {
+              name: 'Assigned',
+              description: 'Assigned to agent',
+              order: 2,
+              isDefault: true,
+            },
+            {
+              name: 'In Progress',
+              description: 'Being worked on',
+              order: 3,
+              isDefault: true,
+            },
+            {
+              name: 'Pending',
+              description: 'Waiting for user/vendor',
+              order: 4,
+              isDefault: true,
+            },
+            {
+              name: 'Resolved',
+              description: 'Issue resolved',
+              order: 5,
+              isDefault: true,
+            },
+          ],
+          defaultBoards: [
+            {
+              name: 'Service Desk Board',
+              type: 'kanban' as const,
+              columns: [
+                { name: 'Open', status: 'Open', order: 1 },
+                { name: 'In Progress', status: 'In Progress', order: 2 },
+                { name: 'Pending', status: 'Pending', order: 3 },
+                { name: 'Resolved', status: 'Resolved', order: 4 },
+                { name: 'Closed', status: 'Closed', order: 5 },
+              ],
+            },
+          ],
+          defaultMilestones: [],
+          smartDefaults: {
+            autoAssignIssues: true,
+            suggestDueDates: true,
+            enableTimeTracking: true,
+            enableStoryPoints: false,
+            defaultStoryPointScale: [],
+          },
+        },
+        icon: '🎫',
+        color: '#0EA5E9',
+        tags: ['it', 'support', 'helpdesk', 'tickets', 'service'],
+        // Industry-level matching fields
+        industries: ['technology', 'enterprise'],
+        idealTeamSize: { min: 2, max: 15, label: 'small' as const },
+        complexity: 'medium' as const,
+        features: {
+          hasApprovalWorkflow: true,
+          supportsExternalStakeholders: true,
+          hasSprintPlanning: false,
+          hasTimeTracking: true,
+          hasStoryPoints: false,
+        },
+        matchKeywords: [
+          'it',
+          'helpdesk',
+          'ticket',
+          'support',
+          'service',
+          'sla',
+          'incident',
+        ],
+        bestFor: ['it-teams', 'support-teams', 'helpdesk'],
+      },
+      // ========== NEW: CUSTOMER SUPPORT ==========
+      {
+        name: 'Customer Support',
+        description:
+          'Track and resolve customer issues with feedback management and satisfaction tracking',
+        category: ProjectCategory.CUSTOM,
+        methodology: ProjectMethodology.KANBAN,
+        templateConfig: {
+          defaultSprintDuration: 0,
+          defaultIssueTypes: [
+            'Support Ticket',
+            'Bug Report',
+            'Feature Request',
+            'Complaint',
+            'Question',
+          ],
+          defaultPriorities: ['Low', 'Medium', 'High', 'Urgent'],
+          defaultStatuses: [
+            'New',
+            'Open',
+            'In Progress',
+            'Waiting on Customer',
+            'Resolved',
+          ],
+          suggestedRoles: [
+            {
+              role: 'Support Manager',
+              description: 'Manages support team',
+              permissions: ['manage_all'],
+            },
+            {
+              role: 'Support Agent',
+              description: 'Handles customer issues',
+              permissions: ['manage_issues'],
+            },
+          ],
+          workflowStages: [
+            {
+              name: 'New',
+              description: 'New ticket',
+              order: 1,
+              isDefault: true,
+            },
+            {
+              name: 'Open',
+              description: 'Being reviewed',
+              order: 2,
+              isDefault: true,
+            },
+            {
+              name: 'In Progress',
+              description: 'Being worked on',
+              order: 3,
+              isDefault: true,
+            },
+            {
+              name: 'Resolved',
+              description: 'Issue resolved',
+              order: 4,
+              isDefault: true,
+            },
+          ],
+          defaultBoards: [
+            {
+              name: 'Support Board',
+              type: 'kanban' as const,
+              columns: [
+                { name: 'New', status: 'New', order: 1 },
+                { name: 'Open', status: 'Open', order: 2 },
+                { name: 'In Progress', status: 'In Progress', order: 3 },
+                { name: 'Waiting on Customer', status: 'Waiting on Customer', order: 4 },
+                { name: 'Resolved', status: 'Resolved', order: 5 },
+              ],
+            },
+          ],
+          defaultMilestones: [],
+          smartDefaults: {
+            autoAssignIssues: true,
+            suggestDueDates: true,
+            enableTimeTracking: true,
+            enableStoryPoints: false,
+            defaultStoryPointScale: [],
+          },
+        },
+        icon: '💬',
+        color: '#10B981',
+        tags: ['customer', 'support', 'service', 'feedback'],
+        // Industry-level matching fields
+        industries: ['ecommerce', 'technology', 'startup'],
+        idealTeamSize: { min: 1, max: 10, label: 'small' as const },
+        complexity: 'simple' as const,
+        features: {
+          hasApprovalWorkflow: false,
+          supportsExternalStakeholders: true,
+          hasSprintPlanning: false,
+          hasTimeTracking: true,
+          hasStoryPoints: false,
+        },
+        matchKeywords: [
+          'customer',
+          'support',
+          'help',
+          'feedback',
+          'complaint',
+          'ticket',
+        ],
+        bestFor: ['support-teams', 'customer-success', 'startups'],
+      },
+      // ========== NEW: HEALTHCARE PROJECT ==========
+      {
+        name: 'Healthcare Project',
+        description:
+          'Medical and healthcare project management with compliance-aware workflows',
+        category: ProjectCategory.CUSTOM,
+        methodology: ProjectMethodology.HYBRID,
+        templateConfig: {
+          defaultSprintDuration: 14,
+          defaultIssueTypes: [
+            'Clinical Task',
+            'Compliance Item',
+            'Documentation',
+            'Review',
+            'Research',
+          ],
+          defaultPriorities: ['Low', 'Standard', 'High', 'Critical'],
+          defaultStatuses: [
+            'Planning',
+            'In Progress',
+            'Review',
+            'Compliance Check',
+            'Completed',
+          ],
+          suggestedRoles: [
+            {
+              role: 'Project Lead',
+              description: 'Leads healthcare project',
+              permissions: ['manage_all'],
+            },
+            {
+              role: 'Clinical Specialist',
+              description: 'Clinical expertise',
+              permissions: ['manage_issues'],
+            },
+            {
+              role: 'Compliance Officer',
+              description: 'Ensures compliance',
+              permissions: ['manage_issues'],
+            },
+          ],
+          workflowStages: [
+            {
+              name: 'Planning',
+              description: 'Initial planning',
+              order: 1,
+              isDefault: true,
+            },
+            {
+              name: 'In Progress',
+              description: 'Active work',
+              order: 2,
+              isDefault: true,
+            },
+            {
+              name: 'Review',
+              description: 'Under review',
+              order: 3,
+              isDefault: true,
+            },
+            {
+              name: 'Compliance Check',
+              description: 'Compliance verification',
+              order: 4,
+              isDefault: true,
+            },
+            {
+              name: 'Completed',
+              description: 'Finished',
+              order: 5,
+              isDefault: true,
+            },
+          ],
+          defaultBoards: [
+            {
+              name: 'Healthcare Board',
+              type: 'kanban' as const,
+              columns: [
+                { name: 'Planning', status: 'Planning', order: 1 },
+                { name: 'In Progress', status: 'In Progress', order: 2 },
+                { name: 'Review', status: 'Review', order: 3 },
+                { name: 'Compliance Check', status: 'Compliance Check', order: 4 },
+                { name: 'Completed', status: 'Completed', order: 5 },
+              ],
+            },
+          ],
+          defaultMilestones: [
+            {
+              name: 'Compliance Review',
+              description: 'Initial compliance check',
+              estimatedDuration: 14,
+              order: 1,
+            },
+            {
+              name: 'Project Completion',
+              description: 'Final deliverables',
+              estimatedDuration: 60,
+              order: 2,
+            },
+          ],
+          smartDefaults: {
+            autoAssignIssues: false,
+            suggestDueDates: true,
+            enableTimeTracking: true,
+            enableStoryPoints: false,
+            defaultStoryPointScale: [],
+          },
+        },
+        icon: '🏥',
+        color: '#EF4444',
+        tags: ['healthcare', 'medical', 'hipaa', 'compliance'],
+        // Industry-level matching fields
+        industries: ['healthcare'],
+        idealTeamSize: { min: 3, max: 20, label: 'medium' as const },
+        complexity: 'complex' as const,
+        features: {
+          hasApprovalWorkflow: true,
+          supportsExternalStakeholders: true,
+          hasSprintPlanning: false,
+          hasTimeTracking: true,
+          hasStoryPoints: false,
+        },
+        matchKeywords: [
+          'healthcare',
+          'medical',
+          'clinic',
+          'hospital',
+          'patient',
+          'hipaa',
+        ],
+        bestFor: [
+          'healthcare-teams',
+          'medical-professionals',
+          'compliance-teams',
+        ],
+      },
+      // ========== NEW: FINTECH PROJECT ==========
+      {
+        name: 'Fintech Project',
+        description:
+          'Financial technology project with audit trails and compliance tracking',
+        category: ProjectCategory.SOFTWARE_DEVELOPMENT,
+        methodology: ProjectMethodology.AGILE,
+        templateConfig: {
+          defaultSprintDuration: 14,
+          defaultIssueTypes: [
+            'Feature',
+            'Bug',
+            'Security',
+            'Compliance',
+            'Audit Item',
+          ],
+          defaultPriorities: ['Low', 'Medium', 'High', 'Critical'],
+          defaultStatuses: [
+            'Backlog',
+            'In Progress',
+            'Code Review',
+            'Security Review',
+            'Done',
+          ],
+          suggestedRoles: [
+            {
+              role: 'Product Owner',
+              description: 'Defines product direction',
+              permissions: ['manage_backlog'],
+            },
+            {
+              role: 'Tech Lead',
+              description: 'Technical leadership',
+              permissions: ['manage_sprints'],
+            },
+            {
+              role: 'Developer',
+              description: 'Builds features',
+              permissions: ['manage_issues'],
+            },
+            {
+              role: 'Security Engineer',
+              description: 'Security reviews',
+              permissions: ['manage_issues'],
+            },
+          ],
+          workflowStages: [
+            {
+              name: 'Backlog',
+              description: 'Waiting to be worked on',
+              order: 1,
+              isDefault: true,
+            },
+            {
+              name: 'In Progress',
+              description: 'Currently being developed',
+              order: 2,
+              isDefault: true,
+            },
+            {
+              name: 'Code Review',
+              description: 'Code being reviewed',
+              order: 3,
+              isDefault: true,
+            },
+            {
+              name: 'Security Review',
+              description: 'Security assessment',
+              order: 4,
+              isDefault: true,
+            },
+            {
+              name: 'Done',
+              description: 'Completed and approved',
+              order: 5,
+              isDefault: true,
+            },
+          ],
+          defaultBoards: [
+            {
+              name: 'Fintech Sprint Board',
+              type: 'scrum' as const,
+              columns: [
+                { name: 'Backlog', status: 'Backlog', order: 1 },
+                { name: 'In Progress', status: 'In Progress', order: 2 },
+                { name: 'Code Review', status: 'Code Review', order: 3 },
+                { name: 'Security Review', status: 'Security Review', order: 4 },
+                { name: 'Done', status: 'Done', order: 5 },
+              ],
+            },
+          ],
+          defaultMilestones: [
+            {
+              name: 'Security Audit',
+              description: 'Security assessment milestone',
+              estimatedDuration: 30,
+              order: 1,
+            },
+            {
+              name: 'Compliance Certification',
+              description: 'Regulatory compliance',
+              estimatedDuration: 60,
+              order: 2,
+            },
+          ],
+          smartDefaults: {
+            autoAssignIssues: false,
+            suggestDueDates: true,
+            enableTimeTracking: true,
+            enableStoryPoints: true,
+            defaultStoryPointScale: [1, 2, 3, 5, 8, 13],
+          },
+        },
+        icon: '💰',
+        color: '#6366F1',
+        tags: ['fintech', 'finance', 'banking', 'security', 'compliance'],
+        // Industry-level matching fields
+        industries: ['fintech'],
+        idealTeamSize: { min: 5, max: 30, label: 'medium' as const },
+        complexity: 'complex' as const,
+        features: {
+          hasApprovalWorkflow: true,
+          supportsExternalStakeholders: false,
+          hasSprintPlanning: true,
+          hasTimeTracking: true,
+          hasStoryPoints: true,
+        },
+        matchKeywords: [
+          'fintech',
+          'finance',
+          'banking',
+          'payment',
+          'trading',
+          'audit',
+        ],
+        bestFor: ['fintech-teams', 'security-teams', 'compliance-teams'],
       },
     ];
 

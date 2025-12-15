@@ -14,6 +14,7 @@ import { PlusIcon, UserIcon, MagnifyingGlassIcon, SparklesIcon, Cog6ToothIcon, F
 import { useToast } from "@/context/ToastContext";
 import ProjectsCreateModalContext from '@/context/ProjectsCreateModalContext';
 import ProjectWizard from '../../components/ProjectWizard/ProjectWizard';
+import ConfirmationModal from '../../components/ConfirmationModal';
 
 interface User {
   id: string;
@@ -178,6 +179,21 @@ export default function ProjectsPage() {
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [selectedProjectLead, setSelectedProjectLead] = useState<{ id: string; name: string; email: string } | null>(null);
 
+  // Confirmation Modal State
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    confirmButtonVariant?: 'primary' | 'secondary' | 'danger';
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+  });
+
   // New state for intelligent onboarding
   const [showProjectWizard, setShowProjectWizard] = useState(false);
   const [debouncedSearchTerm] = useDebounce(userSearchQuery, 500);
@@ -335,10 +351,46 @@ export default function ProjectsPage() {
               project={project}
               role={isSuperAdmin ? 'Super-Admin' : projectRoles[project.id]}
               onArchive={(id) => {
-                if (confirm("Archive " + project.name + "?")) archiveProject.mutate(id);
+                setConfirmationModal({
+                  isOpen: true,
+                  title: 'Archive Project',
+                  message: `Are you sure you want to archive "${project.name}"? This action can be undone later.`,
+                  confirmText: 'Archive',
+                  confirmButtonVariant: 'secondary',
+                  onConfirm: () => {
+                    archiveProject.mutate(id, {
+                      onSuccess: () => {
+                        showToast('Project archived successfully', 'success');
+                        setConfirmationModal((prev) => ({ ...prev, isOpen: false }));
+                      },
+                      onError: (error: Error) => {
+                        showToast(`Failed to archive project: ${error.message}`, 'error');
+                        setConfirmationModal((prev) => ({ ...prev, isOpen: false }));
+                      }
+                    });
+                  }
+                });
               }}
               onDelete={(id) => {
-                if (confirm("Delete " + project.name + " permanently?")) deleteProject.mutate(id);
+                setConfirmationModal({
+                  isOpen: true,
+                  title: 'Delete Project',
+                  message: `Are you sure you want to permanently delete "${project.name}"? This action cannot be undone.`,
+                  confirmText: 'Delete',
+                  confirmButtonVariant: 'danger',
+                  onConfirm: () => {
+                    deleteProject.mutate(id, {
+                      onSuccess: () => {
+                        showToast('Project deleted successfully', 'success');
+                        setConfirmationModal((prev) => ({ ...prev, isOpen: false }));
+                      },
+                      onError: (error: Error) => {
+                        showToast(`Failed to delete project: ${error.message}`, 'error');
+                        setConfirmationModal((prev) => ({ ...prev, isOpen: false }));
+                      }
+                    });
+                  }
+                });
               }}
             />
           </motion.div>
@@ -559,6 +611,17 @@ export default function ProjectsPage() {
           showToast('Project created successfully!', 'success');
           setShowProjectWizard(false);
         }}
+      />
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmationModal.isOpen}
+        onClose={() => setConfirmationModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmationModal.onConfirm}
+        title={confirmationModal.title}
+        message={confirmationModal.message}
+        confirmText={confirmationModal.confirmText}
+        confirmButtonVariant={confirmationModal.confirmButtonVariant}
       />
 
     </PageLayout>

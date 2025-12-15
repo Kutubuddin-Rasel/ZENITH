@@ -20,6 +20,7 @@ import { SemanticExtractorService } from './services/semantic-extractor.service'
 import { QuestionGeneratorService } from './services/question-generator.service';
 import { TemplateScorerService } from './services/template-scorer.service';
 import { SmartSetupLearningService } from './services/smart-setup-learning.service';
+import { ProjectNameGeneratorService } from './services/project-name-generator.service';
 import { UserPreferences } from '../user-preferences/entities/user-preferences.entity';
 // Confidence Scoring Framework
 import { AISuggestion } from './entities/ai-suggestion.entity';
@@ -60,6 +61,7 @@ import { SuggestionsController } from './controllers/suggestions.controller';
     QuestionGeneratorService,
     TemplateScorerService,
     SmartSetupLearningService,
+    ProjectNameGeneratorService,
     // Confidence Scoring Framework
     SuggestionsService,
     PredictionAnalyticsService,
@@ -74,6 +76,7 @@ import { SuggestionsController } from './controllers/suggestions.controller';
     QuestionGeneratorService,
     TemplateScorerService,
     SmartSetupLearningService,
+    ProjectNameGeneratorService,
     // Export suggestions service for use in controllers
     SuggestionsService,
     PredictionAnalyticsService,

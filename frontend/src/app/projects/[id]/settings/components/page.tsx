@@ -114,14 +114,14 @@ export default function ComponentsSettingsPage() {
         isSubmitting={isCreating || isUpdating}
       />
       {selectedComponent && (
-         <ConfirmationModal
-            open={isDeleteModalOpen}
-            onClose={() => setDeleteModalOpen(false)}
-            onConfirm={handleDeleteConfirm}
-            title="Delete Component"
-            message={`Are you sure you want to delete the "${selectedComponent.name}" component?`}
-            isConfirming={isDeleting}
-         />
+        <ConfirmationModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setDeleteModalOpen(false)}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Component"
+          message={`Are you sure you want to delete the "${selectedComponent.name}" component?`}
+          isLoading={isDeleting}
+        />
       )}
     </>
   );

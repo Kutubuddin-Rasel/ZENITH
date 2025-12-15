@@ -198,14 +198,20 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
       // Try to fetch questions from API
       try {
         const data = await apiFetch<{ data: WizardQuestion[] }>('/api/project-wizard/questions');
-        setQuestions(data.data);
+        // Check if data.data is an array and has items
+        if (Array.isArray(data.data) && data.data.length > 0) {
+          setQuestions(data.data);
+        } else {
+          // If empty array, throw to trigger fallback
+          throw new Error('No questions returned from API');
+        }
       } catch {
         // API not available, using fallback questions
 
         // Fallback questions if API is not available
         const fallbackQuestions: WizardQuestion[] = [
           {
-            id: 'project_name',
+            id: 'projectName',
             question: 'What would you like to call your project?',
             type: 'text',
             required: true,
@@ -213,7 +219,7 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
             category: 'basic',
           },
           {
-            id: 'project_description',
+            id: 'description',
             question: 'Briefly describe what this project is about',
             type: 'text',
             required: false,
@@ -221,7 +227,7 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
             category: 'basic',
           },
           {
-            id: 'team_size',
+            id: 'teamSize',
             question: 'How many people will be working on this project?',
             type: 'select',
             options: [
@@ -304,8 +310,8 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
 
       // Only pre-populate non-critical fields - let user explicitly choose industry/methodology
       const smartDefaults = {
-        'project_name': '',  // Let user enter project name
-        'project_description': '',
+        'projectName': '',  // Let user enter project name
+        'description': '',
         // Don't pre-fill industry/methodology - these are critical for accurate recommendations
       };
       setResponses(smartDefaults);
@@ -345,9 +351,9 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
 
   // Generate dynamic fallback recommendations based on user selections
   const generateDynamicFallbacks = (): TemplateRecommendation[] => {
-    const industry = String(responses.industry || 'software_development');
+    const industry = String(responses.industry || responses.category || 'software_development');
     const methodology = String(responses.methodology || 'agile');
-    const teamSize = String(responses.team_size || '2-5');
+    const teamSize = String(responses.teamSize || responses.team_size || '2-5');
 
     // Template data for each industry with methodology variants
     const templateDatabase: Record<string, TemplateRecommendation[]> = {
@@ -514,7 +520,8 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
     try {
       setLoadingState({ isLoading: true, action: 'creating', message: 'Analyzing your responses...' });
       // Generate a unique project key (max 10 chars, uppercase letters and underscores only)
-      const projectName = String(activeResponses.project_name || 'New Project');
+      // FIX: Check both camelCase (API) and snake_case (legacy/fallback) keys
+      const projectName = String(activeResponses.projectName || activeResponses.project_name || 'New Project');
       let baseKey = projectName.replace(/[^A-Za-z]/g, '').toUpperCase().substring(0, 4);
 
       // Fallback if name has no letters (e.g. "123")
@@ -529,9 +536,9 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
       const wizardData = {
         projectName: projectName,
         // projectKey: uniqueKey, // Let backend generate robust key
-        description: activeResponses.project_description || '',
+        description: activeResponses.description || activeResponses.project_description || '',
         teamSize: (() => {
-          const size = activeResponses.team_size;
+          const size = activeResponses.teamSize || activeResponses.team_size;
           if (typeof size === 'string') return size;
           if (typeof size === 'number') return String(size);
           return "1";
@@ -540,7 +547,7 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
         industry: activeResponses.industry || 'software_development',
         methodology: activeResponses.methodology || 'agile',
         complexity: activeResponses.complexity || 'moderate',
-        teamExperience: activeResponses.team_experience || 'intermediate',
+        teamExperience: activeResponses.teamExperience || activeResponses.team_experience || 'intermediate',
         hasExternalStakeholders: false,
         requiresCompliance: false,
         budget: 'medium',
@@ -553,6 +560,13 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
 
       if (useWizardApi) {
         try {
+          // Log payload for debugging 400 error
+          console.log('[Wizard Debug] Creating project with payload:', JSON.stringify({
+            url: '/api/project-wizard/create-project',
+            body: { wizardData, templateId: activeTemplate }
+          }, null, 2));
+
+          // Only try wizard API if we have a real template ID (not a fallback)
           const response = await apiFetch<{ data: Project } | Project>('/api/project-wizard/create-project', {
             method: 'POST',
             body: JSON.stringify({
@@ -837,8 +851,19 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
                 } else {
                   // Switch to Review Mode (Classic Wizard)
                   // We start at step 0 so user can see/edit the inferred name
-                  setWizardMode('classic');
-                  setCurrentStep(0);
+
+                  // Make sure questions are loaded first!
+                  if (questions.length === 0) {
+                    // Force load generic questions if API failed
+                    console.log('[Wizard Debug] No questions loaded, loading fallback...');
+                    loadWizardQuestions().then(() => {
+                      setWizardMode('classic');
+                      setCurrentStep(0);
+                    });
+                  } else {
+                    setWizardMode('classic');
+                    setCurrentStep(0);
+                  }
                 }
               }}
               onClose={onClose}

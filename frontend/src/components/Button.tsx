@@ -13,7 +13,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
 }
 
-const Button: React.FC<ButtonProps> = ({
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   variant = 'primary',
   size = 'md',
   loading = false,
@@ -21,7 +21,7 @@ const Button: React.FC<ButtonProps> = ({
   children,
   className,
   ...props
-}) => {
+}, ref) => {
   const baseClasses =
     'inline-flex items-center justify-center font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200';
 
@@ -55,11 +55,18 @@ const Button: React.FC<ButtonProps> = ({
     .join(' ');
 
   return (
-    <button className={combinedClassName} disabled={loading || props.disabled} {...props}>
+    <button
+      ref={ref}
+      className={combinedClassName}
+      disabled={loading || props.disabled}
+      {...props}
+    >
       {loading && <Spinner className="mr-2 h-4 w-4" />}
       {children}
     </button>
   );
-};
+});
+
+Button.displayName = 'Button';
 
 export default Button; 

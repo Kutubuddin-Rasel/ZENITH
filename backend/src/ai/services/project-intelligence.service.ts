@@ -22,6 +22,7 @@ import { ConversationManagerService } from './conversation-manager.service';
 import { SemanticExtractorService } from './semantic-extractor.service';
 import { QuestionGeneratorService } from './question-generator.service';
 import { TemplateScorerService } from './template-scorer.service';
+import { ProjectNameGeneratorService } from './project-name-generator.service';
 import {
   IntelligentCriteria,
   ConversationContext,
@@ -246,7 +247,8 @@ export class ProjectIntelligenceService {
     @Optional() private semanticExtractor?: SemanticExtractorService,
     @Optional() private questionGenerator?: QuestionGeneratorService,
     @Optional() private templateScorer?: TemplateScorerService,
-  ) {}
+    @Optional() private nameGenerator?: ProjectNameGeneratorService,
+  ) { }
 
   /**
    * Check if AI features are available
@@ -306,6 +308,7 @@ export class ProjectIntelligenceService {
   /**
    * NEW: Intelligent message processing with conversation context
    * Uses semantic extraction, context-aware questions, and 6-factor scoring
+   * Now includes smart name flow with deferred name generation
    */
   async processMessageIntelligent(
     message: string,
@@ -339,25 +342,42 @@ export class ProjectIntelligenceService {
     // 2. Add user message to conversation
     this.conversationManager!.addUserMessage(context, message);
 
-    // 3. Semantic extraction from full conversation
+    // 3. Handle name confirmation phase FIRST (before extraction)
+    if (context.phase === 'name_confirmation') {
+      return this.handleNameConfirmation(context, message);
+    }
+
+    // 4. Semantic extraction from full conversation
     const extraction = await this.semanticExtractor!.extractFromConversation(
       context.messages,
       context.criteria,
     );
 
-    // 4. Update context with new extraction
+    // 5. Update context with new extraction
     this.conversationManager!.updateCriteria(
       context,
       extraction.criteria,
       extraction.confidence,
     );
 
-    // 5. Determine missing required criteria
+    // 6. Detect skip intents
+    const skipIntents = this.semanticExtractor!.detectSkipIntents(message);
+    if (skipIntents.includes('projectName')) {
+      this.conversationManager!.markNameSkipped(context);
+    }
+
+    // 7. Phase transitions based on context
+    const phaseResult = await this.handlePhaseTransition(context, message);
+    if (phaseResult) {
+      return phaseResult;
+    }
+
+    // 8. Determine missing required criteria
     const missingCriteria = this.conversationManager!.getMissingCriteria(
       context.criteria,
     );
 
-    // 6. If missing criteria, generate next question
+    // 9. If missing criteria, generate next question
     if (missingCriteria.length > 0) {
       const question = await this.questionGenerator!.generateNextQuestion(
         context,
@@ -384,7 +404,238 @@ export class ProjectIntelligenceService {
       }
     }
 
-    // 7. All criteria present - generate recommendations
+    // 10. All criteria present - generate recommendations
+    return this.generateIntelligentRecommendation(context);
+  }
+
+  /**
+   * Handle phase transitions for smart name flow
+   * Key principle: Let getMissingCriteria drive the flow, only intercept for name GENERATION
+   */
+
+  private async handlePhaseTransition(
+    context: ConversationContext,
+    _message: string,
+  ): Promise<IntelligentChatResponse | null> {
+    void _message; // Unused but kept for future use
+    const { criteria } = context;
+
+    // Transition: initial → gathering_context
+    if (context.phase === 'initial') {
+      context.phase = 'gathering_context';
+    }
+
+    // Only handle name GENERATION here, after user skipped and provided description
+    // Regular asking for projectName is handled by getMissingCriteria + generateNextQuestion
+    if (
+      context.userSkippedName &&
+      criteria.description &&
+      !criteria.projectName &&
+      context.phase !== 'name_confirmation'
+    ) {
+      // User skipped name but provided description - NOW we generate suggestions
+      if (this.nameGenerator) {
+        const names = await this.nameGenerator.generateFromContext(
+          criteria.description,
+          criteria.projectType,
+          criteria.industry,
+        );
+
+        if (names.length > 0) {
+          this.conversationManager!.setPendingNameSuggestions(context, names);
+          context.phase = 'name_confirmation';
+
+          const question =
+            this.questionGenerator!.generateNameConfirmationQuestion(
+              names[0],
+              names.slice(1),
+            );
+          this.conversationManager!.addAssistantMessage(context, question);
+          await this.conversationManager!.saveContext(context);
+
+          return {
+            conversationId: context.id,
+            type: 'question',
+            message: question,
+            extractedCriteria: criteria,
+            confidence: context.confidence.overall,
+          };
+        }
+      }
+    }
+
+    return null; // Let main flow handle via getMissingCriteria
+  }
+
+  /**
+   * Handle user response during name confirmation phase
+   */
+  private async handleNameConfirmation(
+    context: ConversationContext,
+    message: string,
+  ): Promise<IntelligentChatResponse> {
+    const pendingNames = context.pendingNameSuggestions || [];
+
+    // Check if user accepted
+    if (this.semanticExtractor!.isConfirmation(message)) {
+      const acceptedName = pendingNames[0] || 'My Project';
+      this.conversationManager!.acceptSuggestedName(context, acceptedName);
+      context.phase = 'gathering_details';
+
+      // Continue to next question
+      const missingCriteria = this.conversationManager!.getMissingCriteria(
+        context.criteria,
+      );
+      if (missingCriteria.length > 0) {
+        const question = await this.questionGenerator!.generateNextQuestion(
+          context,
+          missingCriteria,
+        );
+
+        if (question) {
+          this.conversationManager!.markQuestionAsked(
+            context,
+            missingCriteria[0],
+          );
+          this.conversationManager!.addAssistantMessage(context, question);
+          await this.conversationManager!.saveContext(context);
+
+          return {
+            conversationId: context.id,
+            type: 'question',
+            message: question,
+            extractedCriteria: context.criteria,
+            confidence: context.confidence.overall,
+          };
+        }
+      }
+
+      return this.generateIntelligentRecommendation(context);
+    }
+
+    // Check if user rejected
+    if (this.semanticExtractor!.isRejection(message)) {
+      // Check if they provided their own name in the message
+      const trimmedMessage = message.trim();
+      if (
+        trimmedMessage.length > 2 &&
+        trimmedMessage.length < 50 &&
+        !trimmedMessage.includes(' ')
+      ) {
+        // Likely a custom name
+        this.conversationManager!.acceptSuggestedName(context, trimmedMessage);
+        context.phase = 'gathering_details';
+      } else if (context.nameGenerationAttempts < 2 && this.nameGenerator) {
+        // Try generating new names
+        const newNames = await this.nameGenerator.generateFromContext(
+          context.criteria.description || null,
+          context.criteria.projectType,
+          context.criteria.industry,
+        );
+
+        if (newNames.length > 0) {
+          this.conversationManager!.setPendingNameSuggestions(
+            context,
+            newNames,
+          );
+
+          const question = `How about **"${newNames[0]}"** instead? Or just type the name you'd like to use.`;
+          this.conversationManager!.addAssistantMessage(context, question);
+          await this.conversationManager!.saveContext(context);
+
+          return {
+            conversationId: context.id,
+            type: 'question',
+            message: question,
+            extractedCriteria: context.criteria,
+            confidence: context.confidence.overall,
+          };
+        }
+      }
+
+      // After 2 attempts, just ask for explicit name
+      const question = 'What name would you like to use for this project?';
+      context.phase = 'gathering_details'; // Move on regardless
+      this.conversationManager!.addAssistantMessage(context, question);
+      await this.conversationManager!.saveContext(context);
+
+      return {
+        conversationId: context.id,
+        type: 'question',
+        message: question,
+        extractedCriteria: context.criteria,
+        confidence: context.confidence.overall,
+      };
+    }
+
+    // User might have just typed a name directly
+    const trimmedMessage = message.trim();
+    if (this.nameGenerator?.isValidName(trimmedMessage)) {
+      const normalizedName = this.nameGenerator.normalizeName(trimmedMessage);
+      this.conversationManager!.acceptSuggestedName(context, normalizedName);
+      context.phase = 'gathering_details';
+
+      // Continue to next question
+      const missingCriteria = this.conversationManager!.getMissingCriteria(
+        context.criteria,
+      );
+      if (missingCriteria.length > 0) {
+        const question = await this.questionGenerator!.generateNextQuestion(
+          context,
+          missingCriteria,
+        );
+
+        if (question) {
+          this.conversationManager!.markQuestionAsked(
+            context,
+            missingCriteria[0],
+          );
+          this.conversationManager!.addAssistantMessage(context, question);
+          await this.conversationManager!.saveContext(context);
+
+          return {
+            conversationId: context.id,
+            type: 'question',
+            message: question,
+            extractedCriteria: context.criteria,
+            confidence: context.confidence.overall,
+          };
+        }
+      }
+
+      return this.generateIntelligentRecommendation(context);
+    }
+
+    // Unclear response - just accept first suggestion and move on
+    const acceptedName = pendingNames[0] || 'My Project';
+    this.conversationManager!.acceptSuggestedName(context, acceptedName);
+    context.phase = 'gathering_details';
+
+    const missingCriteria = this.conversationManager!.getMissingCriteria(
+      context.criteria,
+    );
+    const question =
+      missingCriteria.length > 0
+        ? await this.questionGenerator!.generateNextQuestion(
+          context,
+          missingCriteria,
+        )
+        : null;
+
+    if (question) {
+      this.conversationManager!.markQuestionAsked(context, missingCriteria[0]);
+      this.conversationManager!.addAssistantMessage(context, question);
+      await this.conversationManager!.saveContext(context);
+
+      return {
+        conversationId: context.id,
+        type: 'question',
+        message: question,
+        extractedCriteria: context.criteria,
+        confidence: context.confidence.overall,
+      };
+    }
+
     return this.generateIntelligentRecommendation(context);
   }
 
@@ -425,18 +676,18 @@ export class ProjectIntelligenceService {
     const recommendation: TemplateRecommendationResponse | undefined =
       topTemplate
         ? {
-            template: {
-              id: topTemplate.id,
-              name: topTemplate.name,
-              description: topTemplate.description || '',
-              icon: topTemplate.icon || '📋',
-              color: topTemplate.color || '#3b82f6',
-              category: topTemplate.category as string,
-              methodology: topTemplate.methodology as string,
-            },
-            confidence: topResult.score,
-            reasoning: topResult.reasons.join('. '),
-          }
+          template: {
+            id: topTemplate.id,
+            name: topTemplate.name,
+            description: topTemplate.description || '',
+            icon: topTemplate.icon || '📋',
+            color: topTemplate.color || '#3b82f6',
+            category: topTemplate.category as string,
+            methodology: topTemplate.methodology as string,
+          },
+          confidence: topResult.score,
+          reasoning: topResult.reasons.join('. '),
+        }
         : undefined;
 
     // Build alternatives

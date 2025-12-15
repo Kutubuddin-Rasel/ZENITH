@@ -4,6 +4,8 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { Repository, FindOptionsWhere, In } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -36,6 +38,7 @@ export class SprintsService {
     private siRepo: Repository<SprintIssue>,
     @InjectRepository(SprintSnapshot)
     private snapshotRepo: Repository<SprintSnapshot>,
+    @Inject(forwardRef(() => ProjectsService))
     private projectsService: ProjectsService,
     private membersService: ProjectMembersService,
     private issuesService: IssuesService,
@@ -71,7 +74,7 @@ export class SprintsService {
         if (existingBoards.length === 0) {
           // Create a default board for the sprint
           await this.boardsService.create(projectId, userId, {
-            name: `${saved.name} Board`,
+            name: `${ saved.name } Board`,
             type: BoardType.KANBAN,
           });
         }
@@ -84,7 +87,7 @@ export class SprintsService {
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: null,
-      action: `created sprint ${saved.name}`,
+      action: `created sprint ${ saved.name } `,
       actorId: userId,
       sprintName: saved.name,
     });
@@ -181,7 +184,7 @@ export class SprintsService {
         if (existingBoards.length === 0) {
           // Create a default board for the sprint
           await this.boardsService.create(projectId, userId, {
-            name: `${updated.name} Board`,
+            name: `${ updated.name } Board`,
             type: BoardType.KANBAN,
           });
         }
@@ -194,7 +197,7 @@ export class SprintsService {
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: null,
-      action: `updated sprint ${updated.name}`,
+      action: `updated sprint ${ updated.name } `,
       actorId: userId,
       sprintName: updated.name,
     });
@@ -257,7 +260,7 @@ export class SprintsService {
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: null,
-      action: `archived sprint ${archived.name}`,
+      action: `archived sprint ${ archived.name } `,
       actorId: userId,
       sprintName: archived.name,
     });
@@ -306,7 +309,7 @@ export class SprintsService {
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: null,
-      action: `deleted sprint ${sprint.name}`,
+      action: `deleted sprint ${ sprint.name } `,
       actorId: userId,
       sprintName: sprint.name,
     });
@@ -342,7 +345,7 @@ export class SprintsService {
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: dto.issueId,
-      action: `added issue to sprint ${sprint.name}`,
+      action: `added issue to sprint ${ sprint.name } `,
       actorId: userId,
       sprintName: sprint.name,
     });
@@ -378,7 +381,7 @@ export class SprintsService {
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: dto.issueId,
-      action: `removed issue from sprint ${sprint.name}`,
+      action: `removed issue from sprint ${ sprint.name } `,
       actorId: userId,
       sprintName: sprint.name,
     });
@@ -433,7 +436,7 @@ export class SprintsService {
       if (existingBoards.length === 0) {
         // Create a default board for the sprint
         await this.boardsService.create(projectId, userId, {
-          name: `${sprint.name} Board`,
+          name: `${ sprint.name } Board`,
           type: BoardType.KANBAN,
         });
       }
@@ -445,7 +448,7 @@ export class SprintsService {
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: null,
-      action: `started sprint ${started.name}`,
+      action: `started sprint ${ started.name } `,
       actorId: userId,
       sprintName: started.name,
     });

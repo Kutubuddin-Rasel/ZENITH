@@ -19,9 +19,25 @@ export type TeamSizeRange = '1' | '2-5' | '6-10' | '11-20' | '20+';
 export type TimelineRange = 'short' | 'medium' | 'long';
 
 /**
+ * Experience levels for user experience matching
+ */
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
+
+/**
  * Stakeholder types for external work detection
  */
 export type StakeholderType = 'client' | 'partner' | 'public' | 'internal';
+
+/**
+ * Conversation phases for smart name flow
+ */
+export type ConversationPhase =
+  | 'initial' // First message received
+  | 'gathering_context' // Getting project type and description
+  | 'name_needed' // Context gathered, need to generate name
+  | 'name_confirmation' // AI generated name, awaiting user confirmation
+  | 'gathering_details' // Name confirmed, getting team size, workflow, etc.
+  | 'ready'; // All criteria gathered, ready for recommendation
 
 /**
  * Enhanced criteria extracted from conversation
@@ -42,13 +58,18 @@ export interface IntelligentCriteria {
   description?: string | null;
   timeline?: TimelineRange | null;
 
-  // External stakeholder detection - NEW!
+  // External stakeholder detection
   hasExternalStakeholders: boolean;
   stakeholderType?: StakeholderType;
 
   // Industry vertical
   industry?: string | null;
   complianceNeeds?: string[];
+
+  // ============================================
+  // User context - NEW!
+  // ============================================
+  experienceLevel?: ExperienceLevel | null;
 
   // ============================================
   // Inferred preferences
@@ -124,6 +145,14 @@ export interface ConversationContext {
   // Metadata
   turnCount: number;
   lastActivityAt: Date;
+
+  // NEW: Conversation phase for smart name flow
+  phase: ConversationPhase;
+
+  // NEW: Name generation state
+  nameGenerationAttempts: number;
+  pendingNameSuggestions?: string[];
+  userSkippedName?: boolean;
 }
 
 /**
@@ -133,6 +162,7 @@ export interface ExtractionResult {
   criteria: IntelligentCriteria;
   confidence: CriteriaConfidence;
   newlyExtracted: string[]; // Fields extracted in this turn
+  skipIntents?: string[]; // NEW: Fields where user indicated "skip" or "I don't know"
 }
 
 /**
@@ -149,8 +179,8 @@ export interface TemplateScoringResult {
     teamSizeFit: number;
     stakeholderFit: number;
     industryMatch: number;
+    complexityFit: number; // NEW: replaces popularity
     userPreference: number;
-    popularity: number;
   };
 }
 
@@ -193,18 +223,30 @@ export function createEmptyConfidence(): CriteriaConfidence {
 }
 
 /**
- * Required fields for making a recommendation
+ * Required fields for making a recommendation AND creating a project
+ * Order matters: this is the priority order for asking questions
+ *
+ * Updated: Added 'industry' after 'description' for better template matching
+ * with the new 8-industry system (healthcare, fintech, etc.)
  */
 export const REQUIRED_CRITERIA: (keyof IntelligentCriteria)[] = [
-  'projectType',
-  'teamSize',
-  'workStyle',
+  'projectName', // 1. Ask name first
+  'description', // 2. Description required for project creation
+  'industry', // 3. NEW: Industry for template matching (healthcare, fintech, etc.)
+  'projectType', // 4. Type helps with template matching
+  'teamSize', // 5. Team size for workflow recommendation
+  'workStyle', // 6. Workflow preference last
 ];
 
 /**
- * Question priority order
+ * Question priority order - includes industry for smart questioning
+ *
+ * Flow: Name → Description → Industry → ProjectType → TeamSize → WorkStyle
  */
 export const QUESTION_PRIORITY: (keyof IntelligentCriteria)[] = [
+  'projectName',
+  'description',
+  'industry', // NEW: Ask industry early to match with 19 templates
   'projectType',
   'teamSize',
   'workStyle',

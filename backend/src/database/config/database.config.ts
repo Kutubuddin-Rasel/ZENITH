@@ -146,7 +146,7 @@ export const createRedisConfig = (configService: ConfigService) => {
     host: configService.get<string>('REDIS_HOST', 'localhost'),
     port: configService.get<number>('REDIS_PORT', 6379),
     password: configService.get<string | undefined>('REDIS_PASSWORD'),
-    db: configService.get<number>('REDIS_DB', 0),
+    db: parseInt(configService.get('REDIS_DB', '0'), 10) || 0,
     keyPrefix: 'zenith:',
     retryDelayOnFailover: 100,
     enableReadyCheck: false,

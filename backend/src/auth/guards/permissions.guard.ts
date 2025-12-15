@@ -25,7 +25,7 @@ export class PermissionsGuard implements CanActivate {
     private reflector: Reflector,
     private projectMembersService: ProjectMembersService,
     private cacheService: CacheService,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredPerm = this.reflector.get<string>(
@@ -39,9 +39,9 @@ export class PermissionsGuard implements CanActivate {
 
     const req = context.switchToHttp().getRequest<{
       user: JwtRequestUser;
-      params?: { projectId?: string; id?: string; [key: string]: unknown };
-      body?: { projectId?: string; [key: string]: unknown };
-      query?: { projectId?: string; [key: string]: unknown };
+      params?: { projectId?: string; id?: string;[key: string]: unknown };
+      body?: { projectId?: string;[key: string]: unknown };
+      query?: { projectId?: string;[key: string]: unknown };
     }>();
     const user = req.user;
 
@@ -195,6 +195,7 @@ export class PermissionsGuard implements CanActivate {
           'issues:create',
           'issues:view',
           'issues:update',
+          'invites:view',
           'sprints:view',
           'comments:create',
           'comments:view',
@@ -221,6 +222,7 @@ export class PermissionsGuard implements CanActivate {
           'issues:create',
           'issues:view',
           'issues:update',
+          'invites:view',
           'sprints:view',
           'comments:create',
           'comments:view',
@@ -247,6 +249,7 @@ export class PermissionsGuard implements CanActivate {
           'issues:create',
           'issues:view',
           'issues:update',
+          'invites:view',
           'sprints:view',
           'comments:create',
           'comments:view',
@@ -270,6 +273,7 @@ export class PermissionsGuard implements CanActivate {
         Viewer: [
           'projects:view',
           'issues:view',
+          'invites:view',
           'comments:create',
           'sprints:view',
           'comments:view',

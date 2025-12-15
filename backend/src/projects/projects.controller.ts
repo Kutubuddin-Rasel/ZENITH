@@ -29,7 +29,7 @@ export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
     private readonly usersService: UsersService,
-  ) {}
+  ) { }
 
   /**
    * Create a new project (auto-scoped to user's organization)
@@ -133,8 +133,8 @@ export class ProjectsController {
   }
 
   @Get(':id/invites')
-  @RequirePermission('invites:create')
-  @RequireProjectRole(ProjectRole.PROJECT_LEAD)
+  @RequirePermission('invites:view')
+  @RequireProjectRole(ProjectRole.PROJECT_LEAD, ProjectRole.MEMBER)
   getInvites(@Param('id') id: string) {
     return this.projectsService.getInvites(id);
   }

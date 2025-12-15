@@ -114,14 +114,14 @@ export default function LabelsSettingsPage() {
         isSubmitting={isCreating || isUpdating}
       />
       {selectedLabel && (
-         <ConfirmationModal
-            open={isDeleteModalOpen}
-            onClose={() => setDeleteModalOpen(false)}
-            onConfirm={handleDeleteConfirm}
-            title="Delete Label"
-            message={`Are you sure you want to delete the "${selectedLabel.name}" label?`}
-            isConfirming={isDeleting}
-         />
+        <ConfirmationModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setDeleteModalOpen(false)}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Label"
+          message={`Are you sure you want to delete the "${selectedLabel.name}" label?`}
+          isLoading={isDeleting}
+        />
       )}
     </>
   );

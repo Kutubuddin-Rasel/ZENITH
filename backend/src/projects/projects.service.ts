@@ -4,6 +4,8 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
+  Optional,
+  Logger,
 } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -20,9 +22,14 @@ import { Invite } from '../invites/entities/invite.entity';
 import { CacheService } from '../cache/cache.service';
 import { validateOrganizationAccess } from '../common/utils/org-access.util';
 import { AuditLogsService } from '../audit/audit-logs.service';
+import { ProjectTemplate } from '../project-templates/entities/project-template.entity';
+// NEW: Import unified template application service
+import { TemplateApplicationService } from '../project-templates/services/template-application.service';
 
 @Injectable()
 export class ProjectsService {
+  private readonly logger = new Logger(ProjectsService.name);
+
   constructor(
     @InjectRepository(Project)
     private readonly projectRepo: Repository<Project>,
@@ -34,12 +41,20 @@ export class ProjectsService {
     private readonly issueRepo: Repository<Issue>,
     private readonly cacheService: CacheService,
     private readonly auditLogsService: AuditLogsService,
+    // Optional template repository for fallback
+    @Optional()
+    @InjectRepository(ProjectTemplate)
+    private readonly templateRepo?: Repository<ProjectTemplate>,
+    // NEW: Unified template application service
+    @Optional()
+    @Inject(forwardRef(() => TemplateApplicationService))
+    private readonly templateApplicationService?: TemplateApplicationService,
   ) {}
 
   /**
    * Create a new project and assign Project Lead.
    * @param userId ID of the creator (from req.user.userId)
-   * @param dto CreateProjectDto with optional projectLeadId
+   * @param dto CreateProjectDto with optional projectLeadId and templateId
    * @param organizationId ID of the organization (from user's context)
    */
   async create(
@@ -80,7 +95,106 @@ export class ProjectsService {
       });
     }
 
+    // Apply template configuration if templateId is provided
+    if (dto.templateId) {
+      // Use unified TemplateApplicationService if available
+      if (this.templateApplicationService) {
+        try {
+          await this.templateApplicationService.applyTemplate(
+            saved.id,
+            dto.templateId,
+            userId,
+          );
+          this.logger.log(
+            `Applied template ${dto.templateId} to project ${saved.id}`,
+          );
+        } catch (error) {
+          this.logger.warn(`Failed to apply template ${dto.templateId}`, error);
+        }
+      } else if (this.templateRepo) {
+        // Fallback to local method if service unavailable
+        try {
+          await this.applyTemplateToProject(saved.id, dto.templateId, userId);
+        } catch (error) {
+          this.logger.warn(`Failed to apply template ${dto.templateId}`, error);
+        }
+      }
+    }
+
     return saved;
+  }
+
+  /**
+   * Apply template configuration to a project
+   * Called when a templateId is provided during project creation
+   */
+
+  private async applyTemplateToProject(
+    projectId: string,
+    templateId: string,
+    _userId: string,
+  ): Promise<void> {
+    void _userId; // Unused but kept for future use
+    if (!this.templateRepo) {
+      this.logger.warn(
+        'Template repository not available, skipping template application',
+      );
+      return;
+    }
+
+    const template = await this.templateRepo.findOne({
+      where: { id: templateId, isActive: true },
+    });
+
+    if (!template) {
+      this.logger.warn(
+        `Template ${templateId} not found or inactive, skipping`,
+      );
+      return;
+    }
+
+    this.logger.log(
+      `Applying template "${template.name}" to project ${projectId}`,
+    );
+
+    // Update project with template metadata
+    const project = await this.projectRepo.findOne({
+      where: { id: projectId },
+    });
+    if (project) {
+      // Store template config on the project for reference
+      project.templateConfig = {
+        defaultSprintDuration:
+          template.templateConfig?.defaultSprintDuration || 14,
+        defaultIssueTypes: template.templateConfig?.defaultIssueTypes || [],
+        defaultPriorities: template.templateConfig?.defaultPriorities || [
+          'Low',
+          'Medium',
+          'High',
+          'Critical',
+        ],
+        defaultStatuses: template.templateConfig?.defaultStatuses || [],
+        suggestedRoles:
+          template.templateConfig?.suggestedRoles?.map((r) => ({
+            role: r.role,
+            description: r.description,
+          })) || [],
+        smartDefaults: template.templateConfig?.smartDefaults || {
+          enableTimeTracking: false,
+          enableStoryPoints: false,
+          defaultStoryPointScale: [1, 2, 3, 5, 8, 13],
+        },
+      };
+      await this.projectRepo.save(project);
+    }
+
+    // Increment template usage count
+    template.usageCount = (template.usageCount || 0) + 1;
+    await this.templateRepo.save(template);
+
+    this.logger.log(
+      `Template "${template.name}" applied to project ${projectId}`,
+    );
   }
 
   /**

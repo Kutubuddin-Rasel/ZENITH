@@ -443,7 +443,7 @@ export default function TeamPage() {
         />
 
         <ConfirmationModal
-          open={isRemoveModalOpen}
+          isOpen={isRemoveModalOpen}
           onClose={() => {
             setRemoveModalOpen(false);
             setSelectedMember(null);
@@ -453,7 +453,7 @@ export default function TeamPage() {
           message={`Are you sure you want to remove ${selectedMember?.user?.name || selectedMember?.user?.email || 'this member'} from the project? This action cannot be undone.`}
           confirmText="Remove Member"
           cancelText="Cancel"
-          isConfirming={isRemovingMember}
+          isLoading={isRemovingMember}
         />
       </div>
     </ProtectedProjectRoute>

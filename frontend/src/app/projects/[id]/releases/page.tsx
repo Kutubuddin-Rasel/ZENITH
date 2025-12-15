@@ -310,7 +310,7 @@ export default function ReleasesPage() {
       </Modal>
 
       <ConfirmationModal
-        open={!!releaseToArchive}
+        isOpen={!!releaseToArchive}
         onClose={() => setReleaseToArchive(null)}
         onConfirm={async () => {
           await archiveRelease.mutateAsync();
@@ -319,7 +319,7 @@ export default function ReleasesPage() {
         title="Archive Release"
         message={`Are you sure you want to archive the release "${releaseToArchive?.name}"? This action cannot be undone.`}
         confirmText="Archive"
-        isConfirming={archiveRelease.isPending}
+        isLoading={archiveRelease.isPending}
       />
 
       {selectedRelease && (

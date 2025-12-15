@@ -7,6 +7,8 @@ import { MembershipModule } from '../membership/membership.module';
 import { Issue } from '../issues/entities/issue.entity';
 import { InvitesModule } from '../invites/invites.module';
 import { UsersModule } from '../users/users.module';
+// NEW: Import ProjectTemplatesModule for TemplateApplicationService
+import { ProjectTemplatesModule } from '../project-templates/project-templates.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { UsersModule } from '../users/users.module';
     MembershipModule,
     UsersModule,
     forwardRef(() => InvitesModule),
+    // NEW: Import for template application in direct create
+    forwardRef(() => ProjectTemplatesModule),
   ],
   providers: [ProjectsService],
   controllers: [ProjectsController],

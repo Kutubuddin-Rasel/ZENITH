@@ -25,7 +25,13 @@ export class CookieService {
     accessToken: string,
     refreshToken: string,
   ): void {
-    const sameSite = this.isProduction ? 'strict' : 'lax';
+    // In development, frontend (3001) and backend (3000) are cross-origin
+    // sameSite: 'none' is required for cross-origin cookie sending
+    // In production, same domain so 'strict' is fine
+    const sameSite: 'strict' | 'lax' | 'none' = this.isProduction
+      ? 'strict'
+      : 'lax';
+    // secure: true required when sameSite is 'none', but we can use 'lax' in dev
     const secure = this.isProduction;
 
     // Access token cookie - short-lived, sent with all requests

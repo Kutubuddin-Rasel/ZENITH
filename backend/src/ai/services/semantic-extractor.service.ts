@@ -62,26 +62,48 @@ const VALID_STAKEHOLDER_TYPES: StakeholderType[] = [
  */
 const FALLBACK_KEYWORDS = {
   projectType: {
+    // Mobile/App development
     mobile: ProjectCategory.MOBILE_DEVELOPMENT,
     'mobile app': ProjectCategory.MOBILE_DEVELOPMENT,
     ios: ProjectCategory.MOBILE_DEVELOPMENT,
     android: ProjectCategory.MOBILE_DEVELOPMENT,
+    'building an app': ProjectCategory.MOBILE_DEVELOPMENT,
+    'build an app': ProjectCategory.MOBILE_DEVELOPMENT,
+    'app for': ProjectCategory.MOBILE_DEVELOPMENT,
+    // Website development
     website: ProjectCategory.WEBSITE_DEVELOPMENT,
     'web app': ProjectCategory.WEBSITE_DEVELOPMENT,
+    'web application': ProjectCategory.WEBSITE_DEVELOPMENT,
+    dashboard: ProjectCategory.WEBSITE_DEVELOPMENT,
+    portal: ProjectCategory.WEBSITE_DEVELOPMENT,
+    // Software development
     software: ProjectCategory.SOFTWARE_DEVELOPMENT,
     backend: ProjectCategory.SOFTWARE_DEVELOPMENT,
     api: ProjectCategory.SOFTWARE_DEVELOPMENT,
+    'make a software': ProjectCategory.SOFTWARE_DEVELOPMENT,
+    saas: ProjectCategory.SOFTWARE_DEVELOPMENT,
+    platform: ProjectCategory.SOFTWARE_DEVELOPMENT,
+    // Marketing
     marketing: ProjectCategory.MARKETING,
     campaign: ProjectCategory.MARKETING,
+    'brand launch': ProjectCategory.MARKETING,
+    // Product launch
     'product launch': ProjectCategory.PRODUCT_LAUNCH,
     launch: ProjectCategory.PRODUCT_LAUNCH,
+    // Research
     research: ProjectCategory.RESEARCH,
+    // Event planning
     event: ProjectCategory.EVENT_PLANNING,
+    conference: ProjectCategory.EVENT_PLANNING,
+    // Data analysis
     data: ProjectCategory.DATA_ANALYSIS,
     analytics: ProjectCategory.DATA_ANALYSIS,
+    // Design
     design: ProjectCategory.DESIGN,
     ui: ProjectCategory.DESIGN,
     ux: ProjectCategory.DESIGN,
+    mockup: ProjectCategory.DESIGN,
+    // Sales
     sales: ProjectCategory.SALES,
     crm: ProjectCategory.SALES,
   } as Record<string, ProjectCategory>,
@@ -90,6 +112,9 @@ const FALLBACK_KEYWORDS = {
     sprint: ProjectMethodology.SCRUM,
     sprints: ProjectMethodology.SCRUM,
     scrum: ProjectMethodology.SCRUM,
+    'prefer sprints': ProjectMethodology.SCRUM,
+    'i prefer sprints': ProjectMethodology.SCRUM,
+    'in sprints': ProjectMethodology.SCRUM,
     kanban: ProjectMethodology.KANBAN,
     continuous: ProjectMethodology.KANBAN,
     'continuous flow': ProjectMethodology.KANBAN,
@@ -105,14 +130,37 @@ const FALLBACK_KEYWORDS = {
   } as Record<string, ProjectMethodology>,
 
   teamSize: {
+    // Solo patterns
     solo: '1',
     'just me': '1',
     myself: '1',
+    alone: '1',
+    // 2-person patterns (CRITICAL: these must be checked before "just me")
+    'me and my buddy': '2-5',
+    'me and a buddy': '2-5',
+    'me and my partner': '2-5',
+    'me and a friend': '2-5',
+    'just us': '2-5',
+    'two of us': '2-5',
+    'couple of us': '2-5',
+    'me plus': '2-5',
+    'myself and': '2-5',
+    // Small team patterns
     'small team': '2-5',
+    'tiny team': '2-5',
     'few people': '2-5',
+    'tiny startup': '2-5',
+    'small startup': '2-5',
+    // Medium team patterns
     'medium team': '6-10',
+    'growing team': '6-10',
+    // Large team patterns
     'large team': '11-20',
+    'big team': '11-20',
+    // Enterprise patterns
     enterprise: '20+',
+    corporation: '20+',
+    'large company': '20+',
   } as Record<string, string>,
 
   externalStakeholders: [
@@ -126,6 +174,68 @@ const FALLBACK_KEYWORDS = {
     'freelance',
     'contractor',
     'for a client',
+    'clients will',
+    'approve mockups',
+    'doing this for',
+    'working for a',
+  ],
+
+  // NEW: Industry keywords for better context extraction
+  industry: {
+    healthcare: 'healthcare',
+    hospital: 'healthcare',
+    medical: 'healthcare',
+    patient: 'healthcare',
+    clinic: 'healthcare',
+    fintech: 'fintech',
+    banking: 'fintech',
+    finance: 'fintech',
+    payment: 'fintech',
+    'financial services': 'fintech',
+    education: 'education',
+    school: 'education',
+    university: 'education',
+    'e-learning': 'education',
+    ecommerce: 'retail',
+    'e-commerce': 'retail',
+    retail: 'retail',
+    shop: 'retail',
+    store: 'retail',
+    logistics: 'logistics',
+    shipping: 'logistics',
+    delivery: 'logistics',
+    'real estate': 'real_estate',
+    property: 'real_estate',
+    gaming: 'gaming',
+    game: 'gaming',
+  } as Record<string, string>,
+};
+
+/**
+ * Keywords that indicate user wants to skip providing certain info
+ */
+const SKIP_KEYWORDS: Record<string, string[]> = {
+  projectName: [
+    'no name',
+    "don't know",
+    'not sure',
+    'skip',
+    'later',
+    'no idea',
+    'random',
+    'you choose',
+    'generate one',
+    'pick one',
+    'any name',
+    "doesn't matter",
+  ],
+  description: [
+    "don't know",
+    'not sure',
+    'skip',
+    "can't describe",
+    'hard to explain',
+    'just a project',
   ],
 };
 
@@ -347,11 +457,13 @@ EXTRACTION RULES:
       .map((m) => m.content.toLowerCase())
       .join(' ');
 
-    // Extract project type
+    // Extract project type (sorted by length - longer matches first)
     if (!criteria.projectType) {
-      for (const [keyword, type] of Object.entries(
+      const sortedProjectKeywords = Object.entries(
         FALLBACK_KEYWORDS.projectType,
-      )) {
+      ).sort((a, b) => b[0].length - a[0].length);
+
+      for (const [keyword, type] of sortedProjectKeywords) {
         if (userText.includes(keyword)) {
           criteria.projectType = type;
           confidence.projectType = 70;
@@ -361,11 +473,13 @@ EXTRACTION RULES:
       }
     }
 
-    // Extract work style
+    // Extract work style (sorted by length - longer matches first)
     if (!criteria.workStyle) {
-      for (const [keyword, style] of Object.entries(
+      const sortedWorkStyleKeywords = Object.entries(
         FALLBACK_KEYWORDS.workStyle,
-      )) {
+      ).sort((a, b) => b[0].length - a[0].length);
+
+      for (const [keyword, style] of sortedWorkStyleKeywords) {
         if (userText.includes(keyword)) {
           criteria.workStyle = style;
           confidence.workStyle = 70;
@@ -375,12 +489,13 @@ EXTRACTION RULES:
       }
     }
 
-    // Extract team size
+    // Extract team size (sorted by length - longer matches first, e.g. "me and my buddy" before "just me")
     if (!criteria.teamSize) {
-      // Try keyword matching first
-      for (const [keyword, size] of Object.entries(
+      const sortedTeamKeywords = Object.entries(
         FALLBACK_KEYWORDS.teamSize,
-      )) {
+      ).sort((a, b) => b[0].length - a[0].length);
+
+      for (const [keyword, size] of sortedTeamKeywords) {
         if (userText.includes(keyword)) {
           criteria.teamSize = size as '1' | '2-5' | '6-10' | '11-20' | '20+';
           confidence.teamSize = 70;
@@ -428,6 +543,23 @@ EXTRACTION RULES:
           criteria.hasExternalStakeholders = true;
           confidence.hasExternalStakeholders = 70;
           newlyExtracted.push('hasExternalStakeholders');
+          break;
+        }
+      }
+    }
+
+    // Extract industry (NEW)
+    if (!criteria.industry) {
+      // Sort keywords by length (longest first) to match more specific terms
+      const sortedIndustryKeywords = Object.entries(
+        FALLBACK_KEYWORDS.industry,
+      ).sort((a, b) => b[0].length - a[0].length);
+
+      for (const [keyword, industry] of sortedIndustryKeywords) {
+        if (userText.includes(keyword)) {
+          criteria.industry = industry;
+          confidence.industry = 70;
+          newlyExtracted.push('industry');
           break;
         }
       }
@@ -574,5 +706,82 @@ EXTRACTION RULES:
       return value as StakeholderType;
     }
     return undefined;
+  }
+
+  /**
+   * Detect skip intents from user's message
+   * Returns array of field names where user indicated they want to skip
+   */
+  detectSkipIntents(message: string): string[] {
+    const lowerMessage = message.toLowerCase();
+    const skipIntents: string[] = [];
+
+    for (const [field, keywords] of Object.entries(SKIP_KEYWORDS)) {
+      for (const keyword of keywords) {
+        if (lowerMessage.includes(keyword)) {
+          skipIntents.push(field);
+          break;
+        }
+      }
+    }
+
+    return skipIntents;
+  }
+
+  /**
+   * Check if message indicates user wants to skip project name
+   */
+  isSkippingProjectName(message: string): boolean {
+    return this.detectSkipIntents(message).includes('projectName');
+  }
+
+  /**
+   * Check if message indicates confirmation/acceptance
+   */
+  isConfirmation(message: string): boolean {
+    const confirmKeywords = [
+      'yes',
+      'yeah',
+      'yep',
+      'sure',
+      'ok',
+      'okay',
+      'sounds good',
+      'that works',
+      'perfect',
+      'good',
+      'great',
+      'fine',
+      'love it',
+      'like it',
+      'accepted',
+      'confirm',
+      'go with',
+      'use that',
+    ];
+    const lowerMessage = message.toLowerCase();
+    return confirmKeywords.some((kw) => lowerMessage.includes(kw));
+  }
+
+  /**
+   * Check if message indicates rejection
+   */
+  isRejection(message: string): boolean {
+    const rejectKeywords = [
+      'no',
+      'nope',
+      "don't like",
+      'different',
+      'another',
+      'try again',
+      'not that',
+      'something else',
+      'change',
+      'prefer',
+      'rather',
+      'instead',
+    ];
+    const lowerMessage = message.toLowerCase();
+    return rejectKeywords.some((kw) => lowerMessage.includes(kw));
   }
 }

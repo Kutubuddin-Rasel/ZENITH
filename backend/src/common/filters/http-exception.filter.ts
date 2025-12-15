@@ -37,6 +37,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
         // If the response object has a message property that is an array (class-validator)
         // usage might vary, but we capture the raw response for debugging or detailed errors
         details = res;
+
+        // DEBUG: Log validation errors explicitly
+        if (status === 400) {
+          this.logger.error(`Validation Error Details: ${JSON.stringify(res, null, 2)}`);
+        }
       }
     } else {
       // Log generic errors
