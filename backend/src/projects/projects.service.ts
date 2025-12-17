@@ -6,6 +6,7 @@ import {
   forwardRef,
   Optional,
   Logger,
+  OnModuleInit,
 } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,21 +15,28 @@ import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectMembersService } from '../membership/project-members/project-members.service';
 import { ProjectRole } from '../membership/enums/project-role.enum';
-import { Issue, IssueStatus } from '../issues/entities/issue.entity'; // import IssueStatus
+import { Issue, IssueStatus } from '../issues/entities/issue.entity';
 import { Revision } from '../revisions/entities/revision.entity';
 import { InvitesService } from '../invites/invites.service';
 import { Invite } from '../invites/entities/invite.entity';
 
 import { CacheService } from '../cache/cache.service';
-import { validateOrganizationAccess } from '../common/utils/org-access.util';
 import { AuditLogsService } from '../audit/audit-logs.service';
 import { ProjectTemplate } from '../project-templates/entities/project-template.entity';
-// NEW: Import unified template application service
 import { TemplateApplicationService } from '../project-templates/services/template-application.service';
+// TENANT ISOLATION: Import tenant repository factory
+import {
+  TenantRepositoryFactory,
+  TenantRepository,
+  TenantContext,
+} from '../core/tenant';
 
 @Injectable()
-export class ProjectsService {
+export class ProjectsService implements OnModuleInit {
   private readonly logger = new Logger(ProjectsService.name);
+
+  // TENANT ISOLATION: Tenant-aware repository wrapper
+  private tenantProjectRepo!: TenantRepository<Project>;
 
   constructor(
     @InjectRepository(Project)
@@ -41,27 +49,40 @@ export class ProjectsService {
     private readonly issueRepo: Repository<Issue>,
     private readonly cacheService: CacheService,
     private readonly auditLogsService: AuditLogsService,
-    // Optional template repository for fallback
     @Optional()
     @InjectRepository(ProjectTemplate)
     private readonly templateRepo?: Repository<ProjectTemplate>,
-    // NEW: Unified template application service
     @Optional()
     @Inject(forwardRef(() => TemplateApplicationService))
     private readonly templateApplicationService?: TemplateApplicationService,
-  ) {}
+    // TENANT ISOLATION: Inject factory and context
+    private readonly tenantRepoFactory?: TenantRepositoryFactory,
+    private readonly tenantContext?: TenantContext,
+  ) { }
+
+  /**
+   * OnModuleInit: Create tenant-aware repository wrappers
+   */
+  onModuleInit() {
+    if (this.tenantRepoFactory) {
+      this.tenantProjectRepo = this.tenantRepoFactory.create(this.projectRepo);
+    }
+  }
 
   /**
    * Create a new project and assign Project Lead.
    * @param userId ID of the creator (from req.user.userId)
    * @param dto CreateProjectDto with optional projectLeadId and templateId
-   * @param organizationId ID of the organization (from user's context)
    */
   async create(
     userId: string,
     dto: CreateProjectDto,
-    organizationId?: string,
+    // TENANT ISOLATION: organizationId now auto-extracted from context
+    _organizationId?: string, // Kept for API compatibility
   ): Promise<Project> {
+    // TENANT ISOLATION: Get organizationId from context if not provided
+    const organizationId = _organizationId || this.tenantContext?.getTenantId();
+
     const project = this.projectRepo.create({
       name: dto.name,
       key: dto.key,
@@ -199,25 +220,25 @@ export class ProjectsService {
 
   /**
    * List all projects the user is a member of (non-archived by default).
-   * For organization-scoped access, filter by organizationId.
+   * TENANT ISOLATION: Automatically filtered by current tenant context.
    */
   async findAllForUser(
     userId: string,
     isSuperAdmin: boolean,
-    organizationId?: string,
+    _organizationId?: string, // Kept for API compatibility
   ): Promise<Project[]> {
+    // Get organizationId from context if not provided
+    const organizationId = _organizationId || this.tenantContext?.getTenantId();
+
     // Super admins see all projects in their organization
-    if (isSuperAdmin && organizationId) {
-      return this.projectRepo.find({
-        where: {
-          isArchived: false,
-          organizationId,
-        },
+    if (isSuperAdmin && organizationId && this.tenantProjectRepo) {
+      return this.tenantProjectRepo.find({
+        where: { isArchived: false },
       });
     }
 
-    // For all other users, including ProjectLeads, show only projects they are members of.
-    // CRITICAL: Strictly filter by organizationId to prevent data leakage between workspaces.
+    // For all other users, show only projects they are members of.
+    // TENANT ISOLATION: tenantProjectRepo auto-filters by organizationId
     const query = this.projectRepo
       .createQueryBuilder('project')
       .innerJoin(
@@ -228,15 +249,13 @@ export class ProjectsService {
       )
       .andWhere('project.isArchived = false');
 
-    // Filter by organization if provided (should always be provided for multi-tenant isolation)
+    // TENANT ISOLATION: Filter by organization from context
     if (organizationId) {
       query.andWhere('project.organizationId = :organizationId', {
         organizationId,
       });
     } else {
-      // Fallback: If no organizationId is provided, return empty list to be safe
-      // or throw an error depending on strictness requirements.
-      // For now, returning empty list prevents leakage.
+      // Safety: return empty if no org context (prevents data leakage)
       return [];
     }
 
@@ -244,29 +263,35 @@ export class ProjectsService {
   }
 
   /**
-   * Find one project by ID with organization validation.
-   * @param id Project ID
-   * @param organizationId Optional organization ID for access control
+   * Find one project by ID.
+   * TENANT ISOLATION: Automatically validated by TenantRepository.
    */
-  async findOneById(id: string, organizationId?: string): Promise<Project> {
+  async findOneById(id: string, _organizationId?: string): Promise<Project> {
     // Try cache first
     const cachedProject = (await this.cacheService.getCachedProject(
       id,
     )) as Project | null;
+
     if (cachedProject) {
-      // If organizationId is provided, validate it against cached project
-      validateOrganizationAccess(cachedProject, organizationId, 'Project');
+      // Validate tenant access via context
+      const currentTenantId = this.tenantContext?.getTenantId();
+      if (currentTenantId && cachedProject.organizationId !== currentTenantId) {
+        throw new NotFoundException('Project not found');
+      }
       return cachedProject;
     }
 
-    const project = await this.projectRepo.findOneBy({ id });
+    // TENANT ISOLATION: Use tenant-aware repository if available
+    let project: Project | null;
+    if (this.tenantProjectRepo) {
+      project = await this.tenantProjectRepo.findOne({ where: { id } });
+    } else {
+      project = await this.projectRepo.findOneBy({ id });
+    }
 
     if (!project) {
       throw new NotFoundException('Project not found');
     }
-
-    // Validate organization access
-    validateOrganizationAccess(project, organizationId, 'Project');
 
     // Cache the project
     await this.cacheService.cacheProject(id, project);
@@ -275,22 +300,18 @@ export class ProjectsService {
   }
 
   /**
-   * Find one project by Key with organization validation.
+   * Find one project by Key.
+   * TENANT ISOLATION: Uses tenant-aware repository for automatic filtering.
    */
   async findByKey(
     key: string,
-    organizationId?: string,
+    _organizationId?: string, // Kept for API compatibility
   ): Promise<Project | null> {
-    const project = await this.projectRepo.findOneBy({ key });
-    if (!project) return null;
-
-    try {
-      validateOrganizationAccess(project, organizationId);
-    } catch {
-      return null;
+    // TENANT ISOLATION: Use tenant-aware repository if available
+    if (this.tenantProjectRepo) {
+      return this.tenantProjectRepo.findOne({ where: { key } });
     }
-
-    return project;
+    return this.projectRepo.findOneBy({ key });
   }
 
   /**

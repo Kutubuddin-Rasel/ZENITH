@@ -31,12 +31,15 @@ services:
     restart: always
     command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
 
-  # Backend API Service
-  backend:
+  # ========================================
+  # Backend API Service (HTTP only)
+  # ========================================
+  backend-api:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: zenith_backend
+    container_name: zenith_api
+    command: ["node", "dist/main.js"]
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: ${PORT:-3000}
@@ -74,6 +77,48 @@ services:
       CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE}
     ports:
       - "${PORT:-3000}:3000"
+    networks:
+      - zenith-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ========================================
+  # Backend Worker Service (Queue processors only)
+  # ========================================
+  backend-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: zenith_worker
+    command: ["node", "dist/worker.main.js"]
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_HOST: ${DATABASE_HOST:-postgres}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASS: ${DATABASE_PASS:-password}
+      DATABASE_NAME: ${DATABASE_NAME:-zenith}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DB: ${REDIS_DB:-0}
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST}
+      CLICKHOUSE_PORT: ${CLICKHOUSE_PORT}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      WORKER_GRACE_PERIOD_MS: ${WORKER_GRACE_PERIOD_MS:-10000}
     networks:
       - zenith-network
     depends_on:

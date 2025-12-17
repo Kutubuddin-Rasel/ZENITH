@@ -1,26 +1,31 @@
 // src/watchers/watchers.service.ts
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Watcher } from './entities/watcher.entity';
-import { ProjectsService } from '../projects/projects.service';
-import { IssuesService } from '../issues/issues.service';
+// REFACTORED: Using direct repositories instead of services
+import { Project } from '../projects/entities/project.entity';
+import { Issue } from '../issues/entities/issue.entity';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import { NotificationsEmitter } from './events/notifications.events';
-import { NotificationsService } from '../notifications/notifications.service';
-import { NotificationType } from '../notifications/entities/notification.entity';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 @Injectable()
 export class WatchersService {
   constructor(
     @InjectRepository(Watcher)
     private watcherRepo: Repository<Watcher>,
-    private projectsService: ProjectsService,
-    @Inject(forwardRef(() => IssuesService))
-    private issuesService: IssuesService,
+    // REFACTORED: Direct repository injection instead of ProjectsService
+    @InjectRepository(Project)
+    private projectRepo: Repository<Project>,
+    // REFACTORED: Direct repository injection instead of IssuesService
+    @InjectRepository(Issue)
+    private issueRepo: Repository<Issue>,
     private membersService: ProjectMembersService,
     private notifications: NotificationsEmitter,
-    private notificationsService: NotificationsService,
-  ) {}
+    // REFACTORED: Using EventEmitter2 instead of NotificationsService
+    private eventEmitter: EventEmitter2,
+  ) { }
 
   /** Toggle project watcher: if exists remove, else add */
   async toggleProjectWatcher(
@@ -35,8 +40,9 @@ export class WatchersService {
       await this.watcherRepo.remove(existing);
       return { watching: false };
     }
-    // create new
-    await this.projectsService.findOneById(projectId);
+    // REFACTORED: Direct repo query instead of projectsService.findOneById
+    const project = await this.projectRepo.findOneBy({ id: projectId });
+    if (!project) throw new Error('Project not found');
     const w = this.watcherRepo.create({ projectId, userId });
     await this.watcherRepo.save(w);
     return { watching: true };
@@ -62,8 +68,11 @@ export class WatchersService {
     issueId: string,
     userId: string,
   ): Promise<{ watching: boolean }> {
-    // ensure membership & issue exists
-    await this.issuesService.findOne(projectId, issueId, userId);
+    // REFACTORED: Direct repo query instead of issuesService.findOne
+    const issue = await this.issueRepo.findOne({ where: { id: issueId, projectId } });
+    if (!issue) throw new Error('Issue not found');
+    await this.membersService.getUserRole(projectId, userId);
+
     const existing = await this.watcherRepo.findOneBy({ issueId, userId });
     if (existing) {
       await this.watcherRepo.remove(existing);
@@ -80,7 +89,11 @@ export class WatchersService {
     issueId: string,
     userId: string,
   ): Promise<string[]> {
-    await this.issuesService.findOne(projectId, issueId, userId);
+    // REFACTORED: Direct repo query instead of issuesService.findOne
+    const issue = await this.issueRepo.findOne({ where: { id: issueId, projectId } });
+    if (!issue) throw new Error('Issue not found');
+    await this.membersService.getUserRole(projectId, userId);
+
     const watchers = await this.watcherRepo.find({
       where: { issueId },
       select: ['userId'],
@@ -92,47 +105,41 @@ export class WatchersService {
   async notifyWatchersOnEvent(
     projectId: string,
     issueId: string | null,
-    action: string, // e.g. 'commented', 'changed status to X'
-    actorId: string, // user who performed action
+    action: string,
+    actorId: string,
   ) {
     await Promise.all([
-      // watchers on the project
       this.watcherRepo.find({ where: { projectId }, select: ['userId'] }),
-      // plus watchers on the issue (if any)
       issueId
         ? this.watcherRepo.find({ where: { issueId }, select: ['userId'] })
         : Promise.resolve([]),
     ]).then(async ([projWatchers, issueWatchers]) => {
-      // build unique set of userIds, excluding the actor
       const ids = new Set<string>();
       projWatchers.forEach((w) => ids.add(w.userId));
       issueWatchers.forEach((w) => ids.add(w.userId));
       ids.delete(actorId);
 
       const userIds = Array.from(ids);
-      if (userIds.length === 0) {
-        return;
-      }
+      if (userIds.length === 0) return;
 
-      // build the message and context
       const message =
         `User ${actorId} ${action}` + (issueId ? ` on issue ${issueId}` : '');
       const context = { projectId, ...(issueId && { issueId }) };
 
-      // 1) Emit live in‑app event
+      // 1) Emit live in-app event
       this.notifications.emitNotification({
         userIds,
         message,
         context,
       });
 
-      // 2) Persist notifications to the DB
-      await this.notificationsService.createMany(
+      // 2) REFACTORED: Emit event for NotificationsModule to handle persistence
+      this.eventEmitter.emit('watcher.notification', {
         userIds,
         message,
         context,
-        NotificationType.INFO, // or pick a type based on action
-      );
+        type: 'INFO',
+      });
     });
   }
 }

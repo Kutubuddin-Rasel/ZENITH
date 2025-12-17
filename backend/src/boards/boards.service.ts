@@ -3,8 +3,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
-  Inject,
-  forwardRef,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -14,25 +13,35 @@ import { CreateBoardDto } from './dto/create-board.dto';
 import { UpdateBoardDto } from './dto/update-board.dto';
 import { CreateColumnDto } from './dto/create-column.dto';
 import { UpdateColumnDto } from './dto/update-column.dto';
-import { ProjectsService } from '../projects/projects.service';
+// REFACTORED: Using direct repository instead of ProjectsService
+import { Project } from '../projects/entities/project.entity';
+import { Issue } from '../issues/entities/issue.entity';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 import { BoardsGateway } from './boards.gateway';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CacheService } from '../cache/cache.service';
+
 
 @Injectable()
 export class BoardsService {
+  private readonly logger = new Logger(BoardsService.name);
+
   constructor(
     @InjectRepository(Board)
     private boardRepo: Repository<Board>,
     @InjectRepository(BoardColumn)
     private colRepo: Repository<BoardColumn>,
-    @Inject(forwardRef(() => ProjectsService))
-    private projectsService: ProjectsService,
+    // REFACTORED: Direct repository injection instead of forwardRef to ProjectsService
+    @InjectRepository(Project)
+    private projectRepo: Repository<Project>,
+    @InjectRepository(Issue)
+    private issueRepo: Repository<Issue>,
     private membersService: ProjectMembersService,
     private dataSource: DataSource,
     private eventEmitter: EventEmitter2,
     private boardsGateway: BoardsGateway,
+    private cacheService: CacheService,
   ) { }
 
   /** Create a new board (and seed default columns) */
@@ -42,7 +51,11 @@ export class BoardsService {
     dto: CreateBoardDto,
     organizationId?: string,
   ): Promise<Board> {
-    await this.projectsService.findOneById(projectId, organizationId);
+    // REFACTORED: Direct repo query instead of projectsService.findOneById
+    const project = await this.projectRepo.findOne({
+      where: { id: projectId, ...(organizationId && { organizationId }) },
+    });
+    if (!project) throw new NotFoundException('Project not found');
     const role = await this.membersService.getUserRole(projectId, userId);
     if (role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Only ProjectLead can create boards');
@@ -102,8 +115,12 @@ export class BoardsService {
     userId: string,
     organizationId?: string,
   ): Promise<Board[]> {
+    // REFACTORED: Validate organization access with direct repo
     if (organizationId) {
-      await this.projectsService.findOneById(projectId, organizationId);
+      const project = await this.projectRepo.findOne({
+        where: { id: projectId, organizationId },
+      });
+      if (!project) throw new NotFoundException('Project not found');
     }
     const role = await this.membersService.getUserRole(projectId, userId);
     if (!role) throw new ForbiddenException('Not a project member');
@@ -135,6 +152,144 @@ export class BoardsService {
     if (!role) throw new ForbiddenException('Not a project member');
     board.columns.sort((a, b) => a.columnOrder - b.columnOrder);
     return board;
+  }
+
+  /**
+   * OPTIMIZED: Get board with columns and issues using selective field loading
+   *
+   * Performance optimizations:
+   * 1. SELECT only essential issue fields (excludes description, metadata, embedding)
+   * 2. 5-second micro-cache to handle standup refresh storms
+   * 3. Single query with left joins instead of N+1
+   *
+   * @returns Board with columns, each column has issues with slim fields
+   */
+  async findOneWithIssues(
+    projectId: string,
+    boardId: string,
+    userId: string,
+    organizationId?: string,
+  ): Promise<{
+    board: Board;
+    columns: Array<{
+      id: string;
+      name: string;
+      columnOrder: number;
+      issues: Array<{
+        id: string;
+        title: string;
+        type: string;
+        priority: string;
+        assigneeId: string | null;
+        storyPoints: number;
+        status: string;
+        backlogOrder: number;
+      }>;
+    }>;
+  }> {
+    // === CACHE CHECK ===
+    const cacheKey = `board:${boardId}:slim`;
+    const cached = await this.cacheService.get<{
+      board: Board;
+      columns: Array<any>;
+    }>(cacheKey, { namespace: 'boards' });
+
+    if (cached) {
+      this.logger.debug(`Cache HIT for board ${boardId}`);
+      return cached;
+    }
+
+    // === AUTHORIZATION ===
+    const board = await this.boardRepo.findOne({
+      where: { id: boardId, projectId },
+      relations: ['columns', 'project'],
+    });
+    if (!board) throw new NotFoundException('Board not found');
+
+    // Validate organization access (tenant isolation)
+    if (organizationId && board.project.organizationId !== organizationId) {
+      throw new NotFoundException('Board not found');
+    }
+
+    const role = await this.membersService.getUserRole(projectId, userId);
+    if (!role) throw new ForbiddenException('Not a project member');
+
+    // === OPTIMIZED QUERY ===
+    // Fetch issues with ONLY the fields needed for Kanban board display
+    // EXCLUDES: description, metadata, embedding, history (can be huge)
+    const issues = await this.issueRepo
+      .createQueryBuilder('issue')
+      .select([
+        'issue.id',
+        'issue.title',
+        'issue.type',
+        'issue.priority',
+        'issue.assigneeId',
+        'issue.storyPoints',
+        'issue.status',
+        'issue.backlogOrder',
+      ])
+      .where('issue.projectId = :projectId', { projectId })
+      .andWhere('issue.isArchived = false')
+      .orderBy('issue.backlogOrder', 'ASC')
+      .getMany();
+
+    // === GROUP ISSUES BY COLUMN ===
+    // Column name === Issue status (Linear-style board)
+    const columnNames = board.columns.map((c) => c.name);
+    const issuesByColumn = new Map<string, typeof issues>();
+
+    for (const colName of columnNames) {
+      issuesByColumn.set(colName, []);
+    }
+
+    for (const issue of issues) {
+      const colIssues = issuesByColumn.get(issue.status);
+      if (colIssues) {
+        colIssues.push(issue);
+      }
+    }
+
+    // === BUILD RESPONSE ===
+    const sortedColumns = board.columns
+      .sort((a, b) => a.columnOrder - b.columnOrder)
+      .map((col) => ({
+        id: col.id,
+        name: col.name,
+        columnOrder: col.columnOrder,
+        issues: (issuesByColumn.get(col.name) || []).map((i) => ({
+          id: i.id,
+          title: i.title,
+          type: String(i.type),
+          priority: String(i.priority),
+          assigneeId: i.assigneeId ?? null,
+          storyPoints: i.storyPoints,
+          status: i.status,
+          backlogOrder: i.backlogOrder,
+        })),
+      }));
+
+    const result = {
+      board: {
+        id: board.id,
+        name: board.name,
+        type: board.type,
+        projectId: board.projectId,
+        isActive: board.isActive,
+      } as Board,
+      columns: sortedColumns,
+    };
+
+    // === MICRO-CACHE: 5 seconds ===
+    // Short TTL survives standup refresh storms without needing invalidation
+    await this.cacheService.set(cacheKey, result, {
+      ttl: 5,
+      namespace: 'boards',
+      tags: [`board:${boardId}`, `project:${projectId}`],
+    });
+
+    this.logger.debug(`Cache SET for board ${boardId} (TTL: 5s)`);
+    return result;
   }
 
   /** Update board metadata */

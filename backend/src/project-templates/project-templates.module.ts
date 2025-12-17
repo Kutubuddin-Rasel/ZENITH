@@ -1,4 +1,4 @@
-import { Module, forwardRef, OnModuleInit, Logger } from '@nestjs/common';
+import { Module, OnModuleInit, Logger, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProjectTemplate } from './entities/project-template.entity';
 import { UserPreferences } from '../user-preferences/entities/user-preferences.entity';
@@ -6,9 +6,8 @@ import { ProjectWizardService } from './services/project-wizard.service';
 import { TemplateRecommendationService } from './services/template-recommendation.service';
 import { TemplateApplicationService } from './services/template-application.service';
 import { ProjectWizardController } from './controllers/project-wizard.controller';
-import { ProjectsModule } from '../projects/projects.module';
 import { UserPreferencesModule } from '../user-preferences/user-preferences.module';
-import { MembershipModule } from '../membership/membership.module';
+// REMOVED: MembershipModule - using ProjectCoreModule (global) for ProjectMembersService
 import { BoardsModule } from '../boards/boards.module';
 import { SprintsModule } from '../sprints/sprints.module';
 import { Project } from '../projects/entities/project.entity';
@@ -16,6 +15,7 @@ import { WorkflowsModule } from '../workflows/workflows.module';
 import { CacheModule } from '../cache/cache.module';
 import { CacheModule as NestCacheModule } from '@nestjs/cache-manager';
 import { AiModule } from '../ai/ai.module';
+import { ProjectsModule } from '../projects/projects.module';
 // NEW: Clean Architecture imports
 import { WizardDtoMapper } from './mappers/wizard-dto.mapper';
 import { AIResponseValidator } from './validators/ai-response.validator';
@@ -24,12 +24,12 @@ import { ProjectCreationOrchestrator } from './orchestrators/project-creation.or
 @Module({
   imports: [
     TypeOrmModule.forFeature([ProjectTemplate, UserPreferences, Project]),
-    forwardRef(() => ProjectsModule),
+    // CYCLE FIX: Use forwardRef for all potentially circular imports
     forwardRef(() => UserPreferencesModule),
     forwardRef(() => BoardsModule),
     forwardRef(() => SprintsModule),
-    forwardRef(() => WorkflowsModule),
-    MembershipModule,
+    forwardRef(() => ProjectsModule),
+    WorkflowsModule,
     CacheModule,
     NestCacheModule.register(),
     AiModule,

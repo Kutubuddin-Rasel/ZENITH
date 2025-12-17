@@ -1,5 +1,5 @@
 // src/releases/releases.module.ts
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MulterModule } from '@nestjs/platform-express';
 import { Release } from './entities/release.entity';
@@ -10,7 +10,7 @@ import { ReleasesService } from './releases.service';
 import { ReleasesController } from './releases.controller';
 import { ProjectsModule } from '../projects/projects.module';
 import { IssuesModule } from '../issues/issues.module';
-import { MembershipModule } from '../membership/membership.module';
+// REMOVED: MembershipModule - using ProjectCoreModule (global) for ProjectMembersService
 import { WatchersModule } from '../watchers/watchers.module';
 
 @Module({
@@ -24,13 +24,13 @@ import { WatchersModule } from '../watchers/watchers.module';
     MulterModule.register({
       dest: './uploads/releases',
     }),
-    forwardRef(() => ProjectsModule),
-    forwardRef(() => IssuesModule),
-    MembershipModule,
-    forwardRef(() => WatchersModule),
+    // REFACTORED: Direct imports since cycles are broken
+    ProjectsModule,
+    IssuesModule,
+    WatchersModule,
   ],
   providers: [ReleasesService],
   controllers: [ReleasesController],
   exports: [ReleasesService],
 })
-export class ReleasesModule {}
+export class ReleasesModule { }

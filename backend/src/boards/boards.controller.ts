@@ -27,7 +27,7 @@ export class BoardsController {
   constructor(
     private svc: BoardsService,
     private readonly usersService: UsersService,
-  ) {}
+  ) { }
 
   /**
    * Helper: Get user's organization ID
@@ -69,6 +69,24 @@ export class BoardsController {
   ) {
     const orgId = await this.getUserOrganization(req.user.userId);
     return this.svc.findOne(projectId, boardId, req.user.userId, orgId);
+  }
+
+  /**
+   * OPTIMIZED: Get board with slim issues (Phase 2)
+   *
+   * Returns board + columns + issues with selective fields only.
+   * Excludes heavy fields: description, metadata, embedding.
+   * Uses 5-second micro-cache for standup refresh storms.
+   */
+  @RequirePermission('boards:view')
+  @Get(':boardId/slim')
+  async findOneSlim(
+    @Param('projectId') projectId: string,
+    @Param('boardId') boardId: string,
+    @Request() req: { user: JwtRequestUser },
+  ) {
+    const orgId = await this.getUserOrganization(req.user.userId);
+    return this.svc.findOneWithIssues(projectId, boardId, req.user.userId, orgId);
   }
 
   @RequirePermission('boards:update')

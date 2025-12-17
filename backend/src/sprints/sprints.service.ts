@@ -4,8 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-  Inject,
-  forwardRef,
+  OnModuleInit,
 } from '@nestjs/common';
 import { Repository, FindOptionsWhere, In } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -17,7 +16,7 @@ import { CreateSprintDto } from './dto/create-sprint.dto';
 import { UpdateSprintDto } from './dto/update-sprint.dto';
 import { AddIssueToSprintDto } from './dto/add-issue.dto';
 import { RemoveIssueFromSprintDto } from './dto/remove-issue.dto';
-import { ProjectsService } from '../projects/projects.service';
+import { Project } from '../projects/entities/project.entity';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 
@@ -28,9 +27,17 @@ import { SprintStatus } from './entities/sprint.entity';
 import { BoardsService } from '../boards/boards.service';
 import { BoardType } from '../boards/entities/board.entity';
 import { SmartDefaultsService } from '../user-preferences/services/smart-defaults.service';
+// TENANT ISOLATION: Import tenant repository factory
+import {
+  TenantRepositoryFactory,
+  TenantRepository,
+} from '../core/tenant';
 
 @Injectable()
-export class SprintsService {
+export class SprintsService implements OnModuleInit {
+  // TENANT ISOLATION: Tenant-aware repository wrapper
+  private tenantProjectRepo!: TenantRepository<Project>;
+
   constructor(
     @InjectRepository(Sprint)
     private sprintRepo: Repository<Sprint>,
@@ -38,24 +45,37 @@ export class SprintsService {
     private siRepo: Repository<SprintIssue>,
     @InjectRepository(SprintSnapshot)
     private snapshotRepo: Repository<SprintSnapshot>,
-    @Inject(forwardRef(() => ProjectsService))
-    private projectsService: ProjectsService,
+    @InjectRepository(Project)
+    private projectRepo: Repository<Project>,
     private membersService: ProjectMembersService,
     private issuesService: IssuesService,
     private eventEmitter: EventEmitter2,
     private boardsService: BoardsService,
     private smartDefaultsService: SmartDefaultsService,
-  ) {}
+    // TENANT ISOLATION: Inject factory
+    private readonly tenantRepoFactory: TenantRepositoryFactory,
+  ) { }
+
+  /**
+   * OnModuleInit: Create tenant-aware repository wrappers
+   */
+  onModuleInit() {
+    this.tenantProjectRepo = this.tenantRepoFactory.create(this.projectRepo);
+  }
 
   /** Create sprint under a project */
   async create(
     projectId: string,
     userId: string,
     dto: CreateSprintDto,
-    organizationId?: string,
+    // TENANT ISOLATION: organizationId no longer needed - auto-filtered
+    _organizationId?: string,
   ): Promise<Sprint> {
-    await this.projectsService.findOneById(projectId, organizationId);
-    // Permission check handled by @RequireProjectRole and PermissionsGuard
+    // TENANT ISOLATION: tenantProjectRepo auto-filters by organizationId from JWT
+    const project = await this.tenantProjectRepo.findOne({
+      where: { id: projectId },
+    });
+    if (!project) throw new NotFoundException('Project not found');
 
     // If status is set to ACTIVE, ensure isActive is true
     const sprint = this.sprintRepo.create({ projectId, ...dto });
@@ -74,7 +94,7 @@ export class SprintsService {
         if (existingBoards.length === 0) {
           // Create a default board for the sprint
           await this.boardsService.create(projectId, userId, {
-            name: `${ saved.name } Board`,
+            name: `${saved.name} Board`,
             type: BoardType.KANBAN,
           });
         }
@@ -87,7 +107,7 @@ export class SprintsService {
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: null,
-      action: `created sprint ${ saved.name } `,
+      action: `created sprint ${saved.name} `,
       actorId: userId,
       sprintName: saved.name,
     });
@@ -100,13 +120,14 @@ export class SprintsService {
     projectId: string,
     userId: string,
     active?: boolean,
-    organizationId?: string,
+    // TENANT ISOLATION: organizationId no longer needed - auto-filtered
+    _organizationId?: string,
   ): Promise<Sprint[]> {
-    // Validate project access
-    if (organizationId) {
-      await this.projectsService.findOneById(projectId, organizationId);
-    }
-    // Permission check handled by Guard
+    // TENANT ISOLATION: Validate project access via tenant-aware repo
+    const project = await this.tenantProjectRepo.findOne({
+      where: { id: projectId },
+    });
+    if (!project) throw new NotFoundException('Project not found');
 
     const where: FindOptionsWhere<Sprint> = { projectId };
     if (active) {
@@ -184,7 +205,7 @@ export class SprintsService {
         if (existingBoards.length === 0) {
           // Create a default board for the sprint
           await this.boardsService.create(projectId, userId, {
-            name: `${ updated.name } Board`,
+            name: `${updated.name} Board`,
             type: BoardType.KANBAN,
           });
         }
@@ -197,7 +218,7 @@ export class SprintsService {
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: null,
-      action: `updated sprint ${ updated.name } `,
+      action: `updated sprint ${updated.name} `,
       actorId: userId,
       sprintName: updated.name,
     });
@@ -260,7 +281,7 @@ export class SprintsService {
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: null,
-      action: `archived sprint ${ archived.name } `,
+      action: `archived sprint ${archived.name} `,
       actorId: userId,
       sprintName: archived.name,
     });
@@ -309,7 +330,7 @@ export class SprintsService {
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: null,
-      action: `deleted sprint ${ sprint.name } `,
+      action: `deleted sprint ${sprint.name} `,
       actorId: userId,
       sprintName: sprint.name,
     });
@@ -345,7 +366,7 @@ export class SprintsService {
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: dto.issueId,
-      action: `added issue to sprint ${ sprint.name } `,
+      action: `added issue to sprint ${sprint.name} `,
       actorId: userId,
       sprintName: sprint.name,
     });
@@ -381,7 +402,7 @@ export class SprintsService {
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: dto.issueId,
-      action: `removed issue from sprint ${ sprint.name } `,
+      action: `removed issue from sprint ${sprint.name} `,
       actorId: userId,
       sprintName: sprint.name,
     });
@@ -395,7 +416,10 @@ export class SprintsService {
   ): Promise<Issue[]> {
     // Validate project access via findOne (or explicit check)
     if (organizationId) {
-      await this.projectsService.findOneById(projectId, organizationId);
+      const project = await this.projectRepo.findOne({
+        where: { id: projectId, organizationId },
+      });
+      if (!project) throw new NotFoundException('Project not found');
     }
     const role = await this.membersService.getUserRole(projectId, userId);
     if (!role) throw new ForbiddenException('Not a project member');
@@ -436,7 +460,7 @@ export class SprintsService {
       if (existingBoards.length === 0) {
         // Create a default board for the sprint
         await this.boardsService.create(projectId, userId, {
-          name: `${ sprint.name } Board`,
+          name: `${sprint.name} Board`,
           type: BoardType.KANBAN,
         });
       }
@@ -448,7 +472,7 @@ export class SprintsService {
     this.eventEmitter.emit('sprint.event', {
       projectId,
       issueId: null,
-      action: `started sprint ${ started.name } `,
+      action: `started sprint ${started.name} `,
       actorId: userId,
       sprintName: started.name,
     });
@@ -570,8 +594,9 @@ export class SprintsService {
     projectId: string, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _userId: string,
   ): Promise<any> {
-    // Check permission
-    await this.projectsService.findOneById(projectId);
+    // Check permission - validate project exists
+    const project = await this.projectRepo.findOne({ where: { id: projectId } });
+    if (!project) throw new NotFoundException('Project not found');
 
     const sprints = await this.sprintRepo.find({
       where: { projectId, status: SprintStatus.COMPLETED },

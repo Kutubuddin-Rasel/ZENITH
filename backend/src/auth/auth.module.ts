@@ -27,8 +27,9 @@ import { SAMLConfig } from './entities/saml-config.entity';
 import { User } from '../users/entities/user.entity';
 
 import { UsersModule } from '../users/users.module';
+// REFACTORED: InvitesModule no longer needs forwardRef - cycle is broken
 import { InvitesModule } from '../invites/invites.module';
-import { MembershipModule } from '../membership/membership.module';
+// REMOVED: MembershipModule import - using ProjectCoreModule (global) for ProjectMembersService
 import { CacheModule } from '../cache/cache.module';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { OnboardingModule } from '../onboarding/onboarding.module';
@@ -44,15 +45,14 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => ({
-        // The non-null assertion (!) tells TypeScript you know this won't be undefined
         secret: cfg.get<string>('JWT_SECRET')!,
         signOptions: { expiresIn: '1h' },
       }),
     }),
-
-    forwardRef(() => InvitesModule), // wrap in forwardRef
-    MembershipModule, // if AuthService also injects ProjectMembersService
-    CacheModule, // For ProjectRoleGuard caching
+    // REFACTORED: No more forwardRef - InvitesModule cycle is broken via core modules
+    InvitesModule,
+    // REFACTORED: Removed MembershipModule - ProjectCoreModule is global
+    CacheModule,
   ],
   providers: [
     AuthService,
@@ -65,7 +65,6 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
     JwtRefreshStrategy,
     JwtCookieStrategy,
     ProjectRoleGuard,
-    // If you need to override the default 'local' or 'jwt' guards, provide them here:
     { provide: 'LOCAL_GUARD', useClass: LocalAuthGuard },
   ],
   controllers: [AuthController, TwoFactorAuthController, SAMLController],
@@ -77,4 +76,5 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
     ProjectRoleGuard,
   ],
 })
-export class AuthModule {}
+export class AuthModule { }
+

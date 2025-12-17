@@ -5,8 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
   ConflictException,
-  Inject,
-  forwardRef,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -20,7 +19,7 @@ import { IssueLink, LinkType } from './entities/issue-link.entity';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 import { CreateIssueDto } from './dto/create-issue.dto';
 import { UpdateIssueDto } from './dto/update-issue.dto';
-import { ProjectsService } from '../projects/projects.service';
+import { Project } from '../projects/entities/project.entity';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import { UsersService } from '../users/users.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -28,16 +27,24 @@ import { WorkLog } from './entities/work-log.entity';
 
 import { CacheService } from '../cache/cache.service';
 import { WorkflowTransitionsService } from '../workflows/services/workflow-transitions.service';
+// TENANT ISOLATION: Import tenant repository factory
+import {
+  TenantRepositoryFactory,
+  TenantRepository,
+} from '../core/tenant';
 
 @Injectable()
-export class IssuesService {
+export class IssuesService implements OnModuleInit {
+  // TENANT ISOLATION: Tenant-aware repository wrappers
+  private tenantProjectRepo!: TenantRepository<Project>;
+
   constructor(
     @InjectRepository(Issue)
     private readonly issueRepo: Repository<Issue>,
     @InjectRepository(IssueLink)
     private readonly issueLinkRepo: Repository<IssueLink>,
-    @Inject(forwardRef(() => ProjectsService))
-    private readonly projectsService: ProjectsService,
+    @InjectRepository(Project)
+    private readonly projectRepo: Repository<Project>,
     private readonly projectMembersService: ProjectMembersService,
     private readonly usersService: UsersService,
     private readonly eventEmitter: EventEmitter2,
@@ -45,7 +52,19 @@ export class IssuesService {
     private workLogRepo: Repository<WorkLog>,
     private readonly cacheService: CacheService,
     private readonly transitionsService: WorkflowTransitionsService,
+    // TENANT ISOLATION: Inject factory to create tenant-aware repos
+    private readonly tenantRepoFactory: TenantRepositoryFactory,
   ) { }
+
+  /**
+   * OnModuleInit: Create tenant-aware repository wrappers
+   * This happens after DI so all dependencies are available
+   */
+  onModuleInit() {
+    // Wrap projectRepo with automatic tenant filtering
+    // Queries will automatically add WHERE organizationId = <current_tenant>
+    this.tenantProjectRepo = this.tenantRepoFactory.create(this.projectRepo);
+  }
 
   /**
    * Compute friendly issue key from project key and issue number.
@@ -66,12 +85,13 @@ export class IssuesService {
   ): Promise<Issue & { key: string }> {
     let key = projectKey;
     if (!key) {
-      const project = await this.projectsService.findOneById(issue.projectId);
-      key = project.key;
+      // REFACTORED: Direct repository query instead of ProjectsService
+      const project = await this.projectRepo.findOne({ where: { id: issue.projectId } });
+      key = project?.key || '';
     }
     return {
       ...issue,
-      key: this.computeKey(key, issue.number),
+      key: this.computeKey(key || '', issue.number),
     };
   }
 
@@ -80,13 +100,15 @@ export class IssuesService {
     projectId: string,
     reporterId: string,
     dto: CreateIssueDto,
-    organizationId?: string,
+    // TENANT ISOLATION: organizationId no longer needed - auto-filtered by TenantRepository
+    _organizationId?: string, // Kept for API compatibility, ignored internally
   ): Promise<Issue & { key: string }> {
-    // Validate project exists and belongs to organization
-    const project = await this.projectsService.findOneById(
-      projectId,
-      organizationId,
-    );
+    // TENANT ISOLATION: tenantProjectRepo auto-filters by organizationId from JWT
+    // Developer cannot forget to add the filter - it's automatic!
+    const project = await this.tenantProjectRepo.findOne({
+      where: { id: projectId },
+    });
+    if (!project) throw new NotFoundException('Project not found');
     // Permission checks handled by @RequireProjectRole and PermissionsGuard
 
     if (dto.assigneeId) {
@@ -170,10 +192,15 @@ export class IssuesService {
       includeArchived?: boolean;
       type?: string;
     },
-    organizationId?: string,
+    // TENANT ISOLATION: organizationId no longer needed - auto-filtered
+    _organizationId?: string, // Kept for API compatibility, ignored
   ): Promise<Issue[]> {
-    // Verify project access (pass organizationId, not userId)
-    await this.projectsService.findOneById(projectId, organizationId);
+    // TENANT ISOLATION: Verify project exists within tenant context
+    // tenantProjectRepo automatically filters by current user's organizationId
+    const project = await this.tenantProjectRepo.findOne({
+      where: { id: projectId },
+    });
+    if (!project) throw new NotFoundException('Project not found');
 
     const qb = this.issueRepo
       .createQueryBuilder('issue')
@@ -778,7 +805,10 @@ export class IssuesService {
   ): Promise<NodeJS.ReadableStream> {
     // Validate project belongs to organization
     if (organizationId) {
-      await this.projectsService.findOneById(projectId, organizationId);
+      const project = await this.projectRepo.findOne({
+        where: { id: projectId, organizationId },
+      });
+      if (!project) throw new NotFoundException('Project not found');
     }
 
     const role = await this.projectMembersService.getUserRole(
@@ -827,7 +857,10 @@ export class IssuesService {
   ): Promise<{ created: number; failed: number; errors: string[] }> {
     // Validate project belongs to organization
     if (organizationId) {
-      await this.projectsService.findOneById(projectId, organizationId);
+      const project = await this.projectRepo.findOne({
+        where: { id: projectId, organizationId },
+      });
+      if (!project) throw new NotFoundException('Project not found');
     }
 
     const role = await this.projectMembersService.getUserRole(

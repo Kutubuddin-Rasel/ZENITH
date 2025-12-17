@@ -5,6 +5,7 @@ import {
   Logger,
   ClassSerializerInterceptor,
 } from '@nestjs/common';
+import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 import helmet from 'helmet';
 import * as compression from 'compression';
 import * as cookieParser from 'cookie-parser';
@@ -21,6 +22,19 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+
+  // Enable graceful shutdown hooks
+  app.enableShutdownHooks();
+
+  // WebSocket Redis Adapter for horizontal scaling
+  const redisAdapter = new RedisIoAdapter(app, configService);
+  try {
+    await redisAdapter.connectToRedis();
+    app.useWebSocketAdapter(redisAdapter);
+    logger.log('WebSocket adapter: Redis (horizontal scaling enabled)');
+  } catch (error) {
+    logger.warn('Redis WebSocket adapter failed, using default:', error);
+  }
 
   // Security headers - Strict CSP for API-only backend
   app.use(

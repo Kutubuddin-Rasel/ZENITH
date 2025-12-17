@@ -6,56 +6,75 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({
   namespace: '/notifications',
-  cors: { origin: '*' }, // adjust origin in production
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    credentials: true,
+  },
 })
 export class NotificationsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
+  implements OnGatewayConnection, OnGatewayDisconnect {
+  private readonly logger = new Logger(NotificationsGateway.name);
+
   @WebSocketServer() server: Server;
 
-  // Track which socket is for which user
-  private userSockets = new Map<string, Socket>();
+  // NOTE: We no longer use an in-memory Map!
+  // Socket.io rooms + Redis adapter handle user->socket mapping
 
   handleConnection(socket: Socket) {
-    // Expect the client to send an auth event with their userId
     socket.on('authenticate', (userId: string) => {
-      this.userSockets.set(userId, socket);
+      // Validate userId (basic check)
+      if (!userId || typeof userId !== 'string') {
+        this.logger.warn(`Invalid userId on authenticate: ${userId}`);
+        return;
+      }
+
+      // Join a room named after the userId
+      // Redis adapter syncs this across all server instances
+      void socket.join(`user:${userId}`);
+      this.logger.log(`User ${userId} connected and joined room (socket: ${socket.id})`);
+
+      // Acknowledge successful authentication
+      socket.emit('authenticated', { userId, socketId: socket.id });
     });
   }
 
   handleDisconnect(socket: Socket) {
-    // Remove socket from any user entries
-    for (const [userId, s] of this.userSockets.entries()) {
-      if (s.id === socket.id) {
-        this.userSockets.delete(userId);
-      }
-    }
+    // Socket.io automatically handles room cleanup on disconnect
+    // Redis adapter syncs this across all instances
+    this.logger.debug(`Socket disconnected: ${socket.id}`);
   }
 
-  /** Send a notification payload to a specific userId if connected */
+  /** Send a notification to a user (works across all instances via Redis) */
   sendToUser(userId: string, payload: any) {
-    const socket = this.userSockets.get(userId);
-    if (socket) {
-      socket.emit('notification', payload);
-    }
+    // Emit to the room - Redis adapter broadcasts to all instances
+    this.server.to(`user:${userId}`).emit('notification', payload);
   }
 
-  /** Send a notification deletion event to a specific userId if connected */
+  /** Send deletion event to a user */
   sendDeletionToUser(userId: string, notificationIds: string[]) {
-    const socket = this.userSockets.get(userId);
-    if (socket) {
-      socket.emit('notification_deleted', { notificationIds });
-    }
+    this.server
+      .to(`user:${userId}`)
+      .emit('notification_deleted', { notificationIds });
   }
 
-  /** Send a notification update event to a specific userId if connected */
+  /** Send update event to a user */
   sendUpdateToUser(userId: string, payload: any) {
-    const socket = this.userSockets.get(userId);
-    if (socket) {
-      socket.emit('notification_updated', payload);
-    }
+    this.server.to(`user:${userId}`).emit('notification_updated', payload);
+  }
+
+  /** Broadcast to all connected users (e.g., maintenance notice) */
+  broadcastToAll(event: string, payload: any) {
+    this.server.emit(event, payload);
+  }
+
+  /** Get count of connected sockets in a user's room */
+  async getUserConnectionCount(userId: string): Promise<number> {
+    const sockets = await this.server.in(`user:${userId}`).fetchSockets();
+    return sockets.length;
   }
 }
+

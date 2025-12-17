@@ -1,26 +1,24 @@
 // src/boards/boards.module.ts
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Board } from './entities/board.entity';
 import { BoardColumn } from './entities/board-column.entity';
+import { Issue } from '../issues/entities/issue.entity';
 import { BoardsService } from './boards.service';
 import { BoardsController } from './boards.controller';
-import { ProjectsModule } from '../projects/projects.module';
-import { MembershipModule } from '../membership/membership.module';
+// REMOVED: ProjectsModule - using CoreEntitiesModule (global) for Project repository
+// REMOVED: MembershipModule - using ProjectCoreModule (global) for ProjectMembersService
 import { BoardsGateway } from './boards.gateway';
-import { WatchersModule } from '../watchers/watchers.module';
-import { UsersModule } from '../users/users.module';
+// REMOVED: WatchersModule - no longer needed, BoardsService uses events
+// REMOVED: UsersModule - using UsersCoreModule (global)
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Board, BoardColumn]),
-    forwardRef(() => ProjectsModule),
-    MembershipModule,
-    forwardRef(() => WatchersModule),
-    UsersModule,
+    TypeOrmModule.forFeature([Board, BoardColumn, Issue]),
+    // REFACTORED: All forwardRefs eliminated - using global core modules
   ],
   providers: [BoardsService, BoardsGateway],
   controllers: [BoardsController],
   exports: [BoardsService],
 })
-export class BoardsModule {}
+export class BoardsModule { }

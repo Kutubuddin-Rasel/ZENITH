@@ -3,24 +3,20 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Project } from './entities/project.entity';
 import { ProjectsService } from './projects.service';
 import { ProjectsController } from './projects.controller';
-import { MembershipModule } from '../membership/membership.module';
+// REMOVED: MembershipModule - using ProjectCoreModule (global) for ProjectMembersService
 import { Issue } from '../issues/entities/issue.entity';
 import { InvitesModule } from '../invites/invites.module';
-import { UsersModule } from '../users/users.module';
-// NEW: Import ProjectTemplatesModule for TemplateApplicationService
-import { ProjectTemplatesModule } from '../project-templates/project-templates.module';
+// REMOVED: UsersModule - using UsersCoreModule (global) for UsersService
+// CYCLE FIX: Removed ProjectTemplatesModule - TemplateApplicationService accessed via forwardRef in ProjectsService
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Project, Issue]),
-    MembershipModule,
-    UsersModule,
+    // CYCLE FIX: Mutual cycle with InvitesModule - both use forwardRef
     forwardRef(() => InvitesModule),
-    // NEW: Import for template application in direct create
-    forwardRef(() => ProjectTemplatesModule),
   ],
   providers: [ProjectsService],
   controllers: [ProjectsController],
   exports: [ProjectsService],
 })
-export class ProjectsModule {}
+export class ProjectsModule { }

@@ -1,22 +1,22 @@
 // src/comments/comments.module.ts
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Comment } from './entities/comment.entity';
 import { CommentsService } from './comments.service';
 import { CommentsController } from './comments.controller';
 import { IssuesModule } from '../issues/issues.module';
-import { MembershipModule } from '../membership/membership.module';
+// REMOVED: MembershipModule - using ProjectCoreModule (global) for ProjectMembersService
 import { WatchersModule } from '../watchers/watchers.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Comment]),
-    forwardRef(() => IssuesModule),
-    forwardRef(() => MembershipModule),
-    forwardRef(() => WatchersModule),
+    // REFACTORED: Direct imports since cycles are broken
+    IssuesModule,
+    WatchersModule,
   ],
   providers: [CommentsService],
   controllers: [CommentsController],
   exports: [CommentsService],
 })
-export class CommentsModule {}
+export class CommentsModule { }

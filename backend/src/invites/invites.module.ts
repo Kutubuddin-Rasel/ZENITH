@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Invite } from './entities/invite.entity';
 import { InvitesService } from './invites.service';
@@ -6,8 +6,8 @@ import {
   InvitesController,
   ProjectInvitesController,
 } from './invites.controller';
-import { AuthModule } from '../auth/auth.module';
-import { MembershipModule } from '../membership/membership.module';
+// REMOVED: AuthModule import - guards are global via APP_GUARD
+// REMOVED: MembershipModule import - using ProjectCoreModule (global)
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ProjectsModule } from '../projects/projects.module';
@@ -15,15 +15,15 @@ import { ProjectsModule } from '../projects/projects.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Invite]),
-    forwardRef(() => AuthModule), // wrap in forwardRef
-    // so JwtAuthGuard & PermissionsGuard are available
-    forwardRef(() => MembershipModule), // so PermissionsGuard can inject ProjectMembersService
-    UsersModule, // if InvitesService uses UsersService
+    // REFACTORED: Removed forwardRef(() => AuthModule) - guards are global
+    // REFACTORED: Removed forwardRef(() => MembershipModule) - ProjectCoreModule is global
+    UsersModule,
     NotificationsModule,
+    // FIX: InvitesService needs ProjectsService
     forwardRef(() => ProjectsModule),
   ],
   providers: [InvitesService],
   controllers: [InvitesController, ProjectInvitesController],
-  exports: [InvitesService], // so AuthService or other modules can use it
+  exports: [InvitesService],
 })
-export class InvitesModule {}
+export class InvitesModule { }

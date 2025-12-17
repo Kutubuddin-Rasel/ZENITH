@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AnalyticsController } from './analytics.controller';
 import { CycleTimeService } from './services/cycle-time.service';
@@ -7,7 +7,7 @@ import { AnalyticsJobsService } from './services/analytics-jobs.service';
 import { RevisionsModule } from '../revisions/revisions.module';
 import { IssuesModule } from '../issues/issues.module';
 import { SprintsModule } from '../sprints/sprints.module';
-import { MembershipModule } from '../membership/membership.module';
+// REMOVED: MembershipModule - using ProjectCoreModule (global) for ProjectMembersService
 import { CacheModule } from '../cache/cache.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 
@@ -16,13 +16,15 @@ import { NotificationsModule } from '../notifications/notifications.module';
     ScheduleModule.forRoot(),
     RevisionsModule,
     IssuesModule,
-    forwardRef(() => SprintsModule),
-    MembershipModule,
+    // REFACTORED: SprintsModule no longer causes cycle - direct import
+    SprintsModule,
+    // REFACTORED: Removed MembershipModule - ProjectCoreModule is global
     CacheModule,
-    forwardRef(() => NotificationsModule),
+    // REFACTORED: NotificationsModule no longer causes cycle - direct import
+    NotificationsModule,
   ],
   controllers: [AnalyticsController],
   providers: [CycleTimeService, SprintRiskService, AnalyticsJobsService],
   exports: [CycleTimeService, SprintRiskService, AnalyticsJobsService],
 })
-export class AnalyticsModule {}
+export class AnalyticsModule { }

@@ -70,6 +70,8 @@ export enum IssueType {
 @Index('IDX_issue_project_number_unique', ['projectId', 'number'], {
   unique: true,
 })
+// Composite index for Kanban board queries: WHERE projectId=? AND isArchived=false ORDER BY backlogOrder
+@Index('IDX_issue_project_board', ['projectId', 'isArchived', 'backlogOrder'])
 // @Index('IDX_issue_title_search', ['title'], { synchronize: false }) - GIN index manually managed
 // @Index('IDX_issue_description_search', ['description'], { synchronize: false }) - GIN index manually managed
 export class Issue {
