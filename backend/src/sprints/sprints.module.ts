@@ -27,4 +27,4 @@ import { UserPreferencesModule } from '../user-preferences/user-preferences.modu
   controllers: [SprintsController],
   exports: [SprintsService],
 })
-export class SprintsModule { }
+export class SprintsModule {}

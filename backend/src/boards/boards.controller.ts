@@ -86,7 +86,12 @@ export class BoardsController {
     @Request() req: { user: JwtRequestUser },
   ) {
     const orgId = await this.getUserOrganization(req.user.userId);
-    return this.svc.findOneWithIssues(projectId, boardId, req.user.userId, orgId);
+    return this.svc.findOneWithIssues(
+      projectId,
+      boardId,
+      req.user.userId,
+      orgId,
+    );
   }
 
   @RequirePermission('boards:update')
@@ -166,7 +171,10 @@ export class BoardsController {
     return { message: 'Column deleted' };
   }
 
-  /** Move an issue between columns (drag-and-drop) */
+  /**
+   * Move an issue between columns (drag-and-drop)
+   * RELATIONAL STATUS: Now accepts statusId (UUID) instead of column name strings.
+   */
   @RequirePermission('boards:update')
   @Patch(':boardId/move-issue')
   async moveIssue(
@@ -175,8 +183,7 @@ export class BoardsController {
     @Body()
     body: {
       issueId: string;
-      fromColumn: string;
-      toColumn: string;
+      statusId: string; // The target WorkflowStatus UUID
       newOrder: number;
     },
     @Request() req: { user: JwtRequestUser },
@@ -186,14 +193,14 @@ export class BoardsController {
       projectId,
       boardId,
       body.issueId,
-      body.fromColumn,
-      body.toColumn,
+      body.statusId,
       body.newOrder,
       req.user.userId,
       orgId,
     );
     return { message: 'Issue moved' };
   }
+
 
   /** Reorder issues within a column (drag-and-drop) */
   @RequirePermission('boards:update')

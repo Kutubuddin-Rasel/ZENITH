@@ -5,21 +5,19 @@ import { ProjectMembersService } from '../../membership/project-members/project-
 
 /**
  * ProjectCoreModule
- * 
+ *
  * Provides ProjectMembersService globally for permission checking.
  * This service is required by:
  * - PermissionsGuard (checks project membership and roles)
  * - Multiple domain modules for authorization
- * 
+ *
  * By making it global, we break the circular dependency where:
  * AuthModule -> MembershipModule -> [some module] -> AuthModule
  */
 @Global()
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([ProjectMember]),
-    ],
-    providers: [ProjectMembersService],
-    exports: [ProjectMembersService],
+  imports: [TypeOrmModule.forFeature([ProjectMember])],
+  providers: [ProjectMembersService],
+  exports: [ProjectMembersService],
 })
-export class ProjectCoreModule { }
+export class ProjectCoreModule {}

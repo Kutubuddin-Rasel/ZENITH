@@ -9,24 +9,17 @@ import { ProjectMember } from '../../membership/entities/project-member.entity';
 
 /**
  * CoreEntitiesModule
- * 
+ *
  * Provides shared TypeORM repositories for entities that are commonly
  * needed across multiple modules. This eliminates the need for each
  * module to import TypeOrmModule.forFeature() for shared entities.
- * 
+ *
  * Being @Global means any module can inject these repositories without
  * explicitly importing this module.
  */
 @Global()
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([
-            User,
-            Project,
-            Issue,
-            ProjectMember,
-        ]),
-    ],
-    exports: [TypeOrmModule],
+  imports: [TypeOrmModule.forFeature([User, Project, Issue, ProjectMember])],
+  exports: [TypeOrmModule],
 })
-export class CoreEntitiesModule { }
+export class CoreEntitiesModule {}

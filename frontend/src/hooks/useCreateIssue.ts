@@ -6,6 +6,7 @@ interface CreateIssueData {
   description?: string;
   priority: string;
   status: string;
+  statusId?: string;
   type: string;
   projectId: string;
   assigneeId?: string;
@@ -35,7 +36,8 @@ export function useCreateIssue() {
 
   return useMutation({
     mutationFn: async (data: CreateIssueData): Promise<Issue> => {
-      const { projectId, ...body } = data;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { projectId, status, ...body } = data;
       return await apiFetch(`/projects/${projectId}/issues`, {
         method: 'POST',
         headers: {

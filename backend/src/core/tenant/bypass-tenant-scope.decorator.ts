@@ -21,4 +21,5 @@ export const BYPASS_TENANT_SCOPE_KEY = 'bypassTenantScope';
 /**
  * Decorator to mark methods that should bypass tenant filtering
  */
-export const BypassTenantScope = () => SetMetadata(BYPASS_TENANT_SCOPE_KEY, true);
+export const BypassTenantScope = () =>
+  SetMetadata(BYPASS_TENANT_SCOPE_KEY, true);

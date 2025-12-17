@@ -1,10 +1,4 @@
-import {
-    Module,
-    OnApplicationShutdown,
-    Logger,
-    forwardRef,
-    Inject,
-} from '@nestjs/common';
+import { Module, OnApplicationShutdown, Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule, getQueueToken } from '@nestjs/bullmq';
@@ -58,144 +52,157 @@ import { CacheModule } from './cache/cache.module';
  * This stub satisfies the dependency while doing nothing.
  */
 class WorkerNotificationsGateway {
-    sendToUser(_userId: string, _payload: any) {
-        // No-op in worker context - WebSocket is handled by API container
-    }
-    sendDeletionToUser(_userId: string, _ids: string[]) {
-        // No-op
-    }
-    sendUpdateToUser(_userId: string, _payload: any) {
-        // No-op
-    }
+  private readonly logger = new Logger(WorkerNotificationsGateway.name);
+
+  sendToUser(_userId: string, _payload: any) {
+    this.logger.debug(
+      `[Stub] sendToUser: ${_userId} payload: ${JSON.stringify(_payload)}`,
+    );
+  }
+  sendDeletionToUser(_userId: string, _ids: string[]) {
+    this.logger.debug(
+      `[Stub] sendDeletionToUser: ${_userId} ids: ${_ids.join(',')}`,
+    );
+  }
+  sendUpdateToUser(_userId: string, _payload: any) {
+    this.logger.debug(
+      `[Stub] sendUpdateToUser: ${_userId} payload: ${JSON.stringify(_payload)}`,
+    );
+  }
 }
 
 const QUEUE_NAMES = ['audit-queue', 'notifications', 'integration-sync'];
 
 @Module({
-    imports: [
-        ConfigModule.forRoot({ isGlobal: true }),
-        ScheduleModule.forRoot(),
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
 
-        // Database connection (same config as API)
-        TypeOrmModule.forRootAsync({
-            imports: [ConfigModule],
-            inject: [ConfigService],
-            useFactory: createDatabaseConfig,
-        }),
+    // Database connection (same config as API)
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: createDatabaseConfig,
+    }),
 
-        // Entity repositories needed by workers
-        TypeOrmModule.forFeature([
-            Notification,
-            Integration,
-            ExternalData,
-            SyncLog,
-            Issue,
-            Project,
-            User,
-        ]),
+    // Entity repositories needed by workers
+    TypeOrmModule.forFeature([
+      Notification,
+      Integration,
+      ExternalData,
+      SyncLog,
+      Issue,
+      Project,
+      User,
+    ]),
 
-        // BullMQ connection
-        BullModule.forRootAsync({
-            imports: [ConfigModule],
-            useFactory: (configService: ConfigService) => ({
-                connection: {
-                    host: configService.get('REDIS_HOST', 'localhost'),
-                    port: configService.get('REDIS_PORT', 6379),
-                    password: configService.get('REDIS_PASSWORD'),
-                },
-                defaultJobOptions: {
-                    attempts: 3,
-                    backoff: {
-                        type: 'exponential',
-                        delay: 1000,
-                    },
-                    removeOnComplete: 100, // Keep last 100 completed jobs
-                    removeOnFail: false, // Keep failed jobs for inspection
-                },
-            }),
-            inject: [ConfigService],
-        }),
-
-        // Register queues
-        BullModule.registerQueue(
-            { name: 'audit-queue' },
-            { name: 'notifications' },
-            { name: 'integration-sync' },
-        ),
-
-        // Shared modules
-        CacheModule,
-    ],
-    providers: [
-        // ===========================================
-        // AUDIT QUEUE WORKERS
-        // ===========================================
-        AuditLogsWorker,
-        ClickHouseClient,
-
-        // ===========================================
-        // NOTIFICATION QUEUE WORKERS
-        // ===========================================
-        NotificationsConsumer,
-        DailyDigestProcessor,
-        SnoozeWorker,
-        BriefingService,
-        SmartDigestService,
-        NotificationsService,
-        // Stub gateway for worker context
-        {
-            provide: 'NotificationsGateway',
-            useClass: WorkerNotificationsGateway,
+    // BullMQ connection
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        connection: {
+          host: configService.get('REDIS_HOST', 'localhost'),
+          port: configService.get('REDIS_PORT', 6379),
+          password: configService.get('REDIS_PASSWORD'),
         },
-        {
-            provide: 'NOTIFICATIONS_GATEWAY',
-            useClass: WorkerNotificationsGateway,
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 1000,
+          },
+          removeOnComplete: 100, // Keep last 100 completed jobs
+          removeOnFail: false, // Keep failed jobs for inspection
         },
+      }),
+      inject: [ConfigService],
+    }),
 
-        // ===========================================
-        // INTEGRATION SYNC WORKERS
-        // ===========================================
-        IntegrationSyncProcessor,
-        IntegrationService,
-        GitHubIntegrationService,
-        SlackIntegrationService,
-        TokenManagerService,
-    ],
+    // Register queues
+    BullModule.registerQueue(
+      { name: 'audit-queue' },
+      { name: 'notifications' },
+      { name: 'integration-sync' },
+    ),
+
+    // Shared modules
+    CacheModule,
+  ],
+  providers: [
+    // ===========================================
+    // AUDIT QUEUE WORKERS
+    // ===========================================
+    AuditLogsWorker,
+    ClickHouseClient,
+
+    // ===========================================
+    // NOTIFICATION QUEUE WORKERS
+    // ===========================================
+    NotificationsConsumer,
+    DailyDigestProcessor,
+    SnoozeWorker,
+    BriefingService,
+    SmartDigestService,
+    NotificationsService,
+    // Stub gateway for worker context
+    {
+      provide: 'NotificationsGateway',
+      useClass: WorkerNotificationsGateway,
+    },
+    {
+      provide: 'NOTIFICATIONS_GATEWAY',
+      useClass: WorkerNotificationsGateway,
+    },
+
+    // ===========================================
+    // INTEGRATION SYNC WORKERS
+    // ===========================================
+    IntegrationSyncProcessor,
+    IntegrationService,
+    GitHubIntegrationService,
+    SlackIntegrationService,
+    TokenManagerService,
+  ],
 })
 export class WorkerModule implements OnApplicationShutdown {
-    private readonly logger = new Logger(WorkerModule.name);
+  private readonly logger = new Logger(WorkerModule.name);
 
-    constructor(private readonly moduleRef: ModuleRef) { }
+  constructor(private readonly moduleRef: ModuleRef) {}
 
-    async onApplicationShutdown(signal?: string) {
-        this.logger.log(`🛑 Worker shutdown signal received: ${signal}`);
+  async onApplicationShutdown(signal?: string) {
+    this.logger.log(`🛑 Worker shutdown signal received: ${signal}`);
 
-        // Pause all queues to stop accepting new jobs
-        for (const queueName of QUEUE_NAMES) {
-            try {
-                const queue = this.moduleRef.get<Queue>(getQueueToken(queueName), {
-                    strict: false,
-                });
+    // Pause all queues to stop accepting new jobs
+    for (const queueName of QUEUE_NAMES) {
+      try {
+        const queue = this.moduleRef.get<Queue>(getQueueToken(queueName), {
+          strict: false,
+        });
 
-                if (queue) {
-                    this.logger.log(`Pausing queue: ${queueName}`);
-                    await queue.pause();
+        if (queue) {
+          this.logger.log(`Pausing queue: ${queueName}`);
+          await queue.pause();
 
-                    // Get active job count
-                    const activeCount = await queue.getActiveCount();
-                    this.logger.log(`Queue ${queueName} has ${activeCount} active jobs`);
-                }
-            } catch (error) {
-                this.logger.warn(`Failed to pause queue ${queueName}:`, error);
-            }
+          // Get active job count
+          const activeCount = await queue.getActiveCount();
+          this.logger.log(`Queue ${queueName} has ${activeCount} active jobs`);
         }
-
-        this.logger.log('All queues paused, waiting for active jobs to complete...');
-
-        // Give workers time to finish current jobs (configurable via env)
-        const gracePeriod = parseInt(process.env.WORKER_GRACE_PERIOD_MS || '10000', 10);
-        await new Promise((resolve) => setTimeout(resolve, gracePeriod));
-
-        this.logger.log('✅ Worker shutdown complete');
+      } catch (error) {
+        this.logger.warn(`Failed to pause queue ${queueName}:`, error);
+      }
     }
+
+    this.logger.log(
+      'All queues paused, waiting for active jobs to complete...',
+    );
+
+    // Give workers time to finish current jobs (configurable via env)
+    const gracePeriod = parseInt(
+      process.env.WORKER_GRACE_PERIOD_MS || '10000',
+      10,
+    );
+    await new Promise((resolve) => setTimeout(resolve, gracePeriod));
+
+    this.logger.log('✅ Worker shutdown complete');
+  }
 }

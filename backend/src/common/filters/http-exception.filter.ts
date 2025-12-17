@@ -40,7 +40,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
         // DEBUG: Log validation errors explicitly
         if (status === 400) {
-          this.logger.error(`Validation Error Details: ${JSON.stringify(res, null, 2)}`);
+          this.logger.error(
+            `Validation Error Details: ${JSON.stringify(res, null, 2)}`,
+          );
         }
       }
     } else {

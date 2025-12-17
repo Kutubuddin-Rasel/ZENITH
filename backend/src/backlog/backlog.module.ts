@@ -16,4 +16,4 @@ import { Issue } from '../issues/entities/issue.entity';
   providers: [BacklogService],
   controllers: [BacklogController],
 })
-export class BacklogModule { }
+export class BacklogModule {}

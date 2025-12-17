@@ -58,7 +58,7 @@ export class ProjectsService implements OnModuleInit {
     // TENANT ISOLATION: Inject factory and context
     private readonly tenantRepoFactory?: TenantRepositoryFactory,
     private readonly tenantContext?: TenantContext,
-  ) { }
+  ) {}
 
   /**
    * OnModuleInit: Create tenant-aware repository wrappers
@@ -74,14 +74,9 @@ export class ProjectsService implements OnModuleInit {
    * @param userId ID of the creator (from req.user.userId)
    * @param dto CreateProjectDto with optional projectLeadId and templateId
    */
-  async create(
-    userId: string,
-    dto: CreateProjectDto,
-    // TENANT ISOLATION: organizationId now auto-extracted from context
-    _organizationId?: string, // Kept for API compatibility
-  ): Promise<Project> {
-    // TENANT ISOLATION: Get organizationId from context if not provided
-    const organizationId = _organizationId || this.tenantContext?.getTenantId();
+  async create(userId: string, dto: CreateProjectDto): Promise<Project> {
+    // TENANT ISOLATION: Get organizationId from context
+    const organizationId = this.tenantContext?.getTenantId();
 
     const project = this.projectRepo.create({
       name: dto.name,
@@ -225,10 +220,9 @@ export class ProjectsService implements OnModuleInit {
   async findAllForUser(
     userId: string,
     isSuperAdmin: boolean,
-    _organizationId?: string, // Kept for API compatibility
   ): Promise<Project[]> {
-    // Get organizationId from context if not provided
-    const organizationId = _organizationId || this.tenantContext?.getTenantId();
+    // Get organizationId from context
+    const organizationId = this.tenantContext?.getTenantId();
 
     // Super admins see all projects in their organization
     if (isSuperAdmin && organizationId && this.tenantProjectRepo) {
@@ -266,7 +260,7 @@ export class ProjectsService implements OnModuleInit {
    * Find one project by ID.
    * TENANT ISOLATION: Automatically validated by TenantRepository.
    */
-  async findOneById(id: string, _organizationId?: string): Promise<Project> {
+  async findOneById(id: string): Promise<Project> {
     // Try cache first
     const cachedProject = (await this.cacheService.getCachedProject(
       id,
@@ -303,10 +297,7 @@ export class ProjectsService implements OnModuleInit {
    * Find one project by Key.
    * TENANT ISOLATION: Uses tenant-aware repository for automatic filtering.
    */
-  async findByKey(
-    key: string,
-    _organizationId?: string, // Kept for API compatibility
-  ): Promise<Project | null> {
+  async findByKey(key: string): Promise<Project | null> {
     // TENANT ISOLATION: Use tenant-aware repository if available
     if (this.tenantProjectRepo) {
       return this.tenantProjectRepo.findOne({ where: { key } });
@@ -320,12 +311,8 @@ export class ProjectsService implements OnModuleInit {
    * @param dto Update data
    * @param organizationId Optional organization ID for access control
    */
-  async update(
-    projectId: string,
-    dto: UpdateProjectDto,
-    organizationId?: string,
-  ): Promise<Project> {
-    const project = await this.findOneById(projectId, organizationId);
+  async update(projectId: string, dto: UpdateProjectDto): Promise<Project> {
+    const project = await this.findOneById(projectId);
     Object.assign(project, dto);
     try {
       const saved = await this.projectRepo.save(project);
@@ -344,8 +331,8 @@ export class ProjectsService implements OnModuleInit {
    * @param projectId Project ID
    * @param organizationId Optional organization ID for access control
    */
-  async archive(projectId: string, organizationId?: string): Promise<Project> {
-    const project = await this.findOneById(projectId, organizationId);
+  async archive(projectId: string): Promise<Project> {
+    const project = await this.findOneById(projectId);
     project.isArchived = true;
     const saved = await this.projectRepo.save(project);
     // Invalidate cache
@@ -358,8 +345,8 @@ export class ProjectsService implements OnModuleInit {
    * @param projectId Project ID
    * @param organizationId Optional organization ID for access control
    */
-  async remove(projectId: string, organizationId?: string): Promise<void> {
-    const project = await this.findOneById(projectId, organizationId);
+  async remove(projectId: string): Promise<void> {
+    const project = await this.findOneById(projectId);
     await this.projectRepo.remove(project);
     // Invalidate cache
     await this.cacheService.invalidateProjectCache(projectId);

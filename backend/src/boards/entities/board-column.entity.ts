@@ -30,6 +30,14 @@ export class BoardColumn {
   @Column()
   name: string;
 
+  // New: Link to Workflow Status
+  @Column({ type: 'uuid', nullable: true })
+  statusId: string;
+
+  @ManyToOne('WorkflowStatus', { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'statusId' })
+  workflowStatus?: any;
+
   @Column({ type: 'int', default: 0 })
   columnOrder: number; // left-to-right order
 }

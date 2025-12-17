@@ -3,9 +3,11 @@ import { apiFetch } from '../lib/fetcher';
 
 export interface BoardColumn {
   id: string;
-  name: string; // Linear-style: column name IS the status
+  name: string; // Linear-style: column name for display
+  statusId?: string | null; // NEW: Relational status ID (source of truth)
   columnOrder: number;
 }
+
 
 export interface Board {
   id: string;

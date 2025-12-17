@@ -11,6 +11,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
+import { WorkflowStatusesService } from '../workflows/services/workflow-statuses.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -29,6 +30,7 @@ export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
     private readonly usersService: UsersService,
+    private readonly statusesService: WorkflowStatusesService,
   ) { }
 
   /**
@@ -50,7 +52,7 @@ export class ProjectsController {
       );
     }
 
-    return this.projectsService.create(userId, dto, organizationId);
+    return this.projectsService.create(userId, dto);
   }
 
   /**
@@ -59,12 +61,7 @@ export class ProjectsController {
   @Get()
   async findAll(@Request() req: { user: JwtRequestUser }) {
     const userId = req.user.userId;
-
-    return this.projectsService.findAllForUser(
-      userId,
-      req.user.isSuperAdmin,
-      req.user.organizationId,
-    );
+    return this.projectsService.findAllForUser(userId, req.user.isSuperAdmin);
   }
 
   /**
@@ -72,11 +69,8 @@ export class ProjectsController {
    */
   @RequirePermission('projects:view')
   @Get(':id')
-  async findOne(
-    @Param('id') id: string,
-    @Request() req: { user: JwtRequestUser },
-  ) {
-    return this.projectsService.findOneById(id, req.user.organizationId);
+  async findOne(@Param('id') id: string) {
+    return this.projectsService.findOneById(id);
   }
 
   /**
@@ -85,12 +79,8 @@ export class ProjectsController {
   @RequirePermission('projects:edit')
   @RequireProjectRole(ProjectRole.PROJECT_LEAD)
   @Patch(':id')
-  async update(
-    @Param('id') id: string,
-    @Body() dto: UpdateProjectDto,
-    @Request() req: { user: JwtRequestUser },
-  ) {
-    return this.projectsService.update(id, dto, req.user.organizationId);
+  async update(@Param('id') id: string, @Body() dto: UpdateProjectDto) {
+    return this.projectsService.update(id, dto);
   }
 
   /**
@@ -99,11 +89,8 @@ export class ProjectsController {
   @RequirePermission('projects:delete')
   @RequireProjectRole(ProjectRole.PROJECT_LEAD)
   @Patch(':id/archive')
-  async archive(
-    @Param('id') id: string,
-    @Request() req: { user: JwtRequestUser },
-  ) {
-    return this.projectsService.archive(id, req.user.organizationId);
+  async archive(@Param('id') id: string) {
+    return this.projectsService.archive(id);
   }
 
   /**
@@ -112,11 +99,8 @@ export class ProjectsController {
   @RequirePermission('projects:delete')
   @RequireProjectRole(ProjectRole.PROJECT_LEAD)
   @Delete(':id')
-  async remove(
-    @Param('id') id: string,
-    @Request() req: { user: JwtRequestUser },
-  ) {
-    await this.projectsService.remove(id, req.user.organizationId);
+  async remove(@Param('id') id: string) {
+    await this.projectsService.remove(id);
     return { message: 'Project deleted successfully' };
   }
 
@@ -137,5 +121,12 @@ export class ProjectsController {
   @RequireProjectRole(ProjectRole.PROJECT_LEAD, ProjectRole.MEMBER)
   getInvites(@Param('id') id: string) {
     return this.projectsService.getInvites(id);
+  }
+
+  @Get(':id/statuses')
+  @RequirePermission('projects:view')
+  @RequireProjectRole(ProjectRole.PROJECT_LEAD, ProjectRole.MEMBER)
+  async getStatuses(@Param('id') id: string) {
+    return this.statusesService.findByProject(id);
   }
 }

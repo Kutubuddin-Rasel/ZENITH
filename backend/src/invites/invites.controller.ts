@@ -20,7 +20,7 @@ import { AuthenticatedRequest } from '../common/types/authenticated-request.inte
 
 @Controller('invites')
 export class InvitesController {
-  constructor(private readonly invitesService: InvitesService) { }
+  constructor(private readonly invitesService: InvitesService) {}
 
   /**
    * Create a new invite.
@@ -90,7 +90,7 @@ import { Controller as RouteController } from '@nestjs/common';
 
 @RouteController('projects/:projectId/invites')
 export class ProjectInvitesController {
-  constructor(private readonly invitesService: InvitesService) { }
+  constructor(private readonly invitesService: InvitesService) {}
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermission('invites:view')

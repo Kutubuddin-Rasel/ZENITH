@@ -687,7 +687,6 @@ export class GitHubIntegrationService extends BaseIntegrationService {
           description:
             prData.body || `Created from PR #${prData.number} in ${repository}`,
           type: IssueType.TASK,
-          status: IssueStatus.BACKLOG,
           priority: undefined,
           metadata: {
             githubPrNumber: prData.number,
@@ -695,7 +694,6 @@ export class GitHubIntegrationService extends BaseIntegrationService {
             githubUrl: prData.html_url,
           },
         },
-        integration.organizationId,
       );
 
       this.logger.log(

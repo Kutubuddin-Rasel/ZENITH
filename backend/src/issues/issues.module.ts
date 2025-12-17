@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Issue } from './entities/issue.entity';
 import { IssueLink } from './entities/issue-link.entity';
@@ -12,10 +12,11 @@ import { WorkLog } from './entities/work-log.entity';
 import { WorkLogsService } from './issues.service';
 import { CaslModule } from '../auth/casl/casl.module';
 import { WorkflowsModule } from '../workflows/workflows.module';
+import { Board } from '../boards/entities/board.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Issue, WorkLog, IssueLink]),
+    TypeOrmModule.forFeature([Issue, WorkLog, IssueLink, Board]),
     // REFACTORED: All forwardRefs eliminated - using global core modules
     CaslModule,
     WorkflowsModule,
@@ -24,4 +25,4 @@ import { WorkflowsModule } from '../workflows/workflows.module';
   controllers: [IssuesController],
   exports: [IssuesService, WorkLogsService],
 })
-export class IssuesModule { }
+export class IssuesModule {}

@@ -332,14 +332,20 @@ export default function BoardPage() {
 
     // If moved to a new column (including dropping on a column itself)
     if (sourceColId !== destColId) {
-      // Find the destination column to get its status
+      // Find the destination column to get its statusId
       const destColumn = columns.find(c => c.id === destColId);
       if (destColumn) {
-        // Linear-style: column name IS the status
-        updateIssueStatus.mutate({ issueId: activeId, status: destColumn.name });
+        // RELATIONAL STATUS: Prefer statusId, fallback to column name
+        if (destColumn.statusId) {
+          updateIssueStatus.mutate({ issueId: activeId, statusId: destColumn.statusId, status: destColumn.name });
+        } else {
+          // Legacy fallback: column has no statusId, use name
+          updateIssueStatus.mutate({ issueId: activeId, status: destColumn.name });
+        }
       }
       return;
     }
+
 
     // If reordered within the same column
     const colIssues = (issuesByColumn[sourceColId] || []).filter(issue => !issue.parentId);

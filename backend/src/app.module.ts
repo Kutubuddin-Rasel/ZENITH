@@ -65,6 +65,7 @@ import { GamificationModule } from './gamification/gamification.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { BillingModule } from './billing/billing.module';
 import { SearchModule } from './search/search.module';
+import { GatewaysModule } from './gateways/gateways.module';
 
 @Module({
   imports: [
@@ -94,12 +95,12 @@ import { SearchModule } from './search/search.module';
       },
     ]),
     // Core Infrastructure Modules (MUST load before domain modules)
-    CoreEntitiesModule,    // Global: shared entity repositories
-    ProjectCoreModule,     // Global: ProjectMembersService for guards
-    UsersCoreModule,       // Global: UsersService for user lookup
-    AuthCoreModule,        // Global: JwtAuthGuard, PermissionsGuard via APP_GUARD
-    TenantModule,          // Global: Tenant isolation infrastructure
-    CircuitBreakerModule,  // Global: Circuit breaker gateway for external APIs
+    CoreEntitiesModule, // Global: shared entity repositories
+    ProjectCoreModule, // Global: ProjectMembersService for guards
+    UsersCoreModule, // Global: UsersService for user lookup
+    AuthCoreModule, // Global: JwtAuthGuard, PermissionsGuard via APP_GUARD
+    TenantModule, // Global: Tenant isolation infrastructure
+    CircuitBreakerModule, // Global: Circuit breaker gateway for external APIs
     // AI Module - provides AI-powered smart setup capabilities
     AiModule,
     CacheModule,
@@ -148,6 +149,8 @@ import { SearchModule } from './search/search.module';
     DashboardModule,
     BillingModule,
     SearchModule,
+    // NEW: Real-time Gateways
+    GatewaysModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -182,7 +185,7 @@ import { SearchModule } from './search/search.module';
 export class AppModule implements OnApplicationShutdown {
   private readonly logger = new Logger(AppModule.name);
 
-  constructor(private readonly moduleRef: ModuleRef) { }
+  constructor(private readonly moduleRef: ModuleRef) {}
 
   async onApplicationShutdown(signal?: string) {
     this.logger.log(`🛑 Shutdown signal received: ${signal}`);
@@ -198,4 +201,3 @@ export class AppModule implements OnApplicationShutdown {
     this.logger.log('✅ Graceful shutdown complete');
   }
 }
-

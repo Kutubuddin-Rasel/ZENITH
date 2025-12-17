@@ -21,7 +21,7 @@ import { ProjectRole } from '../membership/enums/project-role.enum';
 import { BoardsGateway } from './boards.gateway';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CacheService } from '../cache/cache.service';
-
+import { WorkflowStatus } from '../workflows/entities/workflow-status.entity';
 
 @Injectable()
 export class BoardsService {
@@ -68,12 +68,14 @@ export class BoardsService {
     let cols: BoardColumn[] = [];
 
     if (columns && columns.length > 0) {
-      cols = columns.map((col: { name: string; order: number }) =>
-        this.colRepo.create({
-          boardId: saved.id,
-          name: col.name, // Linear-style: column name IS the status
-          columnOrder: col.order,
-        }),
+      cols = columns.map(
+        (col: { name: string; order: number; statusId?: string }) =>
+          this.colRepo.create({
+            boardId: saved.id,
+            name: col.name,
+            columnOrder: col.order,
+            statusId: col.statusId, // Link to WorkflowStatus
+          }),
       );
     } else {
       // seed default columns
@@ -174,6 +176,7 @@ export class BoardsService {
     columns: Array<{
       id: string;
       name: string;
+      statusId: string | null;
       columnOrder: number;
       issues: Array<{
         id: string;
@@ -183,6 +186,7 @@ export class BoardsService {
         assigneeId: string | null;
         storyPoints: number;
         status: string;
+        statusId: string | null;
         backlogOrder: number;
       }>;
     }>;
@@ -217,6 +221,7 @@ export class BoardsService {
     // === OPTIMIZED QUERY ===
     // Fetch issues with ONLY the fields needed for Kanban board display
     // EXCLUDES: description, metadata, embedding, history (can be huge)
+    // RELATIONAL STATUS: Select statusId for proper ID-based matching
     const issues = await this.issueRepo
       .createQueryBuilder('issue')
       .select([
@@ -227,6 +232,7 @@ export class BoardsService {
         'issue.assigneeId',
         'issue.storyPoints',
         'issue.status',
+        'issue.statusId',
         'issue.backlogOrder',
       ])
       .where('issue.projectId = :projectId', { projectId })
@@ -235,39 +241,62 @@ export class BoardsService {
       .getMany();
 
     // === GROUP ISSUES BY COLUMN ===
-    // Column name === Issue status (Linear-style board)
-    const columnNames = board.columns.map((c) => c.name);
-    const issuesByColumn = new Map<string, typeof issues>();
+    // RELATIONAL STATUS: Primary matching by statusId, fallback to string for legacy data
+    const issuesByColumnId = new Map<string, typeof issues>();
+    const issuesByColumnName = new Map<string, typeof issues>(); // Fallback for legacy
 
-    for (const colName of columnNames) {
-      issuesByColumn.set(colName, []);
+    for (const col of board.columns) {
+      if (col.statusId) {
+        issuesByColumnId.set(col.statusId, []);
+      }
+      issuesByColumnName.set(col.name, []);
     }
 
     for (const issue of issues) {
-      const colIssues = issuesByColumn.get(issue.status);
-      if (colIssues) {
-        colIssues.push(issue);
+      let matched = false;
+      // Primary: Match by statusId (source of truth)
+      if (issue.statusId) {
+        const colIssues = issuesByColumnId.get(issue.statusId);
+        if (colIssues) {
+          colIssues.push(issue);
+          matched = true;
+        }
+      }
+      // Fallback: Match by status string (legacy data)
+      if (!matched) {
+        const colIssues = issuesByColumnName.get(issue.status);
+        if (colIssues) {
+          colIssues.push(issue);
+        }
       }
     }
 
     // === BUILD RESPONSE ===
     const sortedColumns = board.columns
       .sort((a, b) => a.columnOrder - b.columnOrder)
-      .map((col) => ({
-        id: col.id,
-        name: col.name,
-        columnOrder: col.columnOrder,
-        issues: (issuesByColumn.get(col.name) || []).map((i) => ({
-          id: i.id,
-          title: i.title,
-          type: String(i.type),
-          priority: String(i.priority),
-          assigneeId: i.assigneeId ?? null,
-          storyPoints: i.storyPoints,
-          status: i.status,
-          backlogOrder: i.backlogOrder,
-        })),
-      }));
+      .map((col) => {
+        // Get issues: prefer by statusId, fallback to by name
+        const colIssues = col.statusId
+          ? issuesByColumnId.get(col.statusId) || []
+          : issuesByColumnName.get(col.name) || [];
+        return {
+          id: col.id,
+          name: col.name,
+          statusId: col.statusId || null,
+          columnOrder: col.columnOrder,
+          issues: colIssues.map((i) => ({
+            id: i.id,
+            title: i.title,
+            type: String(i.type),
+            priority: String(i.priority),
+            assigneeId: i.assigneeId ?? null,
+            storyPoints: i.storyPoints,
+            status: i.status,
+            statusId: i.statusId || null,
+            backlogOrder: i.backlogOrder,
+          })),
+        };
+      });
 
     const result = {
       board: {
@@ -494,39 +523,61 @@ export class BoardsService {
     });
   }
 
-  /** Move an issue between columns (drag-and-drop) */
+  /**
+   * Move an issue between columns (drag-and-drop)
+   * RELATIONAL STATUS: Accepts toStatusId (UUID) instead of column name string.
+   * Updates both statusId (source of truth) and legacy status string for backward compat.
+   */
   async moveIssue(
     projectId: string,
     boardId: string,
     issueId: string,
-    fromColumn: string,
-    toColumn: string,
+    toStatusId: string,
     newOrder: number,
     userId: string,
     organizationId?: string,
   ): Promise<void> {
-    // Permission checks (reuse existing logic as needed)
+    // Permission checks
     await this.findOne(projectId, boardId, userId, organizationId);
-    // Update the issue's status/column and order
-    // (Assume Issue entity has status and backlogOrder fields)
-    const issueRepo = this.dataSource.getRepository('Issue');
-    const issue = (await issueRepo.findOneBy({ id: issueId, projectId })) as {
-      id: string;
-      status: string;
-      backlogOrder: number;
-    } | null;
+
+    // RELATIONAL STATUS: Fetch WorkflowStatus to get the name for legacy sync
+    const workflowStatusRepo = this.dataSource.getRepository(WorkflowStatus);
+    const workflowStatus = await workflowStatusRepo.findOne({
+      where: { id: toStatusId, projectId },
+    });
+
+    if (!workflowStatus) {
+      throw new NotFoundException(
+        `WorkflowStatus not found: ${toStatusId}. Cannot update issue status.`,
+      );
+    }
+
+    // Fetch and update issue
+    const issueRepo = this.dataSource.getRepository(Issue);
+    const issue = await issueRepo.findOne({
+      where: { id: issueId, projectId },
+    });
     if (!issue) throw new NotFoundException('Issue not found');
+
+    const prevStatusId = issue.statusId;
     const prevStatus = issue.status;
-    issue.status = toColumn;
+
+    // Update both statusId (source of truth) and legacy status string
+    issue.statusId = toStatusId;
+    issue.status = workflowStatus.name; // Legacy sync
     issue.backlogOrder = newOrder;
+
     await issueRepo.save(issue);
-    // Emit real-time event
+
+    // Emit real-time event with both old and new identifiers
     this.boardsGateway.emitIssueMoved({
       projectId,
       boardId,
       issueId,
-      fromColumn: prevStatus,
-      toColumn,
+      fromStatusId: prevStatusId,
+      toStatusId,
+      fromColumn: prevStatus, // Legacy compat
+      toColumn: workflowStatus.name, // Legacy compat
       newOrder,
     });
   }

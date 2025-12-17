@@ -586,7 +586,6 @@ export class SlackIntegrationService extends BaseIntegrationService {
       // 2. Find Project
       const project = await this.projectsService.findByKey(
         projectKey,
-        integration.organizationId,
       );
       if (!project) {
         return {
@@ -617,7 +616,6 @@ export class SlackIntegrationService extends BaseIntegrationService {
           priority: undefined,
           type: IssueType.TASK,
         },
-        integration.organizationId,
       );
 
       // 5. Respond

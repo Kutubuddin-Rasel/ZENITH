@@ -35,7 +35,7 @@ export class AIProviderService implements OnModuleInit {
     private geminiProvider: GeminiProvider,
     private groqProvider: GroqProvider,
     @Optional() private gateway?: IntegrationGateway,
-  ) { }
+  ) {}
 
   onModuleInit() {
     // Initialize provider chain: Groq -> OpenRouter (Llama) -> Gemini
@@ -51,7 +51,7 @@ export class AIProviderService implements OnModuleInit {
     if (this.providers.length === 0) {
       this.logger.warn(
         '⚠️ No AI providers available. AI features will be disabled. ' +
-        'Set OPENROUTER_API_KEY or GOOGLE_AI_API_KEY in .env to enable.',
+          'Set OPENROUTER_API_KEY or GOOGLE_AI_API_KEY in .env to enable.',
       );
     } else {
       this.logger.log(
@@ -85,12 +85,12 @@ export class AIProviderService implements OnModuleInit {
    * PHASE 3: Now wrapped in IntegrationGateway for resilience.
    * Returns fallback message instead of null when all providers fail.
    */
-  async complete(
-    request: AICompletionRequest,
-  ): Promise<AICompletionResponse> {
+  async complete(request: AICompletionRequest): Promise<AICompletionResponse> {
     // If no gateway, use legacy behavior
     if (!this.gateway) {
-      return (await this.completeWithFailover(request)) ?? AI_UNAVAILABLE_RESPONSE;
+      return (
+        (await this.completeWithFailover(request)) ?? AI_UNAVAILABLE_RESPONSE
+      );
     }
 
     // Use circuit breaker for resilient execution

@@ -7,4 +7,4 @@ export const REQUIRE_PERMISSION = 'require_permission';
  * Attaches metadata so PermissionsGuard can read which permission is required.
  */
 export const RequirePermission = (permission: string) =>
-    SetMetadata(REQUIRE_PERMISSION, permission);
+  SetMetadata(REQUIRE_PERMISSION, permission);

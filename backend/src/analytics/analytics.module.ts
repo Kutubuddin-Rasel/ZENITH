@@ -27,4 +27,4 @@ import { NotificationsModule } from '../notifications/notifications.module';
   providers: [CycleTimeService, SprintRiskService, AnalyticsJobsService],
   exports: [CycleTimeService, SprintRiskService, AnalyticsJobsService],
 })
-export class AnalyticsModule { }
+export class AnalyticsModule {}

@@ -565,6 +565,27 @@ EXTRACTION RULES:
       }
     }
 
+    // Extract description (Fallback: use the last user message if it's substantial)
+    if (!criteria.description) {
+      const lastUserMessage = messages.filter((m) => m.role === 'user').pop();
+
+      if (lastUserMessage) {
+        const content = lastUserMessage.content.trim();
+        // Ignore very short responses or simple confirmations/rejections
+        // and ensure it's not just a skip command
+        const isSkip = this.detectSkipIntents(content).length > 0;
+        const isShort = content.length < 3;
+        const isConfirm = this.isConfirmation(content);
+        const isReject = this.isRejection(content);
+
+        if (!isSkip && !isShort && !isConfirm && !isReject) {
+          criteria.description = content;
+          // Low confidence since it's a raw dump
+          newlyExtracted.push('description');
+        }
+      }
+    }
+
     // Calculate overall confidence
     const scores = Object.values(confidence).filter(
       (v): v is number => typeof v === 'number' && v > 0,

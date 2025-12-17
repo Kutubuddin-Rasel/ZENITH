@@ -5,10 +5,10 @@ import { UsersService } from '../../users/users.service';
 
 /**
  * UsersCoreModule
- * 
+ *
  * Provides UsersService globally for user lookup across all modules.
  * This eliminates forwardRef cycles where modules need to look up users.
- * 
+ *
  * Common use cases:
  * - IssuesService for assignee lookup
  * - NotificationsModule for user preferences
@@ -16,10 +16,8 @@ import { UsersService } from '../../users/users.service';
  */
 @Global()
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([User]),
-    ],
-    providers: [UsersService],
-    exports: [UsersService],
+  imports: [TypeOrmModule.forFeature([User])],
+  providers: [UsersService],
+  exports: [UsersService],
 })
-export class UsersCoreModule { }
+export class UsersCoreModule {}

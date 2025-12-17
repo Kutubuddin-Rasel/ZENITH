@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useCreateIssue } from '../hooks/useCreateIssue';
+import { useProjectStatuses } from '../hooks/useProjectStatuses';
 import Button from './Button';
 import Input from './Input';
 import Typography from './Typography';
@@ -33,6 +34,8 @@ const QuickCreateIssueForm: React.FC<QuickCreateIssueFormProps> = ({
   onIssueCreated,
 }) => {
   const createIssue = useCreateIssue();
+  const { data: statuses = [] } = useProjectStatuses(projectId);
+
   const {
     register,
     handleSubmit,
@@ -51,7 +54,8 @@ const QuickCreateIssueForm: React.FC<QuickCreateIssueFormProps> = ({
     try {
       await createIssue.mutateAsync({
         title: data.title,
-        status,
+        status, // keep for UI logic if needed, but backend ignores if statusId present? NO, backend removed status string support.
+        statusId: statuses.find(s => s.name === status)?.id,
         priority: data.priority,
         type: data.type,
         projectId,
@@ -71,14 +75,14 @@ const QuickCreateIssueForm: React.FC<QuickCreateIssueFormProps> = ({
           <Typography variant="label" className="text-neutral-700 dark:text-neutral-300 mb-2">
             Title
           </Typography>
-        <Input
-          {...register('title')}
-          placeholder="What needs to be done?"
-          autoFocus
-          error={errors.title?.message}
-        />
+          <Input
+            {...register('title')}
+            placeholder="What needs to be done?"
+            autoFocus
+            error={errors.title?.message}
+          />
         </div>
-        
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Typography variant="label" className="text-neutral-700 dark:text-neutral-300 mb-2">
@@ -109,7 +113,7 @@ const QuickCreateIssueForm: React.FC<QuickCreateIssueFormProps> = ({
             {errors.type && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.type.message}</p>}
           </div>
         </div>
-        
+
         <div>
           <Typography variant="label" className="text-neutral-700 dark:text-neutral-300 mb-2">
             Estimated Hours
@@ -124,12 +128,12 @@ const QuickCreateIssueForm: React.FC<QuickCreateIssueFormProps> = ({
           />
         </div>
       </div>
-      
+
       <div className="flex items-center gap-2 mt-3">
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           variant="primary"
-          size="sm" 
+          size="sm"
           loading={createIssue.isPending}
         >
           Add Issue

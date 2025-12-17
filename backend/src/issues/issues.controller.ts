@@ -65,8 +65,8 @@ export class IssuesController {
     @Request() req: { user: JwtRequestUser },
   ) {
     const reporterId = req.user.userId;
-    const orgId = await this.getUserOrganization(req.user.userId);
-    return this.issuesService.create(projectId, reporterId, dto, orgId);
+    // orgId removed as per cleanup
+    return this.issuesService.create(projectId, reporterId, dto);
   }
 
   @RequirePermission('issues:view')
@@ -84,7 +84,6 @@ export class IssuesController {
   ) {
     const userId = (req.user as unknown as Record<string, unknown>)
       .userId as string;
-    const orgId = await this.getUserOrganization(userId);
     const filters: {
       status?: IssueStatus;
       assigneeId?: string;
@@ -98,10 +97,9 @@ export class IssuesController {
     if (assigneeId) filters.assigneeId = assigneeId;
     if (search) filters.search = search;
     if (label) filters.label = label;
-    if (sprint) filters.sprint = sprint;
     if (sort) filters.sort = sort;
     if (includeArchived) filters.includeArchived = includeArchived === 'true';
-    return this.issuesService.findAll(projectId, userId, filters, orgId);
+    return this.issuesService.findAll(projectId, userId, filters);
   }
 
   @Get('export')

@@ -248,7 +248,7 @@ export class ProjectIntelligenceService {
     @Optional() private questionGenerator?: QuestionGeneratorService,
     @Optional() private templateScorer?: TemplateScorerService,
     @Optional() private nameGenerator?: ProjectNameGeneratorService,
-  ) { }
+  ) {}
 
   /**
    * Check if AI features are available
@@ -617,9 +617,9 @@ export class ProjectIntelligenceService {
     const question =
       missingCriteria.length > 0
         ? await this.questionGenerator!.generateNextQuestion(
-          context,
-          missingCriteria,
-        )
+            context,
+            missingCriteria,
+          )
         : null;
 
     if (question) {
@@ -676,18 +676,18 @@ export class ProjectIntelligenceService {
     const recommendation: TemplateRecommendationResponse | undefined =
       topTemplate
         ? {
-          template: {
-            id: topTemplate.id,
-            name: topTemplate.name,
-            description: topTemplate.description || '',
-            icon: topTemplate.icon || '📋',
-            color: topTemplate.color || '#3b82f6',
-            category: topTemplate.category as string,
-            methodology: topTemplate.methodology as string,
-          },
-          confidence: topResult.score,
-          reasoning: topResult.reasons.join('. '),
-        }
+            template: {
+              id: topTemplate.id,
+              name: topTemplate.name,
+              description: topTemplate.description || '',
+              icon: topTemplate.icon || '📋',
+              color: topTemplate.color || '#3b82f6',
+              category: topTemplate.category as string,
+              methodology: topTemplate.methodology as string,
+            },
+            confidence: topResult.score,
+            reasoning: topResult.reasons.join('. '),
+          }
         : undefined;
 
     // Build alternatives

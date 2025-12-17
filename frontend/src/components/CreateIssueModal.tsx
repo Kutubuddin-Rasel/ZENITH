@@ -12,6 +12,7 @@ import { useToast } from '@/context/ToastContext';
 import { useProjectMembers } from '@/hooks/useProjectMembers';
 import { useTaxonomy } from '@/hooks/useTaxonomy';
 import { useSmartDefaults } from '@/hooks/useSmartDefaults';
+import { useProjectStatuses } from '@/hooks/useProjectStatuses';
 import { ISSUE_TYPES, ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/constants/issueOptions';
 import type { Issue } from '@/hooks/useProjectIssues';
 import { LightBulbIcon } from '@heroicons/react/24/outline';
@@ -41,6 +42,7 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
   const createIssue = useCreateIssue();
   const updateIssue = useUpdateIssue(projectId);
   const { data: members = [] } = useProjectMembers(projectId);
+  const { data: statuses = [] } = useProjectStatuses(projectId);
   const { } = useTaxonomy(projectId);
 
   // Smart Defaults Integration
@@ -122,6 +124,7 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
           description: data.description,
           priority: data.priority,
           status: data.status,
+          statusId: statuses.find(s => s.name === data.status)?.id,
           type: data.type,
           assigneeId: data.assigneeId === '' ? undefined : data.assigneeId,
         };
@@ -140,6 +143,7 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
           ...data,
           projectId,
           assigneeId: data.assigneeId === '' ? undefined : data.assigneeId,
+          statusId: statuses.find(s => s.name === data.status)?.id,
         };
         await createIssue.mutateAsync(payload);
         showToast('Issue created successfully!', 'success');

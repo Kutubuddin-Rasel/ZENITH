@@ -59,7 +59,7 @@ export class ProjectTemplatesModule implements OnModuleInit {
 
   constructor(
     private readonly templateRecommendationService: TemplateRecommendationService,
-  ) { }
+  ) {}
 
   async onModuleInit() {
     try {

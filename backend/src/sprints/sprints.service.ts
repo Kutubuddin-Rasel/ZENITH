@@ -28,10 +28,7 @@ import { BoardsService } from '../boards/boards.service';
 import { BoardType } from '../boards/entities/board.entity';
 import { SmartDefaultsService } from '../user-preferences/services/smart-defaults.service';
 // TENANT ISOLATION: Import tenant repository factory
-import {
-  TenantRepositoryFactory,
-  TenantRepository,
-} from '../core/tenant';
+import { TenantRepositoryFactory, TenantRepository } from '../core/tenant';
 
 @Injectable()
 export class SprintsService implements OnModuleInit {
@@ -54,7 +51,7 @@ export class SprintsService implements OnModuleInit {
     private smartDefaultsService: SmartDefaultsService,
     // TENANT ISOLATION: Inject factory
     private readonly tenantRepoFactory: TenantRepositoryFactory,
-  ) { }
+  ) {}
 
   /**
    * OnModuleInit: Create tenant-aware repository wrappers
@@ -68,8 +65,6 @@ export class SprintsService implements OnModuleInit {
     projectId: string,
     userId: string,
     dto: CreateSprintDto,
-    // TENANT ISOLATION: organizationId no longer needed - auto-filtered
-    _organizationId?: string,
   ): Promise<Sprint> {
     // TENANT ISOLATION: tenantProjectRepo auto-filters by organizationId from JWT
     const project = await this.tenantProjectRepo.findOne({
@@ -120,8 +115,6 @@ export class SprintsService implements OnModuleInit {
     projectId: string,
     userId: string,
     active?: boolean,
-    // TENANT ISOLATION: organizationId no longer needed - auto-filtered
-    _organizationId?: string,
   ): Promise<Sprint[]> {
     // TENANT ISOLATION: Validate project access via tenant-aware repo
     const project = await this.tenantProjectRepo.findOne({
@@ -152,7 +145,6 @@ export class SprintsService implements OnModuleInit {
     projectId: string,
     sprintId: string,
     userId: string,
-    organizationId?: string,
   ): Promise<Sprint> {
     const sprint = await this.sprintRepo.findOne({
       where: { id: sprintId, projectId },
@@ -160,10 +152,7 @@ export class SprintsService implements OnModuleInit {
     });
     if (!sprint) throw new NotFoundException('Sprint not found');
 
-    // Validate organization access
-    if (organizationId && sprint.project.organizationId !== organizationId) {
-      throw new NotFoundException('Sprint not found');
-    }
+    if (!sprint) throw new NotFoundException('Sprint not found');
 
     const role = await this.membersService.getUserRole(projectId, userId);
     if (!role) throw new ForbiddenException('Not a project member');
@@ -176,14 +165,8 @@ export class SprintsService implements OnModuleInit {
     sprintId: string,
     userId: string,
     dto: UpdateSprintDto,
-    organizationId?: string,
   ): Promise<Sprint> {
-    const sprint = await this.findOne(
-      projectId,
-      sprintId,
-      userId,
-      organizationId,
-    );
+    const sprint = await this.findOne(projectId, sprintId, userId);
     const role = await this.membersService.getUserRole(projectId, userId);
     if (role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Only ProjectLead can update sprint');
@@ -232,14 +215,8 @@ export class SprintsService implements OnModuleInit {
     sprintId: string,
     userId: string,
     nextSprintId?: string,
-    organizationId?: string,
   ): Promise<Sprint> {
-    const sprint = await this.findOne(
-      projectId,
-      sprintId,
-      userId,
-      organizationId,
-    );
+    const sprint = await this.findOne(projectId, sprintId, userId);
     const role = await this.membersService.getUserRole(projectId, userId);
     if (role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Only ProjectLead can archive sprint');
@@ -313,14 +290,8 @@ export class SprintsService implements OnModuleInit {
     projectId: string,
     sprintId: string,
     userId: string,
-    organizationId?: string,
   ): Promise<void> {
-    const sprint = await this.findOne(
-      projectId,
-      sprintId,
-      userId,
-      organizationId,
-    );
+    const sprint = await this.findOne(projectId, sprintId, userId);
     const role = await this.membersService.getUserRole(projectId, userId);
     if (role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Only ProjectLead can delete sprint');
@@ -342,14 +313,8 @@ export class SprintsService implements OnModuleInit {
     sprintId: string,
     userId: string,
     dto: AddIssueToSprintDto,
-    organizationId?: string,
   ): Promise<SprintIssue> {
-    const sprint = await this.findOne(
-      projectId,
-      sprintId,
-      userId,
-      organizationId,
-    );
+    const sprint = await this.findOne(projectId, sprintId, userId);
     const role = await this.membersService.getUserRole(projectId, userId);
     if (role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Only ProjectLead can add issues');
@@ -380,14 +345,8 @@ export class SprintsService implements OnModuleInit {
     sprintId: string,
     userId: string,
     dto: RemoveIssueFromSprintDto,
-    organizationId?: string,
   ): Promise<void> {
-    const sprint = await this.findOne(
-      projectId,
-      sprintId,
-      userId,
-      organizationId,
-    );
+    const sprint = await this.findOne(projectId, sprintId, userId);
     const role = await this.membersService.getUserRole(projectId, userId);
     if (role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Only ProjectLead can remove issues');
@@ -412,15 +371,8 @@ export class SprintsService implements OnModuleInit {
     projectId: string,
     sprintId: string,
     userId: string,
-    organizationId?: string,
   ): Promise<Issue[]> {
     // Validate project access via findOne (or explicit check)
-    if (organizationId) {
-      const project = await this.projectRepo.findOne({
-        where: { id: projectId, organizationId },
-      });
-      if (!project) throw new NotFoundException('Project not found');
-    }
     const role = await this.membersService.getUserRole(projectId, userId);
     if (!role) throw new ForbiddenException('Not a project member');
     const sprintIssues = await this.siRepo.find({
@@ -435,14 +387,8 @@ export class SprintsService implements OnModuleInit {
     projectId: string,
     sprintId: string,
     userId: string,
-    organizationId?: string,
   ): Promise<Sprint> {
-    const sprint = await this.findOne(
-      projectId,
-      sprintId,
-      userId,
-      organizationId,
-    );
+    const sprint = await this.findOne(projectId, sprintId, userId);
     const role = await this.membersService.getUserRole(projectId, userId);
     if (role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Only ProjectLead can start sprint');
@@ -595,7 +541,9 @@ export class SprintsService implements OnModuleInit {
     _userId: string,
   ): Promise<any> {
     // Check permission - validate project exists
-    const project = await this.projectRepo.findOne({ where: { id: projectId } });
+    const project = await this.projectRepo.findOne({
+      where: { id: projectId },
+    });
     if (!project) throw new NotFoundException('Project not found');
 
     const sprints = await this.sprintRepo.find({

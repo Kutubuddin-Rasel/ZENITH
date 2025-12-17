@@ -107,8 +107,16 @@ export class Issue {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  // Linear-style: status is a simple string that matches board column names
-  // Examples: "Backlog", "Design", "Development", "Testing", "Done"
+  // Linked Workflow Status (Source of Truth)
+  @Column({ type: 'uuid', nullable: true }) // Nullable for migration
+  statusId: string;
+
+  @ManyToOne('WorkflowStatus', { onDelete: 'SET NULL' }) // Lazy load to avoid circular deps if needed
+  @JoinColumn({ name: 'statusId' })
+  workflowStatus?: any; // Type as 'WorkflowStatus' but safely
+
+  // Legacy string status - kept for read compatibility
+  // In future, this should be a getter that returns workflowStatus.name
   @Column({ default: 'Backlog' })
   status: string;
 

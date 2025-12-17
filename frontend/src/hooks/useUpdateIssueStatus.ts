@@ -2,26 +2,38 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/fetcher';
 import { Issue } from './useProjectIssues'; // Assuming Issue is exported from here
 
+/**
+ * Hook to update issue status via drag-and-drop.
+ * RELATIONAL STATUS: Prefers statusId (UUID) as source of truth.
+ * - If statusId is provided, sends it to the backend
+ * - Backend will update both statusId and legacy status string
+ */
 export function useUpdateIssueStatus(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ issueId, status }: { issueId: string; status: string }) => {
+    mutationFn: async ({ issueId, statusId, status }: { issueId: string; statusId?: string; status?: string }) => {
+      // RELATIONAL STATUS: Send statusId if available, otherwise fallback to status
+      const body = statusId
+        ? { statusId }
+        : { status };
 
-      const response = await apiFetch(`/projects/${projectId}/issues/${issueId}/status`, {
+      const response = await apiFetch(`/projects/${projectId}/issues/${issueId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(body),
       });
       console.log('Status update response:', response);
       return response;
     },
-    onMutate: async ({ issueId, status }) => {
+    onMutate: async ({ issueId, statusId, status }) => {
       const queryKey = ['project-issues', projectId];
       await queryClient.cancelQueries({ queryKey });
       const previousIssues = queryClient.getQueryData<Issue[]>(queryKey);
 
       if (previousIssues) {
         queryClient.setQueryData(queryKey, previousIssues.map(issue =>
-          issue.id === issueId ? { ...issue, status } : issue
+          issue.id === issueId
+            ? { ...issue, statusId: statusId ?? issue.statusId, status: status ?? issue.status }
+            : issue
         ));
       }
       return { previousIssues };
@@ -32,11 +44,10 @@ export function useUpdateIssueStatus(projectId: string) {
       }
     },
     onSettled: () => {
-      // Invalidate both project-issues and backlog queries to ensure UI updates
+      // Invalidate queries to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ['project-issues', projectId] });
       queryClient.invalidateQueries({ queryKey: ['backlog', projectId] });
-      // Also invalidate any project summary queries that might show issue counts
       queryClient.invalidateQueries({ queryKey: ['project-summary', projectId] });
     },
   });
-} 
+}

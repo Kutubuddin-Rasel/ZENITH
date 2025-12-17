@@ -11,48 +11,48 @@
  */
 
 import {
-    Injectable,
-    NestInterceptor,
-    ExecutionContext,
-    CallHandler,
-    Logger,
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+  Logger,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { TenantContext } from './tenant-context.service';
 
 export interface RequestWithUser {
-    user?: {
-        id: string;
-        email: string;
-        organizationId?: string;
-        isSuperAdmin?: boolean;
-    };
+  user?: {
+    id: string;
+    email: string;
+    organizationId?: string;
+    isSuperAdmin?: boolean;
+  };
 }
 
 @Injectable()
 export class TenantInterceptor implements NestInterceptor {
-    private readonly logger = new Logger(TenantInterceptor.name);
+  private readonly logger = new Logger(TenantInterceptor.name);
 
-    constructor(private readonly tenantContext: TenantContext) { }
+  constructor(private readonly tenantContext: TenantContext) {}
 
-    intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-        const request = context.switchToHttp().getRequest<RequestWithUser>();
-        const user = request.user;
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const request = context.switchToHttp().getRequest<RequestWithUser>();
+    const user = request.user;
 
-        if (user?.organizationId) {
-            // Set tenant context from JWT
-            this.tenantContext.setTenantId(user.organizationId);
-            this.logger.debug(
-                `Tenant context set: ${user.organizationId} for user ${user.id}`,
-            );
-        } else if (user?.isSuperAdmin) {
-            // Super admins may operate without a specific tenant
-            // They can use @BypassTenantScope if needed
-            this.logger.debug(
-                `Super admin request without tenant context: ${user.id}`,
-            );
-        }
-
-        return next.handle();
+    if (user?.organizationId) {
+      // Set tenant context from JWT
+      this.tenantContext.setTenantId(user.organizationId);
+      this.logger.debug(
+        `Tenant context set: ${user.organizationId} for user ${user.id}`,
+      );
+    } else if (user?.isSuperAdmin) {
+      // Super admins may operate without a specific tenant
+      // They can use @BypassTenantScope if needed
+      this.logger.debug(
+        `Super admin request without tenant context: ${user.id}`,
+      );
     }
+
+    return next.handle();
+  }
 }

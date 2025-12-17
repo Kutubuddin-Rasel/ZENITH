@@ -26,4 +26,4 @@ import { ProjectsModule } from '../projects/projects.module';
   controllers: [InvitesController, ProjectInvitesController],
   exports: [InvitesService],
 })
-export class InvitesModule { }
+export class InvitesModule {}

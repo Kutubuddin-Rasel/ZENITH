@@ -19,4 +19,4 @@ import { WatchersModule } from '../watchers/watchers.module';
   controllers: [CommentsController],
   exports: [CommentsService],
 })
-export class CommentsModule { }
+export class CommentsModule {}

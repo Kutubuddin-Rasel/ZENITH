@@ -22,4 +22,4 @@ import { IssuesModule } from '../issues/issues.module';
   controllers: [TaxonomyController],
   exports: [TaxonomyService],
 })
-export class TaxonomyModule { }
+export class TaxonomyModule {}

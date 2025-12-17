@@ -4,15 +4,16 @@ import { Issue } from './useProjectIssues';
 
 export interface BoardColumnInfo {
   id: string;
-  name: string; // Linear-style: column name IS the status
+  name: string; // Linear-style: column name for display
+  statusId?: string | null; // NEW: Relational status ID (source of truth)
 }
 
 /**
  * Hook to fetch and group issues by board columns.
- * Linear-style: issue.status === column.name
+ * RELATIONAL STATUS: Primary matching by statusId, fallback to string for legacy data.
  * 
- * When an issue's status matches a column's name, 
- * the issue appears in that column. Simple and intuitive.
+ * - If both issue.statusId and column.statusId exist, match by ID (source of truth)
+ * - Otherwise, fallback to issue.status === column.name (legacy compatibility)
  */
 export function useBoardIssues(projectId: string, columns: BoardColumnInfo[]) {
   const { data, isLoading, isError, refetch } = useQuery<Issue[]>({
@@ -21,12 +22,19 @@ export function useBoardIssues(projectId: string, columns: BoardColumnInfo[]) {
     enabled: !!projectId,
   });
 
-  // Group issues by column: issue.status === column.name
+  // Group issues by column: prefer statusId, fallback to string
   const grouped: Record<string, Issue[]> = {};
   if (columns && data) {
     columns.forEach(col => {
-      // Linear-style: column name IS the status
-      grouped[col.id] = data.filter(issue => issue.status === col.name);
+      // RELATIONAL STATUS: Hybrid matching
+      grouped[col.id] = data.filter(issue => {
+        // Primary: Match by statusId if both are available
+        if (col.statusId && issue.statusId) {
+          return issue.statusId === col.statusId;
+        }
+        // Fallback: Match by string name (legacy data)
+        return issue.status === col.name;
+      });
     });
   }
 

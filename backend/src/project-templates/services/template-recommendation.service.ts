@@ -37,7 +37,7 @@ export class TemplateRecommendationService {
     @InjectRepository(UserPreferences)
     private preferencesRepo: Repository<UserPreferences>,
     @Optional() private cacheService?: CacheService,
-  ) { }
+  ) {}
 
   /**
    * Get personalized template recommendations based on user context
@@ -1136,7 +1136,11 @@ export class TemplateRecommendationService {
                 { name: 'In Progress', status: 'In Progress', order: 2 },
                 { name: 'Code Review', status: 'Code Review', order: 3 },
                 { name: 'Testing', status: 'Testing', order: 4 },
-                { name: 'Ready for Release', status: 'Ready for Release', order: 5 },
+                {
+                  name: 'Ready for Release',
+                  status: 'Ready for Release',
+                  order: 5,
+                },
                 { name: 'Released', status: 'Released', order: 6 },
               ],
             },
@@ -2543,7 +2547,11 @@ export class TemplateRecommendationService {
                 { name: 'New', status: 'New', order: 1 },
                 { name: 'Open', status: 'Open', order: 2 },
                 { name: 'In Progress', status: 'In Progress', order: 3 },
-                { name: 'Waiting on Customer', status: 'Waiting on Customer', order: 4 },
+                {
+                  name: 'Waiting on Customer',
+                  status: 'Waiting on Customer',
+                  order: 4,
+                },
                 { name: 'Resolved', status: 'Resolved', order: 5 },
               ],
             },
@@ -2662,7 +2670,11 @@ export class TemplateRecommendationService {
                 { name: 'Planning', status: 'Planning', order: 1 },
                 { name: 'In Progress', status: 'In Progress', order: 2 },
                 { name: 'Review', status: 'Review', order: 3 },
-                { name: 'Compliance Check', status: 'Compliance Check', order: 4 },
+                {
+                  name: 'Compliance Check',
+                  status: 'Compliance Check',
+                  order: 4,
+                },
                 { name: 'Completed', status: 'Completed', order: 5 },
               ],
             },
@@ -2803,7 +2815,11 @@ export class TemplateRecommendationService {
                 { name: 'Backlog', status: 'Backlog', order: 1 },
                 { name: 'In Progress', status: 'In Progress', order: 2 },
                 { name: 'Code Review', status: 'Code Review', order: 3 },
-                { name: 'Security Review', status: 'Security Review', order: 4 },
+                {
+                  name: 'Security Review',
+                  status: 'Security Review',
+                  order: 4,
+                },
                 { name: 'Done', status: 'Done', order: 5 },
               ],
             },

@@ -14,7 +14,8 @@ export interface Issue {
   key: string;
   title: string;
   type: IssueType;
-  status: string; // Linear-style: matches column.name
+  status: string; // Legacy: column name string
+  statusId?: string | null; // NEW: Relational status ID (source of truth)
   assigneeId?: string;
   assignee?: { id: string; name: string; email: string; avatarUrl?: string } | null;
   storyPoints?: number;

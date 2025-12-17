@@ -8,11 +8,7 @@ import {
   IsInt,
   Min,
 } from 'class-validator';
-import {
-  IssueStatus,
-  IssuePriority,
-  IssueType,
-} from '../entities/issue.entity';
+import { IssuePriority, IssueType } from '../entities/issue.entity';
 
 export class UpdateIssueDto extends PartialType(CreateIssueDto) {
   @IsOptional()
@@ -27,8 +23,8 @@ export class UpdateIssueDto extends PartialType(CreateIssueDto) {
   type?: IssueType;
 
   @IsOptional()
-  @IsEnum(IssueStatus)
-  status?: IssueStatus;
+  @IsUUID()
+  statusId?: string;
 
   @IsOptional()
   @IsEnum(IssuePriority)

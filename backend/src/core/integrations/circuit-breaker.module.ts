@@ -10,7 +10,7 @@ import { IntegrationGateway } from './integration.gateway';
 
 @Global()
 @Module({
-    providers: [IntegrationGateway],
-    exports: [IntegrationGateway],
+  providers: [IntegrationGateway],
+  exports: [IntegrationGateway],
 })
-export class CircuitBreakerModule { }
+export class CircuitBreakerModule {}

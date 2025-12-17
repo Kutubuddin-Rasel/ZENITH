@@ -43,6 +43,8 @@ export class BoardsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     projectId,
     boardId,
     issueId,
+    fromStatusId,
+    toStatusId,
     fromColumn,
     toColumn,
     newOrder,
@@ -50,8 +52,10 @@ export class BoardsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     projectId: string;
     boardId: string;
     issueId: string;
-    fromColumn: string;
-    toColumn: string;
+    fromStatusId?: string | null; // New: relational status ID
+    toStatusId?: string; // New: relational status ID
+    fromColumn?: string; // Legacy: column name string
+    toColumn?: string; // Legacy: column name string
     newOrder: number;
   }) {
     this.server
@@ -60,11 +64,14 @@ export class BoardsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         projectId,
         boardId,
         issueId,
+        fromStatusId,
+        toStatusId,
         fromColumn,
         toColumn,
         newOrder,
       });
   }
+
 
   /** Emit when issues are reordered within a column */
   emitIssueReordered({

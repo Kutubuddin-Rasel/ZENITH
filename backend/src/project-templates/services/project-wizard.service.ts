@@ -85,7 +85,7 @@ export class ProjectWizardService {
     @Optional() private templateScorer?: TemplateScorerService,
     // NEW: Unified template application service
     @Optional() private templateApplicationService?: TemplateApplicationService,
-  ) {}
+  ) { }
 
   /**
    * Get wizard questions based on user's experience and preferences
@@ -476,7 +476,6 @@ export class ProjectWizardService {
       const project = await this.projectsService.create(
         userId,
         projectData,
-        organizationId,
       );
 
       // Apply template configuration using unified service

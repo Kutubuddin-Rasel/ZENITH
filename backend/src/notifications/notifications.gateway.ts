@@ -16,7 +16,8 @@ import { Logger } from '@nestjs/common';
   },
 })
 export class NotificationsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect {
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   private readonly logger = new Logger(NotificationsGateway.name);
 
   @WebSocketServer() server: Server;
@@ -35,7 +36,9 @@ export class NotificationsGateway
       // Join a room named after the userId
       // Redis adapter syncs this across all server instances
       void socket.join(`user:${userId}`);
-      this.logger.log(`User ${userId} connected and joined room (socket: ${socket.id})`);
+      this.logger.log(
+        `User ${userId} connected and joined room (socket: ${socket.id})`,
+      );
 
       // Acknowledge successful authentication
       socket.emit('authenticated', { userId, socketId: socket.id });
@@ -77,4 +80,3 @@ export class NotificationsGateway
     return sockets.length;
   }
 }
-

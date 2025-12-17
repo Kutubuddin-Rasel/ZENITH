@@ -35,7 +35,7 @@ export class ProjectRoleGuard implements CanActivate {
     private reflector: Reflector,
     private projectMembersService: ProjectMembersService,
     private cacheService: CacheService,
-  ) { }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Get required roles from decorator

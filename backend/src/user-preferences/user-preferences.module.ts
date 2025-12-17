@@ -17,4 +17,4 @@ import { ProjectTemplatesModule } from '../project-templates/project-templates.m
   controllers: [SmartDefaultsController],
   exports: [SmartDefaultsService],
 })
-export class UserPreferencesModule { }
+export class UserPreferencesModule {}

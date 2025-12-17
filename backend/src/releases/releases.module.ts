@@ -33,4 +33,4 @@ import { WatchersModule } from '../watchers/watchers.module';
   controllers: [ReleasesController],
   exports: [ReleasesService],
 })
-export class ReleasesModule { }
+export class ReleasesModule {}

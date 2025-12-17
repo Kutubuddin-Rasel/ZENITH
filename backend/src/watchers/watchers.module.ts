@@ -22,4 +22,4 @@ import { WatchersListener } from './watchers.listener';
   controllers: [WatchersController],
   exports: [WatchersService],
 })
-export class WatchersModule { }
+export class WatchersModule {}

@@ -126,7 +126,9 @@ export class WorkflowTransitionsService {
     if (transition.conditions && issue) {
       // Check required fields
       if (transition.conditions.requiredFields?.length) {
-        for (const field of transition.conditions.requiredFields) {
+        const fields = transition.conditions.requiredFields;
+        for (const field of fields) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           const value = issue[field as keyof Issue];
           if (value === undefined || value === null || value === '') {
             return {

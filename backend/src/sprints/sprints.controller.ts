@@ -51,8 +51,7 @@ export class SprintsController {
     @Body() dto: CreateSprintDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    return this.sprintsService.create(projectId, req.user.userId, dto, orgId);
+    return this.sprintsService.create(projectId, req.user.userId, dto);
   }
 
   @RequirePermission('sprints:view')
@@ -62,12 +61,10 @@ export class SprintsController {
     @Request() req: { user: JwtRequestUser },
     @Query('active') active?: string,
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
     return this.sprintsService.findAll(
       projectId,
       req.user.userId,
       active === 'true',
-      orgId,
     );
   }
 
@@ -78,13 +75,7 @@ export class SprintsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    return this.sprintsService.findOne(
-      projectId,
-      sprintId,
-      req.user.userId,
-      orgId,
-    );
+    return this.sprintsService.findOne(projectId, sprintId, req.user.userId);
   }
 
   @RequirePermission('sprints:update')
@@ -96,13 +87,11 @@ export class SprintsController {
     @Body() dto: UpdateSprintDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
     return this.sprintsService.update(
       projectId,
       sprintId,
       req.user.userId,
       dto,
-      orgId,
     );
   }
 
@@ -115,13 +104,11 @@ export class SprintsController {
     @Body('nextSprintId') nextSprintId: string | undefined,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
     return this.sprintsService.archive(
       projectId,
       sprintId,
       req.user.userId,
       nextSprintId,
-      orgId,
     );
   }
 
@@ -133,13 +120,7 @@ export class SprintsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    await this.sprintsService.remove(
-      projectId,
-      sprintId,
-      req.user.userId,
-      orgId,
-    );
+    await this.sprintsService.remove(projectId, sprintId, req.user.userId);
     return { message: 'Sprint deleted' };
   }
 
@@ -152,13 +133,11 @@ export class SprintsController {
     @Body() dto: AddIssueToSprintDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
     return this.sprintsService.addIssue(
       projectId,
       sprintId,
       req.user.userId,
       dto,
-      orgId,
     );
   }
 
@@ -171,13 +150,11 @@ export class SprintsController {
     @Body() dto: RemoveIssueFromSprintDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
     await this.sprintsService.removeIssue(
       projectId,
       sprintId,
       req.user.userId,
       dto,
-      orgId,
     );
     return { message: 'Issue removed from sprint' };
   }
@@ -189,12 +166,10 @@ export class SprintsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
     return this.sprintsService.getSprintIssues(
       projectId,
       sprintId,
       req.user.userId,
-      orgId,
     );
   }
 
@@ -206,12 +181,10 @@ export class SprintsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
     return this.sprintsService.startSprint(
       projectId,
       sprintId,
       req.user.userId,
-      orgId,
     );
   }
 

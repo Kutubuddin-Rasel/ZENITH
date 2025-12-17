@@ -275,10 +275,10 @@ export class JiraIntegrationService extends BaseIntegrationService {
           },
           assignee: issue.fields.assignee
             ? {
-                displayName: issue.fields.assignee.displayName,
-                emailAddress: '',
-                avatarUrls: { '48x48': '' },
-              }
+              displayName: issue.fields.assignee.displayName,
+              emailAddress: '',
+              avatarUrls: { '48x48': '' },
+            }
             : null,
           reporter: {
             displayName: issue.fields.reporter?.displayName || '',
@@ -387,8 +387,6 @@ export class JiraIntegrationService extends BaseIntegrationService {
           title: jiraIssue.summary,
           description:
             jiraIssue.description || `Imported from Jira ${jiraIssue.key}`,
-          status: (jiraIssue.status?.name ||
-            'Backlog') as unknown as IssueStatus, // Will default to Backlog if not valid board column? Issue service allows string.
           priority: this.mapJiraPriorityToZenith(jiraIssue.priority?.name),
           type: this.mapJiraTypeToZenith(jiraIssue.issueType?.name),
           assigneeId,
@@ -399,9 +397,7 @@ export class JiraIntegrationService extends BaseIntegrationService {
             jiraLink: `https://jira.atlassian.com/browse/${jiraIssue.key}`, // Base URL assumption?
           },
         },
-        integration.organizationId,
       );
-
       // Store the import mapping
       await this.storeExternalData(
         integrationId,

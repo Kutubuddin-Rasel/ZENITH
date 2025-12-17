@@ -25,7 +25,7 @@ export class WatchersService {
     private notifications: NotificationsEmitter,
     // REFACTORED: Using EventEmitter2 instead of NotificationsService
     private eventEmitter: EventEmitter2,
-  ) { }
+  ) {}
 
   /** Toggle project watcher: if exists remove, else add */
   async toggleProjectWatcher(
@@ -69,7 +69,9 @@ export class WatchersService {
     userId: string,
   ): Promise<{ watching: boolean }> {
     // REFACTORED: Direct repo query instead of issuesService.findOne
-    const issue = await this.issueRepo.findOne({ where: { id: issueId, projectId } });
+    const issue = await this.issueRepo.findOne({
+      where: { id: issueId, projectId },
+    });
     if (!issue) throw new Error('Issue not found');
     await this.membersService.getUserRole(projectId, userId);
 
@@ -90,7 +92,9 @@ export class WatchersService {
     userId: string,
   ): Promise<string[]> {
     // REFACTORED: Direct repo query instead of issuesService.findOne
-    const issue = await this.issueRepo.findOne({ where: { id: issueId, projectId } });
+    const issue = await this.issueRepo.findOne({
+      where: { id: issueId, projectId },
+    });
     if (!issue) throw new Error('Issue not found');
     await this.membersService.getUserRole(projectId, userId);
 
@@ -113,7 +117,7 @@ export class WatchersService {
       issueId
         ? this.watcherRepo.find({ where: { issueId }, select: ['userId'] })
         : Promise.resolve([]),
-    ]).then(async ([projWatchers, issueWatchers]) => {
+    ]).then(([projWatchers, issueWatchers]) => {
       const ids = new Set<string>();
       projWatchers.forEach((w) => ids.add(w.userId));
       issueWatchers.forEach((w) => ids.add(w.userId));

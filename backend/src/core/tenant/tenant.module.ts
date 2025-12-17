@@ -22,7 +22,7 @@ import { TenantRepositoryFactory } from './tenant-repository.factory';
 
 @Global()
 @Module({
-    providers: [TenantContext, TenantInterceptor, TenantRepositoryFactory],
-    exports: [TenantContext, TenantInterceptor, TenantRepositoryFactory],
+  providers: [TenantContext, TenantInterceptor, TenantRepositoryFactory],
+  exports: [TenantContext, TenantInterceptor, TenantRepositoryFactory],
 })
-export class TenantModule { }
+export class TenantModule {}
