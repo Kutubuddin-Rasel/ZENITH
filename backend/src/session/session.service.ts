@@ -14,8 +14,9 @@ import {
   AuditEventType,
   AuditSeverity,
 } from '../audit/entities/audit-log.entity';
-import * as crypto from 'crypto';
+import * as crypto from 'crypto'; // Keep for crypto.createHash
 import { UAParser } from 'ua-parser-js';
+import { generateHexToken } from '../common/utils/token.util';
 
 export interface CreateSessionData {
   userId: string;
@@ -481,7 +482,7 @@ export class SessionService {
    * Generate secure session ID
    */
   private generateSessionId(): string {
-    return crypto.randomBytes(32).toString('hex');
+    return generateHexToken(64); // 64 hex chars = 32 bytes
   }
 
   /**
@@ -500,7 +501,7 @@ export class SessionService {
   } {
     if (!userAgent) {
       return {
-        deviceId: crypto.randomBytes(16).toString('hex'),
+        deviceId: generateHexToken(32), // 32 hex chars = 16 bytes
         isMobile: false,
         isTablet: false,
         isDesktop: true,

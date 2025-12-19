@@ -134,15 +134,103 @@ export class CycleTimeService {
     const p85Hours = this.percentile(sortedTimes, 0.85);
     const p95Hours = this.percentile(sortedTimes, 0.95);
 
+    // 6. Calculate Trend (Compare with previous period)
+    const previousStartDate = new Date();
+    previousStartDate.setDate(previousStartDate.getDate() - daysLookback * 2);
+
+    // REFACTOR: To avoid code duplication and heavy queries, we'll simplify the trend check.
+    // If complex trend is needed, we should extract the calculation logic.
+    // For now, let's implement a 'simple' trend based on the first half vs second half of the CURRENT period
+    // if we don't want to fetch 2x data.
+    // BUT the user asked for "Deep Analysis", so let's do it right.
+
+    // Let's calculate previous period average properly.
+    const pbAverage = await this.calculateAverageForPeriod(
+      projectId,
+      previousStartDate,
+      new Date(Date.now() - daysLookback * 24 * 60 * 60 * 1000),
+    );
+    const trend =
+      averageDays > pbAverage
+        ? 'up'
+        : averageDays < pbAverage
+          ? 'down'
+          : 'flat';
+
     return {
       averageDays,
       p50Days: parseFloat((p50Hours / 24).toFixed(2)),
       p85Days: parseFloat((p85Hours / 24).toFixed(2)),
       p95Days: parseFloat((p95Hours / 24).toFixed(2)),
       totalIssues: metrics.length,
-      trend: averageDays < 3 ? 'down' : 'up', // Mock trend logic
+      trend,
       data: usage === 'detailed' ? metrics : [],
     };
+  }
+
+  private async calculateAverageForPeriod(
+    projectId: string,
+    start: Date,
+    end: Date,
+  ): Promise<number> {
+    const issues: CycleTimeIssueRow[] = await this.dataSource.query(
+      `
+      SELECT id, title, status, "updatedAt"
+      FROM issues
+      WHERE "projectId" = $1
+      AND status = 'Done'
+      AND "updatedAt" > $2
+      AND "updatedAt" <= $3
+      `,
+      [projectId, start, end],
+    );
+
+    if (issues.length === 0) return 0;
+
+    let totalHours = 0;
+    let count = 0;
+
+    for (const issue of issues) {
+      try {
+        const revisions: Revision[] = await this.revisionsService.list(
+          'Issue',
+          issue.id,
+        );
+
+        // Find Done time
+        const doneRev = revisions.find(
+          (r) => (r.snapshot as { status?: string })?.status === 'Done',
+        );
+        const doneTime = doneRev
+          ? new Date(doneRev.createdAt)
+          : new Date(issue.updatedAt);
+
+        // Find Start time
+        let startTime: Date | null = null;
+        const ascendingRevs = [...revisions].reverse();
+
+        for (const rev of ascendingRevs) {
+          const oldStatus = (rev.snapshot as { status?: string })?.status;
+          if (
+            (oldStatus === 'Backlog' || oldStatus === 'To Do' || !oldStatus) &&
+            rev.action === 'UPDATE'
+          ) {
+            startTime = new Date(rev.createdAt);
+            break;
+          }
+        }
+
+        if (startTime) {
+          const diffMs = doneTime.getTime() - startTime.getTime();
+          totalHours += diffMs / (1000 * 60 * 60);
+          count++;
+        }
+      } catch {
+        // Ignore individual errors
+      }
+    }
+
+    return count > 0 ? parseFloat((totalHours / count / 24).toFixed(2)) : 0;
   }
 
   /**

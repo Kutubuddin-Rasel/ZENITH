@@ -97,11 +97,7 @@ export interface JiraWebhookPayload {
 
 import { UsersService } from '../../users/users.service';
 import { IssuesService } from '../../issues/issues.service';
-import {
-  IssuePriority,
-  IssueType,
-  IssueStatus,
-} from '../../issues/entities/issue.entity';
+import { IssuePriority, IssueType } from '../../issues/entities/issue.entity';
 
 @Injectable()
 export class JiraIntegrationService extends BaseIntegrationService {
@@ -275,10 +271,10 @@ export class JiraIntegrationService extends BaseIntegrationService {
           },
           assignee: issue.fields.assignee
             ? {
-              displayName: issue.fields.assignee.displayName,
-              emailAddress: '',
-              avatarUrls: { '48x48': '' },
-            }
+                displayName: issue.fields.assignee.displayName,
+                emailAddress: '',
+                avatarUrls: { '48x48': '' },
+              }
             : null,
           reporter: {
             displayName: issue.fields.reporter?.displayName || '',

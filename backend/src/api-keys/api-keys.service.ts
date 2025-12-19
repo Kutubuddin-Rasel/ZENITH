@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { ApiKey } from './entities/api-key.entity';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
+import { generateSecureToken, TokenPrefix } from '../common/utils/token.util';
 
 @Injectable()
 export class ApiKeysService {
@@ -21,9 +21,8 @@ export class ApiKeysService {
     userId: string,
     dto: CreateApiKeyDto,
   ): Promise<{ key: string; apiKey: ApiKey }> {
-    // Generate random key: zth_live_xxxxxxxxxxxxxxxxxxxx
-    const randomBytes = crypto.randomBytes(24).toString('hex');
-    const plainKey = `zth_live_${randomBytes}`;
+    // Generate random key using centralized token utility
+    const plainKey = generateSecureToken(TokenPrefix.API_KEY, 24);
     const keyPrefix = plainKey.substring(0, 12); // "zth_live_xxx"
 
     // Hash the key for storage

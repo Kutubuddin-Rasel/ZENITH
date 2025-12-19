@@ -13,7 +13,7 @@ import { useProjectMembers } from '@/hooks/useProjectMembers';
 import { useTaxonomy } from '@/hooks/useTaxonomy';
 import { useSmartDefaults } from '@/hooks/useSmartDefaults';
 import { useProjectStatuses } from '@/hooks/useProjectStatuses';
-import { ISSUE_TYPES, ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/constants/issueOptions';
+import { ISSUE_TYPES, ISSUE_PRIORITIES } from '@/constants/issueOptions';
 import type { Issue } from '@/hooks/useProjectIssues';
 import { LightBulbIcon } from '@heroicons/react/24/outline';
 
@@ -21,7 +21,7 @@ const createIssueSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   priority: z.enum(ISSUE_PRIORITIES),
-  status: z.enum(ISSUE_STATUSES),
+  status: z.string().min(1, 'Status is required'), // Dynamic: uses project statuses
   type: z.enum(ISSUE_TYPES),
   assigneeId: z.string().optional(),
 });
@@ -60,7 +60,7 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
     resolver: zodResolver(createIssueSchema),
     defaultValues: {
       priority: 'Medium',
-      status: 'To Do',
+      status: '', // Will be set dynamically from project statuses
       type: 'Task',
     },
   });
@@ -98,21 +98,22 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
       setValue('title', issue.title);
       setValue('description', issue.description || '');
       setValue('priority', issue.priority);
-      setValue('status', issue.status as typeof ISSUE_STATUSES[number]);
+      setValue('status', issue.status); // Use issue's actual status
       setValue('type', issue.type);
       setValue('assigneeId', typeof issue.assignee === 'object' && issue.assignee ? issue.assignee.id : (issue.assignee || undefined));
-    } else {
-      // Reset form for create mode
+    } else if (statuses.length > 0) {
+      // FIX: Use first project status dynamically instead of hardcoded "To Do"
+      const defaultStatus = statuses[0]?.name || 'To Do';
       reset({
         title: '',
         description: '',
         priority: 'Medium',
-        status: 'To Do',
+        status: defaultStatus,
         type: 'Task',
         assigneeId: '',
       });
     }
-  }, [isEdit, issue, setValue, reset]);
+  }, [isEdit, issue, statuses, setValue, reset]);
 
   const onSubmit = async (data: CreateIssueFormData) => {
     setIsSubmitting(true);
@@ -288,8 +289,9 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
               {...register('status')}
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
-              {ISSUE_STATUSES.map((status) => (
-                <option key={status} value={status}>{status}</option>
+              {/* FIX: Use project-specific statuses instead of hardcoded ISSUE_STATUSES */}
+              {statuses.map((status) => (
+                <option key={status.id} value={status.name}>{status.name}</option>
               ))}
             </select>
           </div>

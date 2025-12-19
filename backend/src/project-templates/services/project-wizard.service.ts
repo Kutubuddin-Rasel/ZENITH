@@ -85,7 +85,7 @@ export class ProjectWizardService {
     @Optional() private templateScorer?: TemplateScorerService,
     // NEW: Unified template application service
     @Optional() private templateApplicationService?: TemplateApplicationService,
-  ) { }
+  ) {}
 
   /**
    * Get wizard questions based on user's experience and preferences
@@ -450,7 +450,8 @@ export class ProjectWizardService {
     userId: string,
     wizardData: ProjectWizardData,
     templateId: string,
-    organizationId?: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _organizationId?: string,
   ): Promise<any> {
     try {
       const template = await this.templateRepo.findOne({
@@ -473,10 +474,7 @@ export class ProjectWizardService {
         key: projectKey,
       };
 
-      const project = await this.projectsService.create(
-        userId,
-        projectData,
-      );
+      const project = await this.projectsService.create(userId, projectData);
 
       // Apply template configuration using unified service
       if (this.templateApplicationService) {

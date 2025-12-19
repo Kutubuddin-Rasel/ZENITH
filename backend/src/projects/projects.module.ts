@@ -21,4 +21,4 @@ import { WorkflowsModule } from '../workflows/workflows.module';
   controllers: [ProjectsController],
   exports: [ProjectsService],
 })
-export class ProjectsModule { }
+export class ProjectsModule {}

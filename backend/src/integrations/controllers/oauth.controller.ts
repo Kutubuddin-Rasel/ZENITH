@@ -17,7 +17,7 @@ import { OAuthService } from '../services/oauth.service';
 import { IntegrationService } from '../services/integration.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { IntegrationType } from '../entities/integration.entity';
-import * as crypto from 'crypto';
+import { generateHexToken } from '../../common/utils/token.util';
 
 interface AuthenticatedRequest {
   user: {
@@ -84,7 +84,7 @@ export class OAuthController {
     );
 
     // Generate random state for CSRF protection (stored in session)
-    const state = crypto.randomBytes(32).toString('hex');
+    const state = generateHexToken(64); // 64 hex chars for CSRF state
 
     // Store state and user info in session (10 minute TTL)
     session.oauthState = state;

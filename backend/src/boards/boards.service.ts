@@ -22,6 +22,7 @@ import { BoardsGateway } from './boards.gateway';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CacheService } from '../cache/cache.service';
 import { WorkflowStatus } from '../workflows/entities/workflow-status.entity';
+import { EventFactory } from '../common/events/event.factory';
 
 @Injectable()
 export class BoardsService {
@@ -42,7 +43,7 @@ export class BoardsService {
     private eventEmitter: EventEmitter2,
     private boardsGateway: BoardsGateway,
     private cacheService: CacheService,
-  ) { }
+  ) {}
 
   /** Create a new board (and seed default columns) */
   async create(
@@ -100,13 +101,14 @@ export class BoardsService {
     await this.colRepo.save(cols);
     saved.columns = cols;
 
-    this.eventEmitter.emit('board.event', {
+    const boardPayload = EventFactory.createBoardEvent({
       projectId,
-      issueId: null,
-      action: `created board ${saved.name} `,
       actorId: userId,
+      action: `created board ${saved.name}`,
       boardName: saved.name,
+      boardId: saved.id,
     });
+    this.eventEmitter.emit('board.event', boardPayload);
 
     return saved;
   }

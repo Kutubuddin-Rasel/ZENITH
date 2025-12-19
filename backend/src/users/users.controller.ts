@@ -5,6 +5,7 @@ import {
   Post,
   Body,
   Patch,
+  Delete,
   BadRequestException,
   Query,
   UseGuards,
@@ -13,7 +14,16 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import {
@@ -137,13 +147,18 @@ export class UsersController {
     return this.usersService.setActive(id, false);
   }
 
-  // PATCH /users/:id
-  @UseGuards(JwtAuthGuard, SuperAdminGuard)
+  // PATCH /users/:id - User can update their own profile, or SuperAdmin can update any
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
+    @Request() req: AuthenticatedRequest,
   ): Promise<User> {
+    // Only allow self-update or SuperAdmin
+    if (req.user.userId !== id && !req.user.isSuperAdmin) {
+      throw new ForbiddenException('You can only update your own profile');
+    }
     return this.usersService.update(id, dto);
   }
 
@@ -167,5 +182,68 @@ export class UsersController {
   @Get(':id')
   findOne(@Param('id') id: string): Promise<User> {
     return this.usersService.findOneById(id);
+  }
+
+  // DELETE /users/:id - User can delete their own account, or SuperAdmin can delete any
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  async deleteAccount(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<{ success: boolean }> {
+    // Only allow self-delete or SuperAdmin
+    if (req.user.userId !== id && !req.user.isSuperAdmin) {
+      throw new ForbiddenException('You can only delete your own account');
+    }
+    return this.usersService.deleteAccount(id);
+  }
+
+  // POST /users/me/avatar - Upload avatar for current user
+  @UseGuards(JwtAuthGuard)
+  @Post('me/avatar')
+  @UseInterceptors(
+    FileInterceptor('avatar', {
+      storage: diskStorage({
+        destination: join(process.cwd(), 'uploads', 'avatars'),
+        filename: (_req, file, cb) => {
+          const uniqueName = `${uuidv4()}${extname(file.originalname)}`;
+          cb(null, uniqueName);
+        },
+      }),
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+      fileFilter: (_req, file, cb) => {
+        if (!file.mimetype.match(/^image\/(jpeg|jpg|png)$/)) {
+          cb(
+            new BadRequestException('Only JPG and PNG files are allowed'),
+            false,
+          );
+        } else {
+          cb(null, true);
+        }
+      },
+    }),
+  )
+  async uploadAvatar(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: /^image\/(jpeg|jpg|png)$/ }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<{ success: boolean; avatarUrl: string }> {
+    // Generate URL for the uploaded file
+    const avatarUrl = `/uploads/avatars/${file.filename}`;
+
+    // Update user's avatarUrl
+    await this.usersService.update(req.user.userId, { avatarUrl });
+
+    return {
+      success: true,
+      avatarUrl,
+    };
   }
 }

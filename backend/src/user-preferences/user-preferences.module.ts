@@ -4,6 +4,7 @@ import { UserPreferences } from './entities/user-preferences.entity';
 import { ProjectTemplate } from '../project-templates/entities/project-template.entity';
 import { SmartDefaultsService } from './services/smart-defaults.service';
 import { SmartDefaultsController } from './controllers/smart-defaults.controller';
+import { UserPreferencesController } from './controllers/user-preferences.controller';
 import { ProjectTemplatesModule } from '../project-templates/project-templates.module';
 // REMOVED: MembershipModule - using ProjectCoreModule (global) for ProjectMembersService
 
@@ -14,7 +15,7 @@ import { ProjectTemplatesModule } from '../project-templates/project-templates.m
     forwardRef(() => ProjectTemplatesModule),
   ],
   providers: [SmartDefaultsService],
-  controllers: [SmartDefaultsController],
+  controllers: [SmartDefaultsController, UserPreferencesController],
   exports: [SmartDefaultsService],
 })
 export class UserPreferencesModule {}

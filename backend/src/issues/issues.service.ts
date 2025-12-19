@@ -33,6 +33,7 @@ import { WorkflowStatusesService } from '../workflows/services/workflow-statuses
 import { TenantRepositoryFactory, TenantRepository } from '../core/tenant';
 import { BoardGateway } from '../gateways/board.gateway';
 import { Board } from '../boards/entities/board.entity';
+import { EventFactory } from '../common/events/event.factory';
 
 @Injectable()
 export class IssuesService implements OnModuleInit {
@@ -198,6 +199,7 @@ export class IssuesService implements OnModuleInit {
       status: statusName,
       statusId,
       priority: dto.priority || IssuePriority.MEDIUM,
+      type: dto.type || IssueType.TASK, // FIX: Pass type from DTO
       assigneeId: dto.assigneeId,
       reporterId,
       parentId: dto.parentId,
@@ -209,11 +211,12 @@ export class IssuesService implements OnModuleInit {
     // Invalidate project issues cache if it existed (e.g. list cache)
     await this.cacheService.invalidateByTags([`project:${projectId}: issues`]);
 
-    this.eventEmitter.emit('issue.created', {
+    const { type, payload } = EventFactory.createIssueEvent('issue.created', {
       projectId,
       issueId: saved.id,
       actorId: reporterId,
     });
+    this.eventEmitter.emit(type, payload);
 
     // Return with computed friendly key (e.g., "ZEN-42")
     const enriched = await this.enrichWithKey(saved, project.key);
@@ -335,8 +338,10 @@ export class IssuesService implements OnModuleInit {
     qb.select([
       'issue.id',
       'issue.projectId',
+      'issue.number',
       'issue.title',
       'issue.status',
+      'issue.statusId', // FIX: Include statusId for relational status filtering
       'issue.priority',
       'issue.type',
       'issue.assigneeId',

@@ -151,7 +151,7 @@ export interface GitHubWebhookPayload {
 
 import { UsersService } from '../../users/users.service';
 import { IssuesService } from '../../issues/issues.service';
-import { IssueType, IssueStatus } from '../../issues/entities/issue.entity';
+import { IssueType } from '../../issues/entities/issue.entity';
 
 @Injectable()
 export class GitHubIntegrationService extends BaseIntegrationService {
@@ -679,22 +679,18 @@ export class GitHubIntegrationService extends BaseIntegrationService {
         return;
       }
 
-      await this.issuesService.create(
-        projectId,
-        reporterId,
-        {
-          title: prData.title,
-          description:
-            prData.body || `Created from PR #${prData.number} in ${repository}`,
-          type: IssueType.TASK,
-          priority: undefined,
-          metadata: {
-            githubPrNumber: prData.number,
-            githubRepo: repository,
-            githubUrl: prData.html_url,
-          },
+      await this.issuesService.create(projectId, reporterId, {
+        title: prData.title,
+        description:
+          prData.body || `Created from PR #${prData.number} in ${repository}`,
+        type: IssueType.TASK,
+        priority: undefined,
+        metadata: {
+          githubPrNumber: prData.number,
+          githubRepo: repository,
+          githubUrl: prData.html_url,
         },
-      );
+      });
 
       this.logger.log(
         `Created issue from PR #${prData.number} in ${repository}`,

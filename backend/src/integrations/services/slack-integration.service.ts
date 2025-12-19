@@ -584,9 +584,7 @@ export class SlackIntegrationService extends BaseIntegrationService {
       }
 
       // 2. Find Project
-      const project = await this.projectsService.findByKey(
-        projectKey,
-      );
+      const project = await this.projectsService.findByKey(projectKey);
       if (!project) {
         return {
           response_type: 'ephemeral',
@@ -607,16 +605,12 @@ export class SlackIntegrationService extends BaseIntegrationService {
       }
 
       // 4. Create Issue
-      const issue = await this.issuesService.create(
-        project.id,
-        reporterId,
-        {
-          title,
-          description,
-          priority: undefined,
-          type: IssueType.TASK,
-        },
-      );
+      const issue = await this.issuesService.create(project.id, reporterId, {
+        title,
+        description,
+        priority: undefined,
+        type: IssueType.TASK,
+      });
 
       // 5. Respond
       const issueNumber = issue.number

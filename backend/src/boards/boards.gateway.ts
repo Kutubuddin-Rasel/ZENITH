@@ -72,7 +72,6 @@ export class BoardsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
   }
 
-
   /** Emit when issues are reordered within a column */
   emitIssueReordered({
     projectId,

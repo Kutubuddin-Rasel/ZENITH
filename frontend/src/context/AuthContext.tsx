@@ -9,6 +9,7 @@ type User = {
   id: string;
   email: string;
   name?: string;
+  avatarUrl?: string;
   isSuperAdmin?: boolean;
   organizationId?: string;
 };
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: string;
         isSuperAdmin: boolean;
         name: string;
+        avatarUrl?: string;
         organizationId?: string;
       }>('/auth/me');
 
@@ -55,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: userData.userId,
         email: userData.email,
         name: userData.name,
+        avatarUrl: userData.avatarUrl,
         isSuperAdmin: userData.isSuperAdmin,
         organizationId: userData.organizationId
       };

@@ -14,7 +14,7 @@ import {
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UsersService } from '../users/users.service';
 import { EmailService } from '../email/email.service';
-import * as crypto from 'crypto';
+import { generateHexToken } from '../common/utils/token.util';
 
 @Injectable()
 export class OrganizationsService {
@@ -100,7 +100,7 @@ export class OrganizationsService {
       throw new ConflictException('User already has a pending invitation');
     }
 
-    const token = crypto.randomBytes(32).toString('hex');
+    const token = generateHexToken(64); // 64 hex chars for invite token
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 

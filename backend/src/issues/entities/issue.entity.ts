@@ -72,6 +72,10 @@ export enum IssueType {
 })
 // Composite index for Kanban board queries: WHERE projectId=? AND isArchived=false ORDER BY backlogOrder
 @Index('IDX_issue_project_board', ['projectId', 'isArchived', 'backlogOrder'])
+// Relational status index: WHERE statusId=? (single column)
+@Index('IDX_issue_status_id', ['statusId'])
+// Composite for Kanban column filtering: WHERE projectId=? AND statusId=?
+@Index('IDX_issue_project_statusid', ['projectId', 'statusId'])
 // @Index('IDX_issue_title_search', ['title'], { synchronize: false }) - GIN index manually managed
 // @Index('IDX_issue_description_search', ['description'], { synchronize: false }) - GIN index manually managed
 export class Issue {

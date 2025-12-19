@@ -5,7 +5,8 @@ import { Webhook } from './entities/webhook.entity';
 import { WebhookLog } from './entities/webhook-log.entity';
 import { CreateWebhookDto } from './dto/create-webhook.dto';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
-import * as crypto from 'crypto';
+import * as crypto from 'crypto'; // Keep for HMAC signing
+import { generateHexToken } from '../common/utils/token.util';
 
 @Injectable()
 export class WebhooksService {
@@ -21,8 +22,8 @@ export class WebhooksService {
    * Create a new webhook subscription
    */
   async create(projectId: string, dto: CreateWebhookDto): Promise<Webhook> {
-    // Generate a random secret for HMAC signing
-    const secret = crypto.randomBytes(32).toString('hex');
+    // Generate a random secret for HMAC signing using centralized utility
+    const secret = generateHexToken(64);
 
     const webhook = this.webhookRepo.create({
       url: dto.url,

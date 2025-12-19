@@ -382,11 +382,11 @@ export class ReportsService {
     );
 
     const result = {
-      type: typeBreakdown,
-      priority: priorityBreakdown,
-      status: statusBreakdown,
-      assignee: assigneeBreakdown,
-      total: totalCount,
+      typeBreakdown, // FIX: Renamed from 'type' to match frontend interface
+      priorityBreakdown, // FIX: Renamed from 'priority'
+      statusBreakdown, // FIX: Renamed from 'status'
+      assigneeBreakdown, // FIX: Renamed from 'assignee'
+      totalIssues: totalCount, // FIX: Renamed from 'total'
     };
 
     await this.cacheService.set(cacheKey, result, { ttl: 300 });

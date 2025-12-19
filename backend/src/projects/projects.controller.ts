@@ -31,7 +31,7 @@ export class ProjectsController {
     private readonly projectsService: ProjectsService,
     private readonly usersService: UsersService,
     private readonly statusesService: WorkflowStatusesService,
-  ) { }
+  ) {}
 
   /**
    * Create a new project (auto-scoped to user's organization)

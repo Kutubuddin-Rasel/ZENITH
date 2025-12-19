@@ -29,6 +29,7 @@ import { BoardType } from '../boards/entities/board.entity';
 import { SmartDefaultsService } from '../user-preferences/services/smart-defaults.service';
 // TENANT ISOLATION: Import tenant repository factory
 import { TenantRepositoryFactory, TenantRepository } from '../core/tenant';
+import { EventFactory } from '../common/events/event.factory';
 
 @Injectable()
 export class SprintsService implements OnModuleInit {
@@ -99,13 +100,14 @@ export class SprintsService implements OnModuleInit {
       }
     }
 
-    this.eventEmitter.emit('sprint.event', {
+    const sprintPayload = EventFactory.createSprintEvent({
       projectId,
-      issueId: null,
-      action: `created sprint ${saved.name} `,
+      sprintId: saved.id,
       actorId: userId,
+      action: `created sprint ${saved.name}`,
       sprintName: saved.name,
     });
+    this.eventEmitter.emit('sprint.event', sprintPayload);
 
     return saved;
   }
@@ -198,13 +200,14 @@ export class SprintsService implements OnModuleInit {
       }
     }
 
-    this.eventEmitter.emit('sprint.event', {
+    const updatePayload = EventFactory.createSprintEvent({
       projectId,
-      issueId: null,
-      action: `updated sprint ${updated.name} `,
+      sprintId: updated.id,
       actorId: userId,
+      action: `updated sprint ${updated.name}`,
       sprintName: updated.name,
     });
+    this.eventEmitter.emit('sprint.event', updatePayload);
 
     return updated;
   }
@@ -255,13 +258,14 @@ export class SprintsService implements OnModuleInit {
     sprint.status = SprintStatus.COMPLETED;
     const archived = await this.sprintRepo.save(sprint);
 
-    this.eventEmitter.emit('sprint.event', {
+    const archivePayload = EventFactory.createSprintEvent({
       projectId,
-      issueId: null,
-      action: `archived sprint ${archived.name} `,
+      sprintId: archived.id,
       actorId: userId,
+      action: `archived sprint ${archived.name}`,
       sprintName: archived.name,
     });
+    this.eventEmitter.emit('sprint.event', archivePayload);
 
     // Track behavior: Sprint Completion
     const completedIssuesCount =
@@ -298,13 +302,14 @@ export class SprintsService implements OnModuleInit {
     }
     await this.sprintRepo.remove(sprint);
 
-    this.eventEmitter.emit('sprint.event', {
+    const deletePayload = EventFactory.createSprintEvent({
       projectId,
-      issueId: null,
-      action: `deleted sprint ${sprint.name} `,
+      sprintId: sprint.id,
       actorId: userId,
+      action: `deleted sprint ${sprint.name}`,
       sprintName: sprint.name,
     });
+    this.eventEmitter.emit('sprint.event', deletePayload);
   }
 
   /** Add an existing issue to sprint */
@@ -328,13 +333,15 @@ export class SprintsService implements OnModuleInit {
     });
     const saved = await this.siRepo.save(si);
 
-    this.eventEmitter.emit('sprint.event', {
+    const addIssuePayload = EventFactory.createSprintEvent({
       projectId,
-      issueId: dto.issueId,
-      action: `added issue to sprint ${sprint.name} `,
+      sprintId: sprint.id,
       actorId: userId,
+      action: `added issue to sprint ${sprint.name}`,
       sprintName: sprint.name,
+      issueId: dto.issueId,
     });
+    this.eventEmitter.emit('sprint.event', addIssuePayload);
 
     return saved;
   }
@@ -358,13 +365,15 @@ export class SprintsService implements OnModuleInit {
     if (!si) throw new NotFoundException('Issue not in sprint');
     await this.siRepo.remove(si);
 
-    this.eventEmitter.emit('sprint.event', {
+    const removeIssuePayload = EventFactory.createSprintEvent({
       projectId,
-      issueId: dto.issueId,
-      action: `removed issue from sprint ${sprint.name} `,
+      sprintId: sprint.id,
       actorId: userId,
+      action: `removed issue from sprint ${sprint.name}`,
       sprintName: sprint.name,
+      issueId: dto.issueId,
     });
+    this.eventEmitter.emit('sprint.event', removeIssuePayload);
   }
 
   async getSprintIssues(
@@ -415,13 +424,14 @@ export class SprintsService implements OnModuleInit {
       console.warn('Failed to create board for sprint:', error);
     }
 
-    this.eventEmitter.emit('sprint.event', {
+    const startPayload = EventFactory.createSprintEvent({
       projectId,
-      issueId: null,
-      action: `started sprint ${started.name} `,
+      sprintId: started.id,
       actorId: userId,
+      action: `started sprint ${started.name}`,
       sprintName: started.name,
     });
+    this.eventEmitter.emit('sprint.event', startPayload);
     // CAPTURE SNAPSHOT: Sprint Activated
     await this.captureSnapshot(sprintId);
 

@@ -27,7 +27,7 @@ export class BoardsController {
   constructor(
     private svc: BoardsService,
     private readonly usersService: UsersService,
-  ) { }
+  ) {}
 
   /**
    * Helper: Get user's organization ID
@@ -200,7 +200,6 @@ export class BoardsController {
     );
     return { message: 'Issue moved' };
   }
-
 
   /** Reorder issues within a column (drag-and-drop) */
   @RequirePermission('boards:update')

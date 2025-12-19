@@ -8,7 +8,6 @@ import {
   ClipboardIcon,
   Squares2X2Icon,
   TagIcon,
-  ChartBarIcon,
   Cog6ToothIcon,
   ExclamationCircleIcon,
   PaperClipIcon,
@@ -76,16 +75,10 @@ const sidebarItems = [
     roles: ['Super-Admin', 'ProjectLead', 'Developer', 'QA', 'Viewer']
   },
   {
-    name: 'Reports',
-    href: 'reports',
-    icon: ChartBarIcon,
-    roles: ['Super-Admin', 'ProjectLead'] // Only Super-Admin & ProjectLead
-  },
-  {
-    name: 'Analytics',
-    href: 'analytics',
+    name: 'Insights',
+    href: 'insights',
     icon: PresentationChartLineIcon,
-    roles: ['Super-Admin', 'ProjectLead', 'Developer']
+    roles: ['Super-Admin', 'ProjectLead', 'Developer'] // Combined access from both modules
   },
   {
     name: 'Team',

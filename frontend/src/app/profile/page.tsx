@@ -1,14 +1,19 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
 import Input from "../../components/Input";
+import Spinner from "../../components/Spinner";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
-import { UserIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon, ShieldCheckIcon, BellIcon, BriefcaseIcon } from "@heroicons/react/24/outline";
+import { UserIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon, ShieldCheckIcon, BellIcon, BriefcaseIcon, CameraIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
+import Image from "next/image";
 import { useToast } from '@/context/ToastContext';
 import { apiFetch } from '@/lib/fetcher';
+import { useUpdateProfile } from '@/hooks/useProfile';
+import { useUploadAvatar } from '@/hooks/useApiKeys';
+import DeleteAccountZone from '@/components/settings/DeleteAccountZone';
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
@@ -27,15 +32,43 @@ export default function ProfilePage() {
   });
   const [pwError, setPwError] = useState<string | null>(null);
   const [pwSuccess, setPwSuccess] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const { mutate: uploadAvatar, isPending: isUploadingAvatar } = useUploadAvatar();
 
   const handleLogout = () => {
     logout();
     router.push('/auth/login');
   };
 
-  const handleSave = () => {
-    // TODO: Implement profile update functionality
-    setIsEditing(false);
+  const { mutate: updateProfile, isPending: profileLoading } = useUpdateProfile(user?.id);
+
+  // Sync form data when user changes
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || '',
+      });
+    }
+  }, [user]);
+
+  const handleSave = async () => {
+    if (!formData.name.trim()) {
+      showToast('Name is required', 'error');
+      return;
+    }
+    updateProfile(
+      { name: formData.name },
+      {
+        onSuccess: () => {
+          showToast('Profile updated successfully!', 'success');
+          setIsEditing(false);
+        },
+        onError: (err) => {
+          showToast(err instanceof Error ? err.message : 'Failed to update profile', 'error');
+        },
+      }
+    );
   };
 
   async function handleChangePassword(e: React.FormEvent) {
@@ -94,9 +127,9 @@ export default function ProfilePage() {
               <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
                 Personal Information
               </h2>
-              <Button 
-                size="sm" 
-                variant="secondary" 
+              <Button
+                size="sm"
+                variant="secondary"
                 onClick={() => setIsEditing(!isEditing)}
                 className="flex items-center gap-2"
               >
@@ -106,14 +139,54 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-6 mb-8">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                {user?.name ? (
-                  <span className="text-white font-bold text-2xl">
-                    {user.name.charAt(0).toUpperCase()}
-                  </span>
-                ) : (
-                  <UserIcon className="h-10 w-10 text-white" />
-                )}
+              <div className="relative group">
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
+                  {user?.avatarUrl ? (
+                    <Image
+                      src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${user.avatarUrl}`}
+                      alt="Avatar"
+                      fill
+                      className="object-cover"
+                    />
+                  ) : user?.name ? (
+                    <span className="text-white font-bold text-2xl">
+                      {user.name.charAt(0).toUpperCase()}
+                    </span>
+                  ) : (
+                    <UserIcon className="h-10 w-10 text-white" />
+                  )}
+                </div>
+                {/* Edit overlay */}
+                <button
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={isUploadingAvatar}
+                  className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                >
+                  {isUploadingAvatar ? (
+                    <Spinner className="h-6 w-6 text-white" />
+                  ) : (
+                    <CameraIcon className="h-6 w-6 text-white" />
+                  )}
+                </button>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 5 * 1024 * 1024) {
+                        showToast('File size must be less than 5MB', 'error');
+                        return;
+                      }
+                      uploadAvatar(file, {
+                        onSuccess: () => showToast('Avatar updated!', 'success'),
+                        onError: (err) => showToast(err instanceof Error ? err.message : 'Failed to upload', 'error'),
+                      });
+                    }
+                  }}
+                />
               </div>
               <div className="flex-1">
                 <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
@@ -142,15 +215,21 @@ export default function ProfilePage() {
                 <Input
                   label="Email Address"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="Enter your email"
                   type="email"
+                  disabled
+                  className="opacity-60 cursor-not-allowed"
                 />
+                <p className="text-xs text-gray-500">Email changes require verification and are not supported yet.</p>
                 <div className="flex gap-3 pt-4">
-                  <Button onClick={handleSave} className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white">
+                  <Button
+                    onClick={handleSave}
+                    loading={profileLoading}
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                  >
                     Save Changes
                   </Button>
-                  <Button variant="secondary" onClick={() => setIsEditing(false)}>
+                  <Button variant="secondary" onClick={() => setIsEditing(false)} disabled={profileLoading}>
                     Cancel
                   </Button>
                 </div>
@@ -243,8 +322,8 @@ export default function ProfilePage() {
               Account
             </h3>
             <div className="space-y-3">
-              <Button 
-                variant="secondary" 
+              <Button
+                variant="secondary"
                 className="w-full justify-start text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                 onClick={handleLogout}
               >
@@ -269,7 +348,10 @@ export default function ProfilePage() {
                 <span className="text-green-600 dark:text-green-400 font-medium">Active</span>
               </div>
             </div>
-      </Card>
+          </Card>
+
+          {/* Danger Zone - Delete Account */}
+          <DeleteAccountZone />
         </div>
       </div>
     </div>

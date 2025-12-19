@@ -5,6 +5,9 @@ export interface CycleTimeData {
     averageDays: number;
     totalIssues: number;
     trend: 'up' | 'down' | 'flat';
+    p50Days?: number;
+    p85Days?: number;
+    p95Days?: number;
     data: {
         issueId: string;
         issueTitle: string;

@@ -272,4 +272,20 @@ export class UsersService {
     await this.userRepo.save(user);
     return { success: true };
   }
+
+  /** Delete a user's account (soft-delete: deactivate and anonymize) */
+  async deleteAccount(id: string): Promise<{ success: boolean }> {
+    const user = await this.findOneById(id);
+
+    // Soft-delete: deactivate and anonymize user data for GDPR compliance
+    user.isActive = false;
+    user.name = 'Deleted User';
+    user.email = `deleted-${user.id}@deleted.local`;
+    user.avatarUrl = undefined;
+    user.hashedRefreshToken = undefined;
+    user.passwordHash = ''; // Invalidate password
+
+    await this.userRepo.save(user);
+    return { success: true };
+  }
 }
