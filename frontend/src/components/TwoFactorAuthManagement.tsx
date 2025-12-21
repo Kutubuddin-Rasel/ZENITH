@@ -65,8 +65,8 @@ export default function TwoFactorAuthManagement() {
     return (
       <Card className="p-6">
         <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-4"></div>
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+          <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-1/4 mb-4"></div>
+          <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-1/2"></div>
         </div>
       </Card>
     );
@@ -88,7 +88,7 @@ export default function TwoFactorAuthManagement() {
           </div>
         </div>
 
-        <Typography variant="body" className="text-gray-600 dark:text-gray-400 mb-6">
+        <Typography variant="body" className="text-neutral-600 dark:text-neutral-400 mb-6">
           Two-factor authentication adds an extra layer of security to your account by requiring a verification code from your mobile device.
         </Typography>
 
@@ -135,7 +135,7 @@ export default function TwoFactorAuthManagement() {
                   </Typography>
                   <div className="grid grid-cols-2 gap-2 font-mono text-sm">
                     {backupCodes.map((code, index) => (
-                      <div key={index} className="bg-white dark:bg-gray-800 p-2 rounded text-center border">
+                      <div key={index} className="bg-white dark:bg-neutral-800 p-2 rounded text-center border">
                         {code}
                       </div>
                     ))}
@@ -162,7 +162,7 @@ export default function TwoFactorAuthManagement() {
               <Typography variant="h3" className="mb-2">
                 Disable Two-Factor Authentication?
               </Typography>
-              <Typography variant="body" className="text-gray-600 dark:text-gray-400 mb-6">
+              <Typography variant="body" className="text-neutral-600 dark:text-neutral-400 mb-6">
                 This will make your account less secure. Are you sure you want to continue?
               </Typography>
               <div className="flex space-x-3">

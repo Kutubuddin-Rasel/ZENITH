@@ -25,12 +25,14 @@ import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from './users.service';
+import { UserSecuritySettingsService } from './user-security-settings.service';
 import { User } from './entities/user.entity';
 import {
   CreateUserDto,
   UpdateUserDto,
   ChangePasswordDto,
 } from './dto/create-user.dto';
+import { UpdateUserSecuritySettingsDto } from './dto/user-security-settings.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import { AuthenticatedRequest } from 'src/common/types/authenticated-request.interface';
@@ -50,8 +52,9 @@ export class SuperAdminGuard implements CanActivate {
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
+    private readonly userSecuritySettingsService: UserSecuritySettingsService,
     private readonly projectMembersService: ProjectMembersService,
-  ) {}
+  ) { }
 
   // GET /users (scoped to current user's organization)
   @UseGuards(JwtAuthGuard, SuperAdminGuard)
@@ -95,6 +98,25 @@ export class UsersController {
     return this.projectMembersService.listMembershipsForUser(
       (req.user as { userId: string }).userId,
     );
+  }
+
+  // ============ USER SECURITY SETTINGS ============
+
+  // GET /users/me/security-settings - Get current user's security preferences
+  @UseGuards(JwtAuthGuard)
+  @Get('me/security-settings')
+  async getSecuritySettings(@Request() req: AuthenticatedRequest) {
+    return this.userSecuritySettingsService.getOrCreate(req.user.userId);
+  }
+
+  // PATCH /users/me/security-settings - Update current user's security preferences
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/security-settings')
+  async updateSecuritySettings(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: UpdateUserSecuritySettingsDto,
+  ) {
+    return this.userSecuritySettingsService.update(req.user.userId, dto);
   }
 
   // GET /users/available (scoped to current user's organization)

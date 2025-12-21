@@ -36,9 +36,9 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
       case 'error':
         return <XCircleIcon className="h-5 w-5 text-red-500" />;
       case 'disconnected':
-        return <XCircleIcon className="h-5 w-5 text-gray-400" />;
+        return <XCircleIcon className="h-5 w-5 text-neutral-400" />;
       default:
-        return <ClockIcon className="h-5 w-5 text-gray-400" />;
+        return <ClockIcon className="h-5 w-5 text-neutral-400" />;
     }
   };
 
@@ -66,9 +66,9 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
       case 'error':
         return 'text-red-600 bg-red-100';
       case 'disconnected':
-        return 'text-gray-600 bg-gray-100';
+        return 'text-neutral-600 bg-neutral-100';
       default:
-        return 'text-gray-600 bg-gray-100';
+        return 'text-neutral-600 bg-neutral-100';
     }
   };
 
@@ -101,12 +101,12 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
     <Card className="p-6 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center">
             <span className="text-xl">{getIntegrationIcon(integration.type)}</span>
           </div>
           <div>
-            <h3 className="text-lg font-medium text-gray-900">{integration.name}</h3>
-            <p className="text-sm text-gray-500 capitalize">{integration.type.replace('_', ' ')}</p>
+            <h3 className="text-lg font-medium text-neutral-900">{integration.name}</h3>
+            <p className="text-sm text-neutral-500 capitalize">{integration.type.replace('_', ' ')}</p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -120,13 +120,13 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
       {/* Status Information */}
       <div className="space-y-2 mb-4">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-500">Last Sync:</span>
-          <span className="text-gray-900">{formatLastSync(integration.lastSyncAt)}</span>
+          <span className="text-neutral-500">Last Sync:</span>
+          <span className="text-neutral-900">{formatLastSync(integration.lastSyncAt)}</span>
         </div>
         
         {integration.lastErrorAt && (
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Last Error:</span>
+            <span className="text-neutral-500">Last Error:</span>
             <span className="text-red-600">{formatLastSync(integration.lastErrorAt)}</span>
           </div>
         )}
@@ -142,8 +142,8 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
       <div className="space-y-2 mb-4">
         {integration.config.syncSettings && (
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Sync Frequency:</span>
-            <span className="text-gray-900 capitalize">
+            <span className="text-neutral-500">Sync Frequency:</span>
+            <span className="text-neutral-900 capitalize">
               {integration.config.syncSettings.frequency}
             </span>
           </div>
@@ -151,15 +151,15 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
 
         {integration.config.channels && integration.config.channels.length > 0 && (
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Channels:</span>
-            <span className="text-gray-900">{integration.config.channels.length}</span>
+            <span className="text-neutral-500">Channels:</span>
+            <span className="text-neutral-900">{integration.config.channels.length}</span>
           </div>
         )}
 
         {integration.config.repositories && integration.config.repositories.length > 0 && (
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Repositories:</span>
-            <span className="text-gray-900">{integration.config.repositories.length}</span>
+            <span className="text-neutral-500">Repositories:</span>
+            <span className="text-neutral-900">{integration.config.repositories.length}</span>
           </div>
         )}
       </div>

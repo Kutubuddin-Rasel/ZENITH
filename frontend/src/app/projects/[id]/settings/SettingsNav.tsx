@@ -30,7 +30,7 @@ export default function SettingsNav({ projectId, navItems }: SettingsNavProps) {
             className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors
               ${isActive
                 ? 'bg-accent-blue text-white'
-                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800'
+                : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800'
               }`}
           >
             <Icon className="h-5 w-5" />

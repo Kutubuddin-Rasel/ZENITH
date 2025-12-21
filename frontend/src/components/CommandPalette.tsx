@@ -72,7 +72,7 @@ export default function CommandPalette({ open, onClose, items, loading }: Comman
         {loading ? (
           <div className="flex justify-center py-8"><Spinner className="h-6 w-6" /></div>
         ) : filtered.length === 0 ? (
-          <div className="text-gray-400 text-center py-8">No results.</div>
+          <div className="text-neutral-400 text-center py-8">No results.</div>
         ) : (
           <ul>
             {filtered.map((item, i) => (
@@ -84,12 +84,12 @@ export default function CommandPalette({ open, onClose, items, loading }: Comman
               >
                 {item.icon && <span>{item.icon}</span>}
                 <span className="font-medium">{item.label}</span>
-                {item.description && <span className="text-xs text-gray-500 ml-2">{item.description}</span>}
+                {item.description && <span className="text-xs text-neutral-500 ml-2">{item.description}</span>}
               </li>
             ))}
           </ul>
         )}
-        <div className="mt-3 text-xs text-gray-400 text-center">Use <kbd>↑</kbd>/<kbd>↓</kbd> to navigate, <kbd>Enter</kbd> to select, <kbd>Esc</kbd> to close.</div>
+        <div className="mt-3 text-xs text-neutral-400 text-center">Use <kbd>↑</kbd>/<kbd>↓</kbd> to navigate, <kbd>Enter</kbd> to select, <kbd>Esc</kbd> to close.</div>
       </div>
     </Modal>
   );

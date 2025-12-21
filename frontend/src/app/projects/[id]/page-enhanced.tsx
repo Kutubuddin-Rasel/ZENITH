@@ -101,7 +101,7 @@ export default function ProjectDashboard() {
   const statusColors: Record<string, string> = {
     Done: '#10b981', // emerald-500
     InProgress: '#f59e0b', // amber-500
-    Todo: '#6b7280', // gray-500
+    Todo: '#6b7280', // neutral-500
     Backlog: '#3b82f6', // blue-500
     Blocked: '#ef4444', // red-500
     Review: '#8b5cf6', // violet-500
@@ -162,13 +162,13 @@ export default function ProjectDashboard() {
   return (
     <div className="space-y-8">
       {/* Enhanced Hero Section */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-white/90 via-blue-50/60 to-purple-50/80 dark:from-gray-900/90 dark:via-blue-950/40 dark:to-purple-950/60 rounded-3xl shadow-2xl border border-white/20 dark:border-gray-800/50 p-8">
+      <div className="relative overflow-hidden bg-gradient-to-br from-white/90 via-blue-50/60 to-purple-50/80 dark:from-neutral-900/90 dark:via-blue-950/40 dark:to-purple-950/60 rounded-3xl shadow-2xl border border-white/20 dark:border-neutral-800/50 p-8">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5" />
         <div className="relative z-10">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
             <div className="flex items-center gap-8">
               <div className="relative">
-                <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-2xl ring-4 ring-white/50 dark:ring-gray-700/50 animate-scale-in">
+                <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-2xl ring-4 ring-white/50 dark:ring-neutral-700/50 animate-scale-in">
                   <span className="text-white font-black text-5xl select-none">
                     {project.name?.charAt(0).toUpperCase() || '?'}
                   </span>
@@ -180,17 +180,17 @@ export default function ProjectDashboard() {
 
               <div className="space-y-3">
                 <div className="flex items-center gap-4">
-                  <h1 className="text-5xl font-black bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-white dark:via-gray-100 dark:to-white bg-clip-text text-transparent leading-tight tracking-tight">
+                  <h1 className="text-5xl font-black bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900 dark:from-white dark:via-neutral-100 dark:to-white bg-clip-text text-transparent leading-tight tracking-tight">
                     {project.name}
                   </h1>
                   <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                     [{project.key}]
                   </span>
                 </div>
-                <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl leading-relaxed">
+                <p className="text-xl text-neutral-600 dark:text-neutral-400 max-w-2xl leading-relaxed">
                   {project.description || "No description provided"}
                 </p>
-                <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400">
+                <div className="flex items-center gap-6 text-sm text-neutral-500 dark:text-neutral-400">
                   <span className="flex items-center gap-2">
                     <UsersIcon className="h-4 w-4" />
                     {totalMembers} Team Members
@@ -209,17 +209,17 @@ export default function ProjectDashboard() {
 
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-4 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-white/20 dark:border-gray-700/50">
+                <div className="text-center p-4 bg-white/50 dark:bg-neutral-800/50 backdrop-blur-sm rounded-2xl border border-white/20 dark:border-neutral-700/50">
                   <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                     {totalIssues}
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Total Issues</div>
+                  <div className="text-sm text-neutral-500 dark:text-neutral-400">Total Issues</div>
                 </div>
-                <div className="text-center p-4 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-white/20 dark:border-gray-700/50">
+                <div className="text-center p-4 bg-white/50 dark:bg-neutral-800/50 backdrop-blur-sm rounded-2xl border border-white/20 dark:border-neutral-700/50">
                   <div className="text-3xl font-bold bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent">
                     {doneIssues}
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Completed</div>
+                  <div className="text-sm text-neutral-500 dark:text-neutral-400">Completed</div>
                 </div>
               </div>
             </div>
@@ -255,20 +255,20 @@ export default function ProjectDashboard() {
             label: 'Active Sprint',
             value: activeSprint ? 'Active' : 'None',
             icon: <RocketLaunchSolid className="h-6 w-6" />,
-            color: activeSprint ? 'from-orange-500 to-red-600' : 'from-gray-500 to-gray-600',
-            bgColor: activeSprint ? 'from-orange-100 to-red-200 dark:from-orange-900/30 dark:to-red-800/30' : 'from-gray-100 to-gray-200 dark:from-gray-900/30 dark:to-gray-800/30'
+            color: activeSprint ? 'from-orange-500 to-red-600' : 'from-neutral-500 to-neutral-600',
+            bgColor: activeSprint ? 'from-orange-100 to-red-200 dark:from-orange-900/30 dark:to-red-800/30' : 'from-neutral-100 to-neutral-200 dark:from-neutral-900/30 dark:to-neutral-800/30'
           },
         ].map((stat, i) => (
           <div
             key={stat.label}
-            className="group bg-gradient-to-r from-white/80 via-white/60 to-white/80 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/50 p-6 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 relative overflow-hidden animate-fade-in-up"
+            className="group bg-gradient-to-r from-white/80 via-white/60 to-white/80 dark:from-neutral-800/80 dark:via-neutral-700/60 dark:to-neutral-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-neutral-700/50 p-6 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 relative overflow-hidden animate-fade-in-up"
             style={{ animationDelay: `${i * 100}ms` }}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-blue-50/20 via-purple-50/10 to-blue-50/20 dark:from-blue-950/10 dark:via-purple-950/5 dark:to-blue-950/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
             <div className="relative z-10 flex items-center gap-4">
               <div className={`p-4 rounded-2xl bg-gradient-to-br ${stat.bgColor} shadow-lg`}>
-                <div className={`text-white ${stat.color.includes('gray') ? 'text-gray-600' : ''}`}>
+                <div className={`text-white ${stat.color.includes('gray') ? 'text-neutral-600' : ''}`}>
                   {stat.icon}
                 </div>
               </div>
@@ -276,7 +276,7 @@ export default function ProjectDashboard() {
                 <div className={`text-3xl font-black bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}>
                   {stat.value}
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 font-semibold mt-1">
+                <div className="text-sm text-neutral-500 dark:text-neutral-400 font-semibold mt-1">
                   {stat.label}
                 </div>
               </div>
@@ -288,9 +288,9 @@ export default function ProjectDashboard() {
       {/* Enhanced Issue Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Donut Chart */}
-        <div className="bg-gradient-to-r from-white/80 via-white/60 to-white/80 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/50 p-8 animate-fade-in-up">
+        <div className="bg-gradient-to-r from-white/80 via-white/60 to-white/80 dark:from-neutral-800/80 dark:via-neutral-700/60 dark:to-neutral-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-neutral-700/50 p-8 animate-fade-in-up">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+            <h3 className="text-2xl font-bold bg-gradient-to-r from-neutral-900 to-neutral-700 dark:from-white dark:to-neutral-300 bg-clip-text text-transparent">
               Issue Breakdown
             </h3>
             <ChartBarIcon className="h-8 w-8 text-blue-500" />
@@ -298,8 +298,8 @@ export default function ProjectDashboard() {
 
           {donutData.length === 0 ? (
             <div className="text-center py-12">
-              <BriefcaseIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">No issues to display</p>
+              <BriefcaseIcon className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
+              <p className="text-neutral-500 dark:text-neutral-400">No issues to display</p>
             </div>
           ) : (
             <div className="flex flex-col items-center">
@@ -358,9 +358,9 @@ export default function ProjectDashboard() {
         </div>
 
         {/* Progress Bar */}
-        <div className="bg-gradient-to-r from-white/80 via-white/60 to-white/80 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/50 p-8 animate-fade-in-up">
+        <div className="bg-gradient-to-r from-white/80 via-white/60 to-white/80 dark:from-neutral-800/80 dark:via-neutral-700/60 dark:to-neutral-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-neutral-700/50 p-8 animate-fade-in-up">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+            <h3 className="text-2xl font-bold bg-gradient-to-r from-neutral-900 to-neutral-700 dark:from-white dark:to-neutral-300 bg-clip-text text-transparent">
               Progress Overview
             </h3>
             <ArrowTrendingUpIcon className="h-8 w-8 text-green-500" />
@@ -369,12 +369,12 @@ export default function ProjectDashboard() {
           <div className="space-y-6">
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-lg font-semibold text-gray-700 dark:text-gray-300">Overall Progress</span>
+                <span className="text-lg font-semibold text-neutral-700 dark:text-neutral-300">Overall Progress</span>
                 <span className="text-2xl font-bold bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent">
                   {percentDone}%
                 </span>
               </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden shadow-inner">
+              <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-4 overflow-hidden shadow-inner">
                 <div
                   className="h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-1000 ease-out shadow-lg"
                   style={{ width: `${percentDone}%` }}
@@ -383,18 +383,18 @@ export default function ProjectDashboard() {
             </div>
 
             <div className="space-y-3">
-              <h4 className="font-semibold text-gray-700 dark:text-gray-300">Status Breakdown</h4>
+              <h4 className="font-semibold text-neutral-700 dark:text-neutral-300">Status Breakdown</h4>
               <div className="space-y-2">
                 {Object.entries(statusCounts).map(([status, count]) => (
-                  <div key={status} className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-700/50 rounded-xl border border-white/20 dark:border-gray-600/50">
+                  <div key={status} className="flex items-center justify-between p-3 bg-white/50 dark:bg-neutral-700/50 rounded-xl border border-white/20 dark:border-neutral-600/50">
                     <div className="flex items-center gap-3">
                       <div
                         className="w-4 h-4 rounded-full"
                         style={{ backgroundColor: statusColors[status] || '#6b7280' }}
                       />
-                      <span className="font-medium text-gray-700 dark:text-gray-300">{status}</span>
+                      <span className="font-medium text-neutral-700 dark:text-neutral-300">{status}</span>
                     </div>
-                    <span className="font-bold text-gray-900 dark:text-white">{count}</span>
+                    <span className="font-bold text-neutral-900 dark:text-white">{count}</span>
                   </div>
                 ))}
               </div>
@@ -406,7 +406,7 @@ export default function ProjectDashboard() {
       {/* Enhanced Active Sprint Card */}
       <div className="animate-fade-in-up">
         {loadingActiveSprint ? (
-          <div className="bg-gradient-to-r from-white/80 via-white/60 to-white/80 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/50 p-8 flex items-center justify-center">
+          <div className="bg-gradient-to-r from-white/80 via-white/60 to-white/80 dark:from-neutral-800/80 dark:via-neutral-700/60 dark:to-neutral-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-neutral-700/50 p-8 flex items-center justify-center">
             <Spinner className="h-8 w-8" />
           </div>
         ) : errorActiveSprint ? (
@@ -481,7 +481,7 @@ export default function ProjectDashboard() {
             </div>
           </div>
         ) : (
-          <div className="bg-gradient-to-r from-gray-200 via-gray-300 to-gray-400 text-gray-700 shadow-2xl rounded-2xl p-8 animate-fade-in-up">
+          <div className="bg-gradient-to-r from-neutral-200 via-neutral-300 to-neutral-400 text-neutral-700 shadow-2xl rounded-2xl p-8 animate-fade-in-up">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
@@ -507,13 +507,13 @@ export default function ProjectDashboard() {
       {/* Enhanced Recent Activity Timeline */}
       <div className="animate-fade-in-up">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+          <h3 className="text-2xl font-bold bg-gradient-to-r from-neutral-900 to-neutral-700 dark:from-white dark:to-neutral-300 bg-clip-text text-transparent">
             Recent Activity
           </h3>
           <FireIcon className="h-8 w-8 text-orange-500" />
         </div>
 
-        <div className="bg-gradient-to-r from-white/80 via-white/60 to-white/80 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/50 overflow-hidden">
+        <div className="bg-gradient-to-r from-white/80 via-white/60 to-white/80 dark:from-neutral-800/80 dark:via-neutral-700/60 dark:to-neutral-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-neutral-700/50 overflow-hidden">
           {loadingActivity ? (
             <div className="p-8 text-center">
               <Spinner className="h-8 w-8 mx-auto" />
@@ -525,11 +525,11 @@ export default function ProjectDashboard() {
             </div>
           ) : (Array.isArray(activity) ? activity : []).length === 0 ? (
             <div className="p-8 text-center">
-              <ClockIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">No recent activity</p>
+              <ClockIcon className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
+              <p className="text-neutral-500 dark:text-neutral-400">No recent activity</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
               {(Array.isArray(activity) ? activity : []).map((rev, index) => {
                 let href = null;
                 if (rev.entityType === 'Issue') {
@@ -558,7 +558,7 @@ export default function ProjectDashboard() {
                         ) : rev.action === 'DELETE' ? (
                           <ArrowRightOnRectangleIcon className="h-6 w-6 text-red-500" />
                         ) : (
-                          <SparklesIcon className="h-6 w-6 text-gray-400" />
+                          <SparklesIcon className="h-6 w-6 text-neutral-400" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0 space-y-1">
@@ -570,14 +570,14 @@ export default function ProjectDashboard() {
                             {String(rev.entityType)}
                           </span>
                         </div>
-                        <div className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
+                        <div className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 truncate">
                           {String(
                             typeof rev.snapshot === 'object' && rev.snapshot !== null && 'title' in rev.snapshot ? rev.snapshot.title :
                               typeof rev.snapshot === 'object' && rev.snapshot !== null && 'name' in rev.snapshot ? rev.snapshot.name :
                                 rev.entityId || ''
                           )}
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                        <div className="flex items-center gap-4 text-sm text-neutral-500 dark:text-neutral-400">
                           <span className="flex items-center gap-1">
                             <UserIcon className="h-4 w-4" />
                             {String(rev.changedBy || '')}
@@ -590,7 +590,7 @@ export default function ProjectDashboard() {
                       </div>
                       {href && (
                         <div className="flex-shrink-0">
-                          <ArrowRightOnRectangleIcon className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-300" />
+                          <ArrowRightOnRectangleIcon className="h-5 w-5 text-neutral-400 group-hover:text-blue-500 transition-colors duration-300" />
                         </div>
                       )}
                     </div>

@@ -36,20 +36,20 @@ function groupReleases(releases: Release[] = []) {
 
 function ReleaseProgress({ projectId, releaseId }: { projectId: string; releaseId: string }) {
   const { issues, isLoading } = useReleaseIssues(projectId, releaseId);
-  if (isLoading) return <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full w-full animate-pulse" />;
+  if (isLoading) return <div className="h-2 bg-neutral-200 dark:bg-neutral-800 rounded-full w-full animate-pulse" />;
   const total = issues?.length || 0;
   const done = issues?.filter(i => i.status === 'Done').length || 0;
   const percent = total ? Math.round((done / total) * 100) : 0;
   return (
     <div className="mt-4">
-      <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
+      <div className="flex justify-between items-center text-xs text-neutral-500 dark:text-neutral-400 mb-1">
         <span>Progress</span>
         <span>{percent}%</span>
       </div>
-      <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+      <div className="h-2.5 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
         <div className="h-2.5 bg-green-500 rounded-full" style={{ width: `${percent}%` }} />
       </div>
-      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 text-right">{done} of {total} issues done</div>
+      <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1.5 text-right">{done} of {total} issues done</div>
     </div>
   );
 }
@@ -59,7 +59,7 @@ const ReleaseStatusBadge = ({ status }: { status: string }) => {
   const statusClasses = {
     upcoming: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
     released: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-    archived: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+    archived: "bg-neutral-100 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-300",
   };
   const classes = `${baseClasses} ${statusClasses[status as keyof typeof statusClasses] || statusClasses.archived}`;
   return <span className={classes}>{status}</span>;
@@ -145,9 +145,9 @@ export default function ReleasesPage() {
 
   const renderEmptyState = () => (
     <div className="text-center py-24">
-      <RocketLaunchIcon className="mx-auto h-20 w-20 text-gray-300 dark:text-gray-600" />
-      <h3 className="mt-4 text-2xl font-bold text-gray-800 dark:text-gray-200">Manage your product versions</h3>
-      <p className="mt-2 text-base text-gray-500 dark:text-gray-400">Group issues into releases to plan and track your product launches.</p>
+      <RocketLaunchIcon className="mx-auto h-20 w-20 text-neutral-300 dark:text-neutral-600" />
+      <h3 className="mt-4 text-2xl font-bold text-neutral-800 dark:text-neutral-200">Manage your product versions</h3>
+      <p className="mt-2 text-base text-neutral-500 dark:text-neutral-400">Group issues into releases to plan and track your product launches.</p>
       <div className="mt-8">
         <Button onClick={handleOpenCreateModal} size="lg">
           <PlusIcon className="h-5 w-5 mr-2" />
@@ -164,7 +164,7 @@ export default function ReleasesPage() {
           <div key={status}>
             <h3 className="text-xl font-bold mb-4 capitalize flex items-center gap-3">
               {status} Releases
-              <span className="text-sm font-normal bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2.5 py-1 rounded-full">{releaseList.length}</span>
+              <span className="text-sm font-normal bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 px-2.5 py-1 rounded-full">{releaseList.length}</span>
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {releaseList.map((release: Release) => (
@@ -177,8 +177,8 @@ export default function ReleasesPage() {
                       {release.name}
                     </div>
                     <Menu as="div" className="relative">
-                      <Menu.Button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
-                        <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
+                      <Menu.Button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800">
+                        <EllipsisVerticalIcon className="h-5 w-5 text-neutral-500" />
                       </Menu.Button>
                       <Transition
                         as={Fragment}
@@ -189,13 +189,13 @@ export default function ReleasesPage() {
                         leaveFrom="transform opacity-100 scale-100"
                         leaveTo="transform opacity-0 scale-95"
                       >
-                        <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                        <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right bg-white dark:bg-neutral-900 divide-y divide-neutral-100 dark:divide-neutral-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
                           <div className="px-1 py-1">
                             <Menu.Item>
                               {({ active }) => (
                                 <button
                                   onClick={() => handleOpenEditModal(release)}
-                                  className={`${active ? 'bg-gray-100 dark:bg-gray-800' : ''} group flex w-full items-center rounded-md px-2 py-2 text-sm text-gray-900 dark:text-gray-200`}>
+                                  className={`${active ? 'bg-neutral-100 dark:bg-neutral-800' : ''} group flex w-full items-center rounded-md px-2 py-2 text-sm text-neutral-900 dark:text-neutral-200`}>
                                   <PencilIcon className="mr-2 h-4 w-4" /> Edit
                                 </button>
                               )}
@@ -204,7 +204,7 @@ export default function ReleasesPage() {
                               {({ active }) => (
                                 <button
                                   onClick={() => setReleaseToArchive(release)}
-                                  className={`${active ? 'bg-red-500 text-white' : 'text-gray-900 dark:text-gray-200'} group flex w-full items-center rounded-md px-2 py-2 text-sm`}>
+                                  className={`${active ? 'bg-red-500 text-white' : 'text-neutral-900 dark:text-neutral-200'} group flex w-full items-center rounded-md px-2 py-2 text-sm`}>
                                   <ArchiveBoxIcon className="mr-2 h-4 w-4" /> Archive
                                 </button>
                               )}
@@ -216,9 +216,9 @@ export default function ReleasesPage() {
                   </div>
                   <ReleaseStatusBadge status={release.status} />
 
-                  {release.description && <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">{release.description}</div>}
+                  {release.description && <div className="text-sm text-neutral-500 dark:text-neutral-400 mt-2">{release.description}</div>}
                   <div className="flex-grow" />
-                  <div className="flex gap-4 text-sm text-gray-500 dark:text-gray-400 mt-3">
+                  <div className="flex gap-4 text-sm text-neutral-500 dark:text-neutral-400 mt-3">
                     {release.releaseDate && <span><strong>Release:</strong> {new Date(release.releaseDate).toLocaleDateString()}</span>}
                   </div>
                   <ReleaseProgress projectId={projectId} releaseId={release.id} />
@@ -264,7 +264,7 @@ export default function ReleasesPage() {
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-2">
                 <SparklesIcon className="h-4 w-4 text-yellow-500" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Version Suggestion</span>
+                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Version Suggestion</span>
                 {loadingSuggestion && <Spinner className="h-4 w-4" />}
               </div>
               <div className="flex gap-2">
@@ -291,7 +291,7 @@ export default function ReleasesPage() {
                 </button>
               </div>
               {versionSuggestion?.current && (
-                <p className="text-xs text-gray-500 mt-1">Current: {versionSuggestion.current}</p>
+                <p className="text-xs text-neutral-500 mt-1">Current: {versionSuggestion.current}</p>
               )}
             </div>
           )}

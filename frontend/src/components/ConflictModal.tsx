@@ -57,10 +57,10 @@ const ConflictModal: React.FC<ConflictModalProps> = ({
                         <ExclamationCircleIcon className="h-6 w-6 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                     </div>
                     <div className="flex-1">
-                        <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        <h4 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
                             This {resourceName} was modified by someone else
                         </h4>
-                        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                        <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
                             {conflict?.message || `Another user has made changes to this ${resourceName} while you were editing. 
               Your changes cannot be saved without potentially losing their updates.`}
                         </p>
@@ -69,19 +69,19 @@ const ConflictModal: React.FC<ConflictModalProps> = ({
 
                 {/* Version Info */}
                 {conflict && (
-                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-2 border border-gray-200 dark:border-gray-700">
+                    <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-xl p-4 space-y-2 border border-neutral-200 dark:border-neutral-700">
                         <div className="flex justify-between text-sm">
-                            <span className="text-gray-500 dark:text-gray-400">Your version:</span>
-                            <span className="font-mono text-gray-700 dark:text-gray-300">v{conflict.yourVersion}</span>
+                            <span className="text-neutral-500 dark:text-neutral-400">Your version:</span>
+                            <span className="font-mono text-neutral-700 dark:text-neutral-300">v{conflict.yourVersion}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                            <span className="text-gray-500 dark:text-gray-400">Current version:</span>
+                            <span className="text-neutral-500 dark:text-neutral-400">Current version:</span>
                             <span className="font-mono text-green-600 dark:text-green-400 font-semibold">v{conflict.currentVersion}</span>
                         </div>
                         {conflict.lastUpdated && (
-                            <div className="flex justify-between text-sm pt-2 border-t border-gray-200 dark:border-gray-700">
-                                <span className="text-gray-500 dark:text-gray-400">Last updated:</span>
-                                <span className="text-gray-700 dark:text-gray-300">{formatDate(conflict.lastUpdated)}</span>
+                            <div className="flex justify-between text-sm pt-2 border-t border-neutral-200 dark:border-neutral-700">
+                                <span className="text-neutral-500 dark:text-neutral-400">Last updated:</span>
+                                <span className="text-neutral-700 dark:text-neutral-300">{formatDate(conflict.lastUpdated)}</span>
                             </div>
                         )}
                     </div>
@@ -120,7 +120,7 @@ const ConflictModal: React.FC<ConflictModalProps> = ({
                 </div>
 
                 {/* Help Text */}
-                <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+                <p className="text-xs text-neutral-400 dark:text-neutral-500 text-center">
                     Tip: Click &quot;Refresh&quot; to load the latest version, then re-apply your changes.
                 </p>
             </div>

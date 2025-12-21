@@ -35,7 +35,7 @@ const SpeedDialFAB: React.FC<SpeedDialFABProps> = ({ actions }) => {
         >
           {actions.map((action, index) => (
             <div key={index} className="relative group flex items-center">
-              <span className="absolute right-full mr-4 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-sm font-medium shadow-lg whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="absolute right-full mr-4 px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-sm font-medium shadow-lg whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
                 {action.label}
               </span>
               <button
@@ -43,7 +43,7 @@ const SpeedDialFAB: React.FC<SpeedDialFABProps> = ({ actions }) => {
                   action.onClick();
                   setIsOpen(false);
                 }}
-                className="flex items-center gap-3 px-6 py-3 rounded-full bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold shadow-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-all duration-300 text-base"
+                className="flex items-center gap-3 px-6 py-3 rounded-full bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 font-semibold shadow-lg hover:bg-neutral-100 dark:hover:bg-neutral-600 transition-all duration-300 text-base"
                 aria-label={action.label}
               >
                 {/* Icon must already have the correct size class (e.g., h-6 w-6) at the call site */}

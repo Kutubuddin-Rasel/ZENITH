@@ -12,6 +12,8 @@ import { SAMLService } from './services/saml.service';
 import { SAMLController } from './controllers/saml.controller';
 import { CookieService } from './services/cookie.service';
 import { PasswordService } from './services/password.service';
+import { SessionsService } from './sessions.service';
+import { SessionsController } from './sessions.controller';
 
 // **Guards** and **Strategies**
 import { LocalStrategy } from './strategies/local.strategy';
@@ -24,6 +26,7 @@ import { ProjectRoleGuard } from './guards/project-role.guard';
 // **Entities**
 import { TwoFactorAuth } from './entities/two-factor-auth.entity';
 import { SAMLConfig } from './entities/saml-config.entity';
+import { UserSession } from './entities/user-session.entity';
 import { User } from '../users/entities/user.entity';
 
 import { UsersModule } from '../users/users.module';
@@ -36,7 +39,7 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([TwoFactorAuth, SAMLConfig, User]),
+    TypeOrmModule.forFeature([TwoFactorAuth, SAMLConfig, UserSession, User]),
     UsersModule,
     OrganizationsModule,
     OnboardingModule,
@@ -60,6 +63,7 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
     SAMLService,
     CookieService,
     PasswordService,
+    SessionsService,
     LocalStrategy,
     JwtStrategy,
     JwtRefreshStrategy,
@@ -67,13 +71,14 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
     ProjectRoleGuard,
     { provide: 'LOCAL_GUARD', useClass: LocalAuthGuard },
   ],
-  controllers: [AuthController, TwoFactorAuthController, SAMLController],
+  controllers: [AuthController, TwoFactorAuthController, SAMLController, SessionsController],
   exports: [
     AuthService,
     TwoFactorAuthService,
     SAMLService,
     CookieService,
+    SessionsService,
     ProjectRoleGuard,
   ],
 })
-export class AuthModule {}
+export class AuthModule { }

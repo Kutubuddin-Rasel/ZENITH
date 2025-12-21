@@ -12,6 +12,7 @@ import { SlackIntegrationService } from './services/slack-integration.service';
 import { SlackNotificationBridgeService } from './services/slack-notification-bridge.service';
 import { GitHubIntegrationService } from './services/github-integration.service';
 import { GitHubIssueLinkService } from './services/github-issue-link.service';
+import { GitHubAppService } from './services/github-app.service';
 import { JiraIntegrationService } from './services/jira-integration.service';
 import { GoogleWorkspaceIntegrationService } from './services/google-workspace-integration.service';
 import { MicrosoftTeamsIntegrationService } from './services/microsoft-teams-integration.service';
@@ -67,6 +68,7 @@ import { RagModule } from '../rag/rag.module';
     SlackNotificationBridgeService,
     GitHubIntegrationService,
     GitHubIssueLinkService,
+    GitHubAppService,
     JiraIntegrationService,
     GoogleWorkspaceIntegrationService,
     MicrosoftTeamsIntegrationService,
@@ -84,6 +86,7 @@ import { RagModule } from '../rag/rag.module';
     SlackNotificationBridgeService,
     GitHubIntegrationService,
     GitHubIssueLinkService,
+    GitHubAppService,
     JiraIntegrationService,
     GoogleWorkspaceIntegrationService,
     MicrosoftTeamsIntegrationService,
@@ -92,4 +95,4 @@ import { RagModule } from '../rag/rag.module';
     IntercomService,
   ],
 })
-export class IntegrationsModule {}
+export class IntegrationsModule { }

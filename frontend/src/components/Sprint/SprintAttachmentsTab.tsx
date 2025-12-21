@@ -65,7 +65,7 @@ export function SprintAttachmentsTab({ projectId, sprintId }: SprintAttachmentsT
 
         if (imageExtensions.includes(ext || "")) {
             if (!a.filepath) {
-                return <span className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded text-xl">📎</span>;
+                return <span className="w-10 h-10 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 rounded text-xl">📎</span>;
             }
 
             try {
@@ -76,10 +76,10 @@ export function SprintAttachmentsTab({ projectId, sprintId }: SprintAttachmentsT
 
                 return <Image src={imageUrl} alt={a.filename || 'Image'} className="w-10 h-10 object-cover rounded" width={40} height={40} />;
             } catch {
-                return <span className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded text-xl">📎</span>;
+                return <span className="w-10 h-10 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 rounded text-xl">📎</span>;
             }
         }
-        return <span className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded text-xl">📎</span>;
+        return <span className="w-10 h-10 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 rounded text-xl">📎</span>;
     }
 
     function getAttachmentUrl(filepath: string | undefined): string {
@@ -98,7 +98,7 @@ export function SprintAttachmentsTab({ projectId, sprintId }: SprintAttachmentsT
         <div className="flex flex-col h-[400px]">
             {/* Upload Zone */}
             <div
-                className={`border-2 border-dashed rounded-md p-4 mb-4 text-center transition-colors ${dragActive ? 'border-accent-blue bg-accent-blue/5' : 'border-gray-300 dark:border-gray-700'
+                className={`border-2 border-dashed rounded-md p-4 mb-4 text-center transition-colors ${dragActive ? 'border-accent-blue bg-accent-blue/5' : 'border-neutral-300 dark:border-neutral-700'
                     }`}
                 onDragOver={e => { e.preventDefault(); setDragActive(true); }}
                 onDragLeave={e => { e.preventDefault(); setDragActive(false); }}
@@ -142,7 +142,7 @@ export function SprintAttachmentsTab({ projectId, sprintId }: SprintAttachmentsT
                                 >
                                     {a.filename || 'Unknown file'}
                                 </a>
-                                <div className="text-xs text-gray-500">
+                                <div className="text-xs text-neutral-500">
                                     Uploaded by {a.uploader?.name || a.uploader?.email || 'Unknown user'} on {new Date(a.createdAt).toLocaleString()}
                                 </div>
                             </div>
@@ -158,7 +158,7 @@ export function SprintAttachmentsTab({ projectId, sprintId }: SprintAttachmentsT
                         </div>
                     ))
                 ) : (
-                    <div className="text-gray-400 text-center py-8">No attachments yet.</div>
+                    <div className="text-neutral-400 text-center py-8">No attachments yet.</div>
                 )}
                 {deleteError && <div className="text-red-500 text-sm mt-1">{String(deleteError)}</div>}
             </div>

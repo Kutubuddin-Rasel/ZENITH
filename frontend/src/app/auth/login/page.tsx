@@ -53,6 +53,16 @@ export default function LoginPage() {
     try {
       await login(data.email, data.password);
     } catch (e: unknown) {
+      // Check if 2FA is required
+      if (e && typeof e === 'object' && 'message' in e && (e as { message?: string }).message === '2FA_REQUIRED') {
+        const error = e as Error & { userId?: string };
+        if (error.userId) {
+          setUserId(error.userId);
+          setRequires2FA(true);
+          return;
+        }
+      }
+
       const message = e && typeof e === 'object' && 'message' in e ? (e as { message?: string }).message : undefined;
       setError("root", { message: message || "Invalid email or password. Please try again." });
       // Trigger shake animation

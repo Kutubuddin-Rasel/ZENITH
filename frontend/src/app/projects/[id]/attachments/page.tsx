@@ -72,9 +72,9 @@ const getFileIcon = (filename: string) => {
     case 'css':
     case 'json':
     case 'xml':
-      return <CodeBracketIcon className="h-8 w-8 text-gray-600" />;
+      return <CodeBracketIcon className="h-8 w-8 text-neutral-600" />;
     default:
-      return <DocumentIcon className="h-8 w-8 text-gray-500" />;
+      return <DocumentIcon className="h-8 w-8 text-neutral-500" />;
   }
 };
 

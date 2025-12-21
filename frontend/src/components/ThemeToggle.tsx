@@ -8,12 +8,12 @@ const ThemeToggle = () => {
     <button
       onClick={toggleTheme}
       aria-label="Toggle dark mode"
-      className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-accent-blue transition"
+      className="p-2 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-accent-blue transition"
     >
       {theme === 'dark' ? (
         <SunIcon className="h-5 w-5 text-yellow-400" />
       ) : (
-        <MoonIcon className="h-5 w-5 text-gray-700" />
+        <MoonIcon className="h-5 w-5 text-neutral-700" />
       )}
     </button>
   );

@@ -88,7 +88,7 @@ export default function DeleteAccountZone() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                             Type <span className="font-bold text-red-600">DELETE</span> to confirm
                         </label>
                         <Input
@@ -99,7 +99,7 @@ export default function DeleteAccountZone() {
                         />
                     </div>
 
-                    <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex gap-3 justify-end pt-4 border-t border-neutral-200 dark:border-neutral-700">
                         <Button
                             variant="secondary"
                             onClick={() => {

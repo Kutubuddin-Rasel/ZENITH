@@ -78,41 +78,41 @@ function IssueRow({ issue, isOverlay, sourceSprintId }: { issue: Issue; isOverla
     <div
       {...attributes}
       {...listeners}
-      className={`flex items-center gap-3 p-3 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm rounded-lg group hover:border-primary-300 dark:hover:border-primary-700 transition-all duration-200 select-none ${isOverlay ? 'cursor-grabbing shadow-xl scale-105 ring-1 ring-primary-500' : 'cursor-grab active:cursor-grabbing'}`}
+      className={`flex items-center gap-3 p-3 bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 shadow-sm rounded-lg group hover:border-primary-300 dark:hover:border-primary-700 transition-all duration-200 select-none ${isOverlay ? 'cursor-grabbing shadow-xl scale-105 ring-1 ring-primary-500' : 'cursor-grab active:cursor-grabbing'}`}
     >
-      <div className="text-gray-300 group-hover:text-primary-500 transition-colors p-1">
+      <div className="text-neutral-300 group-hover:text-primary-500 transition-colors p-1">
         <Bars3Icon className="h-5 w-5" />
       </div>
 
       <div className="flex-1 min-w-0 grid grid-cols-12 gap-4 items-center">
         <div className="col-span-8 flex items-center gap-3">
-          <span className="font-mono text-xs font-semibold text-gray-500 dark:text-gray-400 w-16 shrink-0">{issue.key}</span>
-          <span className="font-medium text-sm text-gray-900 dark:text-white truncate" title={issue.title}>{issue.title}</span>
+          <span className="font-mono text-xs font-semibold text-neutral-500 dark:text-neutral-400 w-16 shrink-0">{issue.key}</span>
+          <span className="font-medium text-sm text-neutral-900 dark:text-white truncate" title={issue.title}>{issue.title}</span>
         </div>
 
         <div className="col-span-4 flex items-center justify-end gap-2">
           {issue.priority && (
-            <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium ring-1 ring-inset ${priorityColors[issue.priority as keyof typeof priorityColors] || 'bg-gray-50 text-gray-600 ring-gray-500/10'}`}>
+            <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium ring-1 ring-inset ${priorityColors[issue.priority as keyof typeof priorityColors] || 'bg-neutral-50 text-neutral-600 ring-neutral-500/10'}`}>
               {issue.priority}
             </span>
           )}
           {issue.storyPoints !== undefined && (
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300">
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-neutral-100 dark:bg-neutral-700 text-xs font-medium text-neutral-600 dark:text-neutral-300">
               {issue.storyPoints ?? '-'}
             </span>
           )}
           <div className="flex -space-x-1">
             {issue.assignee ? (
               issue.assignee.avatarUrl ? (
-                <Image src={issue.assignee.avatarUrl} alt="" width={24} height={24} className="rounded-full ring-2 ring-white dark:ring-gray-800" />
+                <Image src={issue.assignee.avatarUrl} alt="" width={24} height={24} className="rounded-full ring-2 ring-white dark:ring-neutral-800" />
               ) : (
-                <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-xs flex items-center justify-center font-bold ring-2 ring-white dark:ring-gray-800">
+                <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-xs flex items-center justify-center font-bold ring-2 ring-white dark:ring-neutral-800">
                   {issue.assignee.name?.[0] || '?'}
                 </div>
               )
             ) : (
-              <div className="w-6 h-6 rounded-full border border-dashed border-gray-300 flex items-center justify-center">
-                <span className="text-gray-300 text-[10px]">+</span>
+              <div className="w-6 h-6 rounded-full border border-dashed border-neutral-300 flex items-center justify-center">
+                <span className="text-neutral-300 text-[10px]">+</span>
               </div>
             )}
           </div>
@@ -143,21 +143,21 @@ function SprintContainer({ sprint, projectId }: { sprint: Sprint; projectId: str
   const isActive = sprint.status === 'ACTIVE';
 
   return (
-    <div ref={setNodeRef} className={`rounded-xl border transition-all duration-300 overflow-hidden ${isOver ? 'ring-2 ring-primary-500 border-primary-500 shadow-lg bg-primary-50/10' : 'border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50'}`}>
+    <div ref={setNodeRef} className={`rounded-xl border transition-all duration-300 overflow-hidden ${isOver ? 'ring-2 ring-primary-500 border-primary-500 shadow-lg bg-primary-50/10' : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/50'}`}>
       <div
-        className={`px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-100/50 dark:hover:bg-gray-700/50 transition-colors ${isActive ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''}`}
+        className={`px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-neutral-100/50 dark:hover:bg-neutral-700/50 transition-colors ${isActive ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''}`}
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-3">
-          <button className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button className="text-neutral-400 hover:text-neutral-600 transition-colors">
             {isExpanded ? <ChevronDownIcon className="h-4 w-4" /> : <ChevronRightIcon className="h-4 w-4" />}
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{sprint.name}</h3>
+              <h3 className="font-semibold text-neutral-900 dark:text-white text-sm">{sprint.name}</h3>
               {isActive && <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold uppercase tracking-wider">Active</span>}
             </div>
-            <div className="flex items-center gap-4 text-xs text-gray-500 mt-0.5">
+            <div className="flex items-center gap-4 text-xs text-neutral-500 mt-0.5">
               {sprint.startDate && sprint.endDate && (
                 <span className="flex items-center gap-1">
                   <CalendarIcon className="h-3 w-3" />
@@ -170,22 +170,22 @@ function SprintContainer({ sprint, projectId }: { sprint: Sprint; projectId: str
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="bg-gray-200 dark:bg-gray-700 h-1.5 w-24 rounded-full overflow-hidden">
+          <div className="bg-neutral-200 dark:bg-neutral-700 h-1.5 w-24 rounded-full overflow-hidden">
             <div className="bg-indigo-500 h-full w-[45%]" />
           </div>
-          <button className="p-1 text-gray-400 hover:text-gray-600 rounded">
+          <button className="p-1 text-neutral-400 hover:text-neutral-600 rounded">
             <EllipsisHorizontalIcon className="h-5 w-5" />
           </button>
         </div>
       </div>
 
       <div className={`transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-        <div className="p-3 bg-gray-100/50 dark:bg-black/20 inner-shadow-sm min-h-[60px]">
+        <div className="p-3 bg-neutral-100/50 dark:bg-black/20 inner-shadow-sm min-h-[60px]">
           {isLoading ? <div className="p-4 flex justify-center"><Spinner className="h-5 w-5 text-indigo-500" /></div> : (
             <SortableContext items={issueIds} strategy={verticalListSortingStrategy}>
               <div className="space-y-0.5">
                 {issues?.length === 0 && (
-                  <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-6 flex flex-col items-center justify-center text-gray-400 bg-white/50 dark:bg-gray-800/50">
+                  <div className="border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-lg p-6 flex flex-col items-center justify-center text-neutral-400 bg-white/50 dark:bg-neutral-800/50">
                     <p className="text-xs font-medium">Plan this sprint</p>
                     <p className="text-[10px]">Drag issues from the backlog here</p>
                   </div>
@@ -214,7 +214,7 @@ function BacklogDropZone() {
       ref={setNodeRef}
       className={`mb-4 border-2 border-dashed rounded-lg p-4 flex items-center justify-center transition-all duration-200 ${isOver
         ? 'border-primary-500 bg-primary-50 text-primary-700 scale-[1.02] shadow-md'
-        : 'border-gray-200 dark:border-gray-700 text-gray-400 bg-gray-50/50 dark:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-600'
+        : 'border-neutral-200 dark:border-neutral-700 text-neutral-400 bg-neutral-50/50 dark:bg-neutral-800/50 hover:border-neutral-300 dark:hover:border-neutral-600'
         }`}
     >
       <div className="flex items-center gap-2 text-sm font-medium">
@@ -342,12 +342,12 @@ export default function BacklogPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col bg-white dark:bg-gray-900 overflow-hidden">
+    <div className="h-[calc(100vh-4rem)] flex flex-col bg-white dark:bg-neutral-900 overflow-hidden">
       {/* Page Header */}
-      <div className="flex-none px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+      <div className="flex-none px-8 py-6 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
         <div>
-          <Typography variant="h2" className="text-gray-900 dark:text-white font-bold tracking-tight">Backlog</Typography>
-          <p className="text-sm text-gray-500 mt-1">Manage sprints and prioritize your backlog.</p>
+          <Typography variant="h2" className="text-neutral-900 dark:text-white font-bold tracking-tight">Backlog</Typography>
+          <p className="text-sm text-neutral-500 mt-1">Manage sprints and prioritize your backlog.</p>
         </div>
         <div className="flex gap-3">
           <Button variant="secondary" size="sm" onClick={() => { }}>Insights</Button>
@@ -368,15 +368,15 @@ export default function BacklogPage() {
           {/* Sprints Section - Top Pane */}
           <div className="flex-none max-h-[40vh] flex flex-col min-h-0">
             <div className="flex items-center justify-between mb-4 flex-none">
-              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Active & Planned Sprints</h3>
+              <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">Active & Planned Sprints</h3>
               <button className="text-xs text-primary-600 hover:underline font-medium">Create Sprint</button>
             </div>
 
             <div className="overflow-y-auto pr-2 space-y-4 pb-2">
               {sprintsLoading && <div className="py-4"><Spinner /></div>}
               {!sprintsLoading && activeOrPlannedSprints.length === 0 && (
-                <div className="p-6 text-center border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800">
-                  <Typography variant="body-sm" className="text-gray-500">No active sprints. Create one to get started.</Typography>
+                <div className="p-6 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-xl bg-neutral-50 dark:bg-neutral-800">
+                  <Typography variant="body-sm" className="text-neutral-500">No active sprints. Create one to get started.</Typography>
                 </div>
               )}
               {activeOrPlannedSprints.map(sprint => (
@@ -388,12 +388,12 @@ export default function BacklogPage() {
           {/* Backlog Section - Bottom Pane */}
           <div
             ref={setBacklogDroppableRef}
-            className={`flex-1 flex flex-col min-h-0 border-t border-gray-100 dark:border-gray-800 pt-6 transition-colors ${isOverBacklogContainer ? 'bg-primary-50/10' : ''}`}
+            className={`flex-1 flex flex-col min-h-0 border-t border-neutral-100 dark:border-neutral-800 pt-6 transition-colors ${isOverBacklogContainer ? 'bg-primary-50/10' : ''}`}
           >
             <div className="flex items-center justify-between mb-4 flex-none">
               <div className="flex items-center gap-3">
-                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Backlog</h3>
-                <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2.5 py-0.5 rounded-full text-xs font-bold">{backlogIssues?.length || 0}</span>
+                <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">Backlog</h3>
+                <span className="bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 px-2.5 py-0.5 rounded-full text-xs font-bold">{backlogIssues?.length || 0}</span>
               </div>
               <div className="flex gap-2">
                 <Input placeholder="Search backlog..." className="h-8 text-sm w-48" />
@@ -408,8 +408,8 @@ export default function BacklogPage() {
                 <SortableContext items={backlogIssueIds} strategy={verticalListSortingStrategy}>
                   <div className="pb-20 space-y-2 min-h-[100px]" id="backlog-list">
                     {backlogIssues?.length === 0 && (
-                      <div className="flex flex-col items-center justify-center h-48 text-gray-400">
-                        <div className="w-12 h-12 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center mb-3">
+                      <div className="flex flex-col items-center justify-center h-48 text-neutral-400">
+                        <div className="w-12 h-12 rounded-full bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center mb-3">
                           <ArchiveBoxIcon className="h-6 w-6" />
                         </div>
                         <p>Your backlog is empty.</p>

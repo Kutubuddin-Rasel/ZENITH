@@ -86,18 +86,18 @@ const ProgressiveDisclosure: React.FC<ProgressiveDisclosureProps> = ({
       {collapsible && title && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-between p-3 text-left bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className="w-full flex items-center justify-between p-3 text-left bg-neutral-50 dark:bg-neutral-800 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
         >
           <div>
-            <h3 className="font-medium text-gray-900 dark:text-white">{title}</h3>
+            <h3 className="font-medium text-neutral-900 dark:text-white">{title}</h3>
             {description && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{description}</p>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">{description}</p>
             )}
           </div>
           {isExpanded ? (
-            <ChevronUpIcon className="h-5 w-5 text-gray-500" />
+            <ChevronUpIcon className="h-5 w-5 text-neutral-500" />
           ) : (
-            <ChevronDownIcon className="h-5 w-5 text-gray-500" />
+            <ChevronDownIcon className="h-5 w-5 text-neutral-500" />
           )}
         </button>
       )}

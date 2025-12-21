@@ -32,7 +32,7 @@ class GlobalErrorBoundary extends Component<Props, State> {
     public render() {
         if (this.state.hasError) {
             return (
-                <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+                <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900 p-4">
                     <Card className="max-w-md w-full shadow-xl border-red-200 dark:border-red-900">
                         <CardContent className="p-8 text-center space-y-6">
                             <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
@@ -40,16 +40,16 @@ class GlobalErrorBoundary extends Component<Props, State> {
                             </div>
 
                             <div className="space-y-2">
-                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
                                     Something went wrong
                                 </h1>
-                                <p className="text-gray-600 dark:text-gray-400">
+                                <p className="text-neutral-600 dark:text-neutral-400">
                                     We apologize for the inconvenience. An unexpected error has occurred.
                                 </p>
                             </div>
 
                             {this.state.error && (
-                                <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded text-left overflow-auto max-h-32 text-xs font-mono text-gray-700 dark:text-gray-300">
+                                <div className="bg-neutral-100 dark:bg-neutral-800 p-3 rounded text-left overflow-auto max-h-32 text-xs font-mono text-neutral-700 dark:text-neutral-300">
                                     {this.state.error.message}
                                 </div>
                             )}

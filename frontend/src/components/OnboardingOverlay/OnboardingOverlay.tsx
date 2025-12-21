@@ -242,11 +242,11 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
               <CheckIcon className="h-10 w-10 text-green-600 dark:text-green-400" />
             </div>
 
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-3xl font-bold text-neutral-900 dark:text-white mb-4">
               You&apos;re All Set!
             </h2>
 
-            <p className="text-gray-600 dark:text-gray-400 mb-8 text-lg">
+            <p className="text-neutral-600 dark:text-neutral-400 mb-8 text-lg">
               Congratulations! You&apos;ve completed the onboarding. You&apos;re now ready to manage your projects like a pro with Zenith.
             </p>
 
@@ -276,16 +276,16 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
                 Getting Started
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-neutral-600 dark:text-neutral-400">
                 Let&apos;s get you up and running with Zenith
               </p>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
             >
               <XMarkIcon className="h-6 w-6" />
             </button>
@@ -294,14 +294,14 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
           {/* Progress */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
                 Step {currentStepIndex + 1} of {totalSteps}
               </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+              <span className="text-sm text-neutral-500 dark:text-neutral-400">
                 {completedSteps} completed
               </span>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
               <div
                 className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${((currentStepIndex + 1) / totalSteps) * 100}%` }}
@@ -328,10 +328,10 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
                   {getStepIcon(currentStepData.stepId)}
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  <h3 className="text-xl font-semibold text-neutral-900 dark:text-white">
                     {currentStepData.title}
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400">
+                  <p className="text-neutral-600 dark:text-neutral-400">
                     {currentStepData.description}
                   </p>
                 </div>
@@ -360,13 +360,13 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
 
               {/* Next Steps */}
               {currentStepData.nextSteps.length > 0 && (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                <div className="bg-neutral-50 dark:bg-neutral-800 rounded-lg p-4">
+                  <h4 className="font-medium text-neutral-900 dark:text-white mb-2">
                     What&apos;s Next
                   </h4>
                   <ul className="space-y-1">
                     {currentStepData.nextSteps.map((nextStep, index) => (
-                      <li key={index} className="text-sm text-gray-600 dark:text-gray-400">
+                      <li key={index} className="text-sm text-neutral-600 dark:text-neutral-400">
                         • {nextStep}
                       </li>
                     ))}
@@ -375,7 +375,7 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
               )}
 
               {/* Time Estimate */}
-              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
                 <ClockIcon className="h-4 w-4" />
                 Estimated time: {currentStepData.estimatedTime} minutes
               </div>
@@ -383,7 +383,7 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
           )}
 
           {/* Navigation */}
-          <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mt-8 pt-6 border-t border-neutral-200 dark:border-neutral-700">
             <div className="flex gap-2">
               {currentStepIndex > 0 && (
                 <Button
@@ -429,13 +429,13 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
 
           {/* Quick Action */}
           {getStepAction(currentStepData.stepId) && (
-            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="mt-4 p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-medium text-gray-900 dark:text-white">
+                  <h4 className="font-medium text-neutral-900 dark:text-white">
                     Quick Action
                   </h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
                     {getStepAction(currentStepData.stepId)?.label}
                   </p>
                 </div>

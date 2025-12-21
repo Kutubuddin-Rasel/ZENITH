@@ -45,64 +45,7 @@ const nextConfig: NextConfig = {
   compress: true,
 
   // Bundle optimization
-  webpack: (config, { dev, isServer }) => {
-    // Disable webpack cache to avoid PackFileCacheStrategy warnings
-    config.cache = false;
 
-    // Production optimizations
-    if (!dev && !isServer) {
-      // Tree shaking
-      config.optimization.usedExports = true;
-      config.optimization.sideEffects = false;
-
-      // Code splitting
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          default: {
-            minChunks: 2,
-            priority: -20,
-            reuseExistingChunk: true,
-          },
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            priority: -10,
-            chunks: 'all',
-          },
-          common: {
-            name: 'common',
-            minChunks: 2,
-            priority: -5,
-            reuseExistingChunk: true,
-          },
-          react: {
-            test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
-            name: 'react',
-            priority: 20,
-            chunks: 'all',
-          },
-          ui: {
-            test: /[\\/]node_modules[\\/](@dnd-kit|lucide-react)[\\/]/,
-            name: 'ui',
-            priority: 15,
-            chunks: 'all',
-          },
-        },
-      };
-
-      // Minification
-      config.optimization.minimize = true;
-    }
-
-    // Module resolution
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@': require('path').resolve(__dirname, 'src'),
-    };
-
-    return config;
-  },
 
   // Headers for performance
   async headers() {
@@ -168,6 +111,17 @@ const nextConfig: NextConfig = {
       {
         source: '/dashboard',
         destination: '/projects',
+        permanent: true,
+      },
+      // Settings Migration Redirects
+      {
+        source: '/projects/:id/settings/security',
+        destination: '/projects/:id/settings/policies',
+        permanent: true,
+      },
+      {
+        source: '/projects/:id/settings/sessions',
+        destination: '/settings/security',
         permanent: true,
       },
     ];

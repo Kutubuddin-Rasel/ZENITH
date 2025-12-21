@@ -15,7 +15,7 @@ export default function Alert({ children, variant = 'default', className = '' }:
   const baseClasses = 'relative w-full rounded-lg border p-4';
   
   const variantClasses = {
-    default: 'bg-white border-gray-200 text-gray-900 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-100',
+    default: 'bg-white border-neutral-200 text-neutral-900 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-100',
     destructive: 'bg-red-50 border-red-200 text-red-900 dark:bg-red-900/20 dark:border-red-800 dark:text-red-100',
   };
 

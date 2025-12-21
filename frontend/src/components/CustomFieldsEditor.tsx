@@ -116,7 +116,7 @@ const CustomFieldInput: React.FC<CustomFieldInputProps> = ({
             case 'text':
                 return (
                     <div className="relative">
-                        <Bars3BottomLeftIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                        <Bars3BottomLeftIcon className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
                         <Input
                             value={(value as string) || ''}
                             onChange={(e) => onChange(e.target.value)}
@@ -137,14 +137,14 @@ const CustomFieldInput: React.FC<CustomFieldInputProps> = ({
                         disabled={disabled}
                         maxLength={field.config?.maxLength}
                         rows={3}
-                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-blue bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 disabled:opacity-50"
+                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-blue bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 disabled:opacity-50"
                     />
                 );
 
             case 'number':
                 return (
                     <div className="relative">
-                        <HashtagIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                        <HashtagIcon className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
                         <Input
                             type="number"
                             value={(value as number) ?? ''}
@@ -161,7 +161,7 @@ const CustomFieldInput: React.FC<CustomFieldInputProps> = ({
             case 'date':
                 return (
                     <div className="relative">
-                        <CalendarDaysIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                        <CalendarDaysIcon className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
                         <Input
                             type="date"
                             value={(value as string) || ''}
@@ -175,7 +175,7 @@ const CustomFieldInput: React.FC<CustomFieldInputProps> = ({
             case 'url':
                 return (
                     <div className="relative">
-                        <LinkIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                        <LinkIcon className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
                         <Input
                             type="url"
                             value={(value as string) || ''}
@@ -195,9 +195,9 @@ const CustomFieldInput: React.FC<CustomFieldInputProps> = ({
                             checked={Boolean(value)}
                             onChange={(e) => onChange(e.target.checked)}
                             disabled={disabled}
-                            className="h-5 w-5 rounded border-gray-300 text-accent-blue focus:ring-accent-blue dark:border-gray-600 dark:bg-gray-800"
+                            className="h-5 w-5 rounded border-neutral-300 text-accent-blue focus:ring-accent-blue dark:border-neutral-600 dark:bg-neutral-800"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                        <span className="text-sm text-neutral-700 dark:text-neutral-300">
                             {field.description || label}
                         </span>
                     </label>
@@ -210,7 +210,7 @@ const CustomFieldInput: React.FC<CustomFieldInputProps> = ({
                             value={(value as string) || ''}
                             onChange={(e) => onChange(e.target.value || null)}
                             disabled={disabled}
-                            className="w-full px-4 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-blue bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 disabled:opacity-50 appearance-none cursor-pointer"
+                            className="w-full px-4 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-blue bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 disabled:opacity-50 appearance-none cursor-pointer"
                         >
                             <option value="">Select {label.toLowerCase()}</option>
                             {field.config?.options?.map((opt) => (
@@ -219,7 +219,7 @@ const CustomFieldInput: React.FC<CustomFieldInputProps> = ({
                                 </option>
                             ))}
                         </select>
-                        <ChevronDownIcon className="absolute right-3 top-2.5 h-5 w-5 text-gray-400 pointer-events-none" />
+                        <ChevronDownIcon className="absolute right-3 top-2.5 h-5 w-5 text-neutral-400 pointer-events-none" />
                     </div>
                 );
 
@@ -244,7 +244,7 @@ const CustomFieldInput: React.FC<CustomFieldInputProps> = ({
                                         }}
                                         className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${isSelected
                                             ? 'bg-accent-blue text-white shadow-md'
-                                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                            : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
                                             } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                                         style={opt.color && isSelected ? { backgroundColor: opt.color } : undefined}
                                     >
@@ -255,7 +255,7 @@ const CustomFieldInput: React.FC<CustomFieldInputProps> = ({
                             })}
                         </div>
                         {selectedValues.length > 0 && (
-                            <p className="text-xs text-gray-500">{selectedValues.length} selected</p>
+                            <p className="text-xs text-neutral-500">{selectedValues.length} selected</p>
                         )}
                     </div>
                 );
@@ -263,12 +263,12 @@ const CustomFieldInput: React.FC<CustomFieldInputProps> = ({
             case 'user':
                 return (
                     <div className="relative">
-                        <UserCircleIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                        <UserCircleIcon className="absolute left-3 top-2.5 h-5 w-5 text-neutral-400" />
                         <select
                             value={(value as string) || ''}
                             onChange={(e) => onChange(e.target.value || null)}
                             disabled={disabled}
-                            className="w-full px-4 py-2 pl-10 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-blue bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 disabled:opacity-50 appearance-none cursor-pointer"
+                            className="w-full px-4 py-2 pl-10 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-blue bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 disabled:opacity-50 appearance-none cursor-pointer"
                         >
                             <option value="">Select user</option>
                             {users.map((user) => (
@@ -277,7 +277,7 @@ const CustomFieldInput: React.FC<CustomFieldInputProps> = ({
                                 </option>
                             ))}
                         </select>
-                        <ChevronDownIcon className="absolute right-3 top-2.5 h-5 w-5 text-gray-400 pointer-events-none" />
+                        <ChevronDownIcon className="absolute right-3 top-2.5 h-5 w-5 text-neutral-400 pointer-events-none" />
                     </div>
                 );
 
@@ -300,13 +300,13 @@ const CustomFieldInput: React.FC<CustomFieldInputProps> = ({
 
     return (
         <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
                 {label}
                 {field.isRequired && <span className="text-red-500 ml-0.5">*</span>}
             </label>
             {renderInput()}
             {field.description && (
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{field.description}</p>
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{field.description}</p>
             )}
         </div>
     );

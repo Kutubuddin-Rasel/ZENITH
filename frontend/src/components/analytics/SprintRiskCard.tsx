@@ -22,17 +22,17 @@ export default function SprintRiskCard({ data, sprintName }: SprintRiskCardProps
     };
 
     return (
-        <div className="w-full bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="w-full bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-sm border border-neutral-100 dark:border-neutral-700">
             <div className="flex items-start justify-between mb-6">
                 <div>
-                    <Typography variant="h4" className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Typography variant="h4" className="font-bold text-neutral-900 dark:text-white flex items-center gap-2">
                         <FireIcon className="h-5 w-5 text-orange-500" />
                         Sprint Risk
-                        <span className="text-xs font-normal text-gray-500 ml-2 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700">
+                        <span className="text-xs font-normal text-neutral-500 ml-2 px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700">
                             {sprintName}
                         </span>
                     </Typography>
-                    <p className="text-sm text-gray-500 mt-1">AI-predicted risk assessment</p>
+                    <p className="text-sm text-neutral-500 mt-1">AI-predicted risk assessment</p>
                 </div>
                 <div className={`px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1 ${getRiskColor(data.score)}`}>
                     {data.score > 75 ? <ExclamationTriangleIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />}
@@ -44,10 +44,10 @@ export default function SprintRiskCard({ data, sprintName }: SprintRiskCardProps
                 {data.factors.map((factor) => (
                     <div key={factor.name}>
                         <div className="flex justify-between items-center mb-1">
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{factor.name}</span>
-                            <span className="text-xs text-gray-500">{factor.description}</span>
+                            <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">{factor.name}</span>
+                            <span className="text-xs text-neutral-500">{factor.description}</span>
                         </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
                             <div
                                 className={`h-2 rounded-full transition-all duration-500 ${getProgressColor(factor.score)}`}
                                 style={{ width: `${Math.min(100, factor.score)}%` }}
@@ -57,8 +57,8 @@ export default function SprintRiskCard({ data, sprintName }: SprintRiskCardProps
                 ))}
             </div>
 
-            <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <Typography variant="caption" className="text-gray-400">
+            <div className="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-700">
+                <Typography variant="caption" className="text-neutral-400">
                     *Scores based on scope creep, velocity variance, and time pressure.
                 </Typography>
             </div>

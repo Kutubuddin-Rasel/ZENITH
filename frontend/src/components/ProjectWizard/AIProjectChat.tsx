@@ -84,7 +84,7 @@ const ChatBubble: React.FC<{ message: Message }> = ({ message }) => {
             <div
                 className={`max-w-[80%] rounded-2xl px-4 py-3 ${isUser
                     ? 'bg-blue-600 text-white rounded-br-md'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-md'
+                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white rounded-bl-md'
                     }`}
             >
                 {!isUser && (
@@ -110,7 +110,7 @@ const RecommendationCard: React.FC<{
         <Card
             className={`p-4 cursor-pointer transition-all duration-200 border-2 ${isSelected
                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
+                : 'border-transparent hover:border-neutral-300 dark:hover:border-neutral-600'
                 }`}
             onClick={onSelect}
         >
@@ -124,7 +124,7 @@ const RecommendationCard: React.FC<{
 
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold text-gray-900 dark:text-white truncate">
+                        <h4 className="font-semibold text-neutral-900 dark:text-white truncate">
                             {template.name}
                         </h4>
                         <span
@@ -132,7 +132,7 @@ const RecommendationCard: React.FC<{
                                 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                                 : confidence >= 60
                                     ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                    : 'bg-neutral-100 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-300'
                                 }`}
                         >
                             {confidence}% match
@@ -142,12 +142,12 @@ const RecommendationCard: React.FC<{
                         )}
                     </div>
 
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-2 line-clamp-2">
                         {reasoning}
                     </p>
 
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">
+                    <div className="flex items-center gap-2 text-xs text-neutral-500">
+                        <span className="px-2 py-0.5 bg-neutral-100 dark:bg-neutral-700 rounded">
                             {template.methodology}
                         </span>
                     </div>
@@ -302,10 +302,10 @@ const AIProjectChat: React.FC<AIProjectChatProps> = ({ onTemplateSelected, onClo
                 {/* Loading indicator */}
                 {isLoading && (
                     <div className="flex justify-start mb-4">
-                        <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl px-4 py-3 rounded-bl-md">
+                        <div className="bg-neutral-100 dark:bg-neutral-800 rounded-2xl px-4 py-3 rounded-bl-md">
                             <div className="flex items-center gap-2">
                                 <Spinner className="h-4 w-4" />
-                                <span className="text-sm text-gray-500">Thinking...</span>
+                                <span className="text-sm text-neutral-500">Thinking...</span>
                             </div>
                         </div>
                     </div>
@@ -317,7 +317,7 @@ const AIProjectChat: React.FC<AIProjectChatProps> = ({ onTemplateSelected, onClo
                         {/* Primary recommendation */}
                         {recommendation.recommendation && (
                             <div>
-                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1">
+                                <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-2 flex items-center gap-1">
                                     <SparklesIcon className="h-3 w-3" />
                                     Top Recommendation
                                 </p>
@@ -332,7 +332,7 @@ const AIProjectChat: React.FC<AIProjectChatProps> = ({ onTemplateSelected, onClo
                         {/* Alternatives */}
                         {recommendation.alternatives && recommendation.alternatives.length > 0 && (
                             <div>
-                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                                <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-2">
                                     Alternatives
                                 </p>
                                 <div className="space-y-2">
@@ -367,7 +367,7 @@ const AIProjectChat: React.FC<AIProjectChatProps> = ({ onTemplateSelected, onClo
 
             {/* Input Area */}
             {!recommendation && (
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="p-4 border-t border-neutral-200 dark:border-neutral-700">
                     <div className="flex items-center gap-2">
                         <input
                             ref={inputRef}
@@ -377,10 +377,10 @@ const AIProjectChat: React.FC<AIProjectChatProps> = ({ onTemplateSelected, onClo
                             onKeyDown={handleKeyDown}
                             placeholder="Describe your project..."
                             disabled={isLoading}
-                            className="flex-1 px-4 py-2.5 rounded-full border border-gray-300 dark:border-gray-600 
-                       bg-white dark:bg-gray-800 text-gray-900 dark:text-white
+                            className="flex-1 px-4 py-2.5 rounded-full border border-neutral-300 dark:border-neutral-600 
+                       bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white
                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                       placeholder:text-gray-400 disabled:opacity-50"
+                       placeholder:text-neutral-400 disabled:opacity-50"
                         />
                         <button
                             onClick={sendMessage}
@@ -391,7 +391,7 @@ const AIProjectChat: React.FC<AIProjectChatProps> = ({ onTemplateSelected, onClo
                             <PaperAirplaneIcon className="h-5 w-5" />
                         </button>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2 text-center">
+                    <p className="text-xs text-neutral-400 mt-2 text-center">
                         Example: &quot;I&apos;m building a mobile app with 3 developers using sprints&quot;
                     </p>
                 </div>

@@ -1,13 +1,13 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 import Button from './Button';
 import Input from './Input';
 import Typography from './Typography';
 import Card from './Card';
 import Modal from './Modal';
 import { CheckCircleIcon, ExclamationTriangleIcon, QrCodeIcon } from '@heroicons/react/24/outline';
-import Image from 'next/image';
+import { apiClient } from '../lib/api-client';
+import { getErrorMessage } from '../lib/error-utils';
 
 interface TwoFactorAuthSetupProps {
   isOpen: boolean;
@@ -21,8 +21,14 @@ interface TwoFASecret {
   backupCodes: string[];
 }
 
+// Backend wraps responses in this envelope
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+}
+
 export default function TwoFactorAuthSetup({ isOpen, onClose, onSuccess }: TwoFactorAuthSetupProps) {
-  const { token } = useAuth();
   const [step, setStep] = useState<'generate' | 'verify' | 'success'>('generate');
   const [secret, setSecret] = useState<TwoFASecret | null>(null);
   const [verificationCode, setVerificationCode] = useState('');
@@ -34,28 +40,16 @@ export default function TwoFactorAuthSetup({ isOpen, onClose, onSuccess }: TwoFa
     try {
       setIsLoading(true);
       setError(null);
-      
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/2fa/generate`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate 2FA secret');
-      }
-
-      const data = await response.json();
-      setSecret(data);
+      const response = await apiClient.post<ApiResponse<TwoFASecret>>('/auth/2fa/generate', {});
+      // Backend wraps response in { success, data } envelope
+      setSecret(response.data);
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate 2FA secret';
-      setError(errorMessage);
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     if (isOpen && step === 'generate') {
@@ -72,27 +66,16 @@ export default function TwoFactorAuthSetup({ isOpen, onClose, onSuccess }: TwoFa
     try {
       setIsLoading(true);
       setError(null);
-      
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/2fa/verify`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token: verificationCode }),
-      });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to verify 2FA code');
-      }
-
-      const data = await response.json();
-      setBackupCodes(data.backupCodes);
+      const response = await apiClient.post<ApiResponse<{ success: boolean; backupCodes: string[] }>>(
+        '/auth/2fa/verify',
+        { token: verificationCode }
+      );
+      // Backend wraps response in { success, data } envelope
+      setBackupCodes(response.data.backupCodes);
       setStep('success');
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to verify 2FA code';
-      setError(errorMessage);
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -122,7 +105,7 @@ export default function TwoFactorAuthSetup({ isOpen, onClose, onSuccess }: TwoFa
               <Typography variant="h3" className="mb-2">
                 Scan QR Code
               </Typography>
-              <Typography variant="body" className="text-gray-600 dark:text-gray-400">
+              <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">
                 Use your authenticator app to scan this QR code
               </Typography>
             </div>
@@ -130,14 +113,21 @@ export default function TwoFactorAuthSetup({ isOpen, onClose, onSuccess }: TwoFa
             {secret && (
               <div className="flex flex-col items-center space-y-4">
                 <div className="bg-white p-4 rounded-lg">
-                  <Image src={secret.qrCodeUrl} alt="2FA QR Code" className="w-48 h-48" width={192} height={192} />
+                  {/* Using regular img tag for data URL compatibility */}
+                  <img
+                    src={secret.qrCodeUrl}
+                    alt="2FA QR Code"
+                    className="w-48 h-48"
+                    width={192}
+                    height={192}
+                  />
                 </div>
-                
+
                 <div className="w-full max-w-md">
-                  <Typography variant="body" className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  <Typography variant="body" className="text-sm text-neutral-600 dark:text-neutral-400 mb-2">
                     Or enter this code manually:
                   </Typography>
-                  <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded font-mono text-sm break-all">
+                  <div className="bg-neutral-100 dark:bg-neutral-800 p-3 rounded font-mono text-sm break-all text-neutral-900 dark:text-neutral-100">
                     {secret.secret}
                   </div>
                 </div>
@@ -168,7 +158,7 @@ export default function TwoFactorAuthSetup({ isOpen, onClose, onSuccess }: TwoFa
               <Typography variant="h3" className="mb-2">
                 Enter Verification Code
               </Typography>
-              <Typography variant="body" className="text-gray-600 dark:text-gray-400">
+              <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">
                 Enter the 6-digit code from your authenticator app
               </Typography>
             </div>
@@ -217,7 +207,7 @@ export default function TwoFactorAuthSetup({ isOpen, onClose, onSuccess }: TwoFa
               <Typography variant="h3" className="mb-2 text-green-600">
                 Two-Factor Authentication Enabled!
               </Typography>
-              <Typography variant="body" className="text-gray-600 dark:text-gray-400">
+              <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">
                 Save these backup codes in a safe place. You can use them to access your account if you lose your device.
               </Typography>
             </div>
@@ -226,12 +216,12 @@ export default function TwoFactorAuthSetup({ isOpen, onClose, onSuccess }: TwoFa
               <Typography variant="h4" className="mb-3">Backup Codes</Typography>
               <div className="grid grid-cols-2 gap-2 font-mono text-sm">
                 {backupCodes.map((code, index) => (
-                  <div key={index} className="bg-gray-100 dark:bg-gray-800 p-2 rounded text-center">
+                  <div key={index} className="bg-neutral-100 dark:bg-neutral-800 p-2 rounded text-center text-neutral-900 dark:text-neutral-100">
                     {code}
                   </div>
                 ))}
               </div>
-              <Typography variant="body" className="text-xs text-gray-500 mt-3">
+              <Typography variant="body" className="text-xs text-neutral-500 mt-3">
                 Each code can only be used once. Store them securely!
               </Typography>
             </Card>

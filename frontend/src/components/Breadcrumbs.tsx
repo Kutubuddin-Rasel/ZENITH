@@ -32,13 +32,13 @@ export default function Breadcrumbs() {
   });
 
   return (
-    <nav aria-label="Breadcrumb" className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+    <nav aria-label="Breadcrumb" className="text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-1">
       <Link href="/" className="hover:underline">Home</Link>
       {crumbs.map((crumb, idx) => (
         <React.Fragment key={crumb.href}>
           <span className="mx-1">/</span>
           {idx === crumbs.length - 1 ? (
-            <span className="font-semibold text-gray-700 dark:text-gray-200">{crumb.label}</span>
+            <span className="font-semibold text-neutral-700 dark:text-neutral-200">{crumb.label}</span>
           ) : (
             <Link href={crumb.href} className="hover:underline">{crumb.label}</Link>
           )}

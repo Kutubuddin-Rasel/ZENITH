@@ -20,10 +20,10 @@ const ProjectIssueSidebar: React.FC<ProjectIssueSidebarProps> = ({ projectId }) 
   );
 
   return (
-    <aside className="w-80 max-w-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 h-full flex flex-col shadow-md">
-      <div className="p-4 border-b border-gray-100 dark:border-gray-800">
+    <aside className="w-80 max-w-full bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 h-full flex flex-col shadow-md">
+      <div className="p-4 border-b border-neutral-100 dark:border-neutral-800">
         <div className="relative">
-          <MagnifyingGlassIcon className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+          <MagnifyingGlassIcon className="absolute left-2 top-2.5 h-4 w-4 text-neutral-400" />
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -35,13 +35,13 @@ const ProjectIssueSidebar: React.FC<ProjectIssueSidebarProps> = ({ projectId }) 
       </div>
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
-          <div className="p-4 text-center text-gray-400">Loading...</div>
+          <div className="p-4 text-center text-neutral-400">Loading...</div>
         ) : isError ? (
           <div className="p-4 text-center text-red-500">Failed to load issues.</div>
         ) : filteredIssues.length === 0 ? (
-          <div className="p-4 text-center text-gray-400">No issues found.</div>
+          <div className="p-4 text-center text-neutral-400">No issues found.</div>
         ) : (
-          <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+          <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
             {filteredIssues.map(issue => (
               <li key={issue.id} className="p-3 hover:bg-blue-50 dark:hover:bg-blue-950/10 cursor-pointer flex flex-col gap-1">
                 <div className="flex items-center gap-2">

@@ -34,7 +34,7 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!verificationCode || verificationCode.length < 6) {
       setError('Please enter a valid verification code');
       return;
@@ -43,7 +43,7 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
     try {
       setIsLoading(true);
       setError(null);
-      
+
       // Use hardcoded API URL to ensure it's correct
       const API_URL = 'http://localhost:3000';
       const response = await fetch(`${API_URL}/auth/verify-2fa-login`, {
@@ -79,14 +79,14 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <ShieldCheckIcon className="h-16 w-16 text-blue-600 mx-auto mb-4" />
           <Typography variant="h2" className="mb-2">
             Two-Factor Authentication
           </Typography>
-          <Typography variant="body" className="text-gray-600 dark:text-gray-400">
+          <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">
             Enter the verification code from your authenticator app
           </Typography>
         </div>
@@ -94,7 +94,7 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="verification-code" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="verification-code" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Verification Code
               </label>
               <Input
@@ -108,7 +108,7 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
                 className="text-center text-2xl tracking-widest"
                 disabled={isLoading}
               />
-              <Typography variant="body" className="text-xs text-gray-500 mt-1">
+              <Typography variant="body" className="text-xs text-neutral-500 mt-1">
                 Enter 6-digit TOTP code or 8-character backup code
               </Typography>
             </div>
@@ -142,7 +142,7 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
 
             {timeLeft > 0 && (
               <div className="text-center">
-                <Typography variant="body" className="text-sm text-gray-500">
+                <Typography variant="body" className="text-sm text-neutral-500">
                   Code expires in {timeLeft} seconds
                 </Typography>
               </div>
@@ -150,10 +150,16 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
           </form>
         </Card>
 
-        <div className="text-center">
-          <Typography variant="body" className="text-sm text-gray-500">
+        <div className="text-center space-y-2">
+          <Typography variant="body" className="text-sm text-neutral-500">
             Having trouble? Contact your administrator for help.
           </Typography>
+          <a
+            href="/auth/2fa-recovery"
+            className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 block"
+          >
+            Lost access to authenticator app?
+          </a>
         </div>
       </div>
     </div>

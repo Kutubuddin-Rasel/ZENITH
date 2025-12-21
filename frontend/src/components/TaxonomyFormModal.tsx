@@ -59,7 +59,7 @@ export default function TaxonomyFormModal({
             {errors.name && <FormError error={errors.name.message} />}
           </div>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 flex justify-end items-center gap-3">
+        <div className="bg-neutral-50 dark:bg-neutral-800 px-6 py-4 flex justify-end items-center gap-3">
           {error && <FormError error={error.message} />}
           <Button variant="secondary" type="button" onClick={onClose} disabled={isSubmitting}>
             Cancel

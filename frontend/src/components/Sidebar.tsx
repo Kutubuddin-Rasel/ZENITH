@@ -221,7 +221,7 @@ const Sidebar = ({ projectId }: { projectId?: string }) => {
                       <Link
                         href={href}
                         onMouseEnter={() => handlePrefetch(link.name)}
-                        className={`group flex items-center w-full ${isCollapsed ? 'justify-center px-0' : 'justify-start px-3'} py-2.5 rounded-lg transition-all duration-200 relative
+                        className={`group flex items-center w-full ${isCollapsed ? 'justify-center px-0' : 'justify-start px-3'} py-2 rounded-lg transition-all duration-200 relative
                           ${isActive
                             ? 'bg-primary-50 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 font-semibold shadow-sm ring-1 ring-black/5 dark:ring-white/10'
                             : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 hover:text-neutral-900 dark:hover:text-neutral-200'
@@ -264,18 +264,20 @@ const Sidebar = ({ projectId }: { projectId?: string }) => {
 
       {/* Collapse Toggle Footer */}
       <div className="p-3 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50">
-        <button
+        <Button
+          variant="ghost"
+          fullWidth
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'justify-start px-3'} py-2 rounded-lg text-neutral-500 hover:bg-white dark:hover:bg-neutral-800 hover:shadow-sm hover:text-neutral-900 dark:hover:text-neutral-200 transition-all duration-200 border border-transparent hover:border-neutral-200 dark:hover:border-neutral-700`}
+          className={`group flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-start px-3'}`}
           title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
-          <div className={`p-1 rounded-md ${isCollapsed ? '' : 'bg-neutral-200/50 dark:bg-neutral-800 mr-3'}`}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`}>
+          <div className={`flex items-center justify-center transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''} ${!isCollapsed ? 'mr-3' : ''}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-neutral-200">
               <path fillRule="evenodd" d="M15.28 9.47a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 1 1-1.06-1.06L13.69 10 9.97 6.28a.75.75 0 0 1 1.06-1.06l4.25 4.25ZM6.03 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.69 10 6.03 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
             </svg>
           </div>
-          {!isCollapsed && <span className="text-sm font-medium">Collapse Sidebar</span>}
-        </button>
+          {!isCollapsed && <span className="text-sm font-medium text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-neutral-200">Collapse Sidebar</span>}
+        </Button>
       </div>
 
       {/* Create Issue Modal */}

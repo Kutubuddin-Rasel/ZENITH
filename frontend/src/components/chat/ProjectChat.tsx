@@ -44,21 +44,21 @@ const ProjectChat: React.FC<ProjectChatProps> = ({ projectId }) => {
     }, [messages]);
 
     return (
-        <div className="flex flex-col h-full bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-t-lg">
+        <div className="flex flex-col h-full bg-white dark:bg-neutral-900 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700">
+            <div className="p-4 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 rounded-t-lg">
                 <div className="flex items-center gap-2">
                     <SparklesIcon className="h-5 w-5 text-purple-500" />
-                    <h3 className="font-semibold text-gray-900 dark:text-white">Chat with Project</h3>
+                    <h3 className="font-semibold text-neutral-900 dark:text-white">Chat with Project</h3>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                     Ask questions about documentation, code, or issues.
                 </p>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px] max-h-[500px]">
                 {messages.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 space-y-2">
-                        <SparklesIcon className="h-10 w-10 text-gray-300" />
+                    <div className="flex flex-col items-center justify-center h-full text-center text-neutral-500 space-y-2">
+                        <SparklesIcon className="h-10 w-10 text-neutral-300" />
                         <p className="text-sm">Ask anything about this project!</p>
                     </div>
                 )}
@@ -70,7 +70,7 @@ const ProjectChat: React.FC<ProjectChatProps> = ({ projectId }) => {
                         <div
                             className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${m.role === 'user'
                                 ? 'bg-blue-600 text-white rounded-br-none'
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-none'
+                                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white rounded-bl-none'
                                 }`}
                         >
                             {m.role !== 'user' && (
@@ -83,19 +83,19 @@ const ProjectChat: React.FC<ProjectChatProps> = ({ projectId }) => {
 
                 {isLoading && (
                     <div className="flex justify-start">
-                        <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl px-4 py-2 rounded-bl-none">
-                            <span className="text-sm text-gray-500 animate-pulse">Thinking...</span>
+                        <div className="bg-neutral-100 dark:bg-neutral-800 rounded-2xl px-4 py-2 rounded-bl-none">
+                            <span className="text-sm text-neutral-500 animate-pulse">Thinking...</span>
                         </div>
                     </div>
                 )}
                 <div ref={messagesEndRef} />
             </div>
 
-            <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200 dark:border-gray-700 pb-6">
+            <form onSubmit={handleSubmit} className="p-4 border-t border-neutral-200 dark:border-neutral-700 pb-6">
                 <div className="flex items-center gap-2">
                     <input
-                        className="flex-1 px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 
-                                 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 
+                        className="flex-1 px-4 py-2 rounded-full border border-neutral-300 dark:border-neutral-600 
+                                 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 
                                  focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={input}
                         onChange={handleInputChange}
@@ -111,7 +111,7 @@ const ProjectChat: React.FC<ProjectChatProps> = ({ projectId }) => {
                     </button>
                 </div>
                 <div className="mt-2 text-center">
-                    <span className="text-[10px] text-gray-400">AI can make mistakes. Check important info.</span>
+                    <span className="text-[10px] text-neutral-400">AI can make mistakes. Check important info.</span>
                 </div>
             </form>
         </div>

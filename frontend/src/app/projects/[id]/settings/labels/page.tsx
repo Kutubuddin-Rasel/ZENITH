@@ -86,7 +86,7 @@ export default function LabelsSettingsPage() {
             Add Label
           </Button>
         </div>
-        <ul className="divide-y dark:divide-gray-800">
+        <ul className="divide-y dark:divide-neutral-800">
           {labels?.map((label) => (
             <li key={label.id} className="p-4 flex justify-between items-center">
               <span className="font-medium px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">{label.name}</span>
@@ -101,7 +101,7 @@ export default function LabelsSettingsPage() {
             </li>
           ))}
           {labels?.length === 0 && (
-            <p className="p-8 text-center text-gray-500">No labels have been added yet.</p>
+            <p className="p-8 text-center text-neutral-500">No labels have been added yet.</p>
           )}
         </ul>
       </Card>

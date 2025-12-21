@@ -6,6 +6,7 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
@@ -33,9 +34,18 @@ export class TwoFactorAuth {
   @Column({ type: 'timestamp', nullable: true })
   lastUsedAt: Date;
 
+  // Email recovery fields
+  @Column({ type: 'text', nullable: true })
+  @Index('IDX_2fa_recovery_token')
+  recoveryToken: string | null; // Hashed recovery token
+
+  @Column({ type: 'timestamp', nullable: true })
+  recoveryTokenExpiresAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
 }
+

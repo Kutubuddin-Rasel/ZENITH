@@ -86,7 +86,7 @@ export default function ComponentsSettingsPage() {
             Add Component
           </Button>
         </div>
-        <ul className="divide-y dark:divide-gray-800">
+        <ul className="divide-y dark:divide-neutral-800">
           {components?.map((component) => (
             <li key={component.id} className="p-4 flex justify-between items-center">
               <span className="font-medium">{component.name}</span>
@@ -101,7 +101,7 @@ export default function ComponentsSettingsPage() {
             </li>
           ))}
           {components?.length === 0 && (
-            <p className="p-8 text-center text-gray-500">No components have been added yet.</p>
+            <p className="p-8 text-center text-neutral-500">No components have been added yet.</p>
           )}
         </ul>
       </Card>

@@ -199,7 +199,7 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
 
         {/* Title */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
             Title *
           </label>
           <Input
@@ -211,13 +211,13 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
             Description
           </label>
           <textarea
             {...register('description')}
             rows={4}
-            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 resize-none"
+            className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-neutral-400 resize-none"
             placeholder="Describe the issue..."
           />
         </div>
@@ -226,7 +226,7 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
         <div className="grid grid-cols-2 gap-4">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
                 Type
               </label>
               {getSuggestion('type') && (
@@ -238,14 +238,14 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
             </div>
             <select
               {...register('type')}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
             >
               {ISSUE_TYPES.map((type) => (
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>
             {getSuggestion('type')?.reason && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                 {getSuggestion('type')?.reason}
               </p>
             )}
@@ -253,7 +253,7 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
                 Priority
               </label>
               {getSuggestion('priority') && (
@@ -265,14 +265,14 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
             </div>
             <select
               {...register('priority')}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
             >
               {ISSUE_PRIORITIES.map((priority) => (
                 <option key={priority} value={priority}>{priority}</option>
               ))}
             </select>
             {getSuggestion('priority')?.reason && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                 {getSuggestion('priority')?.reason}
               </p>
             )}
@@ -282,12 +282,12 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
         {/* Status and Assignee */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Status
             </label>
             <select
               {...register('status')}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
             >
               {/* FIX: Use project-specific statuses instead of hardcoded ISSUE_STATUSES */}
               {statuses.map((status) => (
@@ -298,7 +298,7 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
                 Assignee
               </label>
               {getSuggestion('assignee') && (
@@ -310,7 +310,7 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
             </div>
             <select
               {...register('assigneeId')}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
             >
               <option value="">Unassigned</option>
               {members?.map((member) => (
@@ -320,7 +320,7 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
               ))}
             </select>
             {getSuggestion('assignee')?.reason && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                 {getSuggestion('assignee')?.reason}
               </p>
             )}

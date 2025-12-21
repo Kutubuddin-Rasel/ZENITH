@@ -125,7 +125,7 @@ export default function PreferencesPage() {
 
     if (isError || !preferences) {
         return (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-neutral-500">
                 Failed to load preferences
             </div>
         );
@@ -147,10 +147,10 @@ export default function PreferencesPage() {
         <div className="max-w-3xl mx-auto p-6 space-y-8">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
                     General Preferences
                 </h1>
-                <p className="text-gray-500 mt-2">
+                <p className="text-neutral-500 mt-2">
                     Customize your Zenith experience.
                 </p>
             </div>
@@ -162,10 +162,10 @@ export default function PreferencesPage() {
                         <SparklesIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
                             Appearance
                         </h2>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-neutral-500">
                             Choose your preferred theme
                         </p>
                     </div>
@@ -178,11 +178,11 @@ export default function PreferencesPage() {
                             onClick={() => handleThemeChange(value)}
                             className={`p-4 rounded-xl border-2 text-center transition-all duration-200 flex flex-col items-center gap-2 ${preferences.ui?.theme === value
                                     ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                                    : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600'
                                 }`}
                         >
-                            <Icon className={`h-8 w-8 ${preferences.ui?.theme === value ? 'text-primary-600' : 'text-gray-400'}`} />
-                            <span className={`font-medium ${preferences.ui?.theme === value ? 'text-primary-700 dark:text-primary-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                            <Icon className={`h-8 w-8 ${preferences.ui?.theme === value ? 'text-primary-600' : 'text-neutral-400'}`} />
+                            <span className={`font-medium ${preferences.ui?.theme === value ? 'text-primary-700 dark:text-primary-400' : 'text-neutral-700 dark:text-neutral-300'}`}>
                                 {label}
                             </span>
                         </button>
@@ -198,10 +198,10 @@ export default function PreferencesPage() {
                             <GlobeAltIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                            <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
                                 Timezone
                             </h2>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-neutral-500">
                                 Set your local timezone for accurate scheduling
                             </p>
                         </div>
@@ -220,7 +220,7 @@ export default function PreferencesPage() {
                 <select
                     value={preferences.work?.workingHours?.timezone || detectedTimezone}
                     onChange={(e) => handleTimezoneChange(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
                 >
                     <optgroup label="Common Timezones">
                         {COMMON_TIMEZONES.map((tz) => (
@@ -230,7 +230,7 @@ export default function PreferencesPage() {
                         ))}
                     </optgroup>
                 </select>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-neutral-500 mt-2">
                     Detected: {detectedTimezone.replace(/_/g, ' ')}
                 </p>
             </Card>
@@ -242,10 +242,10 @@ export default function PreferencesPage() {
                         <CalendarDaysIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
                             Start of Week
                         </h2>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-neutral-500">
                             Choose when your week begins
                         </p>
                     </div>
@@ -265,7 +265,7 @@ export default function PreferencesPage() {
                                 onClick={() => handleStartOfWeekChange(value)}
                                 className={`p-4 rounded-xl border-2 text-center transition-all duration-200 ${isSelected
                                         ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400'
-                                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-700 dark:text-gray-300'
+                                        : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 text-neutral-700 dark:text-neutral-300'
                                     }`}
                             >
                                 <span className="font-medium">{label}</span>
@@ -282,10 +282,10 @@ export default function PreferencesPage() {
                         <ViewColumnsIcon className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
                             Default View
                         </h2>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-neutral-500">
                             Choose your preferred project view
                         </p>
                     </div>
@@ -298,11 +298,11 @@ export default function PreferencesPage() {
                             onClick={() => handleDefaultViewChange(value)}
                             className={`p-4 rounded-xl border-2 text-center transition-all duration-200 flex flex-col items-center gap-2 ${preferences.ui?.defaultView === value
                                     ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                                    : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600'
                                 }`}
                         >
-                            <Icon className={`h-8 w-8 ${preferences.ui?.defaultView === value ? 'text-primary-600' : 'text-gray-400'}`} />
-                            <span className={`font-medium ${preferences.ui?.defaultView === value ? 'text-primary-700 dark:text-primary-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                            <Icon className={`h-8 w-8 ${preferences.ui?.defaultView === value ? 'text-primary-600' : 'text-neutral-400'}`} />
+                            <span className={`font-medium ${preferences.ui?.defaultView === value ? 'text-primary-700 dark:text-primary-400' : 'text-neutral-700 dark:text-neutral-300'}`}>
                                 {label}
                             </span>
                         </button>
@@ -314,14 +314,14 @@ export default function PreferencesPage() {
             <Card className="p-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                            <Square2StackIcon className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+                        <div className="p-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg">
+                            <Square2StackIcon className="h-6 w-6 text-neutral-600 dark:text-neutral-400" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                            <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
                                 Compact Mode
                             </h2>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-neutral-500">
                                 Reduce spacing for more content on screen
                             </p>
                         </div>

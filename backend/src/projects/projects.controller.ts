@@ -14,6 +14,7 @@ import { ProjectsService } from './projects.service';
 import { WorkflowStatusesService } from '../workflows/services/workflow-statuses.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { UpdateProjectAccessSettingsDto } from './dto/update-project-access-settings.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
@@ -31,7 +32,7 @@ export class ProjectsController {
     private readonly projectsService: ProjectsService,
     private readonly usersService: UsersService,
     private readonly statusesService: WorkflowStatusesService,
-  ) {}
+  ) { }
 
   /**
    * Create a new project (auto-scoped to user's organization)
@@ -128,5 +129,28 @@ export class ProjectsController {
   @RequireProjectRole(ProjectRole.PROJECT_LEAD, ProjectRole.MEMBER)
   async getStatuses(@Param('id') id: string) {
     return this.statusesService.findByProject(id);
+  }
+
+  /**
+   * Get access control settings for a project
+   */
+  @Get(':id/access-settings')
+  @RequirePermission('projects:view')
+  @RequireProjectRole(ProjectRole.PROJECT_LEAD, ProjectRole.MEMBER)
+  async getAccessSettings(@Param('id') id: string) {
+    return this.projectsService.getAccessSettings(id);
+  }
+
+  /**
+   * Update access control settings for a project
+   */
+  @Patch(':id/access-settings')
+  @RequirePermission('projects:edit')
+  @RequireProjectRole(ProjectRole.PROJECT_LEAD)
+  async updateAccessSettings(
+    @Param('id') id: string,
+    @Body() dto: UpdateProjectAccessSettingsDto,
+  ) {
+    return this.projectsService.updateAccessSettings(id, dto);
   }
 }

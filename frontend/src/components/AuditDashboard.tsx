@@ -140,7 +140,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
       case 'high': return 'text-orange-600 bg-orange-100 dark:bg-orange-900 dark:text-orange-200';
       case 'medium': return 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-200';
       case 'low': return 'text-green-600 bg-green-100 dark:bg-green-900 dark:text-green-200';
-      default: return 'text-gray-600 bg-gray-100 dark:bg-gray-900 dark:text-gray-200';
+      default: return 'text-neutral-600 bg-neutral-100 dark:bg-neutral-900 dark:text-neutral-200';
     }
   };
 
@@ -149,7 +149,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
       case 'success': return <CheckCircleIcon className="h-4 w-4 text-green-600" />;
       case 'failure': return <XCircleIcon className="h-4 w-4 text-red-600" />;
       case 'warning': return <ExclamationTriangleIcon className="h-4 w-4 text-yellow-600" />;
-      default: return <ClockIcon className="h-4 w-4 text-gray-600" />;
+      default: return <ClockIcon className="h-4 w-4 text-neutral-600" />;
     }
   };
 
@@ -196,7 +196,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
           <Typography variant="h1" className="mb-2">
             Audit Dashboard
           </Typography>
-          <Typography variant="body" className="text-gray-600 dark:text-gray-400">
+          <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">
             Monitor system activity and security events
           </Typography>
         </div>
@@ -236,7 +236,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
           <Typography variant="h3" className="mb-4">Filters</Typography>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 Search
               </label>
               <Input
@@ -246,7 +246,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 Start Date
               </label>
               <Input
@@ -256,7 +256,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 End Date
               </label>
               <Input
@@ -266,13 +266,13 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 Severity
               </label>
               <select
                 value={filters.severities}
                 onChange={(e) => handleFilterChange('severities', e.target.value)}
-                className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm dark:text-white border-gray-200 dark:border-gray-700 transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm hover:shadow-md focus:shadow-lg"
+                className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm dark:text-white border-neutral-200 dark:border-neutral-700 transition-all duration-300 hover:border-neutral-300 dark:hover:border-neutral-600 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm hover:shadow-md focus:shadow-lg"
               >
                 <option value="">All Severities</option>
                 <option value="low">Low</option>
@@ -282,13 +282,13 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 Status
               </label>
               <select
                 value={filters.statuses}
                 onChange={(e) => handleFilterChange('statuses', e.target.value)}
-                className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm dark:text-white border-gray-200 dark:border-gray-700 transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm hover:shadow-md focus:shadow-lg"
+                className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm dark:text-white border-neutral-200 dark:border-neutral-700 transition-all duration-300 hover:border-neutral-300 dark:hover:border-neutral-600 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm hover:shadow-md focus:shadow-lg"
               >
                 <option value="">All Statuses</option>
                 <option value="success">Success</option>
@@ -298,7 +298,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 Limit
               </label>
               <Input
@@ -325,7 +325,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
               <ChartBarIcon className="h-8 w-8 text-blue-600 mr-3" />
               <div>
                 <Typography variant="h3" className="font-bold">{stats.totalEvents}</Typography>
-                <Typography variant="body" className="text-gray-600 dark:text-gray-400">Total Events</Typography>
+                <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">Total Events</Typography>
               </div>
             </div>
           </Card>
@@ -334,7 +334,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
               <ShieldCheckIcon className="h-8 w-8 text-green-600 mr-3" />
               <div>
                 <Typography variant="h3" className="font-bold">{stats.securityEvents}</Typography>
-                <Typography variant="body" className="text-gray-600 dark:text-gray-400">Security Events</Typography>
+                <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">Security Events</Typography>
               </div>
             </div>
           </Card>
@@ -343,7 +343,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
               <XCircleIcon className="h-8 w-8 text-red-600 mr-3" />
               <div>
                 <Typography variant="h3" className="font-bold">{stats.failedLogins}</Typography>
-                <Typography variant="body" className="text-gray-600 dark:text-gray-400">Failed Logins</Typography>
+                <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">Failed Logins</Typography>
               </div>
             </div>
           </Card>
@@ -352,7 +352,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
               <ExclamationTriangleIcon className="h-8 w-8 text-yellow-600 mr-3" />
               <div>
                 <Typography variant="h3" className="font-bold">{stats.suspiciousActivity}</Typography>
-                <Typography variant="body" className="text-gray-600 dark:text-gray-400">Suspicious Activity</Typography>
+                <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">Suspicious Activity</Typography>
               </div>
             </div>
           </Card>
@@ -379,9 +379,9 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
           <div className="space-y-4">
             {logs.length === 0 ? (
               <div className="text-center py-8">
-                <ClockIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <ClockIcon className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
                 <Typography variant="h4" className="mb-2">No Audit Logs</Typography>
-                <Typography variant="body" className="text-gray-600 dark:text-gray-400">
+                <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">
                   No audit logs found matching your criteria.
                 </Typography>
               </div>
@@ -389,7 +389,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
               logs.map((log) => (
                 <div
                   key={log.id}
-                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                  className="border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer"
                   onClick={() => setSelectedLog(log)}
                 >
                   <div className="flex items-start justify-between">
@@ -403,7 +403,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
                           {log.severity.toUpperCase()}
                         </span>
                       </div>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center space-x-4 text-sm text-neutral-600 dark:text-neutral-400">
                         <div className="flex items-center space-x-1">
                           <UserIcon className="h-4 w-4" />
                           <span>{log.userName || log.userEmail || 'System'}</span>
@@ -421,7 +421,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
                       </div>
                     </div>
                     <div className="text-right">
-                      <Typography variant="body" className="text-sm font-mono text-gray-500">
+                      <Typography variant="body" className="text-sm font-mono text-neutral-500">
                         {log.eventType.replace(/_/g, ' ').toUpperCase()}
                       </Typography>
                     </div>
@@ -448,7 +448,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Typography variant="h4" className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    <Typography variant="h4" className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-1">
                       Event Type
                     </Typography>
                     <Typography variant="body" className="font-mono">
@@ -456,7 +456,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
                     </Typography>
                   </div>
                   <div>
-                    <Typography variant="h4" className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    <Typography variant="h4" className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-1">
                       Severity
                     </Typography>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(selectedLog.severity)}`}>
@@ -464,7 +464,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
                     </span>
                   </div>
                   <div>
-                    <Typography variant="h4" className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    <Typography variant="h4" className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-1">
                       Status
                     </Typography>
                     <div className="flex items-center space-x-2">
@@ -473,7 +473,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
                     </div>
                   </div>
                   <div>
-                    <Typography variant="h4" className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    <Typography variant="h4" className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-1">
                       Timestamp
                     </Typography>
                     <Typography variant="body">
@@ -483,7 +483,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
                 </div>
 
                 <div>
-                  <Typography variant="h4" className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  <Typography variant="h4" className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-1">
                     Description
                   </Typography>
                   <Typography variant="body">{selectedLog.description}</Typography>
@@ -491,10 +491,10 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
 
                 {selectedLog.details && (
                   <div>
-                    <Typography variant="h4" className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    <Typography variant="h4" className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-1">
                       Details
                     </Typography>
-                    <pre className="bg-gray-100 dark:bg-gray-800 p-3 rounded text-sm overflow-x-auto">
+                    <pre className="bg-neutral-100 dark:bg-neutral-800 p-3 rounded text-sm overflow-x-auto">
                       {JSON.stringify(JSON.parse(selectedLog.details), null, 2)}
                     </pre>
                   </div>
@@ -502,7 +502,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Typography variant="h4" className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    <Typography variant="h4" className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-1">
                       User
                     </Typography>
                     <Typography variant="body">
@@ -510,7 +510,7 @@ export default function AuditDashboard({ projectId }: AuditDashboardProps) {
                     </Typography>
                   </div>
                   <div>
-                    <Typography variant="h4" className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    <Typography variant="h4" className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-1">
                       IP Address
                     </Typography>
                     <Typography variant="body">{selectedLog.ipAddress || 'N/A'}</Typography>

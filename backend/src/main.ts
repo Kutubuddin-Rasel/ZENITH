@@ -80,34 +80,55 @@ async function bootstrap() {
     maxAge: 86400, // 24 hours
   });
 
-  // Raw body parser for webhook signature verification
-  // This preserves the raw request body needed for HMAC verification
+  // IMPORTANT: Order matters! Webhook-specific parsers MUST come FIRST
+  // These capture rawBody for signature verification
   app.use(
-    (
-      req: Request & { rawBody?: Buffer },
-      res: Response,
-      next: NextFunction,
-    ) => {
-      // Only capture raw body for webhook endpoints
-      if (req.path.includes('/webhook')) {
-        let data = '';
-        req.setEncoding('utf8');
-        req.on('data', (chunk: string) => {
-          data += chunk;
-        });
-        req.on('end', () => {
-          req.rawBody = Buffer.from(data, 'utf8');
-          next();
-        });
-      } else {
-        next();
-      }
-    },
+    '/api/integrations/github-app/webhook',
+    bodyParser.json({
+      verify: (
+        req: Request & { rawBody?: Buffer },
+        _res: Response,
+        buf: Buffer,
+      ) => {
+        req.rawBody = buf;
+      },
+    }),
   );
 
-  // Global validation pipe
-  // Enable Raw Body for Stripe Webhooks
+  app.use(
+    '/api/integrations/github/webhook',
+    bodyParser.json({
+      verify: (
+        req: Request & { rawBody?: Buffer },
+        _res: Response,
+        buf: Buffer,
+      ) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
+
+  app.use(
+    '/api/integrations/slack/webhook',
+    bodyParser.json({
+      verify: (
+        req: Request & { rawBody?: Buffer },
+        _res: Response,
+        buf: Buffer,
+      ) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
+
   app.use('/billing/webhook', bodyParser.raw({ type: 'application/json' }));
+
+  // Global JSON body parser for all OTHER routes (after webhook-specific ones)
+  // Express middleware chain: first matching path wins
+  app.use(bodyParser.json());
+  app.use(bodyParser.urlencoded({ extended: true }));
+
+  // Global validation pipe
 
   app.useGlobalPipes(
     new ValidationPipe({

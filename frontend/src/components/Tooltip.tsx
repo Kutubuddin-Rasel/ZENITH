@@ -19,7 +19,7 @@ const Tooltip: React.FC<TooltipProps> = ({ label, children }) => {
     >
       {children}
       {show && (
-        <span className="absolute z-50 left-1/2 -translate-x-1/2 mt-2 px-3 py-1 rounded-lg bg-gray-900 text-white text-xs font-medium shadow-lg whitespace-nowrap pointer-events-none animate-fade-in">
+        <span className="absolute z-50 left-1/2 -translate-x-1/2 mt-2 px-3 py-1 rounded-lg bg-neutral-900 text-white text-xs font-medium shadow-lg whitespace-nowrap pointer-events-none animate-fade-in">
           {label}
         </span>
       )}

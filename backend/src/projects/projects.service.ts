@@ -11,8 +11,10 @@ import {
 import { Repository, DataSource } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Project } from './entities/project.entity';
+import { ProjectAccessSettings } from './entities/project-access-settings.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { UpdateProjectAccessSettingsDto } from './dto/update-project-access-settings.dto';
 import { ProjectMembersService } from '../membership/project-members/project-members.service';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 import { Issue, IssueStatus } from '../issues/entities/issue.entity';
@@ -47,6 +49,8 @@ export class ProjectsService implements OnModuleInit {
     private readonly dataSource: DataSource,
     @InjectRepository(Issue)
     private readonly issueRepo: Repository<Issue>,
+    @InjectRepository(ProjectAccessSettings)
+    private readonly accessSettingsRepo: Repository<ProjectAccessSettings>,
     private readonly cacheService: CacheService,
     private readonly auditLogsService: AuditLogsService,
     @Optional()
@@ -58,7 +62,7 @@ export class ProjectsService implements OnModuleInit {
     // TENANT ISOLATION: Inject factory and context
     private readonly tenantRepoFactory?: TenantRepositoryFactory,
     private readonly tenantContext?: TenantContext,
-  ) {}
+  ) { }
 
   /**
    * OnModuleInit: Create tenant-aware repository wrappers
@@ -450,5 +454,49 @@ export class ProjectsService implements OnModuleInit {
    */
   async getInvites(projectId: string): Promise<Invite[]> {
     return this.invitesService.findForProject(projectId);
+  }
+
+  /**
+   * Get access control settings for a project
+   * Creates default settings if none exist
+   */
+  async getAccessSettings(projectId: string): Promise<ProjectAccessSettings> {
+    // Verify project exists (also validates tenant access)
+    await this.findOneById(projectId);
+
+    let settings = await this.accessSettingsRepo.findOne({
+      where: { projectId },
+    });
+
+    // Create default settings if none exist
+    if (!settings) {
+      settings = this.accessSettingsRepo.create({ projectId });
+      settings = await this.accessSettingsRepo.save(settings);
+    }
+
+    return settings;
+  }
+
+  /**
+   * Update access control settings for a project
+   */
+  async updateAccessSettings(
+    projectId: string,
+    dto: UpdateProjectAccessSettingsDto,
+  ): Promise<ProjectAccessSettings> {
+    // Get existing settings (or create defaults)
+    const settings = await this.getAccessSettings(projectId);
+
+    // Apply updates
+    Object.assign(settings, dto);
+
+    const saved = await this.accessSettingsRepo.save(settings);
+
+    // Log the update for audit
+    this.logger.log(
+      `Access settings updated for project ${projectId}: ${JSON.stringify(dto)}`,
+    );
+
+    return saved;
   }
 }

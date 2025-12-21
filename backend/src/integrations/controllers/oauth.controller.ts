@@ -54,7 +54,7 @@ export class OAuthController {
     private oauthService: OAuthService,
     private integrationService: IntegrationService,
     private configService: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * Initiates OAuth flow by redirecting to third-party authorization page.
@@ -72,8 +72,8 @@ export class OAuthController {
     @Session() session: SessionData,
     @Res() res: Response,
   ) {
-    // Convert string to IntegrationType enum
-    const type = typeParam.toUpperCase() as IntegrationType;
+    // Convert string to IntegrationType enum (enum values are lowercase)
+    const type = typeParam.toLowerCase() as IntegrationType;
 
     if (!Object.values(IntegrationType).includes(type)) {
       throw new BadRequestException(`Invalid integration type: ${typeParam}`);
@@ -145,8 +145,8 @@ export class OAuthController {
       throw new BadRequestException('Missing code or state parameter');
     }
 
-    // Convert string to IntegrationType enum
-    const type = typeParam.toUpperCase() as IntegrationType;
+    // Convert string to IntegrationType enum (enum values are lowercase)
+    const type = typeParam.toLowerCase() as IntegrationType;
 
     if (!Object.values(IntegrationType).includes(type)) {
       throw new BadRequestException(`Invalid integration type: ${typeParam}`);

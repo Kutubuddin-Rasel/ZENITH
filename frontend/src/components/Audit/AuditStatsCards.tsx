@@ -43,7 +43,7 @@ export function AuditStatsCards({ stats }: AuditStatsCardsProps) {
                     <ChartBarIcon className="h-8 w-8 text-blue-600 mr-3" />
                     <div>
                         <Typography variant="h3" className="font-bold">{stats.totalEvents}</Typography>
-                        <Typography variant="body" className="text-gray-600 dark:text-gray-400">Total Events</Typography>
+                        <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">Total Events</Typography>
                     </div>
                 </div>
             </Card>
@@ -52,7 +52,7 @@ export function AuditStatsCards({ stats }: AuditStatsCardsProps) {
                     <ShieldCheckIcon className="h-8 w-8 text-green-600 mr-3" />
                     <div>
                         <Typography variant="h3" className="font-bold">{stats.securityEvents}</Typography>
-                        <Typography variant="body" className="text-gray-600 dark:text-gray-400">Security Events</Typography>
+                        <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">Security Events</Typography>
                     </div>
                 </div>
             </Card>
@@ -61,7 +61,7 @@ export function AuditStatsCards({ stats }: AuditStatsCardsProps) {
                     <XCircleIcon className="h-8 w-8 text-red-600 mr-3" />
                     <div>
                         <Typography variant="h3" className="font-bold">{stats.failedLogins}</Typography>
-                        <Typography variant="body" className="text-gray-600 dark:text-gray-400">Failed Logins</Typography>
+                        <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">Failed Logins</Typography>
                     </div>
                 </div>
             </Card>
@@ -70,7 +70,7 @@ export function AuditStatsCards({ stats }: AuditStatsCardsProps) {
                     <ExclamationTriangleIcon className="h-8 w-8 text-yellow-600 mr-3" />
                     <div>
                         <Typography variant="h3" className="font-bold">{stats.suspiciousActivity}</Typography>
-                        <Typography variant="body" className="text-gray-600 dark:text-gray-400">Suspicious Activity</Typography>
+                        <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">Suspicious Activity</Typography>
                     </div>
                 </div>
             </Card>

@@ -157,16 +157,16 @@ export default function NotificationPopover() {
     }
     
     return (
-      <div key={notification.id} className={`p-3 border-b border-gray-100 dark:border-gray-800 last:border-b-0 ${bgColor}`}>
+      <div key={notification.id} className={`p-3 border-b border-neutral-100 dark:border-neutral-800 last:border-b-0 ${bgColor}`}>
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 mt-0.5">
             {icon}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-gray-900 dark:text-gray-100 font-medium leading-relaxed">
+            <p className="text-sm text-neutral-900 dark:text-neutral-100 font-medium leading-relaxed">
               {notification.message}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
               {new Date(notification.createdAt).toLocaleString()}
             </p>
           </div>
@@ -216,9 +216,9 @@ export default function NotificationPopover() {
         <button
           ref={buttonRef}
           onClick={() => setIsOpen(!isOpen)}
-          className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200"
+          className="relative p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors duration-200"
         >
-          <BellIcon className="h-6 w-6 text-gray-700 dark:text-gray-300" />
+          <BellIcon className="h-6 w-6 text-neutral-700 dark:text-neutral-300" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold min-w-[18px] flex items-center justify-center">
               {unreadCount > 99 ? '99+' : unreadCount}
@@ -229,12 +229,12 @@ export default function NotificationPopover() {
         {isOpen && (
           <div
             ref={popoverRef}
-            className="absolute right-0 mt-2 w-96 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 max-h-96 overflow-hidden"
+            className="absolute right-0 mt-2 w-96 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-700 z-50 max-h-96 overflow-hidden"
           >
             {/* Header */}
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="p-4 border-b border-neutral-200 dark:border-neutral-700">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
                   Notifications
                 </h3>
                 <button
@@ -242,7 +242,7 @@ export default function NotificationPopover() {
                     forceRefresh();
                     console.log('🔄 Manually refreshing notifications...');
                   }}
-                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  className="p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
                   title="Refresh notifications"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,13 +252,13 @@ export default function NotificationPopover() {
               </div>
               
               {/* Tabs */}
-              <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+              <div className="flex space-x-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1">
                 <button
                   onClick={() => setActiveTab('unread')}
                   className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
                     activeTab === 'unread'
-                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-sm'
+                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                   }`}
                 >
                   Unread ({unreadCount})
@@ -267,8 +267,8 @@ export default function NotificationPopover() {
                   onClick={() => setActiveTab('history')}
                   className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
                     activeTab === 'history'
-                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-sm'
+                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                   }`}
                 >
                   History ({readNotifications.length})
@@ -286,7 +286,7 @@ export default function NotificationPopover() {
                 unreadNotifications.length > 0 ? (
                   unreadNotifications.map(renderNotification)
                 ) : (
-                  <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+                  <div className="p-6 text-center text-neutral-500 dark:text-neutral-400">
                     <BellIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">No unread notifications</p>
                   </div>
@@ -295,7 +295,7 @@ export default function NotificationPopover() {
                 readNotifications.length > 0 ? (
                   readNotifications.map(renderNotification)
                 ) : (
-                  <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+                  <div className="p-6 text-center text-neutral-500 dark:text-neutral-400">
                     <BellIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">No notification history</p>
                   </div>
@@ -310,7 +310,7 @@ export default function NotificationPopover() {
       <Modal open={showRejectModal} onClose={handleRejectCancel}>
         <div className="p-6">
           <h3 className="text-lg font-bold mb-4">Reject Invitation</h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-neutral-600 dark:text-neutral-400 mb-4">
             Please provide a reason for rejecting this invitation.
           </p>
           <textarea
@@ -318,7 +318,7 @@ export default function NotificationPopover() {
             onChange={(e) => setRejectReason(e.target.value)}
             placeholder="e.g., Too busy, Not interested, Wrong role..."
             rows={3}
-            className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm dark:text-white border-gray-200 dark:border-gray-700 transition-all duration-300 placeholder-gray-400 dark:placeholder-gray-500 hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm hover:shadow-md focus:shadow-lg resize-none"
+            className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm dark:text-white border-neutral-200 dark:border-neutral-700 transition-all duration-300 placeholder-neutral-400 dark:placeholder-neutral-500 hover:border-neutral-300 dark:hover:border-neutral-600 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm hover:shadow-md focus:shadow-lg resize-none"
           />
           <div className="mt-6 flex justify-end gap-3">
             <Button variant="secondary" onClick={handleRejectCancel}>

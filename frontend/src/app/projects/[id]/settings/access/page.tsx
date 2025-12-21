@@ -1,11 +1,12 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useParams } from 'next/navigation';
 import Card from '@/components/Card';
 import { CardHeader, CardContent, CardTitle } from '@/components/CardComponents';
 import Input from '@/components/Input';
 import Label from '@/components/Label';
 import Switch from '@/components/Switch';
+import Spinner from '@/components/Spinner';
 import Alert, { AlertDescription } from '@/components/Alert';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -17,83 +18,49 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import AccessControlManagement from '@/components/AccessControlManagement';
+import {
+  useProjectAccessSettings,
+  useUpdateProjectAccessSettings,
+  type ProjectAccessSettings
+} from '@/hooks/useProjectAccessSettings';
 
 /**
- * Access Control Settings Page - Instant Save Version
- * Each toggle triggers an immediate save with toast feedback
+ * Access Control Settings Page - Real Backend Integration
+ * Each toggle triggers an immediate save via API with optimistic updates
  */
-
-interface AccessSettings {
-  accessControlEnabled: boolean;
-  defaultPolicy: string;
-  emergencyAccessEnabled: boolean;
-  geographicFiltering: boolean;
-  timeBasedFiltering: boolean;
-  userSpecificRules: boolean;
-  roleBasedRules: boolean;
-  maxRulesPerUser: number;
-  autoCleanupEnabled: boolean;
-  cleanupIntervalHours: number;
-  notificationEnabled: boolean;
-  logAllAccess: boolean;
-  requireApprovalForNewRules: boolean;
-}
-
-const DEFAULT_SETTINGS: AccessSettings = {
-  accessControlEnabled: true,
-  defaultPolicy: 'deny',
-  emergencyAccessEnabled: true,
-  geographicFiltering: true,
-  timeBasedFiltering: true,
-  userSpecificRules: true,
-  roleBasedRules: true,
-  maxRulesPerUser: 10,
-  autoCleanupEnabled: true,
-  cleanupIntervalHours: 24,
-  notificationEnabled: true,
-  logAllAccess: true,
-  requireApprovalForNewRules: false,
-};
 
 export default function AccessControlSettingsPage() {
   const params = useParams();
   const projectId = params.id as string;
   const { showToast } = useToast();
-  const [settings, setSettings] = useState<AccessSettings>(DEFAULT_SETTINGS);
-  const [savingField, setSavingField] = useState<string | null>(null);
 
-  // Load settings from localStorage on mount
-  useEffect(() => {
-    const storageKey = `zenith_access_settings_${projectId}`;
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
-      } catch {
-        // Invalid JSON, use defaults
-      }
-    }
-  }, [projectId]);
+  // Fetch settings from real backend
+  const { data: settings, isLoading, isError } = useProjectAccessSettings(projectId);
+  const { mutate: updateSettings, isPending: isSaving } = useUpdateProjectAccessSettings(projectId);
 
-  // Instant save function - saves to localStorage immediately
-  const instantSave = async <K extends keyof AccessSettings>(
+  // Track which field is currently being saved for UI feedback
+  const [savingField, setSavingField] = React.useState<string | null>(null);
+
+  // Instant save function - saves to backend immediately with optimistic update
+  const instantSave = <K extends keyof ProjectAccessSettings>(
     field: K,
-    value: AccessSettings[K]
+    value: ProjectAccessSettings[K]
   ) => {
     setSavingField(field);
 
-    const newSettings = { ...settings, [field]: value };
-    setSettings(newSettings);
-
-    // Simulate brief network delay for UX
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // Save to localStorage (until backend endpoint exists)
-    const storageKey = `zenith_access_settings_${projectId}`;
-    localStorage.setItem(storageKey, JSON.stringify(newSettings));
-
-    setSavingField(null);
-    showToast('Setting saved', 'success');
+    updateSettings(
+      { [field]: value },
+      {
+        onSuccess: () => {
+          showToast('Setting saved', 'success');
+          setSavingField(null);
+        },
+        onError: (error) => {
+          showToast(error instanceof Error ? error.message : 'Failed to save setting', 'error');
+          setSavingField(null);
+        },
+      }
+    );
   };
 
   const handleRuleCreated = () => {
@@ -116,7 +83,7 @@ export default function AccessControlSettingsPage() {
     label,
     description
   }: {
-    id: keyof AccessSettings;
+    id: keyof ProjectAccessSettings;
     checked: boolean;
     onChange: (checked: boolean) => void;
     label: string;
@@ -140,11 +107,34 @@ export default function AccessControlSettingsPage() {
           id={id}
           checked={checked}
           onCheckedChange={onChange}
-          disabled={savingField !== null}
+          disabled={savingField !== null || isSaving}
         />
       </div>
     </div>
   );
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <Spinner className="h-10 w-10" />
+      </div>
+    );
+  }
+
+  // Error state
+  if (isError || !settings) {
+    return (
+      <div className="space-y-6">
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to load access control settings. Please try refreshing the page.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -182,10 +172,10 @@ export default function AccessControlSettingsPage() {
               <Label htmlFor="defaultPolicy">Default Policy</Label>
               <select
                 id="defaultPolicy"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900"
+                className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-md bg-white dark:bg-neutral-900"
                 value={settings.defaultPolicy}
                 onChange={(e) => instantSave('defaultPolicy', e.target.value)}
-                disabled={savingField !== null}
+                disabled={savingField !== null || isSaving}
               >
                 <option value="deny">Deny by default</option>
                 <option value="allow">Allow by default</option>
@@ -203,7 +193,7 @@ export default function AccessControlSettingsPage() {
                 max="100"
                 value={settings.maxRulesPerUser}
                 onChange={(e) => instantSave('maxRulesPerUser', parseInt(e.target.value) || 10)}
-                disabled={savingField !== null}
+                disabled={savingField !== null || isSaving}
               />
               <p className="text-sm text-muted-foreground mt-1">
                 Maximum number of access rules a user can create
@@ -317,7 +307,7 @@ export default function AccessControlSettingsPage() {
                 max="168"
                 value={settings.cleanupIntervalHours}
                 onChange={(e) => instantSave('cleanupIntervalHours', parseInt(e.target.value) || 24)}
-                disabled={savingField !== null}
+                disabled={savingField !== null || isSaving}
               />
               <p className="text-sm text-muted-foreground mt-1">
                 How often to run automatic cleanup

@@ -215,7 +215,7 @@ export default function WorkflowTemplatesMarketplace({
       case 'complex':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+        return 'bg-neutral-100 text-neutral-800 dark:bg-neutral-900 dark:text-neutral-200';
     }
   };
 
@@ -239,7 +239,7 @@ export default function WorkflowTemplatesMarketplace({
         {i < Math.floor(rating) ? (
           <StarSolidIcon className="h-4 w-4 text-yellow-400" />
         ) : (
-          <StarIcon className="h-4 w-4 text-gray-300" />
+          <StarIcon className="h-4 w-4 text-neutral-300" />
         )}
       </span>
     ));
@@ -257,10 +257,10 @@ export default function WorkflowTemplatesMarketplace({
           <div className="flex items-center gap-2">
             <span className="text-2xl">{getCategoryIcon(template.category)}</span>
             <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">
+              <h3 className="font-semibold text-neutral-900 dark:text-white">
                 {template.name}
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">
                 by {template.metadata?.author || 'Unknown'}
               </p>
             </div>
@@ -274,12 +274,12 @@ export default function WorkflowTemplatesMarketplace({
         </div>
 
         {template.description && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3 line-clamp-2">
             {template.description}
           </p>
         )}
 
-        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-3">
+        <div className="flex items-center gap-4 text-sm text-neutral-500 dark:text-neutral-400 mb-3">
           <div className="flex items-center gap-1">
             <StarIcon className="h-4 w-4" />
             <span>{template.rating?.toFixed(1) || 'N/A'}</span>
@@ -303,7 +303,7 @@ export default function WorkflowTemplatesMarketplace({
             {template.tags && template.tags.slice(0, 2).map((tag, index) => (
               <span
                 key={index}
-                className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-full"
+                className="px-2 py-1 bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs rounded-full"
               >
                 {tag}
               </span>
@@ -330,10 +330,10 @@ export default function WorkflowTemplatesMarketplace({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
             Workflow Templates
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
+          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
             Choose from pre-built workflow templates or create your own
           </p>
         </div>
@@ -350,7 +350,7 @@ export default function WorkflowTemplatesMarketplace({
       {/* Featured Templates */}
       {featuredTemplates.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">
             Featured Templates
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -365,28 +365,28 @@ export default function WorkflowTemplatesMarketplace({
       <Card>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Search Templates
             </label>
             <div className="relative">
-              <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400" />
               <input
                 type="text"
                 value={filters.search}
                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full pl-10 pr-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
                 placeholder="Search templates..."
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Category
             </label>
             <select
               value={filters.category}
               onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
             >
               <option value="all">All Categories</option>
               {categories.map((category) => (
@@ -397,13 +397,13 @@ export default function WorkflowTemplatesMarketplace({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Complexity
             </label>
             <select
               value={filters.complexity}
               onChange={(e) => setFilters({ ...filters, complexity: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
             >
               <option value="all">All Levels</option>
               <option value="simple">Simple</option>
@@ -412,13 +412,13 @@ export default function WorkflowTemplatesMarketplace({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Sort By
             </label>
             <select
               value={filters.sortBy}
               onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
             >
               <option value="popular">Most Popular</option>
               <option value="rating">Highest Rated</option>
@@ -449,11 +449,11 @@ export default function WorkflowTemplatesMarketplace({
       {templates.length === 0 ? (
         <Card>
           <div className="text-center py-12">
-            <SparklesIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            <SparklesIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-neutral-900 dark:text-white mb-2">
               No templates found
             </h3>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-neutral-600 dark:text-neutral-400">
               Try adjusting your search criteria or browse all templates
             </p>
           </div>
@@ -521,10 +521,10 @@ function TemplateDetailModal({
           <div className="flex items-center gap-3">
             <span className="text-3xl">{template.icon || '📄'}</span>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
                 {template.name}
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-neutral-600 dark:text-neutral-400">
                 by {template.metadata?.author || 'Unknown'}
               </p>
             </div>
@@ -535,11 +535,11 @@ function TemplateDetailModal({
                 {i < Math.floor(template.rating || 0) ? (
                   <StarSolidIcon className="h-5 w-5 text-yellow-400" />
                 ) : (
-                  <StarIcon className="h-5 w-5 text-gray-300" />
+                  <StarIcon className="h-5 w-5 text-neutral-300" />
                 )}
               </span>
             ))}
-            <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+            <span className="ml-2 text-sm text-neutral-600 dark:text-neutral-400">
               ({template.reviewCount} reviews)
             </span>
           </div>
@@ -547,45 +547,45 @@ function TemplateDetailModal({
 
         {template.description && (
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">
               Description
             </h3>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-neutral-600 dark:text-neutral-400">
               {template.description}
             </p>
           </div>
         )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="text-center p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+            <div className="text-2xl font-bold text-neutral-900 dark:text-white">
               {template.usageCount}
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-sm text-neutral-600 dark:text-neutral-400">
               Downloads
             </div>
           </div>
-          <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="text-center p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+            <div className="text-2xl font-bold text-neutral-900 dark:text-white">
               {template.metadata?.estimatedSetupTime || 0}m
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-sm text-neutral-600 dark:text-neutral-400">
               Setup Time
             </div>
           </div>
-          <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="text-center p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+            <div className="text-2xl font-bold text-neutral-900 dark:text-white">
               {template.metadata?.complexity || 'simple'}
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-sm text-neutral-600 dark:text-neutral-400">
               Complexity
             </div>
           </div>
-          <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="text-center p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+            <div className="text-2xl font-bold text-neutral-900 dark:text-white">
               {template.rating?.toFixed(1) || 'N/A'}
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-sm text-neutral-600 dark:text-neutral-400">
               Rating
             </div>
           </div>
@@ -593,7 +593,7 @@ function TemplateDetailModal({
 
         {template.tags && template.tags.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">
               Tags
             </h3>
             <div className="flex flex-wrap gap-2">
@@ -611,11 +611,11 @@ function TemplateDetailModal({
 
         {template.instructions && (
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">
               Instructions
             </h3>
             <div className="prose dark:prose-invert max-w-none">
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-neutral-600 dark:text-neutral-400">
                 {template.instructions}
               </p>
             </div>

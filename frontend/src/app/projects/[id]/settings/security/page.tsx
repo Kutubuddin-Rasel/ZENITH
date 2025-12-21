@@ -16,7 +16,7 @@ export default function SecuritySettingsPage() {
         <Typography variant="h1" className="mb-2">
           Security Settings
         </Typography>
-        <Typography variant="body" className="text-gray-600 dark:text-gray-400">
+        <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">
           Manage your account security and authentication settings
         </Typography>
       </div>
@@ -37,7 +37,7 @@ export default function SecuritySettingsPage() {
           </Button>
         </div>
 
-        <Typography variant="body" className="text-gray-600 dark:text-gray-400 mb-4">
+        <Typography variant="body" className="text-neutral-600 dark:text-neutral-400 mb-4">
           Configure Single Sign-On (SSO) integration with your organization&apos;s identity provider like Active Directory, Okta, or Azure AD.
         </Typography>
 
@@ -63,7 +63,7 @@ export default function SecuritySettingsPage() {
               <Typography variant="h4" className="text-sm font-medium">
                 Use Strong Passwords
               </Typography>
-              <Typography variant="body" className="text-sm text-gray-600 dark:text-gray-400">
+              <Typography variant="body" className="text-sm text-neutral-600 dark:text-neutral-400">
                 Use a unique, complex password with at least 12 characters including numbers, symbols, and mixed case letters.
               </Typography>
             </div>
@@ -75,7 +75,7 @@ export default function SecuritySettingsPage() {
               <Typography variant="h4" className="text-sm font-medium">
                 Enable Two-Factor Authentication
               </Typography>
-              <Typography variant="body" className="text-sm text-gray-600 dark:text-gray-400">
+              <Typography variant="body" className="text-sm text-neutral-600 dark:text-neutral-400">
                 Add an extra layer of security by requiring a verification code from your mobile device.
               </Typography>
             </div>
@@ -87,7 +87,7 @@ export default function SecuritySettingsPage() {
               <Typography variant="h4" className="text-sm font-medium">
                 Keep Your Device Secure
               </Typography>
-              <Typography variant="body" className="text-sm text-gray-600 dark:text-gray-400">
+              <Typography variant="body" className="text-sm text-neutral-600 dark:text-neutral-400">
                 Ensure your device is protected with a screen lock and keep your authenticator app updated.
               </Typography>
             </div>
@@ -102,7 +102,7 @@ export default function SecuritySettingsPage() {
           <Typography variant="h3">Active Sessions</Typography>
         </div>
         
-        <Typography variant="body" className="text-gray-600 dark:text-gray-400 mb-4">
+        <Typography variant="body" className="text-neutral-600 dark:text-neutral-400 mb-4">
           You are currently signed in on this device. For security reasons, we don&apos;t show detailed session information.
         </Typography>
 

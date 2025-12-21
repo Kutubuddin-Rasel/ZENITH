@@ -81,7 +81,7 @@ export default function NotificationsPage() {
 
     if (isError || !preferences) {
         return (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-neutral-500">
                 Failed to load notification preferences
             </div>
         );
@@ -100,10 +100,10 @@ export default function NotificationsPage() {
         <div className="max-w-3xl mx-auto p-6 space-y-8">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
                     Notification Settings
                 </h1>
-                <p className="text-gray-500 mt-2">
+                <p className="text-neutral-500 mt-2">
                     Choose how and when you want to be notified.
                 </p>
             </div>
@@ -116,10 +116,10 @@ export default function NotificationsPage() {
                             <EnvelopeIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                            <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
                                 Email Notifications
                             </h2>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-neutral-500">
                                 Receive updates via email
                             </p>
                         </div>
@@ -131,14 +131,14 @@ export default function NotificationsPage() {
                 </div>
 
                 {preferences.notifications?.email && (
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
+                    <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4 space-y-3">
                         {notificationTypes.map(({ key, label, description, icon: Icon }) => (
                             <div key={key} className="flex items-center justify-between py-2">
                                 <div className="flex items-center gap-3">
-                                    <Icon className="h-5 w-5 text-gray-400" />
+                                    <Icon className="h-5 w-5 text-neutral-400" />
                                     <div>
-                                        <p className="text-sm font-medium text-gray-900 dark:text-white">{label}</p>
-                                        <p className="text-xs text-gray-500">{description}</p>
+                                        <p className="text-sm font-medium text-neutral-900 dark:text-white">{label}</p>
+                                        <p className="text-xs text-neutral-500">{description}</p>
                                     </div>
                                 </div>
                                 <Switch
@@ -159,24 +159,24 @@ export default function NotificationsPage() {
                             <DevicePhoneMobileIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                            <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
                                 Push & In-App Notifications
                             </h2>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-neutral-500">
                                 Real-time updates in the app
                             </p>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">Push</span>
+                            <span className="text-xs text-neutral-500">Push</span>
                             <Switch
                                 checked={preferences.notifications?.push ?? true}
                                 onCheckedChange={(checked) => handleToggle('push', checked)}
                             />
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">In-App</span>
+                            <span className="text-xs text-neutral-500">In-App</span>
                             <Switch
                                 checked={preferences.notifications?.inApp ?? true}
                                 onCheckedChange={(checked) => handleToggle('inApp', checked)}
@@ -186,14 +186,14 @@ export default function NotificationsPage() {
                 </div>
 
                 {(preferences.notifications?.push || preferences.notifications?.inApp) && (
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
+                    <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4 space-y-3">
                         {notificationTypes.map(({ key, label, description, icon: Icon }) => (
                             <div key={key} className="flex items-center justify-between py-2">
                                 <div className="flex items-center gap-3">
-                                    <Icon className="h-5 w-5 text-gray-400" />
+                                    <Icon className="h-5 w-5 text-neutral-400" />
                                     <div>
-                                        <p className="text-sm font-medium text-gray-900 dark:text-white">{label}</p>
-                                        <p className="text-xs text-gray-500">{description}</p>
+                                        <p className="text-sm font-medium text-neutral-900 dark:text-white">{label}</p>
+                                        <p className="text-xs text-neutral-500">{description}</p>
                                     </div>
                                 </div>
                                 <Switch
@@ -213,10 +213,10 @@ export default function NotificationsPage() {
                         <BellIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
                             Notification Frequency
                         </h2>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-neutral-500">
                             How often to receive email digests
                         </p>
                     </div>
@@ -229,11 +229,11 @@ export default function NotificationsPage() {
                             onClick={() => handleFrequencyChange(freq)}
                             className={`p-4 rounded-xl border-2 text-center transition-all duration-200 ${preferences.notifications?.frequency === freq
                                 ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400'
-                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                                : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600'
                                 }`}
                         >
                             <p className="font-medium capitalize">{freq}</p>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-neutral-500 mt-1">
                                 {freq === 'immediate' && 'As it happens'}
                                 {freq === 'daily' && 'Once per day'}
                                 {freq === 'weekly' && 'Weekly digest'}

@@ -12,8 +12,8 @@ interface StatusBadgeProps {
 }
 
 const VARIANT_MAP: Record<BadgeVariant, string> = {
-    default: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-    neutral: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+    default: 'bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300',
+    neutral: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400',
     primary: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
     success: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
     warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
@@ -22,8 +22,8 @@ const VARIANT_MAP: Record<BadgeVariant, string> = {
 };
 
 const OUTLINE_MAP: Record<BadgeVariant, string> = {
-    default: 'border-gray-200 text-gray-700 dark:border-gray-700 dark:text-gray-300',
-    neutral: 'border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-400',
+    default: 'border-neutral-200 text-neutral-700 dark:border-neutral-700 dark:text-neutral-300',
+    neutral: 'border-neutral-200 text-neutral-600 dark:border-neutral-700 dark:text-neutral-400',
     primary: 'border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-300',
     success: 'border-green-200 text-green-700 dark:border-green-800 dark:text-green-300',
     warning: 'border-yellow-200 text-yellow-700 dark:border-yellow-800 dark:text-yellow-300',

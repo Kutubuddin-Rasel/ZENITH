@@ -11,7 +11,7 @@ import { BaseIntegrationService } from './base-integration.service';
 import { UsersService } from '../../users/users.service';
 import { ProjectsService } from '../../projects/projects.service';
 import { IssuesService } from '../../issues/issues.service';
-import { IssueType } from '../../issues/entities/issue.entity';
+import { IssueType, IssuePriority } from '../../issues/entities/issue.entity';
 
 export interface SlackMessage {
   channel: string;
@@ -106,6 +106,60 @@ interface SlackApiMessage {
 
 interface SlackHistoryResponse extends SlackApiResponse {
   messages?: SlackApiMessage[];
+}
+
+/**
+ * Slack Interactive Payload for view submissions (modals)
+ */
+export interface SlackInteractivePayload {
+  type: 'view_submission' | 'block_actions' | 'shortcut' | 'message_action';
+  trigger_id: string;
+  user: {
+    id: string;
+    username: string;
+    name: string;
+    team_id: string;
+  };
+  team: {
+    id: string;
+    domain: string;
+  };
+  view?: SlackModalView;
+  api_app_id: string;
+  token: string;
+  response_urls?: Array<{
+    block_id: string;
+    action_id: string;
+    channel_id: string;
+    response_url: string;
+  }>;
+}
+
+/**
+ * Slack Modal View structure
+ */
+export interface SlackModalView {
+  id: string;
+  team_id: string;
+  type: 'modal';
+  callback_id: string;
+  title: { type: 'plain_text'; text: string };
+  submit?: { type: 'plain_text'; text: string };
+  close?: { type: 'plain_text'; text: string };
+  private_metadata?: string;
+  state: {
+    values: Record<
+      string,
+      Record<
+        string,
+        {
+          type: string;
+          value?: string;
+          selected_option?: { value: string; text: { text: string } };
+        }
+      >
+    >;
+  };
 }
 
 @Injectable()
@@ -475,6 +529,9 @@ export class SlackIntegrationService extends BaseIntegrationService {
       const [action, ...args] = command.text.split(' ');
 
       switch (action) {
+        case 'create':
+          // Open modal for issue creation (modern UX)
+          return await this.openCreateIssueModal(command.trigger_id, command.team_id);
         case 'create-issue':
           return await this.handleCreateIssueCommand(command, args);
         case 'list-issues':
@@ -484,7 +541,7 @@ export class SlackIntegrationService extends BaseIntegrationService {
         default:
           return {
             response_type: 'ephemeral',
-            text: `Unknown command: ${action}. Use \`/zenith help\` for available commands.`,
+            text: `Unknown command: ${action}. Use \`/zenith help\` or \`/zenith create\` for a popup form.`,
           };
       }
     } catch (error) {
@@ -655,8 +712,273 @@ export class SlackIntegrationService extends BaseIntegrationService {
   private handleHelpCommand(): unknown {
     return {
       response_type: 'ephemeral',
-      text: `*Zenith Bot Commands:*\n• \`/zenith create-issue <title> <description>\` - Create a new issue\n• \`/zenith list-issues\` - List recent issues\n• \`/zenith help\` - Show this help message`,
+      text: `*Zenith Bot Commands:*\n• \`/zenith create\` - Open a form to create an issue (recommended)\n• \`/zenith create-issue <PROJECT> <title> <description>\` - Create issue via text\n• \`/zenith list-issues\` - List recent issues\n• \`/zenith help\` - Show this help message`,
     };
+  }
+
+  /**
+   * Open a Slack modal for creating an issue.
+   * Uses Slack Block Kit for a modern, form-based UX.
+   */
+  async openCreateIssueModal(
+    triggerId: string,
+    teamId: string,
+  ): Promise<{ response_type: string; text: string }> {
+    try {
+      // Find integration for this team
+      const integration = await this.integrationRepo
+        .createQueryBuilder('integration')
+        .where(`integration.type = :type`, { type: IntegrationType.SLACK })
+        .andWhere(`integration.config ->> 'teamId' = :teamId`, { teamId })
+        .getOne();
+
+      if (!integration) {
+        return {
+          response_type: 'ephemeral',
+          text: '❌ Zenith integration not configured for this Slack workspace.',
+        };
+      }
+
+      const accessToken = this.getAccessToken(integration);
+
+      // Build Block Kit modal view
+      const modalView = {
+        type: 'modal',
+        callback_id: 'create_issue_modal',
+        private_metadata: JSON.stringify({ integrationId: integration.id }),
+        title: { type: 'plain_text', text: 'Create Issue' },
+        submit: { type: 'plain_text', text: 'Create' },
+        close: { type: 'plain_text', text: 'Cancel' },
+        blocks: [
+          {
+            type: 'input',
+            block_id: 'project_block',
+            label: { type: 'plain_text', text: 'Project Key' },
+            element: {
+              type: 'plain_text_input',
+              action_id: 'project_input',
+              placeholder: { type: 'plain_text', text: 'e.g., ZEN' },
+            },
+          },
+          {
+            type: 'input',
+            block_id: 'title_block',
+            label: { type: 'plain_text', text: 'Title' },
+            element: {
+              type: 'plain_text_input',
+              action_id: 'title_input',
+              placeholder: { type: 'plain_text', text: 'Brief description of the issue' },
+            },
+          },
+          {
+            type: 'input',
+            block_id: 'description_block',
+            label: { type: 'plain_text', text: 'Description' },
+            optional: true,
+            element: {
+              type: 'plain_text_input',
+              action_id: 'description_input',
+              multiline: true,
+              placeholder: { type: 'plain_text', text: 'Detailed description...' },
+            },
+          },
+          {
+            type: 'input',
+            block_id: 'priority_block',
+            label: { type: 'plain_text', text: 'Priority' },
+            element: {
+              type: 'static_select',
+              action_id: 'priority_select',
+              placeholder: { type: 'plain_text', text: 'Select priority' },
+              options: [
+                { text: { type: 'plain_text', text: '🔴 High' }, value: 'high' },
+                { text: { type: 'plain_text', text: '🟡 Medium' }, value: 'medium' },
+                { text: { type: 'plain_text', text: '⚪ Low' }, value: 'low' },
+              ],
+              initial_option: { text: { type: 'plain_text', text: '🟡 Medium' }, value: 'medium' },
+            },
+          },
+          {
+            type: 'input',
+            block_id: 'type_block',
+            label: { type: 'plain_text', text: 'Type' },
+            element: {
+              type: 'static_select',
+              action_id: 'type_select',
+              placeholder: { type: 'plain_text', text: 'Select type' },
+              options: [
+                { text: { type: 'plain_text', text: '🐛 Bug' }, value: 'bug' },
+                { text: { type: 'plain_text', text: '✨ Feature' }, value: 'story' },
+                { text: { type: 'plain_text', text: '📋 Task' }, value: 'task' },
+                { text: { type: 'plain_text', text: '🔧 Improvement' }, value: 'task' },
+              ],
+              initial_option: { text: { type: 'plain_text', text: '📋 Task' }, value: 'task' },
+            },
+          },
+        ],
+      };
+
+      // Call Slack API to open the modal
+      const response = await fetch(`${this.slackApiBase}/views.open`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          trigger_id: triggerId,
+          view: modalView,
+        }),
+      });
+
+      const result = (await response.json()) as SlackApiResponse;
+
+      if (!result.ok) {
+        this.logger.error('Failed to open Slack modal:', result.error);
+        return {
+          response_type: 'ephemeral',
+          text: `❌ Failed to open modal: ${result.error}`,
+        };
+      }
+
+      this.logger.log('Successfully opened create issue modal');
+      // For modal opening, we return an empty response (Slack handles the modal)
+      return { response_type: 'ephemeral', text: '' };
+    } catch (error) {
+      this.logger.error('Error opening create issue modal:', error);
+      return {
+        response_type: 'ephemeral',
+        text: `❌ Error: ${(error as Error).message}`,
+      };
+    }
+  }
+
+  /**
+   * Handle modal form submission from Slack.
+   * Called when user clicks "Create" on the issue creation modal.
+   */
+  async handleViewSubmission(
+    payload: SlackInteractivePayload,
+  ): Promise<{ response_action?: string; errors?: Record<string, string> } | void> {
+    try {
+      if (payload.view?.callback_id !== 'create_issue_modal') {
+        this.logger.warn(`Unknown modal callback_id: ${payload.view?.callback_id}`);
+        return;
+      }
+
+      const values = payload.view.state.values;
+
+      // Extract form values
+      const projectKey = values.project_block?.project_input?.value?.toUpperCase() || '';
+      const title = values.title_block?.title_input?.value || '';
+      const description = values.description_block?.description_input?.value || '';
+      const priority = values.priority_block?.priority_select?.selected_option?.value;
+      const issueTypeValue = values.type_block?.type_select?.selected_option?.value;
+
+      // Validate required fields
+      if (!projectKey || projectKey.length < 2) {
+        return {
+          response_action: 'errors',
+          errors: { project_block: 'Please enter a valid project key (e.g., ZEN)' },
+        };
+      }
+
+      if (!title || title.length < 3) {
+        return {
+          response_action: 'errors',
+          errors: { title_block: 'Title must be at least 3 characters' },
+        };
+      }
+
+      // Get integration from metadata
+      const metadata = JSON.parse(payload.view.private_metadata || '{}');
+      const integrationId = metadata.integrationId;
+
+      if (!integrationId) {
+        this.logger.error('No integrationId in modal private_metadata');
+        return;
+      }
+
+      const integration = await this.integrationRepo.findOne({
+        where: { id: integrationId },
+      });
+
+      if (!integration) {
+        this.logger.error(`Integration ${integrationId} not found`);
+        return;
+      }
+
+      // Find project
+      const project = await this.projectsService.findByKey(projectKey);
+      if (!project) {
+        return {
+          response_action: 'errors',
+          errors: { project_block: `Project "${projectKey}" not found` },
+        };
+      }
+
+      // Resolve Slack user to Zenith user
+      const reporterId = await this.resolveZenithUser(integration, payload.user.id);
+      if (!reporterId) {
+        return {
+          response_action: 'errors',
+          errors: { project_block: 'Could not match your Slack account to a Zenith user. Ensure emails match.' },
+        };
+      }
+
+      // Map issue type and priority
+      const issueType = issueTypeValue === 'bug' ? IssueType.BUG
+        : issueTypeValue === 'story' ? IssueType.STORY
+          : IssueType.TASK;
+
+      const issuePriority = priority === 'high' ? IssuePriority.HIGH
+        : priority === 'low' ? IssuePriority.LOW
+          : IssuePriority.MEDIUM;
+
+      // Create the issue
+      const issue = await this.issuesService.create(project.id, reporterId, {
+        title,
+        description,
+        priority: issuePriority,
+        type: issueType,
+      });
+
+      // Post confirmation message to user via Slack
+      const accessToken = this.getAccessToken(integration);
+      const issueNumber = issue.number ? `${project.key}-${issue.number}` : 'New Issue';
+      const appUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const issueUrl = `${appUrl}/projects/${project.id}/issues/${issue.id}`;
+
+      // Send DM to the user who created the issue
+      await fetch(`${this.slackApiBase}/chat.postMessage`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          channel: payload.user.id, // DM the user
+          text: `✅ Issue created: <${issueUrl}|${issueNumber}: ${title}>`,
+          blocks: [
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: `✅ *Issue Created*\n*<${issueUrl}|${issueNumber}: ${title}>*\n${description ? `_${description.substring(0, 100)}${description.length > 100 ? '...' : ''}_` : ''}`,
+              },
+            },
+          ],
+        }),
+      });
+
+      this.logger.log(`Issue ${issueNumber} created via Slack modal by ${payload.user.username}`);
+
+      // Close modal successfully
+      return;
+    } catch (error) {
+      this.logger.error('Error handling view submission:', error);
+      return;
+    }
   }
 
   /**

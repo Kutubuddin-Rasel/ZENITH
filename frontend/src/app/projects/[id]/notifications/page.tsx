@@ -73,16 +73,16 @@ export default function ProjectNotificationsPage() {
         ) : isError ? (
           <div className="text-red-500 text-center py-8">Failed to load notifications.</div>
         ) : notifications.length === 0 ? (
-          <div className="text-gray-400 text-center py-8">No notifications for this project.</div>
+          <div className="text-neutral-400 text-center py-8">No notifications for this project.</div>
         ) : (
           <ul>
             {notifications.map((n) => {
               const isInvite = n.context && n.context.inviteId;
               return (
-                <li key={n.id} className={`flex items-center gap-3 p-4 border-b last:border-b-0 border-gray-100 dark:border-gray-800 ${n.read ? 'opacity-60' : ''}`}>
-                  <span className={`text-xs px-2 py-1 rounded ${n.type === 'error' ? 'bg-red-100 text-red-700' : n.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{n.type || 'info'}</span>
+                <li key={n.id} className={`flex items-center gap-3 p-4 border-b last:border-b-0 border-neutral-100 dark:border-neutral-800 ${n.read ? 'opacity-60' : ''}`}>
+                  <span className={`text-xs px-2 py-1 rounded ${n.type === 'error' ? 'bg-red-100 text-red-700' : n.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-700'}`}>{n.type || 'info'}</span>
                   <span className="flex-1">{n.message}</span>
-                  <span className="text-xs text-gray-400">{new Date(n.createdAt).toLocaleString()}</span>
+                  <span className="text-xs text-neutral-400">{new Date(n.createdAt).toLocaleString()}</span>
                   {isInvite && !n.read && (
                     <div className="flex flex-col gap-2 md:flex-row md:items-center">
                       <Button

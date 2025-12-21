@@ -1,34 +1,76 @@
-import React, { forwardRef, TextareaHTMLAttributes } from 'react';
+"use client";
 
-interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+import React, { forwardRef, TextareaHTMLAttributes } from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
+
+const textareaVariants = cva(
+  "w-full rounded-md px-3 py-2 text-sm bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 border outline-none placeholder:text-neutral-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 min-h-[80px]",
+  {
+    variants: {
+      variant: {
+        default: "border-neutral-300 dark:border-neutral-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-neutral-900",
+        error: "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:ring-offset-0",
+      },
+      fullWidth: {
+        true: "w-full",
+      },
+      resize: {
+        none: "resize-none",
+        vertical: "resize-y",
+        horizontal: "resize-x",
+        both: "resize",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      fullWidth: true,
+      resize: "vertical",
+    },
+  }
+);
+
+export interface TextareaProps
+  extends TextareaHTMLAttributes<HTMLTextAreaElement>,
+  VariantProps<typeof textareaVariants> {
   label?: string;
   error?: string;
 }
 
-const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(({ label, error, className = '', ...props }, ref) => (
-  <div className="w-full">
-    {label && (
-      <label className="block mb-2 font-semibold text-sm bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-        {label}
-      </label>
-    )}
-    <div className="relative">
+const TextArea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
+  className,
+  variant,
+  fullWidth,
+  resize,
+  label,
+  error,
+  ...props
+}, ref) => {
+  const effectiveVariant = error ? 'error' : variant;
+
+  return (
+    <div className="w-full space-y-1.5">
+      {label && (
+        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+          {label}
+        </label>
+      )}
+
       <textarea
+        className={cn(textareaVariants({ variant: effectiveVariant, fullWidth, resize, className }))}
         ref={ref}
-        className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm dark:text-white border-gray-200 dark:border-gray-700 transition-all duration-300 placeholder-gray-400 dark:placeholder-gray-500 hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm hover:shadow-md focus:shadow-lg resize-none ${error ? 'border-red-500 ring-red-500/50 dark:border-red-400' : ''} ${className}`}
         {...props}
       />
-      {/* Decorative gradient overlay */}
-      <div className={`absolute inset-0 rounded-xl bg-gradient-to-r from-blue-50/0 via-blue-50/5 to-purple-50/0 dark:from-blue-950/0 dark:via-blue-950/5 dark:to-purple-950/0 opacity-0 focus-within:opacity-100 transition-opacity duration-300 pointer-events-none ${error ? 'from-red-50/0 via-red-50/5 to-red-50/0 dark:from-red-950/0 dark:via-red-950/5 dark:to-red-950/0' : ''}`} />
-    </div>
-    {error && (
-      <div className="mt-2 flex items-center gap-2">
-        <div className="w-1.5 h-1.5 bg-gradient-to-r from-red-500 to-red-600 rounded-full" />
-        <p className="text-xs font-medium text-red-600 dark:text-red-400">{error}</p>
-      </div>
-    )}
-  </div>
-));
 
-TextArea.displayName = 'TextArea';
-export default TextArea; 
+      {error && (
+        <p className="text-sm text-red-600 dark:text-red-400 animate-slide-up">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+});
+
+TextArea.displayName = "TextArea";
+
+export default TextArea;

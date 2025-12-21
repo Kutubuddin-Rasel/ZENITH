@@ -96,6 +96,38 @@ export class Integration {
   })
   healthStatus: IntegrationStatus;
 
+  // ========================================
+  // GitHub App Fields (Enterprise)
+  // ========================================
+
+  /**
+   * GitHub App installation ID.
+   * Used to generate installation access tokens.
+   */
+  @Column({ type: 'varchar', nullable: true })
+  installationId: string | null;
+
+  /**
+   * Account type for GitHub App installation.
+   * Either 'User' or 'Organization'.
+   */
+  @Column({ type: 'varchar', nullable: true })
+  accountType: string | null;
+
+  /**
+   * Account login/name for GitHub App installation.
+   * e.g., 'my-org' or 'my-username'.
+   */
+  @Column({ type: 'varchar', nullable: true })
+  accountLogin: string | null;
+
+  /**
+   * Flag to identify legacy OAuth integrations.
+   * These need to be migrated to GitHub App.
+   */
+  @Column({ type: 'boolean', default: false })
+  isLegacyOAuth: boolean;
+
   @Column({ type: 'timestamp', nullable: true })
   lastSyncAt: Date | null;
 

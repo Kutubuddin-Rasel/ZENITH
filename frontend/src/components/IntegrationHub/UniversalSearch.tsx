@@ -216,10 +216,10 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
     <Modal open={true} onClose={onClose} maxWidthClass="sm:max-w-6xl">
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Universal Search</h2>
+          <h2 className="text-xl font-semibold text-neutral-900">Universal Search</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-neutral-400 hover:text-neutral-600"
           >
             <XMarkIcon className="h-6 w-6" />
           </button>
@@ -228,7 +228,7 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
         {/* Search Input */}
         <div className="relative mb-6">
           <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-neutral-400" />
             <Input
               type="text"
               value={query}
@@ -246,17 +246,17 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
 
           {/* Suggestions Dropdown */}
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+            <div className="absolute z-10 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-60 overflow-auto">
               {suggestions.map((suggestion, index) => (
                 <button
                   key={index}
                   onClick={() => handleSuggestionClick(suggestion.text)}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2"
+                  className="w-full px-4 py-2 text-left hover:bg-neutral-50 flex items-center space-x-2"
                 >
-                  <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-700">{suggestion.text}</span>
+                  <MagnifyingGlassIcon className="h-4 w-4 text-neutral-400" />
+                  <span className="text-sm text-neutral-700">{suggestion.text}</span>
                   {suggestion.count && (
-                    <span className="text-xs text-gray-500">({suggestion.count})</span>
+                    <span className="text-xs text-neutral-500">({suggestion.count})</span>
                   )}
                 </button>
               ))}
@@ -268,7 +268,7 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
         <div className="mb-6 space-y-4">
           {/* Source Filters */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Sources</label>
+            <label className="block text-sm font-medium text-neutral-700 mb-2">Sources</label>
             <div className="flex flex-wrap gap-2">
               {availableSources.map((source) => (
                 <button
@@ -277,7 +277,7 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
                   className={`flex items-center space-x-1 px-3 py-1 rounded-full text-sm ${
                     selectedSources.includes(source)
                       ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                      : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
+                      : 'bg-neutral-100 text-neutral-700 border border-neutral-200 hover:bg-neutral-200'
                   }`}
                 >
                   {getSourceIcon(source)}
@@ -289,11 +289,11 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
 
           {/* Content Type Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Content Type</label>
+            <label className="block text-sm font-medium text-neutral-700 mb-2">Content Type</label>
             <select
               value={selectedContentType}
               onChange={(e) => setSelectedContentType(e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">All Types</option>
               {availableContentTypes.map((type) => (
@@ -308,7 +308,7 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
         {/* Results */}
         <div className="space-y-4">
           {query && (
-            <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+            <div className="flex items-center justify-between text-sm text-neutral-500 mb-4">
               <span>
                 {total > 0 ? `${total} results` : 'No results'} 
                 {took > 0 && ` (${took}ms)`}
@@ -321,9 +321,9 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
 
           {results.length === 0 && query && !loading && (
             <div className="text-center py-8">
-              <MagnifyingGlassIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No results found for &quot;{query}&quot;</p>
-              <p className="text-sm text-gray-400 mt-1">
+              <MagnifyingGlassIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+              <p className="text-neutral-500">No results found for &quot;{query}&quot;</p>
+              <p className="text-sm text-neutral-400 mt-1">
                 Try adjusting your search terms or filters
               </p>
             </div>
@@ -332,28 +332,28 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
           {results.map((result) => (
             <div
               key={result.id}
-              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+              className="border border-neutral-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
               onClick={() => window.open(result.url, '_blank')}
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center space-x-2">
                   {getContentTypeIcon(result.contentType)}
-                  <span className="text-sm font-medium text-gray-900">{result.title}</span>
+                  <span className="text-sm font-medium text-neutral-900">{result.title}</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500">{formatTimestamp(result.timestamp)}</span>
-                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                  <span className="text-xs text-neutral-500">{formatTimestamp(result.timestamp)}</span>
+                  <span className="text-xs bg-neutral-100 text-neutral-600 px-2 py-1 rounded">
                     {result.source}
                   </span>
                 </div>
               </div>
               
-              <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+              <p className="text-sm text-neutral-600 mb-2 line-clamp-2">
                 {result.content}
               </p>
               
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4 text-xs text-gray-500">
+                <div className="flex items-center space-x-4 text-xs text-neutral-500">
                   <span>by {result.author}</span>
                   <span>•</span>
                   <span>{result.contentType}</span>

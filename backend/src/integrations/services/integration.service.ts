@@ -61,7 +61,7 @@ export class IntegrationService {
     private encryptionService: EncryptionService,
     private rateLimitService: RateLimitService,
     @InjectQueue('integration-sync') private syncQueue: Queue,
-  ) {}
+  ) { }
 
   async createIntegration(
     createIntegrationDto: CreateIntegrationDto,
@@ -116,6 +116,26 @@ export class IntegrationService {
   ): Promise<Integration[]> {
     return await this.integrationRepo.find({
       where: { type, isActive: true },
+    });
+  }
+
+  /**
+   * Find integration by GitHub App installation ID.
+   * Used for webhook handlers where we don't have org context.
+   */
+  async findByInstallationId(installationId: string): Promise<Integration | null> {
+    return await this.integrationRepo.findOne({
+      where: { installationId },
+    });
+  }
+
+  /**
+   * Find integrations by GitHub account login.
+   * Used for matching webhook events to existing integrations.
+   */
+  async findByAccountLogin(accountLogin: string): Promise<Integration[]> {
+    return await this.integrationRepo.find({
+      where: { accountLogin },
     });
   }
 

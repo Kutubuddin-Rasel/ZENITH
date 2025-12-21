@@ -51,13 +51,13 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
     const pathname = usePathname();
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
+        <div className="min-h-screen bg-neutral-50 dark:bg-[#0a0a0a]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="flex gap-8">
                     {/* Sidebar */}
                     <aside className="w-64 flex-shrink-0">
                         <div className="sticky top-8">
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+                            <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-6">
                                 Settings
                             </h1>
                             <nav className="space-y-1">
@@ -72,13 +72,13 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
                                             href={item.href}
                                             className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
                                                 ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 border border-primary-200 dark:border-primary-800'
-                                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                                : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                                                 }`}
                                         >
-                                            <Icon className={`h-5 w-5 ${isActive ? 'text-primary-600' : 'text-gray-400'}`} />
+                                            <Icon className={`h-5 w-5 ${isActive ? 'text-primary-600' : 'text-neutral-400'}`} />
                                             <div>
                                                 <p className="font-medium">{item.name}</p>
-                                                <p className={`text-xs ${isActive ? 'text-primary-600/70' : 'text-gray-500'}`}>
+                                                <p className={`text-xs ${isActive ? 'text-primary-600/70' : 'text-neutral-500'}`}>
                                                     {item.description}
                                                 </p>
                                             </div>

@@ -83,12 +83,12 @@ function SortableIssueCard({ issue, containerId, onRemove }: {
       style={style}
       {...attributes}
       {...listeners}
-      className={`bg-white dark:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-600 p-4 transition-all duration-200 group hover:shadow-xl cursor-grab active:cursor-grabbing ${isDragging ? 'shadow-2xl scale-105 border-blue-400' : ''
+      className={`bg-white dark:bg-neutral-700 rounded-2xl border border-neutral-100 dark:border-neutral-600 p-4 transition-all duration-200 group hover:shadow-xl cursor-grab active:cursor-grabbing ${isDragging ? 'shadow-2xl scale-105 border-blue-400' : ''
         }`}
     >
       <div className="flex items-start gap-4">
         <div className="flex-1 min-w-0">
-          <div className={`font-semibold text-gray-900 dark:text-white mb-2 group-hover:${isSprint ? 'text-blue-600 dark:text-blue-400' : 'text-purple-600 dark:text-purple-400'} transition-colors`}>
+          <div className={`font-semibold text-neutral-900 dark:text-white mb-2 group-hover:${isSprint ? 'text-blue-600 dark:text-blue-400' : 'text-purple-600 dark:text-purple-400'} transition-colors`}>
             {issue.title}
           </div>
           <div className="flex gap-2 items-center flex-wrap">
@@ -99,16 +99,16 @@ function SortableIssueCard({ issue, containerId, onRemove }: {
                     issue.priority === 'High' ? 'bg-red-400' :
                       issue.priority === 'Medium' ? 'bg-yellow-400' :
                         issue.priority === 'Low' ? 'bg-green-400' :
-                          issue.priority === 'Lowest' ? 'bg-gray-400' :
-                            'bg-gray-300'
+                          issue.priority === 'Lowest' ? 'bg-neutral-400' :
+                            'bg-neutral-300'
                     }`}
                 />
                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${issue.priority === 'Highest' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
                   issue.priority === 'High' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
                     issue.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
                       issue.priority === 'Low' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                        issue.priority === 'Lowest' ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' :
-                          'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                        issue.priority === 'Lowest' ? 'bg-neutral-100 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-300' :
+                          'bg-neutral-100 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-300'
                   }`}>
                   {issue.priority}
                 </span>
@@ -163,7 +163,7 @@ function SortableIssueCard({ issue, containerId, onRemove }: {
 // Drag Overlay Card
 function DragOverlayCard({ issue, isSprint }: { issue: Issue; isSprint: boolean }) {
   return (
-    <div className={`bg-white dark:bg-gray-700 rounded-2xl border-2 ${isSprint ? 'border-blue-400' : 'border-purple-400'} p-4 shadow-2xl scale-105 w-full max-w-md`}>
+    <div className={`bg-white dark:bg-neutral-700 rounded-2xl border-2 ${isSprint ? 'border-blue-400' : 'border-purple-400'} p-4 shadow-2xl scale-105 w-full max-w-md`}>
       <div className="flex items-start gap-4">
         <div className="flex-1 min-w-0">
           <div className={`font-semibold ${isSprint ? 'text-blue-600 dark:text-blue-400' : 'text-purple-600 dark:text-purple-400'} mb-2`}>
@@ -173,7 +173,7 @@ function DragOverlayCard({ issue, isSprint }: { issue: Issue; isSprint: boolean 
             {issue.priority && (
               <span className={`px-2 py-1 rounded-full text-xs font-semibold ${issue.priority === 'Highest' ? 'bg-red-100 text-red-800' :
                 issue.priority === 'High' ? 'bg-orange-100 text-orange-800' :
-                  'bg-gray-100 text-gray-800'
+                  'bg-neutral-100 text-neutral-800'
                 }`}>
                 {issue.priority}
               </span>
@@ -206,7 +206,7 @@ function DroppableContainer({ id, children, isEmpty, label }: {
         }`}
     >
       {isEmpty && (
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+        <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
           <ClockIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p>No issues in {label}.</p>
           <p className="text-sm">Drag issues from the other panel to add them!</p>
@@ -381,16 +381,16 @@ export default function SprintDetailPage() {
   }
 
   if (isLoading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900">
       <div className="text-center">
         <Spinner className="h-12 w-12 mx-auto mb-4" />
-        <p className="text-gray-600 dark:text-gray-400">Loading sprint details...</p>
+        <p className="text-neutral-600 dark:text-neutral-400">Loading sprint details...</p>
       </div>
     </div>
   );
 
   if (isError || !sprint) return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 via-white to-red-50 dark:from-red-900/20 dark:via-gray-800 dark:to-red-900/20">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 via-white to-red-50 dark:from-red-900/20 dark:via-neutral-800 dark:to-red-900/20">
       <div className="text-center">
         <ExclamationTriangleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
         <h2 className="text-2xl font-bold text-red-700 dark:text-red-300 mb-2">Sprint Not Found</h2>
@@ -406,14 +406,14 @@ export default function SprintDetailPage() {
     <div className="min-h-screen relative">
       {/* Gradient Background */}
       <div className="absolute inset-0 z-0">
-        <div className="w-full h-full bg-gradient-to-br from-blue-200 via-purple-100 to-pink-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 animate-gradient-x" style={{ filter: 'blur(32px)', opacity: 0.7 }} />
+        <div className="w-full h-full bg-gradient-to-br from-blue-200 via-purple-100 to-pink-200 dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900 animate-gradient-x" style={{ filter: 'blur(32px)', opacity: 0.7 }} />
       </div>
 
       <div className="relative z-10">
         {/* Hero Section */}
         <div className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-green-400 via-blue-400 to-purple-500 opacity-90" />
-          <div className="absolute inset-0 bg-white/10 dark:bg-gray-900/20 backdrop-blur-2xl" />
+          <div className="absolute inset-0 bg-white/10 dark:bg-neutral-900/20 backdrop-blur-2xl" />
           <div className="relative z-10 max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
             <div className="text-center">
               <div className="flex items-center justify-center gap-3 mb-6">
@@ -475,12 +475,12 @@ export default function SprintDetailPage() {
         <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
           {/* Tab Navigation */}
           <div className="flex justify-center mb-12">
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-2 shadow-xl border border-white/20 dark:border-gray-700/50">
+            <div className="bg-white/80 dark:bg-neutral-800/80 backdrop-blur-xl rounded-2xl p-2 shadow-xl border border-white/20 dark:border-neutral-700/50">
               <div className="flex gap-2">
                 <button
                   className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${activeTab === 'issues'
                     ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
-                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
+                    : 'text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-neutral-700/50'
                     }`}
                   onClick={() => setActiveTab('issues')}
                 >
@@ -490,7 +490,7 @@ export default function SprintDetailPage() {
                 <button
                   className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${activeTab === 'attachments'
                     ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
-                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
+                    : 'text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-neutral-700/50'
                     }`}
                   onClick={() => setActiveTab('attachments')}
                 >
@@ -500,7 +500,7 @@ export default function SprintDetailPage() {
                 <button
                   className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${activeTab === 'analytics'
                     ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
-                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
+                    : 'text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-neutral-700/50'
                     }`}
                   onClick={() => setActiveTab('analytics')}
                 >
@@ -521,7 +521,7 @@ export default function SprintDetailPage() {
             >
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Sprint Issues Panel */}
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50">
+                <div className="bg-white/80 dark:bg-neutral-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-neutral-700/50">
                   <div className="bg-gradient-to-r from-green-500 to-blue-500 p-6 rounded-t-3xl text-white">
                     <div className="flex items-center justify-between">
                       <h3 className="text-xl font-bold flex items-center gap-2">
@@ -563,7 +563,7 @@ export default function SprintDetailPage() {
                 </div>
 
                 {/* Backlog Panel */}
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50">
+                <div className="bg-white/80 dark:bg-neutral-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-neutral-700/50">
                   <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-t-3xl text-white">
                     <div className="flex items-center justify-between">
                       <h3 className="text-xl font-bold flex items-center gap-2">
@@ -618,7 +618,7 @@ export default function SprintDetailPage() {
 
           {/* Attachments Tab */}
           {activeTab === 'attachments' && (
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50 overflow-hidden">
+            <div className="bg-white/80 dark:bg-neutral-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-neutral-700/50 overflow-hidden">
               <div className="bg-gradient-to-r from-blue-500 to-indigo-500 p-6 text-white">
                 <h3 className="text-xl font-bold flex items-center gap-2">
                   <PaperClipIcon className="h-6 w-6" />
@@ -632,7 +632,7 @@ export default function SprintDetailPage() {
                 <div
                   className={`border-2 border-dashed rounded-2xl p-8 mb-6 text-center transition-all duration-300 cursor-pointer group ${dragActive
                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                    : 'border-neutral-300 dark:border-neutral-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-neutral-50 dark:hover:bg-neutral-700/50'
                     }`}
                   onDragOver={e => { e.preventDefault(); setDragActive(true); }}
                   onDragLeave={e => { e.preventDefault(); setDragActive(false); }}
@@ -646,11 +646,11 @@ export default function SprintDetailPage() {
                     onChange={handleFileChange}
                     disabled={isUploading}
                   />
-                  <ArrowUpTrayIcon className="h-12 w-12 text-gray-400 group-hover:text-blue-500 mx-auto mb-4 transition-colors" />
-                  <p className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  <ArrowUpTrayIcon className="h-12 w-12 text-neutral-400 group-hover:text-blue-500 mx-auto mb-4 transition-colors" />
+                  <p className="text-lg font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
                     {isUploading ? 'Uploading...' : 'Click or drag a file to upload'}
                   </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
                     Support for images, documents, and other file types
                   </p>
                   {isUploading && <Spinner className="inline ml-2 h-4 w-4" />}
@@ -679,7 +679,7 @@ export default function SprintDetailPage() {
                       {attachments.map((a) => (
                         <div
                           key={a.id}
-                          className={`bg-white dark:bg-gray-700 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-600 p-4 transition-all duration-300 hover:shadow-xl ${recentlyUploadedId === a.id ? 'ring-2 ring-blue-500/60 bg-blue-50 dark:bg-blue-900/20 animate-pulse' : ''
+                          className={`bg-white dark:bg-neutral-700 rounded-2xl shadow-lg border border-neutral-100 dark:border-neutral-600 p-4 transition-all duration-300 hover:shadow-xl ${recentlyUploadedId === a.id ? 'ring-2 ring-blue-500/60 bg-blue-50 dark:bg-blue-900/20 animate-pulse' : ''
                             }`}
                         >
                           <div className="flex items-start gap-3">
@@ -702,7 +702,7 @@ export default function SprintDetailPage() {
                               >
                                 {a.filename || 'Unknown file'}
                               </a>
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                                 <div className="flex items-center gap-1 mb-1">
                                   <UserIcon className="h-3 w-3" />
                                   {a.uploader?.name || a.uploader?.email || 'Unknown user'}
@@ -729,7 +729,7 @@ export default function SprintDetailPage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                    <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
                       <PaperClipIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
                       <p>No attachments yet.</p>
                       <p className="text-sm">Upload files to share with your team!</p>
@@ -753,7 +753,7 @@ export default function SprintDetailPage() {
                   <Spinner className="h-12 w-12" />
                 </div>
               ) : burndownData ? (
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50 p-6">
+                <div className="bg-white/80 dark:bg-neutral-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-neutral-700/50 p-6">
                   <BurndownChart
                     sprint={burndownData.sprint}
                     snapshots={burndownData.snapshots}
@@ -768,7 +768,7 @@ export default function SprintDetailPage() {
               )}
 
               {/* Project Velocity Section */}
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50 p-6">
+              <div className="bg-white/80 dark:bg-neutral-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-neutral-700/50 p-6">
                 {loadingVelocity ? (
                   <div className="flex justify-center py-12">
                     <Spinner className="h-12 w-12" />

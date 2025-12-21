@@ -56,7 +56,7 @@ const typeBadge: Record<Issue['type'], { icon: React.ReactElement; text: string;
   Story: { icon: <BookmarkSquareIcon className="h-4 w-4 mr-1" />, text: 'Story', color: 'bg-green-100 text-green-700' },
   Task: { icon: <CheckCircleIcon className="h-4 w-4 mr-1" />, text: 'Task', color: 'bg-blue-100 text-blue-700' },
   Bug: { icon: <BugAntIcon className="h-4 w-4 mr-1" />, text: 'Bug', color: 'bg-red-100 text-red-700' },
-  'Sub-task': { icon: <PlusIconSolid className="h-4 w-4 mr-1" />, text: 'Sub-task', color: 'bg-gray-100 text-gray-700' },
+  'Sub-task': { icon: <PlusIconSolid className="h-4 w-4 mr-1" />, text: 'Sub-task', color: 'bg-neutral-100 text-neutral-700' },
 };
 
 const priorityBadge: Record<Issue['priority'], { icon: React.ReactElement; text: string; color: string }> = {
@@ -64,7 +64,7 @@ const priorityBadge: Record<Issue['priority'], { icon: React.ReactElement; text:
   High: { icon: <ArrowUpIcon className="h-4 w-4 mr-1" />, text: 'High', color: 'bg-orange-100 text-orange-700' },
   Medium: { icon: <span className="h-4 w-4 mr-1 flex items-center justify-center font-bold text-yellow-500">=</span>, text: 'Medium', color: 'bg-yellow-100 text-yellow-700' },
   Low: { icon: <ArrowDownIcon className="h-4 w-4 mr-1" />, text: 'Low', color: 'bg-green-100 text-green-700' },
-  Lowest: { icon: <ArrowDownIcon className="h-4 w-4 mr-1" />, text: 'Lowest', color: 'bg-gray-100 text-gray-700' },
+  Lowest: { icon: <ArrowDownIcon className="h-4 w-4 mr-1" />, text: 'Lowest', color: 'bg-neutral-100 text-neutral-700' },
 };
 
 function SortableIssueCard({ issue, children }: { issue: Issue; children: React.ReactNode }) {
@@ -501,10 +501,10 @@ export default function BoardPage() {
                 <div className="cursor-grabbing scale-105 rotate-2 shadow-2xl opacity-100 ring-1 ring-black/10 dark:ring-white/10 rounded-lg">
                   <Card className="p-4 min-h-[100px] w-[320px] bg-white dark:bg-neutral-800 border-none transition-transform duration-200 ease-out">
                     <div className="flex gap-2 mb-2">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${typeBadge[issue.type]?.color || 'bg-gray-100 text-gray-500'}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${typeBadge[issue.type]?.color || 'bg-neutral-100 text-neutral-500'}`}>
                         {typeBadge[issue.type]?.icon || <TagIcon className="h-4 w-4 mr-1" />} {typeBadge[issue.type]?.text || issue.type}
                       </span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${priorityBadge[issue.priority]?.color || 'bg-gray-100 text-gray-500'}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${priorityBadge[issue.priority]?.color || 'bg-neutral-100 text-neutral-500'}`}>
                         {priorityBadge[issue.priority]?.icon || <EllipsisHorizontalIcon className="h-4 w-4 mr-1" />} {priorityBadge[issue.priority]?.text || issue.priority}
                       </span>
                     </div>

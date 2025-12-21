@@ -91,13 +91,13 @@ function SortableWizardColumn({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 rounded-xl bg-gradient-to-r from-gray-50/80 via-white/80 to-gray-100/80 dark:from-gray-800/80 dark:via-gray-900/80 dark:to-gray-800/80 border border-gray-100 dark:border-gray-800 p-2 shadow-sm transition-all duration-200 ${isDragging ? 'ring-2 ring-blue-400 scale-105 shadow-lg' : 'hover:shadow-md hover:bg-blue-50/40 dark:hover:bg-blue-950/20'
+      className={`flex items-center gap-2 rounded-xl bg-gradient-to-r from-neutral-50/80 via-white/80 to-neutral-100/80 dark:from-neutral-800/80 dark:via-neutral-900/80 dark:to-neutral-800/80 border border-neutral-100 dark:border-neutral-800 p-2 shadow-sm transition-all duration-200 ${isDragging ? 'ring-2 ring-blue-400 scale-105 shadow-lg' : 'hover:shadow-md hover:bg-blue-50/40 dark:hover:bg-blue-950/20'
         }`}
     >
       <span
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="cursor-grab active:cursor-grabbing text-neutral-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
         aria-label="Drag column"
       >
         <Bars3Icon className="h-5 w-5" />
@@ -125,9 +125,9 @@ function SortableWizardColumn({
 // Drag Overlay for Column
 function DragOverlayWizardColumn({ column }: { column: { name: string } }) {
   return (
-    <div className="flex items-center gap-2 rounded-xl bg-white dark:bg-gray-800 border-2 border-blue-400 p-2 shadow-2xl">
-      <Bars3Icon className="h-5 w-5 text-gray-400" />
-      <span className="flex-1 font-medium text-gray-900 dark:text-white">{column.name || 'New Column'}</span>
+    <div className="flex items-center gap-2 rounded-xl bg-white dark:bg-neutral-800 border-2 border-blue-400 p-2 shadow-2xl">
+      <Bars3Icon className="h-5 w-5 text-neutral-400" />
+      <span className="flex-1 font-medium text-neutral-900 dark:text-white">{column.name || 'New Column'}</span>
     </div>
   );
 }
@@ -206,8 +206,8 @@ const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, o
         <ol className="flex items-center w-full space-x-4">
           {steps.map((label, idx) => (
             <li key={label} className="flex-1 flex flex-col items-center">
-              <div className={`w-8 h-8 flex items-center justify-center rounded-full border-2 font-bold text-sm transition-all duration-300 ${step === idx ? 'bg-blue-500 text-white border-blue-500 scale-110 shadow-lg' : step > idx ? 'bg-blue-100 dark:bg-blue-900 text-blue-500 border-blue-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 border-gray-300 dark:border-gray-700'}`}>{idx + 1}</div>
-              <span className={`mt-2 text-xs font-semibold transition-colors ${step === idx ? 'text-blue-600 dark:text-blue-300' : 'text-gray-400 dark:text-gray-500'}`}>{label}</span>
+              <div className={`w-8 h-8 flex items-center justify-center rounded-full border-2 font-bold text-sm transition-all duration-300 ${step === idx ? 'bg-blue-500 text-white border-blue-500 scale-110 shadow-lg' : step > idx ? 'bg-blue-100 dark:bg-blue-900 text-blue-500 border-blue-400' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-400 border-neutral-300 dark:border-neutral-700'}`}>{idx + 1}</div>
+              <span className={`mt-2 text-xs font-semibold transition-colors ${step === idx ? 'text-blue-600 dark:text-blue-300' : 'text-neutral-400 dark:text-neutral-500'}`}>{label}</span>
             </li>
           ))}
         </ol>
@@ -230,38 +230,38 @@ const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, o
               <button
                 type="button"
                 onClick={() => setType('scrum')}
-                className={`flex-1 rounded-2xl border-2 p-6 flex flex-col items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${type === 'scrum' ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-blue-300'}`}
+                className={`flex-1 rounded-2xl border-2 p-6 flex flex-col items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${type === 'scrum' ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 hover:border-blue-300'}`}
                 aria-label="Select Scrum Board"
               >
                 <div className="flex items-center gap-2">
                   <Squares2X2Icon className="h-8 w-8 text-blue-500" />
                   <span className="relative group">
-                    <InformationCircleIcon className="h-5 w-5 text-gray-400 hover:text-blue-500 ml-1" aria-hidden="true" />
-                    <span className="absolute left-1/2 -translate-x-1/2 mt-2 w-48 bg-white dark:bg-gray-900 text-xs text-gray-700 dark:text-gray-200 rounded-lg shadow-lg px-3 py-2 opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity duration-200">
+                    <InformationCircleIcon className="h-5 w-5 text-neutral-400 hover:text-blue-500 ml-1" aria-hidden="true" />
+                    <span className="absolute left-1/2 -translate-x-1/2 mt-2 w-48 bg-white dark:bg-neutral-900 text-xs text-neutral-700 dark:text-neutral-200 rounded-lg shadow-lg px-3 py-2 opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity duration-200">
                       Scrum boards are for sprint-based, iterative work. Plan, track, and complete work in time-boxed sprints.
                     </span>
                   </span>
                 </div>
                 <span className="font-bold">Scrum Board</span>
-                <span className="text-xs text-gray-500">Sprint-based, iterative work</span>
+                <span className="text-xs text-neutral-500">Sprint-based, iterative work</span>
               </button>
               <button
                 type="button"
                 onClick={() => setType('kanban')}
-                className={`flex-1 rounded-2xl border-2 p-6 flex flex-col items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-purple-400 ${type === 'kanban' ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-blue-300'}`}
+                className={`flex-1 rounded-2xl border-2 p-6 flex flex-col items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-purple-400 ${type === 'kanban' ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 hover:border-blue-300'}`}
                 aria-label="Select Kanban Board"
               >
                 <div className="flex items-center gap-2">
                   <RectangleStackIcon className="h-8 w-8 text-purple-500" />
                   <span className="relative group">
-                    <InformationCircleIcon className="h-5 w-5 text-gray-400 hover:text-purple-500 ml-1" aria-hidden="true" />
-                    <span className="absolute left-1/2 -translate-x-1/2 mt-2 w-48 bg-white dark:bg-gray-900 text-xs text-gray-700 dark:text-gray-200 rounded-lg shadow-lg px-3 py-2 opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity duration-200">
+                    <InformationCircleIcon className="h-5 w-5 text-neutral-400 hover:text-purple-500 ml-1" aria-hidden="true" />
+                    <span className="absolute left-1/2 -translate-x-1/2 mt-2 w-48 bg-white dark:bg-neutral-900 text-xs text-neutral-700 dark:text-neutral-200 rounded-lg shadow-lg px-3 py-2 opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity duration-200">
                       Kanban boards are for continuous flow. Move work items through flexible stages at your own pace.
                     </span>
                   </span>
                 </div>
                 <span className="font-bold">Kanban Board</span>
-                <span className="text-xs text-gray-500">Continuous flow, flexible</span>
+                <span className="text-xs text-neutral-500">Continuous flow, flexible</span>
               </button>
             </div>
           </div>
@@ -280,7 +280,7 @@ const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, o
             <Input label="Board Name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Website Redesign" required aria-label="Board Name" />
             <Input label="Description (optional)" value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe this board (optional)" aria-label="Board Description" />
             {defaultProjectName && (
-              <div className="text-xs text-gray-500">Project: <span className="font-semibold text-gray-700 dark:text-gray-200">{defaultProjectName}</span></div>
+              <div className="text-xs text-neutral-500">Project: <span className="font-semibold text-neutral-700 dark:text-neutral-200">{defaultProjectName}</span></div>
             )}
           </div>
         </Transition>
@@ -353,7 +353,7 @@ const CreateBoardWizardModal: React.FC<CreateBoardWizardModalProps> = ({ open, o
             {description && (
               <div>
                 <div className="font-semibold mb-2">Description</div>
-                <div className="text-gray-600 dark:text-gray-300">{description}</div>
+                <div className="text-neutral-600 dark:text-neutral-300">{description}</div>
               </div>
             )}
             <div>

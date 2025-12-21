@@ -237,13 +237,13 @@ export default function WorkflowsPage() {
       case 'active':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'inactive':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+        return 'bg-neutral-100 text-neutral-800 dark:bg-neutral-900 dark:text-neutral-200';
       case 'draft':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
       case 'archived':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+        return 'bg-neutral-100 text-neutral-800 dark:bg-neutral-900 dark:text-neutral-200';
     }
   };
 
@@ -256,7 +256,7 @@ export default function WorkflowsPage() {
   //     case 'failed':
   //       return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
   //     case 'cancelled':
-  //       return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+  //       return 'bg-neutral-100 text-neutral-800 dark:bg-neutral-900 dark:text-neutral-200';
   //     default:
   //       return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
   //   }
@@ -288,7 +288,7 @@ export default function WorkflowsPage() {
     >
       <div className="space-y-6">
         {/* Tabs */}
-        <div className="border-b border-gray-200 dark:border-gray-700">
+        <div className="border-b border-neutral-200 dark:border-neutral-700">
           <nav className="-mb-px flex space-x-8">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -298,7 +298,7 @@ export default function WorkflowsPage() {
                   onClick={() => setActiveTab(tab.id as 'workflows' | 'rules' | 'templates' | 'analytics')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeTab === tab.id
                       ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                      : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300 dark:text-neutral-400 dark:hover:text-neutral-300'
                     }`}
                 >
                   <Icon className="h-5 w-5" />
@@ -315,10 +315,10 @@ export default function WorkflowsPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
                   Workflows
                 </h2>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                <p className="text-neutral-600 dark:text-neutral-400 mt-1">
                   Create and manage automated workflows
                 </p>
               </div>
@@ -332,25 +332,25 @@ export default function WorkflowsPage() {
             <Card>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                     Search
                   </label>
                   <input
                     type="text"
                     value={filters.search}
                     onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
                     placeholder="Search workflows..."
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                     Status
                   </label>
                   <select
                     value={filters.status}
                     onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
                   >
                     <option value="all">All Status</option>
                     <option value="active">Active</option>
@@ -360,13 +360,13 @@ export default function WorkflowsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                     Category
                   </label>
                   <select
                     value={filters.category}
                     onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
                   >
                     <option value="all">All Categories</option>
                     <option value="approval">Approval</option>
@@ -403,11 +403,11 @@ export default function WorkflowsPage() {
             ) : workflows.length === 0 ? (
               <Card>
                 <div className="text-center py-12">
-                  <Cog6ToothIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  <Cog6ToothIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-neutral-900 dark:text-white mb-2">
                     No workflows found
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  <p className="text-neutral-600 dark:text-neutral-400 mb-4">
                     Create your first workflow to get started
                   </p>
                   <Button onClick={() => setShowWorkflowDesigner(true)}>
@@ -425,10 +425,10 @@ export default function WorkflowsPage() {
                         <div className="flex items-center gap-3 mb-2">
                           <span className="text-2xl">{workflow.icon || '⚙️'}</span>
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
                               {workflow.name}
                             </h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <p className="text-sm text-neutral-600 dark:text-neutral-400">
                               Version {workflow.version}
                             </p>
                           </div>
@@ -438,33 +438,33 @@ export default function WorkflowsPage() {
                         </div>
 
                         {workflow.description && (
-                          <p className="text-gray-600 dark:text-gray-400 mb-3">
+                          <p className="text-neutral-600 dark:text-neutral-400 mb-3">
                             {workflow.description}
                           </p>
                         )}
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
-                            <span className="text-gray-500 dark:text-gray-400">Executions:</span>
-                            <div className="font-medium text-gray-900 dark:text-white">
+                            <span className="text-neutral-500 dark:text-neutral-400">Executions:</span>
+                            <div className="font-medium text-neutral-900 dark:text-white">
                               {workflow.executionCount}
                             </div>
                           </div>
                           <div>
-                            <span className="text-gray-500 dark:text-gray-400">Success Rate:</span>
-                            <div className="font-medium text-gray-900 dark:text-white">
+                            <span className="text-neutral-500 dark:text-neutral-400">Success Rate:</span>
+                            <div className="font-medium text-neutral-900 dark:text-white">
                               {workflow.successRate ? `${workflow.successRate}%` : 'N/A'}
                             </div>
                           </div>
                           <div>
-                            <span className="text-gray-500 dark:text-gray-400">Avg Time:</span>
-                            <div className="font-medium text-gray-900 dark:text-white">
+                            <span className="text-neutral-500 dark:text-neutral-400">Avg Time:</span>
+                            <div className="font-medium text-neutral-900 dark:text-white">
                               {workflow.averageExecutionTime ? `${workflow.averageExecutionTime}ms` : 'N/A'}
                             </div>
                           </div>
                           <div>
-                            <span className="text-gray-500 dark:text-gray-400">Last Executed:</span>
-                            <div className="font-medium text-gray-900 dark:text-white">
+                            <span className="text-neutral-500 dark:text-neutral-400">Last Executed:</span>
+                            <div className="font-medium text-neutral-900 dark:text-white">
                               {formatLastExecuted(workflow.lastExecutedAt)}
                             </div>
                           </div>
@@ -476,7 +476,7 @@ export default function WorkflowsPage() {
                               {workflow.tags.map((tag, index) => (
                                 <span
                                   key={index}
-                                  className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-full"
+                                  className="px-2 py-1 bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs rounded-full"
                                 >
                                   {tag}
                                 </span>
@@ -559,20 +559,20 @@ export default function WorkflowsPage() {
         {activeTab === 'analytics' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
                 Workflow Analytics
               </h2>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-neutral-600 dark:text-neutral-400 mt-1">
                 Monitor workflow performance and usage
               </p>
             </div>
             <Card>
               <div className="text-center py-12">
-                <ChartBarIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                <ChartBarIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-neutral-900 dark:text-white mb-2">
                   Analytics Coming Soon
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className="text-neutral-600 dark:text-neutral-400">
                   Detailed analytics and reporting features will be available soon
                 </p>
               </div>

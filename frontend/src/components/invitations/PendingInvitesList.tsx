@@ -42,28 +42,28 @@ const PendingInvitesList: React.FC<PendingInvitesListProps> = ({ organizationId,
     };
 
     if (loading && invites.length === 0) {
-        return <div className="text-center py-4 text-gray-500">Loading invites...</div>;
+        return <div className="text-center py-4 text-neutral-500">Loading invites...</div>;
     }
 
     if (invites.length === 0) {
-        return <div className="text-center py-4 text-gray-500">No pending invitations.</div>;
+        return <div className="text-center py-4 text-neutral-500">No pending invitations.</div>;
     }
 
     return (
         <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-            <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-800">
+            <table className="min-w-full divide-y divide-neutral-300 dark:divide-neutral-700">
+                <thead className="bg-neutral-50 dark:bg-neutral-800">
                     <tr>
-                        <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white sm:pl-6">
+                        <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 dark:text-white sm:pl-6">
                             Email
                         </th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900 dark:text-white">
                             Role
                         </th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900 dark:text-white">
                             Sent By
                         </th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900 dark:text-white">
                             Sent At
                         </th>
                         <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
@@ -71,19 +71,19 @@ const PendingInvitesList: React.FC<PendingInvitesListProps> = ({ organizationId,
                         </th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900">
+                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700 bg-white dark:bg-neutral-900">
                     {invites.map((invite) => (
                         <tr key={invite.id}>
-                            <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-white sm:pl-6">
+                            <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-neutral-900 dark:text-white sm:pl-6">
                                 {invite.email}
                             </td>
-                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">
+                            <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 dark:text-neutral-300">
                                 {invite.role}
                             </td>
-                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">
+                            <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 dark:text-neutral-300">
                                 {invite.invitedBy?.name || invite.invitedBy?.email}
                             </td>
-                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">
+                            <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 dark:text-neutral-300">
                                 {new Date(invite.createdAt).toLocaleDateString()}
                             </td>
                             <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">

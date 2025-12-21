@@ -147,11 +147,44 @@ export interface GitHubWebhookPayload {
     id: number;
     avatar_url: string;
   };
+  // Push event specific fields
+  ref?: string; // e.g., "refs/heads/main"
+  commits?: Array<{
+    id: string;
+    message: string;
+    timestamp: string;
+    url: string;
+    author: {
+      name: string;
+      email: string;
+      username?: string;
+    };
+    committer: {
+      name: string;
+      email: string;
+      username?: string;
+    };
+    added: string[];
+    removed: string[];
+    modified: string[];
+  }>;
+  head_commit?: {
+    id: string;
+    message: string;
+    timestamp: string;
+    url: string;
+    author: {
+      name: string;
+      email: string;
+      username?: string;
+    };
+  };
 }
 
 import { UsersService } from '../../users/users.service';
 import { IssuesService } from '../../issues/issues.service';
 import { IssueType } from '../../issues/entities/issue.entity';
+import { GitHubIssueLinkService } from './github-issue-link.service';
 
 @Injectable()
 export class GitHubIntegrationService extends BaseIntegrationService {
@@ -171,6 +204,7 @@ export class GitHubIntegrationService extends BaseIntegrationService {
     encryptionService: EncryptionService,
     private readonly usersService: UsersService,
     private readonly issuesService: IssuesService,
+    private readonly issueLinkService: GitHubIssueLinkService,
   ) {
     super(
       integrationRepo,
@@ -205,6 +239,208 @@ export class GitHubIntegrationService extends BaseIntegrationService {
       externalId.toString(),
       data,
     );
+  }
+
+  /**
+   * Register a repository-to-project mapping.
+   * 
+   * REQUIRED for #123 style Magic Words to work safely.
+   * Without this mapping, only PROJ-123 style references will be processed.
+   *
+   * @param integrationId - The GitHub integration ID
+   * @param repositoryFullName - Full repository name (e.g., "org/repo")
+   * @param projectId - Zenith project ID
+   * @param projectKey - Zenith project key (e.g., "ZEN")
+   */
+  async registerRepositoryProjectLink(
+    integrationId: string,
+    repositoryFullName: string,
+    projectId: string,
+    projectKey: string,
+  ): Promise<void> {
+    await this.externalDataRepo.upsert(
+      {
+        integrationId,
+        externalType: 'repo_project_link',
+        externalId: repositoryFullName,
+        rawData: {
+          repositoryFullName,
+          projectId,
+          projectKey,
+          mappedAt: new Date().toISOString(),
+        },
+      },
+      ['integrationId', 'externalType', 'externalId'],
+    );
+
+    this.logger.log(
+      `Registered repository ${repositoryFullName} → project ${projectKey} (${projectId})`,
+    );
+  }
+
+  /**
+   * Remove a repository-to-project mapping.
+   */
+  async unregisterRepositoryProjectLink(
+    integrationId: string,
+    repositoryFullName: string,
+  ): Promise<void> {
+    await this.externalDataRepo.delete({
+      integrationId,
+      externalType: 'repo_project_link',
+      externalId: repositoryFullName,
+    });
+
+    this.logger.log(
+      `Unregistered repository ${repositoryFullName} from project mapping`,
+    );
+  }
+
+  /**
+   * List all repositories accessible to the authenticated GitHub user.
+   * Used to populate the repository dropdown in project settings.
+   */
+  async listUserRepositories(
+    integrationId: string,
+  ): Promise<Array<{ full_name: string; name: string; private: boolean; description: string | null }>> {
+    const integration = await this.integrationRepo.findOne({
+      where: { id: integrationId, type: IntegrationType.GITHUB },
+    });
+
+    if (!integration) {
+      throw new Error(`GitHub integration ${integrationId} not found`);
+    }
+
+    try {
+      // Fetch repos with automatic token refresh
+      const repos = await this.executeWithTokenAndRetry<Array<{
+        full_name: string;
+        name: string;
+        private: boolean;
+        description: string | null;
+      }>>(
+        integrationId,
+        async (token) => {
+          const allRepos: Array<{
+            full_name: string;
+            name: string;
+            private: boolean;
+            description: string | null;
+          }> = [];
+
+          let page = 1;
+          const perPage = 100;
+
+          // Paginate through all repos
+          while (true) {
+            const response = await fetch(
+              `${this.githubApiBase}/user/repos?per_page=${perPage}&page=${page}&sort=updated`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  Accept: 'application/vnd.github.v3+json',
+                },
+              },
+            );
+
+            if (!response.ok) {
+              throw new Error(`Failed to list repositories: ${response.status}`);
+            }
+
+            const pageRepos = (await response.json()) as Array<{
+              full_name: string;
+              name: string;
+              private: boolean;
+              description: string | null;
+            }>;
+
+            allRepos.push(
+              ...pageRepos.map((r) => ({
+                full_name: r.full_name,
+                name: r.name,
+                private: r.private,
+                description: r.description,
+              })),
+            );
+
+            // If fewer than perPage results, we've reached the end
+            if (pageRepos.length < perPage) {
+              break;
+            }
+
+            page++;
+            // Safety limit
+            if (page > 10) {
+              this.logger.warn('Reached pagination limit (1000 repos)');
+              break;
+            }
+          }
+
+          return allRepos;
+        },
+      );
+
+      this.logger.log(
+        `Listed ${repos.length} repositories for integration ${integrationId}`,
+      );
+      return repos;
+    } catch (error) {
+      this.logger.error('Failed to list user repositories:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the repository currently linked to a specific project.
+   * Returns null if no repository is linked.
+   */
+  async getProjectRepositoryLink(
+    integrationId: string,
+    projectId: string,
+  ): Promise<{ repositoryFullName: string; projectKey: string; linkedAt: string } | null> {
+    // Query ExternalData for repo_project_link where rawData contains projectId
+    const links = await this.externalDataRepo.find({
+      where: {
+        integrationId,
+        externalType: 'repo_project_link',
+      },
+    });
+
+    // Filter by projectId in rawData
+    const projectLink = links.find(
+      (link) => link.rawData?.projectId === projectId,
+    );
+
+    if (!projectLink) {
+      return null;
+    }
+
+    return {
+      repositoryFullName: projectLink.externalId,
+      projectKey: projectLink.rawData?.projectKey as string,
+      linkedAt: projectLink.rawData?.mappedAt as string,
+    };
+  }
+
+  /**
+   * Unlink a project from its repository.
+   */
+  async unlinkProjectFromRepository(
+    integrationId: string,
+    projectId: string,
+  ): Promise<boolean> {
+    const link = await this.getProjectRepositoryLink(integrationId, projectId);
+    if (!link) {
+      return false;
+    }
+
+    await this.unregisterRepositoryProjectLink(
+      integrationId,
+      link.repositoryFullName,
+    );
+
+    this.logger.log(`Unlinked project ${projectId} from ${link.repositoryFullName}`);
+    return true;
   }
 
   /**
@@ -608,6 +844,12 @@ export class GitHubIntegrationService extends BaseIntegrationService {
         return;
       }
 
+      // Handle push events (no action field, detected by presence of commits)
+      if (payload.commits && payload.commits.length > 0) {
+        await this.handlePushEvent(integration.id, payload);
+        return;
+      }
+
       // Handle different webhook events
       switch (payload.action) {
         case 'opened':
@@ -644,6 +886,106 @@ export class GitHubIntegrationService extends BaseIntegrationService {
       }
     } catch (error) {
       this.logger.error('Failed to handle GitHub webhook:', error);
+    }
+  }
+
+  /**
+   * Handle push events - process commits for "Magic Words" (Fixes #123, etc.)
+   * 
+   * SECURITY: #123 short references are ONLY resolved if the repository
+   * has an explicit project mapping stored in ExternalData.
+   * This prevents cross-project issue closure attacks.
+   */
+  private async handlePushEvent(
+    integrationId: string,
+    payload: GitHubWebhookPayload,
+  ): Promise<void> {
+    if (!payload.commits || payload.commits.length === 0) {
+      return;
+    }
+
+    const repoFullName = payload.repository.full_name;
+    this.logger.log(
+      `Processing ${payload.commits.length} commits for Magic Words in ${repoFullName}`,
+    );
+
+    // SECURITY: Look up the project linked to THIS SPECIFIC repository
+    // We store repo-project mappings in ExternalData with type 'repo_project_link'
+    const repoProjectLink = await this.externalDataRepo.findOne({
+      where: {
+        integrationId,
+        externalType: 'repo_project_link',
+        externalId: repoFullName,
+      },
+    });
+
+    // If no explicit mapping exists, we can still process PROJ-123 style refs
+    // but MUST NOT process #123 style refs (they'd be guesses)
+    let linkedProjectKey: string | null = null;
+    if (repoProjectLink?.rawData?.projectKey) {
+      linkedProjectKey = repoProjectLink.rawData.projectKey as string;
+      this.logger.debug(
+        `Repository ${repoFullName} is linked to project ${linkedProjectKey}`,
+      );
+    } else {
+      this.logger.warn(
+        `Repository ${repoFullName} has no project mapping. ` +
+        `#123 style magic words will be IGNORED for security. ` +
+        `Only PROJ-123 style references will be processed.`,
+      );
+    }
+
+    const allClosedKeys: string[] = [];
+
+    for (const commit of payload.commits) {
+      // Convert webhook commit to GitHubCommit format
+      const gitHubCommit: GitHubCommit = {
+        sha: commit.id,
+        html_url: commit.url,
+        commit: {
+          message: commit.message,
+          author: {
+            name: commit.author.name,
+            email: commit.author.email,
+            date: commit.timestamp,
+          },
+          committer: {
+            name: commit.committer.name,
+            email: commit.committer.email,
+            date: commit.timestamp,
+          },
+        },
+        author: {
+          login: commit.author.username || commit.author.name,
+          id: 0, // Not available in push payload
+          avatar_url: '',
+        },
+        committer: {
+          login: commit.committer.username || commit.committer.name,
+          id: 0,
+          avatar_url: '',
+        },
+        parents: [],
+      };
+
+      // Process Magic Words with SAFE project key (null if none linked)
+      const closedKeys = await this.issueLinkService.handleCommitMagicWords(
+        integrationId,
+        gitHubCommit,
+        linkedProjectKey, // Pass null if no mapping - #123 refs will be skipped
+        commit.author.name,
+      );
+
+      allClosedKeys.push(...closedKeys);
+
+      // Also link all mentioned issues (references, not just closes)
+      await this.issueLinkService.linkCommitToIssues(integrationId, gitHubCommit);
+    }
+
+    if (allClosedKeys.length > 0) {
+      this.logger.log(
+        `Magic Words closed ${allClosedKeys.length} issues: ${allClosedKeys.join(', ')}`,
+      );
     }
   }
 

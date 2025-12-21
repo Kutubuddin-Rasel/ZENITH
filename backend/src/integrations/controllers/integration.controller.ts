@@ -14,8 +14,11 @@ import {
   Headers,
   RawBodyRequest,
   Req,
+  Res,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
+import { Response } from 'express';
 import {
   IntegrationService,
   CreateIntegrationDto,
@@ -57,6 +60,10 @@ import {
   SendSlackNotificationDto,
 } from '../dto/sync.dto';
 import { SuperAdminGuard } from '../../auth/guards/super-admin.guard';
+import { ConfigService } from '@nestjs/config';
+import { GitHubAppService } from '../services/github-app.service';
+import { Logger } from '@nestjs/common';
+import { Public } from '../../auth/decorators/public.decorator';
 
 interface AuthenticatedRequest {
   user: {
@@ -201,6 +208,8 @@ interface SearchContentItem {
 @Controller('api/integrations')
 @UseGuards(JwtAuthGuard)
 export class IntegrationController {
+  private readonly logger = new Logger(IntegrationController.name);
+
   constructor(
     private readonly integrationService: IntegrationService,
     private readonly webhookVerificationService: WebhookVerificationService,
@@ -211,7 +220,9 @@ export class IntegrationController {
     private readonly microsoftTeamsIntegrationService: MicrosoftTeamsIntegrationService,
     private readonly trelloIntegrationService: TrelloIntegrationService,
     private readonly universalSearchService: UniversalSearchService,
-  ) {}
+    private readonly githubAppService: GitHubAppService,
+    private readonly configService: ConfigService,
+  ) { }
 
   @Post()
   @UseGuards(SuperAdminGuard)
@@ -371,6 +382,63 @@ export class IntegrationController {
     )) as Record<string, unknown>;
   }
 
+  /**
+   * Handle Slack interactive events (modal submissions, button clicks, etc.)
+   * Slack sends these as form-encoded payload string in a 'payload' field.
+   */
+  @Post('slack/interactivity')
+  async handleSlackInteractivity(
+    @Body() body: { payload: string },
+    @Headers('x-slack-signature') signature: string,
+    @Headers('x-slack-request-timestamp') timestamp: string,
+    @Req() req: RawBodyRequest<Request>,
+  ) {
+    // Get raw body for signature verification
+    const rawBody = req.rawBody
+      ? req.rawBody.toString('utf8')
+      : `payload=${encodeURIComponent(body.payload)}`;
+
+    // Find Slack integrations and verify signature
+    const slackIntegrations =
+      await this.integrationService.findIntegrationsByTypeForWebhook(
+        IntegrationType.SLACK,
+      );
+
+    let matchingIntegration: (typeof slackIntegrations)[number] | null = null;
+    for (const integration of slackIntegrations) {
+      if (!integration.authConfig?.webhookSecret) continue;
+
+      const isValid = this.webhookVerificationService.verifySlackSignature(
+        rawBody,
+        timestamp,
+        signature,
+        integration.authConfig.webhookSecret,
+      );
+
+      if (isValid) {
+        matchingIntegration = integration;
+        break;
+      }
+    }
+
+    if (!matchingIntegration) {
+      throw new BadRequestException(
+        'No Slack integration found with matching webhook signature',
+      );
+    }
+
+    // Parse the payload
+    const payload = JSON.parse(body.payload);
+
+    // Handle different interaction types
+    if (payload.type === 'view_submission') {
+      return await this.slackIntegrationService.handleViewSubmission(payload);
+    }
+
+    // For other interaction types (block_actions, shortcuts), return acknowledgment
+    return { ok: true };
+  }
+
   @Post('slack/notify')
   @UseGuards(IntegrationOwnershipGuard)
   async sendSlackNotification(@Body() dto: SendSlackNotificationDto) {
@@ -490,7 +558,736 @@ export class IntegrationController {
     );
   }
 
-  // Jira-specific endpoints
+  /**
+   * List user's accessible GitHub repositories.
+   * Used to populate dropdown in project integration settings.
+   * Supports both GitHub App (installation tokens) and legacy OAuth integrations.
+   */
+  @Get('github/repos')
+  async listGitHubRepositories(@Request() req: AuthenticatedRequest) {
+    const organizationId = getRequiredOrganizationId(req);
+
+    // Find the GitHub integration for this organization
+    const integrations = await this.integrationService.getIntegrations(organizationId);
+
+    // Debug logging
+    this.logger.debug(`Found ${integrations.length} total integrations for org ${organizationId}`);
+    const githubIntegrations = integrations.filter((i) => i.type === IntegrationType.GITHUB);
+    this.logger.debug(`Found ${githubIntegrations.length} GitHub integrations`);
+    githubIntegrations.forEach((gi, idx) => {
+      this.logger.debug(`  [${idx}] id=${gi.id}, isActive=${gi.isActive}, installationId=${gi.installationId}, isLegacyOAuth=${gi.isLegacyOAuth}`);
+    });
+
+    const githubIntegration = integrations.find(
+      (i) => i.type === IntegrationType.GITHUB && i.isActive,
+    );
+
+    if (!githubIntegration) {
+      // Check if there's a disabled integration that can be re-enabled
+      const disabledIntegration = integrations.find(
+        (i) => i.type === IntegrationType.GITHUB && !i.isActive && i.installationId,
+      );
+
+      this.logger.debug('No active GitHub integration found - returning connected=false');
+      return {
+        connected: false,
+        repositories: [],
+        hasDisabledIntegration: !!disabledIntegration,
+        disabledIntegrationId: disabledIntegration?.id,
+      };
+    }
+
+    this.logger.debug(`Using GitHub integration: ${githubIntegration.id}`);
+
+    // Check if this is a GitHub App integration (has installationId, not legacy OAuth)
+    if (githubIntegration.installationId && !githubIntegration.isLegacyOAuth) {
+      try {
+        // Use GitHub App's installation token to list repos
+        const repos = await this.githubAppService.listInstallationRepositories(
+          githubIntegration.installationId,
+        );
+        return {
+          connected: true,
+          integrationId: githubIntegration.id,
+          isGitHubApp: true,
+          repositories: repos,
+        };
+      } catch (error) {
+        this.logger.error('Failed to list GitHub App repos:', error);
+        // Still return connected=true since the integration exists
+        return {
+          connected: true,
+          integrationId: githubIntegration.id,
+          isGitHubApp: true,
+          repositories: githubIntegration.config?.repositories?.map((r: string) => ({
+            full_name: r,
+            name: r.split('/').pop() || r,
+            private: false,
+            description: null,
+          })) || [],
+          error: 'Failed to fetch latest repos from GitHub',
+        };
+      }
+    }
+
+    // Legacy OAuth flow
+    try {
+      const repos = await this.githubIntegrationService.listUserRepositories(
+        githubIntegration.id,
+      );
+      return {
+        connected: true,
+        integrationId: githubIntegration.id,
+        isGitHubApp: false,
+        repositories: repos,
+      };
+    } catch (error) {
+      this.logger.error('Failed to list OAuth repos:', error);
+      return {
+        connected: true,
+        integrationId: githubIntegration.id,
+        isGitHubApp: false,
+        repositories: [],
+        error: 'Failed to fetch repos from GitHub',
+      };
+    }
+  }
+
+  /**
+   * Disable the GitHub integration (soft disconnect).
+   * Sets isActive=false but keeps the record for easy re-enablement.
+   */
+  @Post('github/disable')
+  async disableGitHub(@Request() req: AuthenticatedRequest) {
+    const organizationId = getRequiredOrganizationId(req);
+
+    // Find the active GitHub integration
+    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const githubIntegration = integrations.find(
+      (i) => i.type === IntegrationType.GITHUB && i.isActive,
+    );
+
+    if (!githubIntegration) {
+      throw new NotFoundException('No active GitHub integration found');
+    }
+
+    this.logger.log(`Disabling GitHub integration ${githubIntegration.id} for org ${organizationId}`);
+
+    // Soft disable - just set isActive to false
+    await this.integrationService.updateIntegration(githubIntegration.id, organizationId, {
+      isActive: false,
+    });
+
+    this.logger.log(`GitHub integration ${githubIntegration.id} disabled successfully`);
+
+    return {
+      success: true,
+      message: 'GitHub integration disabled. You can re-enable it anytime.',
+      integrationId: githubIntegration.id,
+    };
+  }
+
+  /**
+   * Enable a previously disabled GitHub integration.
+   * Reactivates an existing integration without requiring reinstallation.
+   */
+  @Post('github/enable')
+  async enableGitHub(@Request() req: AuthenticatedRequest) {
+    const organizationId = getRequiredOrganizationId(req);
+
+    // Find a disabled GitHub integration
+    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const disabledIntegration = integrations.find(
+      (i) => i.type === IntegrationType.GITHUB && !i.isActive && i.installationId,
+    );
+
+    if (!disabledIntegration) {
+      throw new NotFoundException('No disabled GitHub integration found');
+    }
+
+    this.logger.log(`Enabling GitHub integration ${disabledIntegration.id} for org ${organizationId}`);
+
+    // Verify the GitHub installation still exists
+    try {
+      await this.githubAppService.getInstallationToken(disabledIntegration.installationId!);
+      this.logger.log(`GitHub installation ${disabledIntegration.installationId} verified`);
+    } catch (error) {
+      this.logger.error(`GitHub installation ${disabledIntegration.installationId} no longer valid:`, error);
+      throw new BadRequestException(
+        'The GitHub App was uninstalled from GitHub. Please connect again to reinstall.',
+      );
+    }
+
+    // Re-enable the integration
+    await this.integrationService.updateIntegration(disabledIntegration.id, organizationId, {
+      isActive: true,
+    });
+
+    this.logger.log(`GitHub integration ${disabledIntegration.id} enabled successfully`);
+
+    return {
+      success: true,
+      message: 'GitHub integration re-enabled successfully',
+      integrationId: disabledIntegration.id,
+    };
+  }
+
+  /**
+   * Remove the GitHub integration completely.
+   * This calls the GitHub API to uninstall the app and marks the integration as removed.
+   */
+  @Delete('github/remove')
+  async removeGitHub(@Request() req: AuthenticatedRequest) {
+    const organizationId = getRequiredOrganizationId(req);
+
+    // Find any GitHub integration (active or disabled)
+    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const githubIntegration = integrations.find(
+      (i) => i.type === IntegrationType.GITHUB && i.installationId,
+    );
+
+    if (!githubIntegration) {
+      throw new NotFoundException('No GitHub integration found');
+    }
+
+    this.logger.log(`Removing GitHub integration ${githubIntegration.id} for org ${organizationId}`);
+    this.logger.log(`Uninstalling GitHub App installation ${githubIntegration.installationId}`);
+
+    // Call GitHub API to delete the installation
+    try {
+      await this.githubAppService.deleteInstallation(githubIntegration.installationId!);
+      this.logger.log(`GitHub installation ${githubIntegration.installationId} deleted from GitHub`);
+    } catch (error) {
+      this.logger.error(`Failed to delete GitHub installation:`, error);
+      // Continue anyway - user might have already uninstalled from GitHub
+    }
+
+    // Mark as inactive (the GitHub installation is now deleted)
+    await this.integrationService.updateIntegration(githubIntegration.id, organizationId, {
+      isActive: false,
+    });
+
+    this.logger.log(`GitHub integration ${githubIntegration.id} removed successfully`);
+
+    return {
+      success: true,
+      message: 'GitHub integration fully removed',
+      integrationId: githubIntegration.id,
+    };
+  }
+  /**
+   * Get the current GitHub repository linked to a project.
+   */
+  @Get('projects/:projectId/github/link')
+  async getProjectGitHubLink(
+    @Param('projectId') projectId: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const organizationId = getRequiredOrganizationId(req);
+
+    // Find the GitHub integration for this organization
+    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const githubIntegration = integrations.find(
+      (i) => i.type === IntegrationType.GITHUB && i.isActive,
+    );
+
+    if (!githubIntegration) {
+      return { connected: false, link: null };
+    }
+
+    const link = await this.githubIntegrationService.getProjectRepositoryLink(
+      githubIntegration.id,
+      projectId,
+    );
+
+    return {
+      connected: true,
+      integrationId: githubIntegration.id,
+      link,
+    };
+  }
+
+  /**
+   * Link a GitHub repository to a project.
+   * Requires project ownership (Project Lead or Super-Admin).
+   */
+  @Post('projects/:projectId/github/link')
+  async linkProjectToGitHubRepository(
+    @Param('projectId') projectId: string,
+    @Body() body: { repositoryFullName: string; projectKey: string },
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const organizationId = getRequiredOrganizationId(req);
+
+    // Find the GitHub integration for this organization
+    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const githubIntegration = integrations.find(
+      (i) => i.type === IntegrationType.GITHUB && i.isActive,
+    );
+
+    if (!githubIntegration) {
+      throw new BadRequestException('GitHub integration not connected');
+    }
+
+    // Register the link
+    await this.githubIntegrationService.registerRepositoryProjectLink(
+      githubIntegration.id,
+      body.repositoryFullName,
+      projectId,
+      body.projectKey,
+    );
+
+    return {
+      success: true,
+      link: {
+        repositoryFullName: body.repositoryFullName,
+        projectKey: body.projectKey,
+        linkedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  /**
+   * Unlink a GitHub repository from a project.
+   */
+  @Delete('projects/:projectId/github/link')
+  async unlinkProjectFromGitHubRepository(
+    @Param('projectId') projectId: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const organizationId = getRequiredOrganizationId(req);
+
+    // Find the GitHub integration for this organization
+    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const githubIntegration = integrations.find(
+      (i) => i.type === IntegrationType.GITHUB && i.isActive,
+    );
+
+    if (!githubIntegration) {
+      throw new BadRequestException('GitHub integration not connected');
+    }
+
+    const unlinked = await this.githubIntegrationService.unlinkProjectFromRepository(
+      githubIntegration.id,
+      projectId,
+    );
+
+    return { success: unlinked };
+  }
+
+  // ========================================
+  // GitHub App Endpoints (Enterprise)
+  // ========================================
+
+  /**
+   * Webhook handler for GitHub App events.
+   * Handles installation and repository change events.
+   * @Public() - No auth required, requests come from GitHub
+   */
+  @Public()
+  @Post('github-app/webhook')
+  @HttpCode(HttpStatus.OK)
+  async handleGitHubAppWebhook(
+    @Body() payload: Record<string, unknown>,
+    @Headers('x-github-event') event: string,
+    @Headers('x-hub-signature-256') signature: string,
+    @Headers('x-github-delivery') deliveryId: string,
+    @Req() req: RawBodyRequest<Request>,
+  ) {
+    this.logger.log('='.repeat(60));
+    this.logger.log('🔔 GITHUB APP WEBHOOK RECEIVED');
+    this.logger.log('='.repeat(60));
+    this.logger.log(`Event Type: ${event || 'MISSING'}`);
+    this.logger.log(`Delivery ID: ${deliveryId || 'MISSING'}`);
+    this.logger.log(`Signature Present: ${signature ? 'YES' : 'NO'}`);
+    this.logger.log(`Payload Keys: ${Object.keys(payload).join(', ')}`);
+
+    const rawBody = req.rawBody;
+    this.logger.log(`Raw Body Present: ${rawBody ? 'YES' : 'NO'}`);
+    this.logger.log(`Raw Body Size: ${rawBody ? rawBody.length : 0} bytes`);
+
+    if (!rawBody) {
+      this.logger.error('❌ No raw body - webhook signature verification will fail');
+      throw new BadRequestException('Raw body required for webhook verification');
+    }
+
+    // Verify signature
+    const webhookSecret = this.githubAppService.getWebhookSecret();
+    this.logger.log(`Webhook Secret Configured: ${webhookSecret ? 'YES' : 'NO'}`);
+
+    if (signature && webhookSecret) {
+      const isValid = this.githubAppService.verifyWebhookSignature(
+        rawBody,
+        signature,
+      );
+      this.logger.log(`Signature Verification: ${isValid ? '✅ VALID' : '❌ INVALID'}`);
+      if (!isValid) {
+        throw new BadRequestException('Invalid webhook signature');
+      }
+    } else {
+      this.logger.warn('⚠️ Skipping signature verification (secret or signature missing)');
+    }
+
+    this.logger.log(`Processing event: ${event}`);
+
+    switch (event) {
+      case 'installation': {
+        this.logger.log('📦 Processing INSTALLATION event');
+
+        // Type the full payload from GitHub
+        const installationPayload = payload as unknown as {
+          action: 'created' | 'deleted' | 'suspend' | 'unsuspend' | 'new_permissions_accepted';
+          installation: {
+            id: number;
+            account: {
+              login: string;
+              id: number;
+              type: 'User' | 'Organization';
+            };
+            repository_selection: 'all' | 'selected';
+            permissions: Record<string, string>;
+            events: string[];
+          };
+          repositories?: Array<{
+            id: number;
+            name: string;
+            full_name: string;
+            private: boolean;
+          }>;
+          sender: {
+            login: string;
+            id: number;
+          };
+        };
+
+        const { action, installation, repositories } = installationPayload;
+
+        this.logger.log(`Action: ${action}`);
+        this.logger.log(`Installation ID: ${installation.id}`);
+        this.logger.log(`Account: ${installation.account.login}`);
+        this.logger.log(`Account Type: ${installation.account.type}`);
+        this.logger.log(`Repositories: ${repositories?.length || 0}`);
+
+        // Handle different installation actions
+        try {
+          switch (action) {
+            case 'created': {
+              // Find or create integration for this installation
+              // Note: We need to find the org that initiated this installation
+              // For now, we'll create/update based on accountLogin
+              this.logger.log('🔧 Creating/updating integration from webhook...');
+
+              // Find existing integration by installation ID
+              let existingIntegration = await this.integrationService.findByInstallationId(
+                installation.id.toString(),
+              );
+
+              if (!existingIntegration) {
+                // Try to find by account login (for org matching)
+                const integrations = await this.integrationService.findByAccountLogin(
+                  installation.account.login,
+                );
+                existingIntegration = integrations[0] || null;
+              }
+
+              if (existingIntegration) {
+                // Update existing integration
+                this.logger.log(`Updating existing integration ${existingIntegration.id}`);
+                await this.githubAppService.handleInstallationEvent(
+                  installationPayload,
+                  existingIntegration.organizationId,
+                );
+              } else {
+                // New installation - log warning (callback should handle this)
+                this.logger.warn(
+                  `New installation ${installation.id} for ${installation.account.login} - ` +
+                  `awaiting callback with organization context`,
+                );
+              }
+              break;
+            }
+
+            case 'deleted': {
+              this.logger.log('🗑️ Deactivating integration...');
+              const integration = await this.integrationService.findByInstallationId(
+                installation.id.toString(),
+              );
+              if (integration) {
+                await this.githubAppService.handleInstallationEvent(
+                  installationPayload,
+                  integration.organizationId,
+                );
+                this.logger.log(`Deactivated integration ${integration.id}`);
+              } else {
+                this.logger.warn(`No integration found for installation ${installation.id}`);
+              }
+              break;
+            }
+
+            case 'suspend': {
+              this.logger.log('⏸️ Suspending integration...');
+              const integration = await this.integrationService.findByInstallationId(
+                installation.id.toString(),
+              );
+              if (integration) {
+                await this.githubAppService.handleInstallationEvent(
+                  installationPayload,
+                  integration.organizationId,
+                );
+                this.logger.log(`Suspended integration ${integration.id}`);
+              }
+              break;
+            }
+
+            case 'unsuspend': {
+              this.logger.log('▶️ Unsuspending integration...');
+              const integration = await this.integrationService.findByInstallationId(
+                installation.id.toString(),
+              );
+              if (integration) {
+                await this.githubAppService.handleInstallationEvent(
+                  installationPayload,
+                  integration.organizationId,
+                );
+                this.logger.log(`Unsuspended integration ${integration.id}`);
+              }
+              break;
+            }
+
+            default:
+              this.logger.log(`Unhandled installation action: ${action}`);
+          }
+        } catch (error) {
+          this.logger.error(`Failed to process installation event: ${error}`);
+          // Don't throw - webhook should still return 200
+        }
+        break;
+      }
+
+      case 'installation_repositories': {
+        this.logger.log('📁 Processing INSTALLATION_REPOSITORIES event');
+        await this.githubAppService.handleInstallationRepositoriesEvent(
+          payload as unknown as Parameters<
+            typeof this.githubAppService.handleInstallationRepositoriesEvent
+          >[0],
+        );
+        break;
+      }
+
+      case 'push':
+      case 'pull_request':
+      case 'issues': {
+        this.logger.log(`🔀 Forwarding ${event.toUpperCase()} event to legacy handler`);
+        await this.githubIntegrationService.handleWebhook(
+          payload as unknown as GitHubWebhookPayload,
+        );
+        break;
+      }
+
+      default:
+        this.logger.log(`📋 Received unhandled event type: ${event}`);
+    }
+
+    this.logger.log('✅ Webhook processed successfully');
+    this.logger.log('='.repeat(60));
+
+    return { received: true, event };
+  }
+
+  /**
+   * Get GitHub App installation URL.
+   * Redirects user to GitHub to install the app.
+   */
+  @Get('github-app/setup')
+  @UseGuards(JwtAuthGuard)
+  getGitHubAppInstallUrl(@Request() req: AuthenticatedRequest) {
+    try {
+      this.logger.log('GitHub App setup requested');
+      this.logger.debug(`User: ${req.user?.id}, Org: ${req.user?.organizationId}`);
+
+      const organizationId = getRequiredOrganizationId(req);
+      this.logger.debug(`Organization ID: ${organizationId}`);
+
+      const isConfigured = this.githubAppService.isConfigured();
+      this.logger.debug(`GitHub App configured: ${isConfigured}`);
+
+      if (!isConfigured) {
+        this.logger.warn('GitHub App is not configured - missing GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY');
+        throw new BadRequestException('GitHub App is not configured. Set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY in .env');
+      }
+
+      // Generate state with user context
+      const state = Buffer.from(
+        JSON.stringify({
+          userId: req.user.id,
+          organizationId,
+          timestamp: Date.now(),
+        }),
+      ).toString('base64');
+
+      this.logger.debug('Generated state for OAuth');
+
+      const installUrl = this.githubAppService.getInstallationUrl(state);
+      const appId = this.githubAppService.getAppId();
+
+      this.logger.log(`Generated install URL for app ${appId}`);
+
+      return {
+        installUrl,
+        appId,
+        configured: true,
+      };
+    } catch (error) {
+      this.logger.error('GitHub App setup failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Callback after GitHub App installation.
+   * Creates the integration record.
+   * 
+   * IMPORTANT: GitHub redirects here AFTER the user installs the app.
+   * The `state` param contains encoded user/org context.
+   * @Public() - No auth required, callback comes from GitHub redirect
+   */
+  @Public()
+  @Get('github-app/callback')
+  async handleGitHubAppCallback(
+    @Query('installation_id') installationId: string,
+    @Query('setup_action') setupAction: string,
+    @Query('state') state: string,
+    @Res() res: Response,
+  ) {
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+
+    this.logger.log('=== GitHub App Callback Hit ===');
+    this.logger.log(`Installation ID: ${installationId}`);
+    this.logger.log(`Setup Action: ${setupAction}`);
+    this.logger.log(`State: ${state ? state.substring(0, 50) + '...' : 'MISSING'}`);
+
+    // Validate installation ID
+    if (!installationId) {
+      this.logger.error('Missing installation_id in callback');
+      return res.redirect(
+        `${frontendUrl}/projects?error=missing_installation_id`,
+      );
+    }
+
+    // Handle missing state (can happen if cookies cleared or different browser)
+    if (!state) {
+      this.logger.warn('Missing state parameter - cannot identify user/org');
+      this.logger.warn('Integration will be created when webhook fires instead');
+      return res.redirect(
+        `${frontendUrl}/projects?github_connected=true&installation=${installationId}`,
+      );
+    }
+
+    try {
+      // Decode state to get user context
+      this.logger.debug('Decoding state parameter...');
+      let stateData: { userId: string; organizationId: string };
+
+      try {
+        stateData = JSON.parse(
+          Buffer.from(state, 'base64').toString('utf-8'),
+        );
+      } catch (parseError) {
+        this.logger.error('Failed to parse state:', parseError);
+        return res.redirect(
+          `${frontendUrl}/projects?error=invalid_state`,
+        );
+      }
+
+      this.logger.log(`User ID: ${stateData.userId}`);
+      this.logger.log(`Organization ID: ${stateData.organizationId}`);
+
+      // Get installation details from GitHub
+      this.logger.debug('Fetching repos from GitHub...');
+      let repos: Array<{ full_name: string; name: string; private: boolean }> = [];
+
+      try {
+        repos = await this.githubAppService.listInstallationRepositories(
+          installationId,
+        );
+        this.logger.log(`Found ${repos.length} repositories`);
+      } catch (repoError) {
+        this.logger.error('Failed to fetch repos (will continue with empty list):', repoError);
+        // Continue anyway - we can sync repos later
+      }
+
+      // Create or update integration
+      this.logger.debug('Creating integration record...');
+      const integration = await this.githubAppService.handleInstallationEvent(
+        {
+          action: 'created',
+          installation: {
+            id: parseInt(installationId),
+            account: {
+              login: 'pending', // Will be updated by webhook
+              id: 0,
+              type: 'Organization',
+            },
+            repository_selection: 'selected',
+            permissions: {},
+            events: [],
+          },
+          repositories: repos.map((r, i) => ({
+            id: i,
+            name: r.name,
+            full_name: r.full_name,
+            private: r.private,
+          })),
+          sender: { login: 'callback', id: 0 },
+        },
+        stateData.organizationId,
+      );
+
+      this.logger.log('=== GitHub App Integration Created ===');
+      this.logger.log(`Integration ID: ${integration?.id}`);
+      this.logger.log(`Installation ID: ${installationId}`);
+      this.logger.log(`Organization ID: ${stateData.organizationId}`);
+
+      // Redirect to frontend with success (ACTUAL HTTP redirect)
+      return res.redirect(
+        `${frontendUrl}/projects?github_connected=true&installation=${installationId}`,
+      );
+    } catch (error) {
+      this.logger.error('=== GitHub App Callback Error ===');
+      this.logger.error('Error:', error);
+      return res.redirect(
+        `${frontendUrl}/projects?error=github_installation_failed`,
+      );
+    }
+  }
+
+  /**
+   * Check if GitHub App is configured.
+   */
+  @Get('github-app/status')
+  @UseGuards(JwtAuthGuard)
+  async getGitHubAppStatus(@Request() req: AuthenticatedRequest) {
+    const organizationId = getRequiredOrganizationId(req);
+    const configured = this.githubAppService.isConfigured();
+
+    // Check if there's an existing GitHub App integration
+    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const githubAppIntegration = integrations.find(
+      (i) => i.type === IntegrationType.GITHUB && i.installationId && !i.isLegacyOAuth,
+    );
+
+    return {
+      configured,
+      hasInstallation: !!githubAppIntegration,
+      integration: githubAppIntegration ? {
+        id: githubAppIntegration.id,
+        accountLogin: githubAppIntegration.accountLogin,
+        accountType: githubAppIntegration.accountType,
+        installationId: githubAppIntegration.installationId,
+      } : null,
+    };
+  }
   @Post('jira/webhook')
   async handleJiraWebhook(
     @Body() payload: JiraWebhookPayload,

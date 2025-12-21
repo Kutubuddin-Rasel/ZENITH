@@ -30,14 +30,14 @@ const ROLE_STYLES: Record<string, { label: string; className: string }> = {
   Viewer: {
     label: "Viewer",
     className:
-      "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
+      "bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300",
   },
 };
 
 export default function RoleBadge({ role, className = "" }: { role: string; className?: string }) {
   const style = ROLE_STYLES[role] || {
     label: role,
-    className: "bg-gray-200 text-gray-700 border-gray-300",
+    className: "bg-neutral-200 text-neutral-700 border-neutral-300",
   };
   return (
     <span

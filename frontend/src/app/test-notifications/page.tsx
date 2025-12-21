@@ -51,13 +51,13 @@ export default function TestNotificationsPage() {
       <h1 className="text-2xl font-bold mb-4">Notification System Test</h1>
       
       <div className="space-y-4">
-        <div className="bg-gray-100 p-4 rounded">
+        <div className="bg-neutral-100 p-4 rounded">
           <h2 className="font-semibold">Authentication Status</h2>
           <p>User: {user ? `${user.name} (${user.email})` : 'Not logged in'}</p>
           <p>Token: {token ? 'Present' : 'Missing'}</p>
         </div>
 
-        <div className="bg-gray-100 p-4 rounded">
+        <div className="bg-neutral-100 p-4 rounded">
           <h2 className="font-semibold">Direct API Test</h2>
           {apiError && (
             <div className="text-red-600">
@@ -74,7 +74,7 @@ export default function TestNotificationsPage() {
           )}
         </div>
 
-        <div className="bg-gray-100 p-4 rounded">
+        <div className="bg-neutral-100 p-4 rounded">
           <h2 className="font-semibold">React Query Hook Test</h2>
           <p>Loading: {isLoading ? 'Yes' : 'No'}</p>
           <p>Error: {isError ? 'Yes' : 'No'}</p>

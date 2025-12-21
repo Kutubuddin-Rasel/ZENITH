@@ -68,15 +68,15 @@ export default function ResourceManagementPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-neutral-50">
       {/* Header */}
       <div className="bg-white shadow">
         <div className="px-6 py-4">
           <div className="flex items-center">
             <Users className="h-8 w-8 text-blue-600 mr-3" />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Resource Management</h1>
-              <p className="text-sm text-gray-500">
+              <h1 className="text-2xl font-bold text-neutral-900">Resource Management</h1>
+              <p className="text-sm text-neutral-500">
                 Advanced resource planning and optimization
               </p>
             </div>
@@ -85,7 +85,7 @@ export default function ResourceManagementPage() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white border-b border-neutral-200">
         <div className="px-6">
           <nav className="flex space-x-8" aria-label="Tabs">
             {tabs.map((tab) => {
@@ -97,7 +97,7 @@ export default function ResourceManagementPage() {
                   className={`${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
                   } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
                 >
                   <Icon className="h-5 w-5 mr-2" />
@@ -122,9 +122,9 @@ function SkillManagement() {
   return (
     <div className="p-6">
       <div className="text-center py-12">
-        <Brain className="mx-auto h-12 w-12 text-gray-400" />
-        <h3 className="mt-2 text-sm font-medium text-gray-900">Skill Management</h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <Brain className="mx-auto h-12 w-12 text-neutral-400" />
+        <h3 className="mt-2 text-sm font-medium text-neutral-900">Skill Management</h3>
+        <p className="mt-1 text-sm text-neutral-500">
           Skill matching and development features coming soon
         </p>
       </div>
@@ -136,9 +136,9 @@ function CostAnalysis() {
   return (
     <div className="p-6">
       <div className="text-center py-12">
-        <DollarSign className="mx-auto h-12 w-12 text-gray-400" />
-        <h3 className="mt-2 text-sm font-medium text-gray-900">Cost Analysis</h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <DollarSign className="mx-auto h-12 w-12 text-neutral-400" />
+        <h3 className="mt-2 text-sm font-medium text-neutral-900">Cost Analysis</h3>
+        <p className="mt-1 text-sm text-neutral-500">
           Resource cost optimization features coming soon
         </p>
       </div>
@@ -150,9 +150,9 @@ function ResourceSettings() {
   return (
     <div className="p-6">
       <div className="text-center py-12">
-        <Settings className="mx-auto h-12 w-12 text-gray-400" />
-        <h3 className="mt-2 text-sm font-medium text-gray-900">Resource Settings</h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <Settings className="mx-auto h-12 w-12 text-neutral-400" />
+        <h3 className="mt-2 text-sm font-medium text-neutral-900">Resource Settings</h3>
+        <p className="mt-1 text-sm text-neutral-500">
           Resource management configuration coming soon
         </p>
       </div>

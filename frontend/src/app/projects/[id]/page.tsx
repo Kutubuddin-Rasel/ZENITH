@@ -99,7 +99,7 @@ export default function ProjectDashboard() {
   const statusColors: Record<string, string> = {
     Done: '#10b981', // emerald-500
     InProgress: '#f59e0b', // amber-500
-    Todo: '#6b7280', // gray-500
+    Todo: '#6b7280', // neutral-500
     Backlog: '#3b82f6', // blue-500
     Blocked: '#ef4444', // red-500
     Review: '#8b5cf6', // violet-500
@@ -169,17 +169,17 @@ export default function ProjectDashboard() {
 
             <div className="space-y-2">
               <div className="flex items-center gap-4">
-                <Typography variant="h1" className="text-gray-900 dark:text-white">
+                <Typography variant="h1" className="text-neutral-900 dark:text-white">
                   {project.name}
                 </Typography>
                 <span className="px-3 py-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 text-sm font-semibold rounded-full">
                   {project.key}
                 </span>
               </div>
-              <Typography variant="body" className="text-gray-600 dark:text-gray-400 max-w-2xl">
+              <Typography variant="body" className="text-neutral-600 dark:text-neutral-400 max-w-2xl">
                 {project.description || "No description provided"}
               </Typography>
-              <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex items-center gap-6 text-sm text-neutral-500 dark:text-neutral-400">
                 <span className="flex items-center gap-2">
                   <UsersIcon className="h-4 w-4" />
                   {totalMembers} Team Members
@@ -198,19 +198,19 @@ export default function ProjectDashboard() {
 
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+              <div className="text-center p-4 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700">
                 <Typography variant="h2" className="text-primary-600 dark:text-primary-400">
                   {totalIssues}
                 </Typography>
-                <Typography variant="body-sm" className="text-gray-500 dark:text-gray-400">
+                <Typography variant="body-sm" className="text-neutral-500 dark:text-neutral-400">
                   Total Issues
                 </Typography>
               </div>
-              <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+              <div className="text-center p-4 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700">
                 <Typography variant="h2" className="text-emerald-600 dark:text-emerald-400">
                   {doneIssues}
                 </Typography>
-                <Typography variant="body-sm" className="text-gray-500 dark:text-gray-400">
+                <Typography variant="body-sm" className="text-neutral-500 dark:text-neutral-400">
                   Completed
                 </Typography>
               </div>
@@ -247,8 +247,8 @@ export default function ProjectDashboard() {
             label: 'Active Sprint',
             value: activeSprint ? 'Active' : 'None',
             icon: <RocketLaunchSolid className="h-6 w-6" />,
-            color: activeSprint ? 'text-orange-600 dark:text-orange-400' : 'text-gray-600 dark:text-gray-400',
-            bgColor: activeSprint ? 'bg-orange-100 dark:bg-orange-900' : 'bg-gray-100 dark:bg-gray-900'
+            color: activeSprint ? 'text-orange-600 dark:text-orange-400' : 'text-neutral-600 dark:text-neutral-400',
+            bgColor: activeSprint ? 'bg-orange-100 dark:bg-orange-900' : 'bg-neutral-100 dark:bg-neutral-900'
           },
         ].map((stat) => (
           <Card key={stat.label} className="p-6">
@@ -262,7 +262,7 @@ export default function ProjectDashboard() {
                 <Typography variant="h2" className={stat.color}>
                   {stat.value}
                 </Typography>
-                <Typography variant="body-sm" className="text-gray-500 dark:text-gray-400 font-medium">
+                <Typography variant="body-sm" className="text-neutral-500 dark:text-neutral-400 font-medium">
                   {stat.label}
                 </Typography>
               </div>
@@ -276,15 +276,15 @@ export default function ProjectDashboard() {
         {/* Donut Chart */}
         <Card className="p-8">
           <div className="flex items-center justify-between mb-6">
-            <Typography variant="h3" className="text-gray-900 dark:text-white">
+            <Typography variant="h3" className="text-neutral-900 dark:text-white">
               Issue Breakdown
             </Typography>
             <ChartBarIcon className="h-8 w-8 text-primary-600 dark:text-primary-400" />
           </div>
           {donutData.length === 0 ? (
             <div className="text-center py-12">
-              <BriefcaseIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <Typography variant="body" className="text-gray-500 dark:text-gray-400">
+              <BriefcaseIcon className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
+              <Typography variant="body" className="text-neutral-500 dark:text-neutral-400">
                 No issues to display
               </Typography>
             </div>
@@ -330,8 +330,8 @@ export default function ProjectDashboard() {
                 {donutData.map((entry) => (
                   <div key={entry.name} className="flex items-center gap-2">
                     <span className="inline-block w-4 h-4 rounded-full" style={{ backgroundColor: statusColors[entry.name] || '#6b7280' }} />
-                    <span className="font-medium text-gray-700 dark:text-gray-200">{entry.name}</span>
-                    <span className="text-gray-500 dark:text-gray-400">({entry.value})</span>
+                    <span className="font-medium text-neutral-700 dark:text-neutral-200">{entry.name}</span>
+                    <span className="text-neutral-500 dark:text-neutral-400">({entry.value})</span>
                   </div>
                 ))}
               </div>
@@ -352,7 +352,7 @@ export default function ProjectDashboard() {
         {/* Progress Overview */}
         <Card className="p-8">
           <div className="flex items-center justify-between mb-6">
-            <Typography variant="h3" className="text-gray-900 dark:text-white">
+            <Typography variant="h3" className="text-neutral-900 dark:text-white">
               Progress Overview
             </Typography>
             <ArrowTrendingUpIcon className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
@@ -361,14 +361,14 @@ export default function ProjectDashboard() {
           <div className="space-y-6">
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <Typography variant="body" className="font-semibold text-gray-700 dark:text-gray-300">
+                <Typography variant="body" className="font-semibold text-neutral-700 dark:text-neutral-300">
                   Overall Progress
                 </Typography>
                 <Typography variant="h3" className="text-emerald-600 dark:text-emerald-400">
                   {percentDone}%
                 </Typography>
               </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
+              <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-4 overflow-hidden">
                 <div
                   className="h-4 bg-emerald-500 rounded-full transition-all duration-1000 ease-out"
                   style={{ width: `${percentDone}%` }}
@@ -377,22 +377,22 @@ export default function ProjectDashboard() {
             </div>
 
             <div className="space-y-3">
-              <Typography variant="body" className="font-semibold text-gray-700 dark:text-gray-300">
+              <Typography variant="body" className="font-semibold text-neutral-700 dark:text-neutral-300">
                 Status Breakdown
               </Typography>
               <div className="space-y-2">
                 {Object.entries(summary?.statusCounts || {}).map(([status, count]) => (
-                  <div key={status} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                  <div key={status} className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700">
                     <div className="flex items-center gap-3">
                       <div
                         className="w-4 h-4 rounded-full"
                         style={{ backgroundColor: statusColors[status] || '#6b7280' }}
                       />
-                      <Typography variant="body" className="font-medium text-gray-700 dark:text-gray-300">
+                      <Typography variant="body" className="font-medium text-neutral-700 dark:text-neutral-300">
                         {status}
                       </Typography>
                     </div>
-                    <Typography variant="body" className="font-bold text-gray-900 dark:text-white">
+                    <Typography variant="body" className="font-bold text-neutral-900 dark:text-white">
                       {count}
                     </Typography>
                   </div>
@@ -427,7 +427,7 @@ export default function ProjectDashboard() {
                   <RocketLaunchIcon className="h-8 w-8 text-primary-600 dark:text-primary-400" />
                 </div>
                 <div>
-                  <Typography variant="h3" className="text-gray-900 dark:text-white">
+                  <Typography variant="h3" className="text-neutral-900 dark:text-white">
                     Active Sprint
                   </Typography>
                   <span className="inline-block mt-1 px-3 py-1 text-xs font-bold rounded-full bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
@@ -435,15 +435,15 @@ export default function ProjectDashboard() {
                   </span>
                 </div>
               </div>
-              <Typography variant="h2" className="text-gray-900 dark:text-white">
+              <Typography variant="h2" className="text-neutral-900 dark:text-white">
                 {activeSprint.name}
               </Typography>
               {activeSprint.goal && (
-                <Typography variant="body" className="text-gray-600 dark:text-gray-400 italic">
+                <Typography variant="body" className="text-neutral-600 dark:text-neutral-400 italic">
                   🎯 {activeSprint.goal}
                 </Typography>
               )}
-              <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex items-center gap-6 text-sm text-neutral-500 dark:text-neutral-400">
                 {activeSprint.startDate && activeSprint.endDate ? (
                   <span className="flex items-center gap-2">
                     <CalendarIcon className="h-4 w-4" />
@@ -456,10 +456,10 @@ export default function ProjectDashboard() {
               {/* Sprint Stats */}
               <div className="flex gap-6 mt-4">
                 <div className="flex flex-col items-center">
-                  <Typography variant="h4" className="text-gray-900 dark:text-white">
+                  <Typography variant="h4" className="text-neutral-900 dark:text-white">
                     {sprintIssues?.length || 0}
                   </Typography>
-                  <Typography variant="body-sm" className="text-gray-500 dark:text-gray-400">
+                  <Typography variant="body-sm" className="text-neutral-500 dark:text-neutral-400">
                     Total Issues
                   </Typography>
                 </div>
@@ -467,7 +467,7 @@ export default function ProjectDashboard() {
                   <Typography variant="h4" className="text-green-600 dark:text-green-400">
                     {sprintIssues?.filter(i => i.status === 'Done').length || 0}
                   </Typography>
-                  <Typography variant="body-sm" className="text-gray-500 dark:text-gray-400">
+                  <Typography variant="body-sm" className="text-neutral-500 dark:text-neutral-400">
                     Done
                   </Typography>
                 </div>
@@ -475,7 +475,7 @@ export default function ProjectDashboard() {
                   <Typography variant="h4" className="text-orange-600 dark:text-orange-400">
                     {sprintIssues?.filter(i => i.status !== 'Done').length || 0}
                   </Typography>
-                  <Typography variant="body-sm" className="text-gray-500 dark:text-gray-400">
+                  <Typography variant="body-sm" className="text-neutral-500 dark:text-neutral-400">
                     Remaining
                   </Typography>
                 </div>
@@ -484,7 +484,7 @@ export default function ProjectDashboard() {
 
             <div className="flex flex-col justify-center items-center gap-8">
               {loadingSprintIssues ? (
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-6 animate-pulse" />
+                <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-6 animate-pulse" />
               ) : (
                 (() => {
                   const total = sprintIssues?.length || 0;
@@ -493,20 +493,20 @@ export default function ProjectDashboard() {
                   return (
                     <div className="w-full max-w-xl">
                       <div className="flex justify-between items-center mb-2">
-                        <Typography variant="body" className="font-semibold text-gray-700 dark:text-gray-300">
+                        <Typography variant="body" className="font-semibold text-neutral-700 dark:text-neutral-300">
                           Sprint Progress
                         </Typography>
-                        <Typography variant="h4" className="text-gray-900 dark:text-white">
+                        <Typography variant="h4" className="text-neutral-900 dark:text-white">
                           {percent}%
                         </Typography>
                       </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-6 overflow-hidden">
+                      <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-6 overflow-hidden">
                         <div
                           className="bg-green-500 h-6 rounded-full transition-all duration-1000 ease-out"
                           style={{ width: `${percent}%` }}
                         />
                       </div>
-                      <Typography variant="body" className="text-gray-600 dark:text-gray-400 mt-2 text-center">
+                      <Typography variant="body" className="text-neutral-600 dark:text-neutral-400 mt-2 text-center">
                         {done} of {total} issues completed
                       </Typography>
                     </div>
@@ -525,12 +525,12 @@ export default function ProjectDashboard() {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <ClockIcon className="h-8 w-8 text-gray-400" />
-                <Typography variant="h3" className="text-gray-900 dark:text-white">
+                <ClockIcon className="h-8 w-8 text-neutral-400" />
+                <Typography variant="h3" className="text-neutral-900 dark:text-white">
                   No Active Sprint
                 </Typography>
               </div>
-              <Typography variant="body" className="text-gray-600 dark:text-gray-400 max-w-2xl">
+              <Typography variant="body" className="text-neutral-600 dark:text-neutral-400 max-w-2xl">
                 Start a sprint to begin tracking progress and organizing your work!
               </Typography>
             </div>
@@ -550,7 +550,7 @@ export default function ProjectDashboard() {
       {/* Recent Activity */}
       <Card className="p-8">
         <div className="flex items-center justify-between mb-6">
-          <Typography variant="h3" className="text-gray-900 dark:text-white">
+          <Typography variant="h3" className="text-neutral-900 dark:text-white">
             Recent Activity
           </Typography>
         </div>
@@ -568,8 +568,8 @@ export default function ProjectDashboard() {
           </div>
         ) : (Array.isArray(activity) ? activity : []).length === 0 ? (
           <div className="text-center py-12">
-            <ClockIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <Typography variant="body" className="text-gray-500 dark:text-gray-400">
+            <ClockIcon className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
+            <Typography variant="body" className="text-neutral-500 dark:text-neutral-400">
               No recent activity
             </Typography>
           </div>
@@ -587,7 +587,7 @@ export default function ProjectDashboard() {
               return (
                 <div
                   key={rev.id}
-                  className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 cursor-pointer"
+                  className="flex items-center gap-4 p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors duration-200 cursor-pointer"
                   onClick={() => href && router.push(href)}
                 >
                   <div className="flex-shrink-0 w-10 h-10 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center">
@@ -602,14 +602,14 @@ export default function ProjectDashboard() {
                         {String(rev.entityType)}
                       </span>
                     </div>
-                    <Typography variant="body" className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                    <Typography variant="body" className="font-semibold text-neutral-900 dark:text-neutral-100 truncate">
                       {String(
                         typeof rev.snapshot === 'object' && rev.snapshot !== null && 'title' in rev.snapshot ? rev.snapshot.title :
                           typeof rev.snapshot === 'object' && rev.snapshot !== null && 'name' in rev.snapshot ? rev.snapshot.name :
                             rev.entityId || ''
                       )}
                     </Typography>
-                    <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-4 text-sm text-neutral-500 dark:text-neutral-400">
                       <span className="flex items-center gap-1">
                         <UserIcon className="h-4 w-4" />
                         {String(rev.changedBy || '')}

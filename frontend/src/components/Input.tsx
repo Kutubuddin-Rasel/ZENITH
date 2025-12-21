@@ -1,20 +1,47 @@
-'use client';
-import React, { forwardRef, InputHTMLAttributes, useState } from 'react';
-import { EyeIcon, EyeSlashIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+"use client";
 
-interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+import React, { forwardRef, InputHTMLAttributes, useState } from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
+import { EyeIcon, EyeSlashIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { cn } from '@/lib/utils';
+
+const inputVariants = cva(
+  "w-full rounded-md px-3 py-2 text-sm bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 border outline-none file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-neutral-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200",
+  {
+    variants: {
+      variant: {
+        default: "border-neutral-300 dark:border-neutral-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-neutral-900",
+        error: "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:ring-offset-0",
+        success: "border-green-500 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 focus:ring-offset-0",
+      },
+      fullWidth: {
+        true: "w-full",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      fullWidth: true,
+    },
+  }
+);
+
+export interface InputProps
+  extends InputHTMLAttributes<HTMLInputElement>,
+  VariantProps<typeof inputVariants> {
   label?: string;
   error?: string;
-  showPasswordToggle?: boolean;
   success?: boolean;
+  showPasswordToggle?: boolean;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(({
+  className,
+  variant,
+  fullWidth,
   label,
   error,
-  showPasswordToggle = false,
-  success = false,
-  className = '',
+  success,
+  showPasswordToggle,
   type,
   ...props
 }, ref) => {
@@ -22,27 +49,26 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
   const isPassword = type === 'password';
   const inputType = isPassword && showPasswordToggle && showPassword ? 'text' : type;
 
+  // Determine effective variant based on state
+  const effectiveVariant = error ? 'error' : success ? 'success' : variant;
+
   return (
-    <div className="w-full">
+    <div className="w-full space-y-1.5">
       {label && (
-        <label className="block mb-1.5 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
           {label}
         </label>
       )}
+
       <div className="relative group">
         <input
-          ref={ref}
           type={inputType}
-          className={`w-full px-3.5 py-3 border rounded-xl bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 outline-none transition-all duration-200
-            ${error
-              ? 'border-error-500 focus:border-error-500 focus:ring-4 focus:ring-error-500/10'
-              : success
-                ? 'border-success-500 focus:border-success-500 focus:ring-4 focus:ring-success-500/10'
-                : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10'
-            }
-            ${(isPassword && showPasswordToggle) || success ? 'pr-12' : ''}
-            focus:-translate-y-0.5 focus:shadow-lg focus:shadow-neutral-900/5 dark:focus:shadow-black/20
-            ${className}`}
+          className={cn(
+            inputVariants({ variant: effectiveVariant, fullWidth, className }),
+            // Add right padding if icons are present
+            ((isPassword && showPasswordToggle) || success) && "pr-10"
+          )}
+          ref={ref}
           {...props}
         />
 
@@ -51,29 +77,28 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
             tabIndex={-1}
           >
             {showPassword ? (
-              <EyeSlashIcon className="h-5 w-5" />
+              <EyeSlashIcon className="h-4 w-4" />
             ) : (
-              <EyeIcon className="h-5 w-5" />
+              <EyeIcon className="h-4 w-4" />
             )}
           </button>
         )}
 
         {/* Success Checkmark */}
         {success && !isPassword && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <CheckCircleIcon className="h-5 w-5 text-success-500" />
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+            <CheckCircleIcon className="h-5 w-5 text-green-500" />
           </div>
         )}
       </div>
 
       {/* Error Message */}
       {error && (
-        <p className="mt-1.5 text-sm text-error-600 dark:text-error-400 flex items-center gap-1.5 animate-fade-in">
-          <span className="inline-block w-1 h-1 rounded-full bg-error-500" />
+        <p className="text-sm text-red-600 dark:text-red-400 animate-slide-up">
           {error}
         </p>
       )}
@@ -81,5 +106,6 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
   );
 });
 
-Input.displayName = 'Input';
+Input.displayName = "Input";
+
 export default Input;

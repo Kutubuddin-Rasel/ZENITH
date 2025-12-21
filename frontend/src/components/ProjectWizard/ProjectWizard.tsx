@@ -668,7 +668,7 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
           <select
             value={String(value)}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleAnswer(question.id, e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
           >
             <option value="">Select an option...</option>
             {question.options?.map((option) => (
@@ -699,10 +699,10 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
     return (
       <div className="space-y-6">
         <div className="text-center">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+          <h3 className="text-xl font-semibold text-neutral-900 dark:text-white mb-2">
             Choose Your Project Template
           </h3>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-neutral-600 dark:text-neutral-400">
             Based on your answers, we recommend these templates
           </p>
         </div>
@@ -730,24 +730,24 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
 
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <h4 className="font-semibold text-gray-900 dark:text-white">
+                    <h4 className="font-semibold text-neutral-900 dark:text-white">
                       {rec.template.name}
                     </h4>
                     <span className={`px-2 py-1 text-xs rounded-full ${rec.confidence === 'high' ? 'bg-green-100 text-green-800' :
                       rec.confidence === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
+                        'bg-neutral-100 text-neutral-800'
                       }`}>
                       {rec.confidence} match
                     </span>
                   </div>
 
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3">
                     {rec.template.description}
                   </p>
 
                   <div className="space-y-1">
                     {rec.reasons.map((reason, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                      <div key={index} className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
                         <CheckIcon className="h-4 w-4 text-green-500" />
                         {reason}
                       </div>
@@ -771,16 +771,16 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
                 Project Setup Wizard
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-neutral-600 dark:text-neutral-400">
                 Let&apos;s create the perfect project for your needs
               </p>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
             >
               <span className="sr-only">Close</span>
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -790,12 +790,12 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
           </div>
 
           {/* Mode Toggle Tabs */}
-          <div className="flex gap-2 mb-6 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
+          <div className="flex gap-2 mb-6 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg">
             <button
               onClick={() => setWizardMode('ai')}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium transition-all ${wizardMode === 'ai'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                ? 'bg-white dark:bg-neutral-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
                 }`}
             >
               <SparklesIcon className="h-4 w-4" />
@@ -804,8 +804,8 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
             <button
               onClick={() => setWizardMode('classic')}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium transition-all ${wizardMode === 'classic'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                ? 'bg-white dark:bg-neutral-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
                 }`}
             >
               <QueueListIcon className="h-4 w-4" />
@@ -876,20 +876,20 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
               {/* Progress Bar */}
               <div className="mb-8">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
                     Step {currentStep + 1} of {questions.length + 1}
                   </span>
                   <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                    <span className="text-sm text-neutral-500 dark:text-neutral-400">
                       {Math.round(((currentStep + 1) / (questions.length + 1)) * 100)}% Complete
                     </span>
-                    <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-1 text-sm text-neutral-500 dark:text-neutral-400">
                       <ClockIcon className="h-4 w-4" />
                       {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}
                     </div>
                   </div>
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
                   <div
                     className={`h-2 rounded-full transition-all duration-300 ${elapsedTime < 120 ? 'bg-green-600' : elapsedTime < 180 ? 'bg-yellow-600' : 'bg-red-600'
                       }`}
@@ -909,7 +909,7 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
                   <Spinner />
                   {loadingState.message && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{loadingState.message}</p>
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">{loadingState.message}</p>
                   )}
                 </div>
               ) : error ? (
@@ -924,11 +924,11 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
                   <div className="flex items-center gap-3 mb-6">
                     {getStepIcon(currentStep)}
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
                         {questions[currentStep]?.question}
                       </h3>
                       {questions[currentStep]?.options?.[0]?.description && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
                           {questions[currentStep].options?.[0].description}
                         </p>
                       )}
@@ -941,25 +941,25 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
                         key={option.value}
                         className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ${responses[questions[currentStep].id] === option.value
                           ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                          : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600'
                           }`}
                         onClick={() => handleAnswer(questions[currentStep].id, option.value)}
                       >
                         <div className="flex items-center gap-3">
                           <div className={`w-4 h-4 rounded-full border-2 ${responses[questions[currentStep].id] === option.value
                             ? 'border-blue-500 bg-blue-500'
-                            : 'border-gray-300 dark:border-gray-600'
+                            : 'border-neutral-300 dark:border-neutral-600'
                             }`}>
                             {responses[questions[currentStep].id] === option.value && (
                               <div className="w-2 h-2 bg-white rounded-full m-0.5" />
                             )}
                           </div>
                           <div>
-                            <div className="font-medium text-gray-900 dark:text-white">
+                            <div className="font-medium text-neutral-900 dark:text-white">
                               {option.label}
                             </div>
                             {option.description && (
-                              <div className="text-sm text-gray-600 dark:text-gray-400">
+                              <div className="text-sm text-neutral-600 dark:text-neutral-400">
                                 {option.description}
                               </div>
                             )}
@@ -983,7 +983,7 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({
               )}
 
               {/* Navigation */}
-              <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mt-8 pt-6 border-t border-neutral-200 dark:border-neutral-700">
                 <Button
                   variant="ghost"
                   onClick={currentStep < questions.length ? handlePrevious : () => setCurrentStep(questions.length - 1)}

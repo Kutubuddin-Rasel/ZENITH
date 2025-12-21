@@ -62,10 +62,12 @@ export const IntegrationHub: React.FC = () => {
     try {
       setLoading(true);
       const data = await apiClient.get<Integration[]>('/api/integrations');
-      setIntegrations(data);
+      // Defensive: ensure we always have an array
+      setIntegrations(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to load integrations:', err);
       setError('Failed to load integrations');
+      setIntegrations([]); // Ensure array on error
     } finally {
       setLoading(false);
     }
@@ -219,8 +221,8 @@ export const IntegrationHub: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Integration Hub</h1>
-          <p className="text-gray-600">Connect your favorite tools and streamline your workflow</p>
+          <h1 className="text-2xl font-bold text-neutral-900">Integration Hub</h1>
+          <p className="text-neutral-600">Connect your favorite tools and streamline your workflow</p>
         </div>
         <div className="flex space-x-3">
           <Button
@@ -252,10 +254,10 @@ export const IntegrationHub: React.FC = () => {
 
       {/* Installed Integrations */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Installed Integrations</h2>
+        <h2 className="text-lg font-semibold text-neutral-900 mb-4">Installed Integrations</h2>
         {integrations.length === 0 ? (
           <Card className="p-8 text-center">
-            <div className="text-gray-500">
+            <div className="text-neutral-500">
               <CogIcon className="h-12 w-12 mx-auto mb-4" />
               <p className="text-lg font-medium">No integrations installed</p>
               <p className="text-sm">Connect your first tool to get started</p>
@@ -278,21 +280,21 @@ export const IntegrationHub: React.FC = () => {
 
       {/* Available Integrations */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Available Integrations</h2>
+        <h2 className="text-lg font-semibold text-neutral-900 mb-4">Available Integrations</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {availableIntegrations.map((integration) => (
             <Card key={integration.type} className="p-6 hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
-                    <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <span className="text-lg font-semibold text-gray-600">
+                    <div className="w-8 h-8 bg-neutral-100 rounded-lg flex items-center justify-center">
+                      <span className="text-lg font-semibold text-neutral-600">
                         {integration.icon.charAt(0).toUpperCase()}
                       </span>
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900">{integration.name}</h3>
+                    <h3 className="text-lg font-medium text-neutral-900">{integration.name}</h3>
                   </div>
-                  <p className="text-sm text-gray-600 mb-3">{integration.description}</p>
+                  <p className="text-sm text-neutral-600 mb-3">{integration.description}</p>
                   <div className="flex flex-wrap gap-1 mb-4">
                     {integration.features.map((feature) => (
                       <span
@@ -309,7 +311,7 @@ export const IntegrationHub: React.FC = () => {
                     ? 'bg-green-100 text-green-800'
                     : integration.status === 'beta'
                       ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-gray-100 text-gray-800'
+                      : 'bg-neutral-100 text-neutral-800'
                     }`}>
                     {integration.status === 'available' ? 'Available' :
                       integration.status === 'beta' ? 'Beta' : 'Coming Soon'}

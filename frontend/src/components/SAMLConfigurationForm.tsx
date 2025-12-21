@@ -4,11 +4,13 @@ import { useForm } from 'react-hook-form';
 import { useAuth } from '../context/AuthContext';
 import Button from './Button';
 import Input from './Input';
+import Select from './Select';
+import TextArea from './TextArea';
 import Typography from './Typography';
 import Card from './Card';
 import Modal from './Modal';
-import { 
-  ExclamationTriangleIcon, 
+import {
+  ExclamationTriangleIcon,
   XMarkIcon,
   EyeIcon
 } from '@heroicons/react/24/outline';
@@ -123,7 +125,7 @@ export default function SAMLConfigurationForm({ isOpen, onClose, config, onSucce
       setIsLoading(true);
       setError(null);
 
-      const url = config?.id 
+      const url = config?.id
         ? `${process.env.NEXT_PUBLIC_API_URL}/auth/saml/configs/${config.id}`
         : `${process.env.NEXT_PUBLIC_API_URL}/auth/saml/configs`;
 
@@ -210,10 +212,10 @@ export default function SAMLConfigurationForm({ isOpen, onClose, config, onSucce
         {/* Basic Configuration */}
         <Card className="p-4">
           <Typography variant="h4" className="mb-4">Basic Configuration</Typography>
-          
+
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 Configuration Name *
               </label>
               <Input
@@ -224,23 +226,22 @@ export default function SAMLConfigurationForm({ isOpen, onClose, config, onSucce
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 Identity Provider *
               </label>
-              <select
+              <Select
                 {...register('provider', { required: 'Provider is required' })}
-                className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm dark:text-white border-gray-200 dark:border-gray-700 transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm hover:shadow-md focus:shadow-lg"
               >
                 {SAML_PROVIDERS.map((provider) => (
                   <option key={provider.value} value={provider.value}>
                     {provider.icon} {provider.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 Entry Point (SSO URL) *
               </label>
               <Input
@@ -251,7 +252,7 @@ export default function SAMLConfigurationForm({ isOpen, onClose, config, onSucce
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 Issuer (Entity ID) *
               </label>
               <Input
@@ -262,20 +263,20 @@ export default function SAMLConfigurationForm({ isOpen, onClose, config, onSucce
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 X.509 Certificate *
               </label>
               <div className="relative">
-                <textarea
+                <TextArea
                   {...register('cert', { required: 'Certificate is required' })}
                   placeholder={hints.cert}
                   rows={4}
-                  className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm dark:text-white border-gray-200 dark:border-gray-700 transition-all duration-300 placeholder-gray-400 dark:placeholder-gray-500 hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm hover:shadow-md focus:shadow-lg font-mono text-sm"
+                  className="font-mono text-sm"
                 />
                 <button
                   type="button"
                   onClick={() => setShowCert(!showCert)}
-                  className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="absolute top-2 right-2 p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
                 >
                   {showCert ? <XMarkIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
                 </button>
@@ -306,7 +307,7 @@ export default function SAMLConfigurationForm({ isOpen, onClose, config, onSucce
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                     Callback URL (ACS URL)
                   </label>
                   <Input
@@ -315,7 +316,7 @@ export default function SAMLConfigurationForm({ isOpen, onClose, config, onSucce
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                     Logout URL (SLO URL)
                   </label>
                   <Input
@@ -326,26 +327,26 @@ export default function SAMLConfigurationForm({ isOpen, onClose, config, onSucce
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Private Certificate (Optional)
                 </label>
-                <textarea
+                <TextArea
                   {...register('privateCert')}
                   placeholder="Private certificate for signing requests"
                   rows={3}
-                  className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm dark:text-white border-gray-200 dark:border-gray-700 transition-all duration-300 placeholder-gray-400 dark:placeholder-gray-500 hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm hover:shadow-md focus:shadow-lg font-mono text-sm"
+                  className="font-mono text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Private Key (Optional)
                 </label>
-                <textarea
+                <TextArea
                   {...register('privateKey')}
                   placeholder="Private key for signing requests"
                   rows={3}
-                  className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm dark:text-white border-gray-200 dark:border-gray-700 transition-all duration-300 placeholder-gray-400 dark:placeholder-gray-500 hover:border-gray-300 dark:hover:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm hover:shadow-md focus:shadow-lg font-mono text-sm"
+                  className="font-mono text-sm"
                 />
               </div>
             </div>

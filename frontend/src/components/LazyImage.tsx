@@ -83,7 +83,7 @@ const LazyImage: React.FC<LazyImageProps> = ({
       {/* Placeholder */}
       {!isLoaded && !hasError && (
         <div
-          className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center"
+          className="absolute inset-0 bg-neutral-200 animate-pulse flex items-center justify-center"
           style={{ width, height }}
         >
           {placeholder && (
@@ -101,7 +101,7 @@ const LazyImage: React.FC<LazyImageProps> = ({
       {/* Error state */}
       {hasError && (
         <div
-          className="absolute inset-0 bg-gray-100 flex items-center justify-center text-gray-400"
+          className="absolute inset-0 bg-neutral-100 flex items-center justify-center text-neutral-400"
           style={{ width, height }}
         >
           <div className="text-center">

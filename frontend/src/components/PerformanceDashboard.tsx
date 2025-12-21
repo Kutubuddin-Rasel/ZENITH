@@ -62,7 +62,7 @@ const PerformanceDashboard: React.FC = () => {
       case 'good': return 'bg-green-100 text-green-800';
       case 'needs-improvement': return 'bg-yellow-100 text-yellow-800';
       case 'poor': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-neutral-100 text-neutral-800';
     }
   };
 
@@ -79,11 +79,11 @@ const PerformanceDashboard: React.FC = () => {
     return (
       <div className="p-4">
         <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-4 bg-neutral-200 rounded w-1/4 mb-4"></div>
           <div className="space-y-2">
-            <div className="h-4 bg-gray-200 rounded"></div>
-            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-            <div className="h-4 bg-gray-200 rounded w-4/6"></div>
+            <div className="h-4 bg-neutral-200 rounded"></div>
+            <div className="h-4 bg-neutral-200 rounded w-5/6"></div>
+            <div className="h-4 bg-neutral-200 rounded w-4/6"></div>
           </div>
         </div>
       </div>
@@ -106,7 +106,7 @@ const PerformanceDashboard: React.FC = () => {
                   {formatTime(metrics.largestContentfulPaint)}
                 </Badge>
               </div>
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-neutral-500">
                 Good: ≤2.5s, Needs Improvement: ≤4.0s
               </div>
             </div>
@@ -118,7 +118,7 @@ const PerformanceDashboard: React.FC = () => {
                   {formatTime(metrics.firstInputDelay)}
                 </Badge>
               </div>
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-neutral-500">
                 Good: ≤100ms, Needs Improvement: ≤300ms
               </div>
             </div>
@@ -130,7 +130,7 @@ const PerformanceDashboard: React.FC = () => {
                   {metrics.cumulativeLayoutShift.toFixed(3)}
                 </Badge>
               </div>
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-neutral-500">
                 Good: ≤0.1, Needs Improvement: ≤0.25
               </div>
             </div>
@@ -193,19 +193,19 @@ const PerformanceDashboard: React.FC = () => {
                 <div className="text-2xl font-bold text-blue-600">
                   {resourceTimings.length}
                 </div>
-                <div className="text-sm text-gray-500">Total Resources</div>
+                <div className="text-sm text-neutral-500">Total Resources</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-orange-600">
                   {resourceTimings.filter(r => r.duration > 1000).length}
                 </div>
-                <div className="text-sm text-gray-500">Slow Resources (&gt;1s)</div>
+                <div className="text-sm text-neutral-500">Slow Resources (&gt;1s)</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-red-600">
                   {resourceTimings.filter(r => r.size > 100000).length}
                 </div>
-                <div className="text-sm text-gray-500">Large Resources (&gt;100KB)</div>
+                <div className="text-sm text-neutral-500">Large Resources (&gt;100KB)</div>
               </div>
             </div>
 
@@ -217,13 +217,13 @@ const PerformanceDashboard: React.FC = () => {
                     .sort((a, b) => b.duration - a.duration)
                     .slice(0, 5)
                     .map((resource, index) => (
-                      <div key={index} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded">
+                      <div key={index} className="flex items-center justify-between text-xs bg-neutral-50 p-2 rounded">
                         <span className="truncate flex-1 mr-2" title={resource.name}>
                           {resource.name.split('/').pop()}
                         </span>
                         <div className="flex items-center space-x-2">
-                          <span className="text-gray-500">{formatTime(resource.duration)}</span>
-                          <span className="text-gray-400">{formatBytes(resource.size)}</span>
+                          <span className="text-neutral-500">{formatTime(resource.duration)}</span>
+                          <span className="text-neutral-400">{formatBytes(resource.size)}</span>
                         </div>
                       </div>
                     ))}

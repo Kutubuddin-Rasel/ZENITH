@@ -132,11 +132,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string, redirectPath?: string) => {
     setLoading(true);
     try {
-      // Login sets cookies
-      const data = await apiFetch<{ user: User }>('/auth/login', {
+      // Login sets cookies - but may require 2FA first
+      const data = await apiFetch<{
+        user?: User;
+        requires2FA?: boolean;
+        userId?: string;
+        message?: string;
+      }>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
+
+      // Check if 2FA is required
+      if (data.requires2FA && data.userId) {
+        // Throw a special error that the login page can catch
+        const error = new Error('2FA_REQUIRED') as Error & { userId: string };
+        error.userId = data.userId;
+        throw error;
+      }
+
+      // Normal login flow (no 2FA or 2FA already verified)
+      if (!data.user) {
+        throw new Error('Invalid response from server');
+      }
+
       console.log('Login successful, setting user data:', data.user);
 
       // No token to store

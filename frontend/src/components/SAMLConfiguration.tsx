@@ -133,8 +133,8 @@ export default function SAMLConfiguration({ isOpen, onClose }: SAMLConfiguration
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'testing': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'inactive': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'inactive': return 'bg-neutral-100 text-neutral-800 dark:bg-neutral-900 dark:text-neutral-200';
+      default: return 'bg-neutral-100 text-neutral-800 dark:bg-neutral-900 dark:text-neutral-200';
     }
   };
 
@@ -175,9 +175,9 @@ export default function SAMLConfiguration({ isOpen, onClose }: SAMLConfiguration
           <div className="space-y-4">
             {configs.length === 0 ? (
               <Card className="p-8 text-center">
-                <ShieldCheckIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <ShieldCheckIcon className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
                 <Typography variant="h4" className="mb-2">No SAML Configurations</Typography>
-                <Typography variant="body" className="text-gray-600 dark:text-gray-400 mb-4">
+                <Typography variant="body" className="text-neutral-600 dark:text-neutral-400 mb-4">
                   Set up SAML/SSO integration to allow users to sign in with their organization&apos;s identity provider.
                 </Typography>
                 <Button onClick={() => setShowForm(true)}>
@@ -200,7 +200,7 @@ export default function SAMLConfiguration({ isOpen, onClose }: SAMLConfiguration
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(config.status)}`}>
                               {config.status.charAt(0).toUpperCase() + config.status.slice(1)}
                             </span>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                            <span className="text-sm text-neutral-500 dark:text-neutral-400">
                               {config.provider.replace('_', ' ').toUpperCase()}
                             </span>
                           </div>
@@ -209,7 +209,7 @@ export default function SAMLConfiguration({ isOpen, onClose }: SAMLConfiguration
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                         <div>
-                          <Typography variant="body" className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          <Typography variant="body" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
                             Entry Point
                           </Typography>
                           <Typography variant="body" className="text-sm font-mono break-all">
@@ -217,7 +217,7 @@ export default function SAMLConfiguration({ isOpen, onClose }: SAMLConfiguration
                           </Typography>
                         </div>
                         <div>
-                          <Typography variant="body" className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          <Typography variant="body" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
                             Issuer
                           </Typography>
                           <Typography variant="body" className="text-sm font-mono break-all">
@@ -225,7 +225,7 @@ export default function SAMLConfiguration({ isOpen, onClose }: SAMLConfiguration
                           </Typography>
                         </div>
                         <div>
-                          <Typography variant="body" className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          <Typography variant="body" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
                             Callback URL
                           </Typography>
                           <Typography variant="body" className="text-sm font-mono break-all">
@@ -233,13 +233,13 @@ export default function SAMLConfiguration({ isOpen, onClose }: SAMLConfiguration
                           </Typography>
                         </div>
                         <div>
-                          <Typography variant="body" className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          <Typography variant="body" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
                             Usage
                           </Typography>
                           <Typography variant="body" className="text-sm">
                             {config.usageCount} times
                             {config.lastUsedAt && (
-                              <span className="text-gray-500 dark:text-gray-400">
+                              <span className="text-neutral-500 dark:text-neutral-400">
                                 {' '}(last used: {new Date(config.lastUsedAt).toLocaleDateString()})
                               </span>
                             )}

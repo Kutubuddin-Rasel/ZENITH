@@ -100,7 +100,7 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
       case 'high': return 'text-orange-600 bg-orange-100 border-orange-200';
       case 'medium': return 'text-yellow-600 bg-yellow-100 border-yellow-200';
       case 'low': return 'text-green-600 bg-green-100 border-green-200';
-      default: return 'text-gray-600 bg-gray-100 border-gray-200';
+      default: return 'text-neutral-600 bg-neutral-100 border-neutral-200';
     }
   };
 
@@ -108,7 +108,7 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
     switch (trend) {
       case 'increasing': return <TrendingUp className="h-4 w-4 text-green-500" />;
       case 'decreasing': return <TrendingUp className="h-4 w-4 text-red-500 rotate-180" />;
-      default: return <BarChart3 className="h-4 w-4 text-gray-500" />;
+      default: return <BarChart3 className="h-4 w-4 text-neutral-500" />;
     }
   };
 
@@ -125,12 +125,12 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
     return (
       <div className={`p-6 ${className}`}>
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
+          <div className="h-8 bg-neutral-200 rounded w-1/4 mb-6"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="bg-white p-6 rounded-lg shadow">
-                <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-4 bg-neutral-200 rounded w-1/2 mb-2"></div>
+                <div className="h-8 bg-neutral-200 rounded w-3/4"></div>
               </div>
             ))}
           </div>
@@ -144,8 +144,8 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Resource Analytics</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-neutral-900">Resource Analytics</h1>
+          <p className="mt-1 text-sm text-neutral-500">
             Predictive analytics and insights for resource optimization
           </p>
         </div>
@@ -154,7 +154,7 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-neutral-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
@@ -172,13 +172,13 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
               <TrendingUp className="h-8 w-8 text-blue-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Avg Utilization</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-sm font-medium text-neutral-500">Avg Utilization</p>
+              <p className="text-2xl font-semibold text-neutral-900">
                 {insights?.utilization.average.toFixed(1) || 0}%
               </p>
               <div className="flex items-center mt-1">
                 {getTrendIcon(insights?.utilization.trend || 'stable')}
-                <span className="ml-1 text-sm text-gray-500 capitalize">
+                <span className="ml-1 text-sm text-neutral-500 capitalize">
                   {insights?.utilization.trend || 'stable'}
                 </span>
               </div>
@@ -192,13 +192,13 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
               <DollarSign className="h-8 w-8 text-green-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total Spent</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-sm font-medium text-neutral-500">Total Spent</p>
+              <p className="text-2xl font-semibold text-neutral-900">
                 {formatCurrency(insights?.costs.totalSpent || 0)}
               </p>
               <div className="flex items-center mt-1">
                 {getTrendIcon(insights?.costs.costTrend || 'stable')}
-                <span className="ml-1 text-sm text-gray-500 capitalize">
+                <span className="ml-1 text-sm text-neutral-500 capitalize">
                   {insights?.costs.costTrend || 'stable'}
                 </span>
               </div>
@@ -212,11 +212,11 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
               <Users className="h-8 w-8 text-purple-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Skill Gaps</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-sm font-medium text-neutral-500">Skill Gaps</p>
+              <p className="text-2xl font-semibold text-neutral-900">
                 {insights?.skills.skillGaps.length || 0}
               </p>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-neutral-500 mt-1">
                 {insights?.skills.emergingSkills.length || 0} emerging skills
               </p>
             </div>
@@ -229,8 +229,8 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
               <AlertTriangle className="h-8 w-8 text-red-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Burnout Risk</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-sm font-medium text-neutral-500">Burnout Risk</p>
+              <p className="text-2xl font-semibold text-neutral-900">
                 {burnoutRisk?.riskScore || 0}%
               </p>
               <span
@@ -246,9 +246,9 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Burnout Risk Analysis */}
         <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Burnout Risk Analysis</h3>
-            <p className="mt-1 text-sm text-gray-500">
+          <div className="px-6 py-4 border-b border-neutral-200">
+            <h3 className="text-lg font-medium text-neutral-900">Burnout Risk Analysis</h3>
+            <p className="mt-1 text-sm text-neutral-500">
               AI-powered assessment of team member burnout risk
             </p>
           </div>
@@ -257,7 +257,7 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
             {burnoutRisk ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Risk Score</span>
+                  <span className="text-sm font-medium text-neutral-700">Risk Score</span>
                   <span
                     className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getRiskColor(burnoutRisk.riskScore)}`}
                   >
@@ -265,7 +265,7 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
                   </span>
                 </div>
                 
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-neutral-200 rounded-full h-2">
                   <div
                     className={`h-2 rounded-full ${
                       burnoutRisk.riskScore >= 80 ? 'bg-red-500' :
@@ -278,12 +278,12 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
                 
                 {burnoutRisk.factors.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Risk Factors</h4>
+                    <h4 className="text-sm font-medium text-neutral-700 mb-2">Risk Factors</h4>
                     <div className="space-y-2">
                       {burnoutRisk.factors.map((factor, index) => (
                         <div key={index} className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">{factor.description}</span>
-                          <span className="text-gray-900 font-medium">{factor.impact}%</span>
+                          <span className="text-neutral-600">{factor.description}</span>
+                          <span className="text-neutral-900 font-medium">{factor.impact}%</span>
                         </div>
                       ))}
                     </div>
@@ -292,10 +292,10 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
                 
                 {burnoutRisk.recommendations.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Recommendations</h4>
+                    <h4 className="text-sm font-medium text-neutral-700 mb-2">Recommendations</h4>
                     <ul className="space-y-1">
                       {burnoutRisk.recommendations.map((recommendation, index) => (
-                        <li key={index} className="text-sm text-gray-600 flex items-start">
+                        <li key={index} className="text-sm text-neutral-600 flex items-start">
                           <span className="mr-2">•</span>
                           <span>{recommendation}</span>
                         </li>
@@ -306,9 +306,9 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
               </div>
             ) : (
               <div className="text-center py-8">
-                <Brain className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No risk data</h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <Brain className="mx-auto h-12 w-12 text-neutral-400" />
+                <h3 className="mt-2 text-sm font-medium text-neutral-900">No risk data</h3>
+                <p className="mt-1 text-sm text-neutral-500">
                   Burnout risk analysis not available
                 </p>
               </div>
@@ -318,9 +318,9 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
 
         {/* Skill Analysis */}
         <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Skill Analysis</h3>
-            <p className="mt-1 text-sm text-gray-500">
+          <div className="px-6 py-4 border-b border-neutral-200">
+            <h3 className="text-lg font-medium text-neutral-900">Skill Analysis</h3>
+            <p className="mt-1 text-sm text-neutral-500">
               Current skill landscape and gaps
             </p>
           </div>
@@ -329,7 +329,7 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
             {insights?.skills ? (
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Most In-Demand Skills</h4>
+                  <h4 className="text-sm font-medium text-neutral-700 mb-3">Most In-Demand Skills</h4>
                   <div className="flex flex-wrap gap-2">
                     {insights.skills.mostInDemand.map((skill, index) => (
                       <span
@@ -343,7 +343,7 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
                 </div>
                 
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Skill Gaps</h4>
+                  <h4 className="text-sm font-medium text-neutral-700 mb-3">Skill Gaps</h4>
                   {insights.skills.skillGaps.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {insights.skills.skillGaps.map((skill, index) => (
@@ -356,12 +356,12 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-500">No significant skill gaps identified</p>
+                    <p className="text-sm text-neutral-500">No significant skill gaps identified</p>
                   )}
                 </div>
                 
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Emerging Skills</h4>
+                  <h4 className="text-sm font-medium text-neutral-700 mb-3">Emerging Skills</h4>
                   <div className="flex flex-wrap gap-2">
                     {insights.skills.emergingSkills.map((skill, index) => (
                       <span
@@ -376,9 +376,9 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
               </div>
             ) : (
               <div className="text-center py-8">
-                <Target className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No skill data</h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <Target className="mx-auto h-12 w-12 text-neutral-400" />
+                <h3 className="mt-2 text-sm font-medium text-neutral-900">No skill data</h3>
+                <p className="mt-1 text-sm text-neutral-500">
                   Skill analysis not available
                 </p>
               </div>
@@ -389,9 +389,9 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
 
       {/* Utilization Distribution */}
       <div className="bg-white rounded-lg shadow mb-8">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Utilization Distribution</h3>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="px-6 py-4 border-b border-neutral-200">
+          <h3 className="text-lg font-medium text-neutral-900">Utilization Distribution</h3>
+          <p className="mt-1 text-sm text-neutral-500">
             How team members are distributed across utilization ranges
           </p>
         </div>
@@ -401,24 +401,24 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
             <div className="space-y-4">
               {Object.entries(insights.utilization.distribution).map(([range, count]) => (
                 <div key={range} className="flex items-center">
-                  <div className="w-20 text-sm text-gray-600">{range}</div>
+                  <div className="w-20 text-sm text-neutral-600">{range}</div>
                   <div className="flex-1 mx-4">
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-neutral-200 rounded-full h-2">
                       <div
                         className="bg-blue-500 h-2 rounded-full"
                         style={{ width: `${(count / Math.max(...Object.values(insights.utilization.distribution))) * 100}%` }}
                       ></div>
                     </div>
                   </div>
-                  <div className="w-12 text-sm text-gray-900 text-right">{count}</div>
+                  <div className="w-12 text-sm text-neutral-900 text-right">{count}</div>
                 </div>
               ))}
             </div>
           ) : (
             <div className="text-center py-8">
-              <BarChart3 className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No distribution data</h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <BarChart3 className="mx-auto h-12 w-12 text-neutral-400" />
+              <h3 className="mt-2 text-sm font-medium text-neutral-900">No distribution data</h3>
+              <p className="mt-1 text-sm text-neutral-500">
                 Utilization distribution not available
               </p>
             </div>
@@ -429,9 +429,9 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
       {/* Recommendations */}
       {insights?.recommendations && insights.recommendations.length > 0 && (
         <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">AI Recommendations</h3>
-            <p className="mt-1 text-sm text-gray-500">
+          <div className="px-6 py-4 border-b border-neutral-200">
+            <h3 className="text-lg font-medium text-neutral-900">AI Recommendations</h3>
+            <p className="mt-1 text-sm text-neutral-500">
               Smart suggestions for resource optimization
             </p>
           </div>
@@ -444,7 +444,7 @@ export default function ResourceAnalytics({ className = '' }: ResourceAnalyticsP
                     <Brain className="h-5 w-5 text-blue-600 mt-0.5" />
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm text-gray-700">{recommendation}</p>
+                    <p className="text-sm text-neutral-700">{recommendation}</p>
                   </div>
                 </div>
               ))}

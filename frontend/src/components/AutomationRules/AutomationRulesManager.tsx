@@ -180,13 +180,13 @@ export default function AutomationRulesManager({
       case 'active':
         return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
       case 'inactive':
-        return <PauseIcon className="h-5 w-5 text-gray-400" />;
+        return <PauseIcon className="h-5 w-5 text-neutral-400" />;
       case 'error':
         return <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />;
       case 'testing':
         return <ClockIcon className="h-5 w-5 text-yellow-500" />;
       default:
-        return <Cog6ToothIcon className="h-5 w-5 text-gray-400" />;
+        return <Cog6ToothIcon className="h-5 w-5 text-neutral-400" />;
     }
   };
 
@@ -195,13 +195,13 @@ export default function AutomationRulesManager({
       case 'active':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'inactive':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+        return 'bg-neutral-100 text-neutral-800 dark:bg-neutral-900 dark:text-neutral-200';
       case 'error':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
       case 'testing':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+        return 'bg-neutral-100 text-neutral-800 dark:bg-neutral-900 dark:text-neutral-200';
     }
   };
 
@@ -230,10 +230,10 @@ export default function AutomationRulesManager({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
             Automation Rules
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
+          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
             Manage automated workflows and triggers
           </p>
         </div>
@@ -247,25 +247,25 @@ export default function AutomationRulesManager({
       <Card>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Search
             </label>
             <input
               type="text"
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
               placeholder="Search rules..."
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Status
             </label>
             <select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -274,13 +274,13 @@ export default function AutomationRulesManager({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Trigger Type
             </label>
             <select
               value={filters.triggerType}
               onChange={(e) => setFilters({ ...filters, triggerType: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
             >
               <option value="all">All Types</option>
               <option value="field_change">Field Change</option>
@@ -291,13 +291,13 @@ export default function AutomationRulesManager({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Category
             </label>
             <select
               value={filters.category}
               onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
             >
               <option value="all">All Categories</option>
               <option value="issue_management">Issue Management</option>
@@ -334,11 +334,11 @@ export default function AutomationRulesManager({
       {rules.length === 0 ? (
         <Card>
           <div className="text-center py-12">
-            <Cog6ToothIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            <Cog6ToothIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-neutral-900 dark:text-white mb-2">
               No automation rules found
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-neutral-600 dark:text-neutral-400 mb-4">
               Create your first automation rule to get started
             </p>
             <Button onClick={() => setShowCreateModal(true)}>
@@ -355,7 +355,7 @@ export default function AutomationRulesManager({
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     {getStatusIcon(rule.status)}
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
                       {rule.name}
                     </h3>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(rule.status)}`}>
@@ -364,33 +364,33 @@ export default function AutomationRulesManager({
                   </div>
                   
                   {rule.description && (
-                    <p className="text-gray-600 dark:text-gray-400 mb-3">
+                    <p className="text-neutral-600 dark:text-neutral-400 mb-3">
                       {rule.description}
                     </p>
                   )}
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">Trigger:</span>
-                      <div className="font-medium text-gray-900 dark:text-white">
+                      <span className="text-neutral-500 dark:text-neutral-400">Trigger:</span>
+                      <div className="font-medium text-neutral-900 dark:text-white">
                         {rule.triggerType.replace('_', ' ')}
                       </div>
                     </div>
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">Executions:</span>
-                      <div className="font-medium text-gray-900 dark:text-white">
+                      <span className="text-neutral-500 dark:text-neutral-400">Executions:</span>
+                      <div className="font-medium text-neutral-900 dark:text-white">
                         {rule.executionCount}
                       </div>
                     </div>
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">Success Rate:</span>
-                      <div className="font-medium text-gray-900 dark:text-white">
+                      <span className="text-neutral-500 dark:text-neutral-400">Success Rate:</span>
+                      <div className="font-medium text-neutral-900 dark:text-white">
                         {rule.successRate ? `${rule.successRate}%` : 'N/A'}
                       </div>
                     </div>
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">Last Executed:</span>
-                      <div className="font-medium text-gray-900 dark:text-white">
+                      <span className="text-neutral-500 dark:text-neutral-400">Last Executed:</span>
+                      <div className="font-medium text-neutral-900 dark:text-white">
                         {formatLastExecuted(rule.lastExecutedAt)}
                       </div>
                     </div>
@@ -402,7 +402,7 @@ export default function AutomationRulesManager({
                         {rule.tags.map((tag, index) => (
                           <span
                             key={index}
-                            className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-full"
+                            className="px-2 py-1 bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs rounded-full"
                           >
                             {tag}
                           </span>
@@ -518,7 +518,7 @@ function CreateRuleModal({ projectId, onClose }: { projectId: string; onClose: (
     <Modal open={true} onClose={onClose}>
       <div className="p-6">
         <h2 className="text-xl font-semibold mb-4">Create Automation Rule</h2>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-neutral-600 dark:text-neutral-400">
           Rule creation form would be implemented here for project {projectId}.
         </p>
         <div className="flex justify-end gap-2 mt-6">
@@ -535,7 +535,7 @@ function EditRuleModal({ rule, onClose }: { rule: AutomationRule; onClose: () =>
     <Modal open={true} onClose={onClose}>
       <div className="p-6">
         <h2 className="text-xl font-semibold mb-4">Edit Automation Rule</h2>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-neutral-600 dark:text-neutral-400">
           Rule editing form would be implemented here for rule: {rule.name}.
         </p>
         <div className="flex justify-end gap-2 mt-6">
@@ -552,7 +552,7 @@ function TestRuleModal({ rule, onClose }: { rule: AutomationRule; onClose: () =>
     <Modal open={true} onClose={onClose}>
       <div className="p-6">
         <h2 className="text-xl font-semibold mb-4">Test Rule: {rule.name}</h2>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-neutral-600 dark:text-neutral-400">
           Rule testing interface would be implemented here for rule: {rule.name}.
         </p>
         <div className="flex justify-end gap-2 mt-6">

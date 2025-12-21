@@ -211,7 +211,7 @@ export default function AccessControlManagement({
               <Label htmlFor="status-filter">Status</Label>
               <select
                 id="status-filter"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md dark:bg-neutral-800 dark:border-neutral-600 dark:text-white"
                 value={filter.status}
                 onChange={(e) => setFilter(prev => ({ ...prev, status: e.target.value }))}
               >
@@ -225,7 +225,7 @@ export default function AccessControlManagement({
               <Label htmlFor="type-filter">Rule Type</Label>
               <select
                 id="type-filter"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md dark:bg-neutral-800 dark:border-neutral-600 dark:text-white"
                 value={filter.ruleType}
                 onChange={(e) => setFilter(prev => ({ ...prev, ruleType: e.target.value }))}
               >
@@ -425,7 +425,7 @@ export default function AccessControlManagement({
                   <Label htmlFor="rule-type">Rule Type</Label>
                   <select
                     id="rule-type"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-md dark:bg-neutral-800 dark:border-neutral-600 dark:text-white"
                     value={newRule.ruleType}
                     onChange={(e) => setNewRule(prev => ({ ...prev, ruleType: e.target.value }))}
                   >
@@ -442,7 +442,7 @@ export default function AccessControlManagement({
                   <Label htmlFor="ip-type">IP Type</Label>
                   <select
                     id="ip-type"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-md dark:bg-neutral-800 dark:border-neutral-600 dark:text-white"
                     value={newRule.ipType}
                     onChange={(e) => setNewRule(prev => ({ ...prev, ipType: e.target.value }))}
                   >

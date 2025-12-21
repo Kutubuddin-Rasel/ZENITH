@@ -91,13 +91,13 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ open, onClose, projectI
     <Modal open={open} onClose={onClose} title="Invite Team Member" maxWidthClass="sm:max-w-2xl">
       <div className="space-y-6">
         {/* Tab Navigation */}
-        <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+        <div className="flex space-x-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-xl">
           <button
             type="button"
             onClick={() => setActiveTab('email')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'email'
-              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              ? 'bg-white dark:bg-neutral-700 text-blue-600 dark:text-blue-400 shadow-sm'
+              : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
               }`}
           >
             <EnvelopeIcon className="h-4 w-4" />
@@ -107,8 +107,8 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ open, onClose, projectI
             type="button"
             onClick={() => setActiveTab('select')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'select'
-              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              ? 'bg-white dark:bg-neutral-700 text-blue-600 dark:text-blue-400 shadow-sm'
+              : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
               }`}
           >
             <UserGroupIcon className="h-4 w-4" />
@@ -142,19 +142,19 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ open, onClose, projectI
                 />
               </div>
 
-              <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-xl">
+              <div className="max-h-64 overflow-y-auto border border-neutral-200 dark:border-neutral-700 rounded-xl">
                 {loadingEmployees ? (
-                  <div className="p-4 text-center text-gray-500">Loading available employees...</div>
+                  <div className="p-4 text-center text-neutral-500">Loading available employees...</div>
                 ) : filteredEmployees.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">
+                  <div className="p-4 text-center text-neutral-500">
                     {searchTerm ? 'No employees found matching your search.' : 'No available employees found.'}
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                  <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
                     {filteredEmployees.map(employee => (
                       <label
                         key={employee.id}
-                        className={`flex items-center p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${selectedUserId === employee.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                        className={`flex items-center p-4 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors ${selectedUserId === employee.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                           }`}
                       >
                         <input
@@ -166,14 +166,14 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ open, onClose, projectI
                           className="mr-3 text-blue-600 focus:ring-blue-500"
                         />
                         <div className="flex-1">
-                          <div className="font-medium text-gray-900 dark:text-gray-100">
+                          <div className="font-medium text-neutral-900 dark:text-neutral-100">
                             {employee.name}
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                          <div className="text-sm text-neutral-500 dark:text-neutral-400">
                             {employee.email}
                           </div>
                           {employee.defaultRole && (
-                            <div className="text-xs text-gray-400 dark:text-gray-500">
+                            <div className="text-xs text-neutral-400 dark:text-neutral-500">
                               Default: {employee.defaultRole}
                             </div>
                           )}
@@ -190,7 +190,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ open, onClose, projectI
           <div>
             <label className="block mb-2 font-semibold text-sm">Project Role</label>
             <select
-              className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 bg-white/80 dark:bg-gray-900/80 border-gray-200 dark:border-gray-700 transition-all duration-300"
+              className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 bg-white/80 dark:bg-neutral-900/80 border-neutral-200 dark:border-neutral-700 transition-all duration-300"
               value={role}
               onChange={e => setRole(e.target.value)}
               required

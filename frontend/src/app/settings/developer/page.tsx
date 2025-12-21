@@ -108,10 +108,10 @@ export default function DeveloperPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                    <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
                         Developer Settings
                     </h1>
-                    <p className="text-gray-500 mt-2">
+                    <p className="text-neutral-500 mt-2">
                         Manage API tokens for programmatic access.
                     </p>
                 </div>
@@ -139,19 +139,19 @@ export default function DeveloperPage() {
 
             {/* Tokens List */}
             <Card className="p-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-4">
                     Active Tokens
                 </h2>
 
                 {isError ? (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-8 text-neutral-500">
                         Failed to load tokens
                     </div>
                 ) : !apiKeys || apiKeys.length === 0 ? (
                     <div className="text-center py-12">
-                        <KeyIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                        <p className="text-gray-500">No API tokens yet</p>
-                        <p className="text-sm text-gray-400 mt-1">
+                        <KeyIcon className="h-12 w-12 text-neutral-300 mx-auto mb-4" />
+                        <p className="text-neutral-500">No API tokens yet</p>
+                        <p className="text-sm text-neutral-400 mt-1">
                             Generate your first token to get started
                         </p>
                     </div>
@@ -160,17 +160,17 @@ export default function DeveloperPage() {
                         {apiKeys.map((key) => (
                             <div
                                 key={key.id}
-                                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl"
+                                className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-neutral-800 rounded-xl"
                             >
                                 <div className="flex items-center gap-4">
-                                    <div className="p-2 bg-gray-200 dark:bg-gray-700 rounded-lg">
-                                        <KeyIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                    <div className="p-2 bg-neutral-200 dark:bg-neutral-700 rounded-lg">
+                                        <KeyIcon className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
                                     </div>
                                     <div>
-                                        <p className="font-medium text-gray-900 dark:text-white">
+                                        <p className="font-medium text-neutral-900 dark:text-white">
                                             {key.name}
                                         </p>
-                                        <div className="flex items-center gap-4 text-xs text-gray-500 mt-1">
+                                        <div className="flex items-center gap-4 text-xs text-neutral-500 mt-1">
                                             <span className="font-mono">{key.keyPrefix}•••••••</span>
                                             <span className="flex items-center gap-1">
                                                 <ClockIcon className="h-3 w-3" />
@@ -203,7 +203,7 @@ export default function DeveloperPage() {
                     {!newToken ? (
                         <>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                                     Token Name
                                 </label>
                                 <Input
@@ -211,12 +211,12 @@ export default function DeveloperPage() {
                                     onChange={(e) => setNewTokenName(e.target.value)}
                                     placeholder="e.g., CI/CD Pipeline, Local Development"
                                 />
-                                <p className="text-xs text-gray-500 mt-2">
+                                <p className="text-xs text-neutral-500 mt-2">
                                     Give your token a descriptive name to identify its purpose.
                                 </p>
                             </div>
 
-                            <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <div className="flex gap-3 justify-end pt-4 border-t border-neutral-200 dark:border-neutral-700">
                                 <Button variant="secondary" onClick={closeModal}>
                                     Cancel
                                 </Button>
@@ -240,7 +240,7 @@ export default function DeveloperPage() {
                             </div>
 
                             <div className="relative">
-                                <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-xl font-mono text-sm break-all">
+                                <div className="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-xl font-mono text-sm break-all">
                                     {newToken}
                                 </div>
                                 <Button
@@ -263,7 +263,7 @@ export default function DeveloperPage() {
                                 </Button>
                             </div>
 
-                            <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <div className="flex justify-end pt-4 border-t border-neutral-200 dark:border-neutral-700">
                                 <Button onClick={closeModal}>
                                     Done
                                 </Button>

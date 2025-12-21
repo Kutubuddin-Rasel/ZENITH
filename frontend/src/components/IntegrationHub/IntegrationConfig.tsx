@@ -57,7 +57,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
   const renderSlackConfig = () => (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-neutral-700 mb-2">
           Webhook URL
         </label>
         <Input
@@ -69,7 +69,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
       </div>
       
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-neutral-700 mb-2">
           Channels
         </label>
         <Input
@@ -77,7 +77,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
           onChange={(e) => updateConfig('channels', e.target.value.split(',').map(c => c.trim()).filter(c => c))}
           placeholder="#general, #dev-team"
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-neutral-500 mt-1">
           Comma-separated list of channel names
         </p>
       </div>
@@ -87,7 +87,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
   const renderGitHubConfig = () => (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-neutral-700 mb-2">
           Repositories
         </label>
         <Input
@@ -95,7 +95,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
           onChange={(e) => updateConfig('repositories', e.target.value.split(',').map(r => r.trim()).filter(r => r))}
           placeholder="owner/repo1, owner/repo2"
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-neutral-500 mt-1">
           Comma-separated list of repositories (owner/repo format)
         </p>
       </div>
@@ -105,7 +105,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
   const renderJiraConfig = () => (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-neutral-700 mb-2">
           Projects
         </label>
         <Input
@@ -113,7 +113,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
           onChange={(e) => updateConfig('projects', e.target.value.split(',').map(p => p.trim()).filter(p => p))}
           placeholder="PROJ1, PROJ2"
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-neutral-500 mt-1">
           Comma-separated list of Jira project keys
         </p>
       </div>
@@ -128,9 +128,9 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
           id="syncEnabled"
           checked={config.syncSettings?.enabled || false}
           onChange={(e) => updateConfig('syncSettings.enabled', e.target.checked)}
-          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-neutral-300 rounded"
         />
-        <label htmlFor="syncEnabled" className="ml-2 text-sm font-medium text-gray-700">
+        <label htmlFor="syncEnabled" className="ml-2 text-sm font-medium text-neutral-700">
           Enable automatic synchronization
         </label>
       </div>
@@ -138,13 +138,13 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
       {config.syncSettings?.enabled && (
         <>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 mb-2">
               Sync Frequency
             </label>
             <select
               value={config.syncSettings?.frequency || 'daily'}
               onChange={(e) => updateConfig('syncSettings.frequency', e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="realtime">Real-time</option>
               <option value="hourly">Hourly</option>
@@ -153,7 +153,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 mb-2">
               Batch Size
             </label>
             <Input
@@ -163,7 +163,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
               min="1"
               max="1000"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-neutral-500 mt-1">
               Number of records to process in each sync batch
             </p>
           </div>
@@ -180,9 +180,9 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
           id="notificationsEnabled"
           checked={config.notifications?.enabled || false}
           onChange={(e) => updateConfig('notifications.enabled', e.target.checked)}
-          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-neutral-300 rounded"
         />
-        <label htmlFor="notificationsEnabled" className="ml-2 text-sm font-medium text-gray-700">
+        <label htmlFor="notificationsEnabled" className="ml-2 text-sm font-medium text-neutral-700">
           Enable notifications
         </label>
       </div>
@@ -190,7 +190,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
       {config.notifications?.enabled && (
         <>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 mb-2">
               Notification Channels
             </label>
             <Input
@@ -198,13 +198,13 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
               onChange={(e) => updateConfig('notifications.channels', e.target.value.split(',').map(c => c.trim()).filter(c => c))}
               placeholder="#notifications, #alerts"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-neutral-500 mt-1">
               Comma-separated list of channels for notifications
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 mb-2">
               Events to Notify
             </label>
             <div className="space-y-2">
@@ -222,9 +222,9 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
                         updateConfig('notifications.events', events.filter(ev => ev !== event));
                       }
                     }}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-neutral-300 rounded"
                   />
-                  <label htmlFor={event} className="ml-2 text-sm text-gray-700">
+                  <label htmlFor={event} className="ml-2 text-sm text-neutral-700">
                     {event.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                   </label>
                 </div>
@@ -239,7 +239,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
   const renderGoogleWorkspaceConfig = () => (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-neutral-700 mb-2">
           Calendar ID
         </label>
         <Input
@@ -247,13 +247,13 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
           onChange={(e) => updateConfig('calendarId', e.target.value)}
           placeholder="primary"
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-neutral-500 mt-1">
           Leave empty to use primary calendar
         </p>
       </div>
       
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-neutral-700 mb-2">
           Drive Folder ID
         </label>
         <Input
@@ -261,7 +261,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
           onChange={(e) => updateConfig('driveFolderId', e.target.value)}
           placeholder="Leave empty to sync all files"
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-neutral-500 mt-1">
           Optional: Sync only files from a specific folder
         </p>
       </div>
@@ -271,7 +271,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
   const renderMicrosoftTeamsConfig = () => (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-neutral-700 mb-2">
           Team ID
         </label>
         <Input
@@ -282,7 +282,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
       </div>
       
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-neutral-700 mb-2">
           Webhook URL
         </label>
         <Input
@@ -291,7 +291,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
           onChange={(e) => updateConfig('webhookUrl', e.target.value)}
           placeholder="https://outlook.office.com/webhook/..."
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-neutral-500 mt-1">
           For sending notifications to Teams channels
         </p>
       </div>
@@ -301,7 +301,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
   const renderTrelloConfig = () => (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-neutral-700 mb-2">
           Board IDs
         </label>
         <Input
@@ -309,7 +309,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
           onChange={(e) => updateConfig('boards', e.target.value.split(',').map(b => b.trim()).filter(b => b))}
           placeholder="board1, board2, board3"
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-neutral-500 mt-1">
           Comma-separated list of Trello board IDs
         </p>
       </div>
@@ -332,7 +332,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
         return renderTrelloConfig();
       default:
         return (
-          <div className="text-gray-500 text-sm">
+          <div className="text-neutral-500 text-sm">
             No specific configuration required for this integration.
           </div>
         );
@@ -343,12 +343,12 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
     <Modal open={true} onClose={onClose} maxWidthClass="sm:max-w-4xl">
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-xl font-semibold text-neutral-900">
             Configure {integration.name}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-neutral-400 hover:text-neutral-600"
           >
             <XMarkIcon className="h-6 w-6" />
           </button>
@@ -357,9 +357,9 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
         <div className="space-y-6">
           {/* Basic Settings */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Settings</h3>
+            <h3 className="text-lg font-medium text-neutral-900 mb-4">Basic Settings</h3>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-neutral-700 mb-2">
                 Integration Name
               </label>
               <Input
@@ -372,7 +372,7 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
 
           {/* Integration-Specific Settings */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
+            <h3 className="text-lg font-medium text-neutral-900 mb-4">
               {integration.name} Settings
             </h3>
             {renderIntegrationSpecificConfig()}
@@ -380,19 +380,19 @@ export const IntegrationConfig: React.FC<IntegrationConfigProps> = ({
 
           {/* Sync Settings */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Synchronization</h3>
+            <h3 className="text-lg font-medium text-neutral-900 mb-4">Synchronization</h3>
             {renderSyncSettings()}
           </div>
 
           {/* Notification Settings */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Notifications</h3>
+            <h3 className="text-lg font-medium text-neutral-900 mb-4">Notifications</h3>
             {renderNotificationSettings()}
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-200">
+        <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-neutral-200">
           <Button
             variant="secondary"
             onClick={onClose}
