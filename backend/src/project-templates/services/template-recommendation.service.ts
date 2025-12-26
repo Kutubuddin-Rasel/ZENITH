@@ -405,10 +405,10 @@ export class TemplateRecommendationService {
               isDefault: true,
             },
             {
-              name: 'Sprint Planning',
-              description: 'Planning next sprint',
+              name: 'To Do',
+              description: 'Ready to start',
               order: 2,
-              isDefault: false,
+              isDefault: true,
             },
             {
               name: 'In Progress',
@@ -555,9 +555,15 @@ export class TemplateRecommendationService {
               isDefault: true,
             },
             {
+              name: 'In Review',
+              description: 'Under review',
+              order: 4,
+              isDefault: true,
+            },
+            {
               name: 'Done',
               description: 'Completed',
-              order: 4,
+              order: 5,
               isDefault: true,
             },
           ],
@@ -673,7 +679,7 @@ export class TemplateRecommendationService {
               isDefault: true,
             },
             {
-              name: 'Creation',
+              name: 'In Progress',
               description: 'Creating content and assets',
               order: 3,
               isDefault: true,

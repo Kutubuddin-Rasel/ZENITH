@@ -22,6 +22,7 @@ import Card from './Card';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/fetcher';
 import Tooltip from './Tooltip';
+import { useAppearance } from '../context/AppearanceContext';
 
 // Sidebar item config with role access
 const sidebarItems = [
@@ -100,7 +101,14 @@ const Sidebar = ({ projectId }: { projectId?: string }) => {
   const { isSuperAdmin } = useRole();
   const projectRole = useProjectRole(projectId || '');
   const [showCreateModal, setShowCreateModal] = React.useState(false);
-  const [isCollapsed, setIsCollapsed] = React.useState(false); // Collapsed state
+  const { settings, setSidebarStyle } = useAppearance();
+
+  // Sync isCollapsed from AppearanceContext
+  const isCollapsed = settings.sidebarStyle === 'compact';
+  const setIsCollapsed = (collapsed: boolean) => {
+    setSidebarStyle(collapsed ? 'compact' : 'default');
+  };
+
   const queryClient = useQueryClient();
 
   // Always use 'Super-Admin' for effectiveRole if isSuperAdmin is true
@@ -221,14 +229,15 @@ const Sidebar = ({ projectId }: { projectId?: string }) => {
                       <Link
                         href={href}
                         onMouseEnter={() => handlePrefetch(link.name)}
-                        className={`group flex items-center w-full ${isCollapsed ? 'justify-center px-0' : 'justify-start px-3'} py-2 rounded-lg transition-all duration-200 relative
+                        className={`group flex items-center w-full ${isCollapsed ? 'justify-center px-2 py-3' : 'justify-start px-3 py-2'} rounded-lg transition-all duration-200 relative
                           ${isActive
                             ? 'bg-primary-50 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 font-semibold shadow-sm ring-1 ring-black/5 dark:ring-white/10'
                             : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 hover:text-neutral-900 dark:hover:text-neutral-200'
                           }`
                         }
                       >
-                        <Icon className={`h-5 w-5 shrink-0 transition-colors duration-200 ${isActive
+                        {/* Icon - larger when collapsed */}
+                        <Icon className={`shrink-0 transition-all duration-200 ${isCollapsed ? 'h-6 w-6' : 'h-5 w-5'} ${isActive
                           ? 'text-primary-600 dark:text-primary-400'
                           : 'text-neutral-500 group-hover:text-neutral-700 dark:group-hover:text-neutral-300'
                           }`} />
@@ -248,7 +257,7 @@ const Sidebar = ({ projectId }: { projectId?: string }) => {
 
                         {/* Dot for collapsed active state */}
                         {showActiveSprintBadge && isCollapsed && (
-                          <span className="absolute top-2 right-2 flex h-2 w-2">
+                          <span className="absolute top-1 right-1 flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-success-500"></span>
                           </span>

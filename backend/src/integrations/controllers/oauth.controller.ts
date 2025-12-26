@@ -54,7 +54,7 @@ export class OAuthController {
     private oauthService: OAuthService,
     private integrationService: IntegrationService,
     private configService: ConfigService,
-  ) { }
+  ) {}
 
   /**
    * Initiates OAuth flow by redirecting to third-party authorization page.

@@ -6,11 +6,11 @@ import { cn } from '@/lib/utils';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 
 const selectVariants = cva(
-    "w-full appearance-none rounded-md px-3 py-2 text-sm bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 border outline-none placeholder:text-neutral-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200",
+    "w-full appearance-none rounded-xl px-4 py-3 text-sm bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 border outline-none placeholder:text-neutral-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 shadow-sm",
     {
         variants: {
             variant: {
-                default: "border-neutral-300 dark:border-neutral-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-neutral-900",
+                default: "border-neutral-300 dark:border-neutral-600 focus:border-accent-blue focus:ring-2 focus:ring-accent-blue",
                 error: "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:ring-offset-0",
             },
             fullWidth: {

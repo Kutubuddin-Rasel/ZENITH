@@ -13,7 +13,7 @@ import { useSprintIssues } from "../../../../hooks/useSprintIssues";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { CalendarDaysIcon, FlagIcon, RocketLaunchIcon, CheckCircleIcon, EyeIcon, PencilSquareIcon, ArchiveBoxXMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { CalendarDaysIcon, FlagIcon, BoltIcon, CheckCircleIcon, EyeIcon, PencilSquareIcon, ArchiveBoxXMarkIcon, PlusIcon, PlayIcon } from '@heroicons/react/24/outline';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { addDays } from 'date-fns';
@@ -38,16 +38,31 @@ function groupSprints(sprints: Sprint[] = []) {
 
 function SprintProgress({ projectId, sprintId }: { projectId: string; sprintId: string }) {
   const { issues, isLoading } = useSprintIssues(projectId, sprintId);
+
   if (isLoading) return <div className="h-2 bg-neutral-200 dark:bg-neutral-700 rounded-full w-full animate-pulse" />;
+
   const total = issues?.length || 0;
+
+  // Show friendly message when no issues
+  if (total === 0) {
+    return (
+      <div className="mt-2 text-xs text-neutral-400 dark:text-neutral-500 italic">
+        No issues in this sprint
+      </div>
+    );
+  }
+
   const done = issues?.filter(i => i.status === 'Done').length || 0;
-  const percent = total ? Math.round((done / total) * 100) : 0;
+  const percent = Math.round((done / total) * 100);
+
   return (
     <div className="mt-2">
       <div className="h-2 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
-        <div className="h-2 bg-green-500" style={{ width: `${percent}%` }} />
+        <div className="h-2 bg-green-500 transition-all" style={{ width: `${percent}%` }} />
       </div>
-      <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{done} of {total} done ({percent}%)</div>
+      <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+        {done} of {total} done ({percent}%)
+      </div>
     </div>
   );
 }
@@ -144,7 +159,7 @@ export default function SprintsPage() {
       {/* Header */}
       <div className="bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 px-6 py-6">
         <div className="flex items-center gap-3">
-          <RocketLaunchIcon className="h-8 w-8 text-neutral-600 dark:text-neutral-400" />
+          <BoltIcon className="h-8 w-8 text-neutral-600 dark:text-neutral-400" />
           <div>
             <Typography variant="h1" className="text-neutral-900 dark:text-white">
               Sprints
@@ -158,7 +173,7 @@ export default function SprintsPage() {
 
       {/* Sprint Sections */}
       <div className="p-6">
-      {isLoading ? (
+        {isLoading ? (
           <div className="flex justify-center py-16">
             <div className="text-center">
               <Spinner className="h-8 w-8 text-blue-600 dark:text-blue-400 mx-auto mb-4" />
@@ -167,7 +182,7 @@ export default function SprintsPage() {
               </Typography>
             </div>
           </div>
-      ) : isError ? (
+        ) : isError ? (
           <div className="text-center py-16">
             <Typography variant="h3" className="text-red-600 dark:text-red-400 mb-2">
               Failed to load sprints
@@ -175,118 +190,159 @@ export default function SprintsPage() {
             <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">
               Please try refreshing the page
             </Typography>
-        </div>
-      ) : (
+          </div>
+        ) : (
           <div className="space-y-8">
-          {Object.entries(grouped)
-            .filter(([status]) => status !== 'archived')
-            .map(([status, sprints]) => {
-              const sectionIcons: Record<string, React.ReactElement> = {
-                  active: <RocketLaunchIcon className="h-6 w-6 text-green-600" />,
+            {Object.entries(grouped)
+              .filter(([status]) => status !== 'archived')
+              .map(([status, sprints]) => {
+                const sectionIcons: Record<string, React.ReactElement> = {
+                  active: <PlayIcon className="h-6 w-6 text-green-600" />,
                   upcoming: <FlagIcon className="h-6 w-6 text-blue-600" />,
                   completed: <CheckCircleIcon className="h-6 w-6 text-purple-600" />,
-              };
-                
-              // Sort sprints within group
-              const sortedSprints = [...sprints].sort((a, b) => {
-                const aDate = a[sortBy] ? new Date(a[sortBy]!) : new Date(0);
-                const bDate = b[sortBy] ? new Date(b[sortBy]!) : new Date(0);
-                return bDate.getTime() - aDate.getTime();
-              });
-                
-              return (
-                  <div key={status} className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-6"> 
+                };
+
+                // Sort sprints within group
+                // Ascending for planned/active (next sprint first)
+                // Descending for completed (most recent first)
+                const sortedSprints = [...sprints].sort((a, b) => {
+                  const aDate = a[sortBy] ? new Date(a[sortBy]!) : new Date(0);
+                  const bDate = b[sortBy] ? new Date(b[sortBy]!) : new Date(0);
+                  return status === 'completed'
+                    ? bDate.getTime() - aDate.getTime()  // Descending for completed
+                    : aDate.getTime() - bDate.getTime(); // Ascending for planned/active
+                });
+
+                return (
+                  <div key={status} className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-6">
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-3">
-                    {sectionIcons[status]}
+                        {sectionIcons[status]}
                         <Typography variant="h2" className="text-neutral-900 dark:text-white">
-                      {status === 'active' && 'Active Sprints'}
-                      {status === 'upcoming' && 'Planned Sprints'}
-                      {status === 'completed' && 'Completed Sprints'}
+                          {status === 'active' && 'Active Sprints'}
+                          {status === 'upcoming' && 'Planned Sprints'}
+                          {status === 'completed' && 'Completed Sprints'}
                         </Typography>
                       </div>
                       <div className="flex items-center gap-2">
                         <Typography variant="label" className="text-neutral-600 dark:text-neutral-400">
                           Sort by:
                         </Typography>
-                      <select
-                        value={sortBy}
-                        onChange={e => setSortBy(e.target.value as 'startDate' | 'endDate')}
+                        <select
+                          value={sortBy}
+                          onChange={e => setSortBy(e.target.value as 'startDate' | 'endDate')}
                           className="px-3 py-1 border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-400 transition-colors"
-                      >
-                        <option value="startDate">Start Date</option>
-                        <option value="endDate">End Date</option>
-                      </select>
-                    </div>
-                  </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {sortedSprints.length === 0 ? (
-                      <div className="col-span-full flex flex-col items-center justify-center py-12">
-                          <div className="w-16 h-16 rounded-lg bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center mb-4">
-                            <FlagIcon className="h-8 w-8 text-neutral-400" />
-                        </div>
-                          <Typography variant="body" className="text-neutral-500 dark:text-neutral-400">
-                            No {status} sprints.
-                          </Typography>
+                        >
+                          <option value="startDate">Start Date</option>
+                          <option value="endDate">End Date</option>
+                        </select>
                       </div>
-                    ) : sortedSprints.map((sprint: Sprint) => (
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {sortedSprints.length === 0 ? (
+                        status === 'active' && grouped.upcoming.length > 0 && canCreateSprint ? (
+                          // Actionable empty state for Active Sprints
+                          <div className="col-span-full flex flex-col items-center justify-center py-12">
+                            <div className="w-16 h-16 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center mb-4">
+                              <PlayIcon className="h-8 w-8 text-green-500" />
+                            </div>
+                            <Typography variant="body" className="text-neutral-700 dark:text-neutral-300 mb-2 font-medium">
+                              No active sprints
+                            </Typography>
+                            <Typography variant="body-sm" className="text-neutral-500 dark:text-neutral-400 mb-4">
+                              Start your next sprint to begin tracking work
+                            </Typography>
+                            <Button
+                              onClick={() => {
+                                const nextSprint = [...grouped.upcoming].sort((a, b) => {
+                                  const aDate = a.startDate ? new Date(a.startDate) : new Date(0);
+                                  const bDate = b.startDate ? new Date(b.startDate) : new Date(0);
+                                  return aDate.getTime() - bDate.getTime();
+                                })[0];
+                                if (nextSprint) {
+                                  setStartingSprintId(nextSprint.id);
+                                  startSprint.mutate(undefined, {
+                                    onSettled: () => setStartingSprintId(null)
+                                  });
+                                }
+                              }}
+                              loading={startSprint.isPending}
+                              variant="primary"
+                              size="sm"
+                            >
+                              <PlayIcon className="h-4 w-4 mr-2" />
+                              Start Next Sprint
+                            </Button>
+                          </div>
+                        ) : (
+                          // Default empty state
+                          <div className="col-span-full flex flex-col items-center justify-center py-12">
+                            <div className="w-16 h-16 rounded-lg bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center mb-4">
+                              <FlagIcon className="h-8 w-8 text-neutral-400" />
+                            </div>
+                            <Typography variant="body" className="text-neutral-500 dark:text-neutral-400">
+                              No {status === 'upcoming' ? 'planned' : status} sprints.
+                            </Typography>
+                          </div>
+                        )
+                      ) : sortedSprints.map((sprint: Sprint) => (
                         <Card key={sprint.id} className="p-4 hover:shadow-md transition-shadow cursor-pointer group relative" onClick={() => setSelectedSprint(sprint)}>
                           <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                          <button
+                            <button
                               className="p-1 rounded-md bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors"
-                            aria-label="View Sprint"
-                            title="View Sprint"
-                            onClick={e => { e.stopPropagation(); setSelectedSprint(sprint); }}
-                          >
+                              aria-label="View Sprint"
+                              title="View Sprint"
+                              onClick={e => { e.stopPropagation(); setSelectedSprint(sprint); }}
+                            >
                               <EyeIcon className="h-4 w-4 text-white" />
-                          </button>
-                          {(status === 'active' || status === 'upcoming') && canCreateSprint && (
-                            <>
-                              <button
+                            </button>
+                            {(status === 'active' || status === 'upcoming') && canCreateSprint && (
+                              <>
+                                <button
                                   className="p-1 rounded-md bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400 transition-colors"
-                                aria-label="Edit Sprint"
-                                title="Edit Sprint"
-                                onClick={e => { e.stopPropagation(); handleEditSprint(sprint); }}
-                              >
+                                  aria-label="Edit Sprint"
+                                  title="Edit Sprint"
+                                  onClick={e => { e.stopPropagation(); handleEditSprint(sprint); }}
+                                >
                                   <PencilSquareIcon className="h-4 w-4 text-white" />
-                              </button>
-                              <button
+                                </button>
+                                <button
                                   className="p-1 rounded-md bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 transition-colors"
-                                aria-label="Archive Sprint"
-                                title="Archive Sprint"
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  setSprintToComplete(sprint);
-                                  setCompleteModalOpen(true);
-                                }}
-                              >
+                                  aria-label="Archive Sprint"
+                                  title="Archive Sprint"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setSprintToComplete(sprint);
+                                    setCompleteModalOpen(true);
+                                  }}
+                                >
                                   <ArchiveBoxXMarkIcon className="h-4 w-4 text-white" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                          
+                                </button>
+                              </>
+                            )}
+                          </div>
+
                           <div className="flex items-center justify-between mb-3">
                             <Typography variant="h3" className="text-neutral-900 dark:text-neutral-100">
-                            {sprint.name}
+                              {sprint.name}
                             </Typography>
                             <span className={`text-xs px-2 py-1 rounded-full font-medium capitalize
                               ${sprint.status === 'ACTIVE' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : ''}
                               ${sprint.status === 'PLANNED' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : ''}
                               ${sprint.status === 'COMPLETED' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : ''}
                           `}>
-                            {sprint.status.toLowerCase()}
-                          </span>
-                        </div>
-                          
+                              {sprint.status.toLowerCase()}
+                            </span>
+                          </div>
+
                           {sprint.goal && (
                             <div className="text-sm text-neutral-600 dark:text-neutral-400 mb-3 flex items-center gap-2">
                               <FlagIcon className="h-4 w-4 text-blue-500" />
                               {sprint.goal}
                             </div>
                           )}
-                          
+
                           <div className="flex gap-4 text-xs text-neutral-500 dark:text-neutral-400 mb-3">
                             {sprint.startDate && (
                               <span className="flex items-center gap-1">
@@ -300,41 +356,56 @@ export default function SprintsPage() {
                                 End: {new Date(sprint.endDate).toLocaleDateString()}
                               </span>
                             )}
-                        </div>
-                          
-                        <SprintProgress projectId={projectId} sprintId={sprint.id} />
-                          
-                        {status === 'upcoming' && canCreateSprint && (
-                          <Button
-                            onClick={e => {
-                              e.stopPropagation();
-                              setStartingSprintId(sprint.id);
-                              startSprint.mutate(undefined, {
-                                onSettled: () => setStartingSprintId(null)
-                              });
-                            }}
-                            loading={startSprint.isPending && startingSprintId === sprint.id}
-                              variant="primary"
-                              size="sm"
-                              className="mt-3 w-full"
-                          >
-                            Start Sprint
-                          </Button>
-                        )}
-                          
-                        {startSprint.isError && startingSprintId === sprint.id && (
+                          </div>
+
+                          <SprintProgress projectId={projectId} sprintId={sprint.id} />
+
+                          {status === 'upcoming' && canCreateSprint && (() => {
+                            // Find the next sprint to start (earliest start date)
+                            const nextSprintToStart = [...grouped.upcoming].sort((a, b) => {
+                              const aDate = a.startDate ? new Date(a.startDate) : new Date(0);
+                              const bDate = b.startDate ? new Date(b.startDate) : new Date(0);
+                              return aDate.getTime() - bDate.getTime();
+                            })[0];
+
+                            const isNextSprint = sprint.id === nextSprintToStart?.id;
+
+                            return isNextSprint ? (
+                              <Button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setStartingSprintId(sprint.id);
+                                  startSprint.mutate(undefined, {
+                                    onSettled: () => setStartingSprintId(null)
+                                  });
+                                }}
+                                loading={startSprint.isPending && startingSprintId === sprint.id}
+                                variant="primary"
+                                size="sm"
+                                className="mt-3 w-full"
+                              >
+                                Start Sprint
+                              </Button>
+                            ) : (
+                              <div className="mt-3 w-full text-center text-xs text-neutral-400 dark:text-neutral-500 py-2">
+                                Complete earlier sprints first
+                              </div>
+                            );
+                          })()}
+
+                          {startSprint.isError && startingSprintId === sprint.id && (
                             <Typography variant="body-sm" className="text-red-600 dark:text-red-400 mt-2">
                               {startSprint.error instanceof Error ? startSprint.error.message : 'Failed to start sprint.'}
                             </Typography>
-                        )}
-                      </Card>
-                    ))}
+                          )}
+                        </Card>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-        </div>
-      )}
+                );
+              })}
+          </div>
+        )}
       </div>
 
       {/* Create Sprint Modal */}

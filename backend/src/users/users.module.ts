@@ -16,4 +16,4 @@ import { MembershipModule } from '../membership/membership.module';
   controllers: [UsersController],
   exports: [UsersService, UserSecuritySettingsService],
 })
-export class UsersModule { }
+export class UsersModule {}

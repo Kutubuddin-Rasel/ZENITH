@@ -62,7 +62,7 @@ export class ProjectsService implements OnModuleInit {
     // TENANT ISOLATION: Inject factory and context
     private readonly tenantRepoFactory?: TenantRepositoryFactory,
     private readonly tenantContext?: TenantContext,
-  ) { }
+  ) {}
 
   /**
    * OnModuleInit: Create tenant-aware repository wrappers

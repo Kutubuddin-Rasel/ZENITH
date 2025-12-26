@@ -7,6 +7,7 @@ export interface Project {
   name: string;
   key: string;
   description?: string;
+  createdAt?: string;
 }
 
 export function useProjects() {

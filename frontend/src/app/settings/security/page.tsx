@@ -1,12 +1,17 @@
 "use client";
 import React from 'react';
-import Typography from '@/components/Typography';
+import { SettingsHeader, SettingsCard } from '@/components/settings-ui';
 import TwoFactorAuthManagement from '@/components/TwoFactorAuthManagement';
 import SessionManagement from '@/components/SessionManagement';
-import Card from '@/components/Card';
 import Button from '@/components/Button';
-import { ShieldCheckIcon, KeyIcon, DevicePhoneMobileIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
+import {
+    ShieldCheckIcon,
+    KeyIcon,
+    DevicePhoneMobileIcon,
+    ArrowTopRightOnSquareIcon
+} from '@heroicons/react/24/outline';
 
 /**
  * User Security Settings Page
@@ -16,7 +21,8 @@ import { useAuth } from '@/context/AuthContext';
  * Contains: 2FA Management, Active Sessions, Password Change
  */
 export default function SecuritySettingsPage() {
-    const { user } = useAuth();
+    useAuth(); // Keep for auth context, but remove unused destructuring
+    const router = useRouter();
 
     const handleSessionTerminated = () => {
         // Optional: Show notification or refresh data
@@ -24,92 +30,80 @@ export default function SecuritySettingsPage() {
     };
 
     return (
-        <div className="space-y-8">
-            {/* Page Header */}
-            <div>
-                <Typography variant="h1" className="mb-2">
-                    Security Settings
-                </Typography>
-                <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">
-                    Manage your account security, authentication, and active sessions
-                </Typography>
-            </div>
+        <div className="max-w-4xl mx-auto space-y-8">
+            <SettingsHeader
+                title="Security"
+                description="Manage your account security, authentication, and active sessions."
+            />
 
             {/* Two-Factor Authentication Section */}
-            <section>
-                <TwoFactorAuthManagement />
-            </section>
+            {/* TwoFactorAuthManagement now renders a SettingsCard internally */}
+            <TwoFactorAuthManagement />
 
             {/* Active Sessions Section */}
-            <section>
-                <Card className="p-6">
-                    <div className="flex items-center space-x-3 mb-4">
-                        <DevicePhoneMobileIcon className="h-6 w-6 text-blue-600" />
-                        <Typography variant="h3">Active Sessions</Typography>
-                    </div>
-                    <Typography variant="body" className="text-neutral-600 dark:text-neutral-400 mb-6">
-                        View and manage devices where you&apos;re currently signed in. If you see a session you don&apos;t recognize, revoke it immediately.
-                    </Typography>
+            <SettingsCard
+                title="Active Sessions"
+                description="View and manage devices where you're currently signed in. If you see a session you don't recognize, revoke it immediately."
+            >
+                <div className="space-y-6">
                     <SessionManagement onSessionTerminated={handleSessionTerminated} />
-                </Card>
-            </section>
+                </div>
+            </SettingsCard>
 
             {/* Password Section */}
-            <section>
-                <Card className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                            <KeyIcon className="h-6 w-6 text-blue-600" />
-                            <Typography variant="h3">Password</Typography>
-                        </div>
-                    </div>
-                    <Typography variant="body" className="text-neutral-600 dark:text-neutral-400 mb-4">
-                        We recommend changing your password regularly and using a unique password that you don&apos;t use for other accounts.
-                    </Typography>
-                    <div className="flex items-center gap-4">
-                        <Button
-                            variant="secondary"
-                            onClick={() => {
-                                // Navigate to password change or open modal
-                                window.location.href = `/users/${user?.id || 'me'}/change-password`;
-                            }}
-                        >
-                            <KeyIcon className="h-5 w-5 mr-2" />
-                            Change Password
-                        </Button>
-                    </div>
-                </Card>
-            </section>
+            <SettingsCard
+                title="Password"
+                description="We recommend changing your password regularly and using a unique password that you don't use for other accounts."
+                footer={
+                    <Button
+                        variant="secondary"
+                        onClick={() => {
+                            // Navigate to profile settings where the password form lives now, 
+                            // or keep original behavior if separate page exists.
+                            // Original was: window.location.href = `/users/${user?.id || 'me'}/change-password`
+                            // Given we added inline password change to Profile, maybe we guide them there?
+                            // But let's stick to a safe redirect or just link to Profile.
+                            router.push('/settings/profile');
+                        }}
+                    >
+                        <KeyIcon className="h-5 w-5 mr-2" />
+                        Update Password in Profile
+                    </Button>
+                }
+            >
+                <div className="flex items-center gap-3 p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+                    <KeyIcon className="h-5 w-5 text-neutral-500" />
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                        Password management has been moved to the Profile settings page for easier access.
+                    </p>
+                </div>
+            </SettingsCard>
 
             {/* Security Tips */}
-            <section>
-                <Card className="p-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                    <div className="flex items-center space-x-3 mb-4">
-                        <ShieldCheckIcon className="h-6 w-6 text-blue-600" />
-                        <Typography variant="h3" className="text-blue-900 dark:text-blue-100">
-                            Security Recommendations
-                        </Typography>
-                    </div>
-                    <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
-                        <li className="flex items-start gap-2">
-                            <span className="text-blue-600 font-bold mt-0.5">•</span>
-                            <span>Enable Two-Factor Authentication for maximum account protection</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <span className="text-blue-600 font-bold mt-0.5">•</span>
-                            <span>Use a strong, unique password with at least 12 characters</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <span className="text-blue-600 font-bold mt-0.5">•</span>
-                            <span>Review your active sessions regularly and revoke any you don&apos;t recognize</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <span className="text-blue-600 font-bold mt-0.5">•</span>
-                            <span>Keep your authenticator app and backup codes in a secure location</span>
-                        </li>
-                    </ul>
-                </Card>
-            </section>
+            <SettingsCard
+                title="Security Recommendations"
+                description="Best practices for keeping your account safe."
+                className="!bg-blue-50/50 dark:!bg-blue-900/10 !border-blue-200 dark:!border-blue-800"
+            >
+                <ul className="space-y-3 text-sm text-blue-900 dark:text-blue-200">
+                    <li className="flex items-start gap-3">
+                        <ShieldCheckIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                        <span>Enable Two-Factor Authentication for maximum account protection</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <KeyIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                        <span>Use a strong, unique password with at least 12 characters</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <DevicePhoneMobileIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                        <span>Review your active sessions regularly and revoke any you don't recognize</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <ArrowTopRightOnSquareIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                        <span>Keep your authenticator app and backup codes in a secure location</span>
+                    </li>
+                </ul>
+            </SettingsCard>
         </div>
     );
 }

@@ -24,7 +24,7 @@ import {
 @Controller('auth/2fa')
 @UseGuards(JwtAuthGuard)
 export class TwoFactorAuthController {
-  constructor(private twoFactorAuthService: TwoFactorAuthService) { }
+  constructor(private twoFactorAuthService: TwoFactorAuthService) {}
 
   @Post('generate')
   async generate(@Request() req: { user: { userId: string; email: string } }) {
@@ -143,8 +143,9 @@ export class TwoFactorAuthController {
   @Post('recovery/request')
   @HttpCode(HttpStatus.OK)
   async requestRecovery(@Body() body: { email: string }) {
-    const result =
-      await this.twoFactorAuthService.generateRecoveryToken(body.email);
+    const result = await this.twoFactorAuthService.generateRecoveryToken(
+      body.email,
+    );
 
     // TODO: Send email with recovery link
     // For now, log the token (in production, never expose this!)
@@ -170,6 +171,9 @@ export class TwoFactorAuthController {
   @Post('recovery/verify')
   @HttpCode(HttpStatus.OK)
   async verifyRecovery(@Body() body: { email: string; token: string }) {
-    return this.twoFactorAuthService.verifyRecoveryToken(body.email, body.token);
+    return this.twoFactorAuthService.verifyRecoveryToken(
+      body.email,
+      body.token,
+    );
   }
 }

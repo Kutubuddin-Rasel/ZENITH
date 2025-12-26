@@ -27,6 +27,7 @@ import {
 import {
   SlackIntegrationService,
   SlackCommand,
+  SlackInteractivePayload,
 } from '../services/slack-integration.service';
 import {
   GitHubIntegrationService,
@@ -222,7 +223,7 @@ export class IntegrationController {
     private readonly universalSearchService: UniversalSearchService,
     private readonly githubAppService: GitHubAppService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   @Post()
   @UseGuards(SuperAdminGuard)
@@ -428,7 +429,7 @@ export class IntegrationController {
     }
 
     // Parse the payload
-    const payload = JSON.parse(body.payload);
+    const payload = JSON.parse(body.payload) as SlackInteractivePayload;
 
     // Handle different interaction types
     if (payload.type === 'view_submission') {
@@ -568,14 +569,21 @@ export class IntegrationController {
     const organizationId = getRequiredOrganizationId(req);
 
     // Find the GitHub integration for this organization
-    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const integrations =
+      await this.integrationService.getIntegrations(organizationId);
 
     // Debug logging
-    this.logger.debug(`Found ${integrations.length} total integrations for org ${organizationId}`);
-    const githubIntegrations = integrations.filter((i) => i.type === IntegrationType.GITHUB);
+    this.logger.debug(
+      `Found ${integrations.length} total integrations for org ${organizationId}`,
+    );
+    const githubIntegrations = integrations.filter(
+      (i) => i.type === IntegrationType.GITHUB,
+    );
     this.logger.debug(`Found ${githubIntegrations.length} GitHub integrations`);
     githubIntegrations.forEach((gi, idx) => {
-      this.logger.debug(`  [${idx}] id=${gi.id}, isActive=${gi.isActive}, installationId=${gi.installationId}, isLegacyOAuth=${gi.isLegacyOAuth}`);
+      this.logger.debug(
+        `  [${idx}] id=${gi.id}, isActive=${gi.isActive}, installationId=${gi.installationId}, isLegacyOAuth=${gi.isLegacyOAuth}`,
+      );
     });
 
     const githubIntegration = integrations.find(
@@ -585,10 +593,13 @@ export class IntegrationController {
     if (!githubIntegration) {
       // Check if there's a disabled integration that can be re-enabled
       const disabledIntegration = integrations.find(
-        (i) => i.type === IntegrationType.GITHUB && !i.isActive && i.installationId,
+        (i) =>
+          i.type === IntegrationType.GITHUB && !i.isActive && i.installationId,
       );
 
-      this.logger.debug('No active GitHub integration found - returning connected=false');
+      this.logger.debug(
+        'No active GitHub integration found - returning connected=false',
+      );
       return {
         connected: false,
         repositories: [],
@@ -619,12 +630,13 @@ export class IntegrationController {
           connected: true,
           integrationId: githubIntegration.id,
           isGitHubApp: true,
-          repositories: githubIntegration.config?.repositories?.map((r: string) => ({
-            full_name: r,
-            name: r.split('/').pop() || r,
-            private: false,
-            description: null,
-          })) || [],
+          repositories:
+            githubIntegration.config?.repositories?.map((r: string) => ({
+              full_name: r,
+              name: r.split('/').pop() || r,
+              private: false,
+              description: null,
+            })) || [],
           error: 'Failed to fetch latest repos from GitHub',
         };
       }
@@ -662,7 +674,8 @@ export class IntegrationController {
     const organizationId = getRequiredOrganizationId(req);
 
     // Find the active GitHub integration
-    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const integrations =
+      await this.integrationService.getIntegrations(organizationId);
     const githubIntegration = integrations.find(
       (i) => i.type === IntegrationType.GITHUB && i.isActive,
     );
@@ -671,14 +684,22 @@ export class IntegrationController {
       throw new NotFoundException('No active GitHub integration found');
     }
 
-    this.logger.log(`Disabling GitHub integration ${githubIntegration.id} for org ${organizationId}`);
+    this.logger.log(
+      `Disabling GitHub integration ${githubIntegration.id} for org ${organizationId}`,
+    );
 
     // Soft disable - just set isActive to false
-    await this.integrationService.updateIntegration(githubIntegration.id, organizationId, {
-      isActive: false,
-    });
+    await this.integrationService.updateIntegration(
+      githubIntegration.id,
+      organizationId,
+      {
+        isActive: false,
+      },
+    );
 
-    this.logger.log(`GitHub integration ${githubIntegration.id} disabled successfully`);
+    this.logger.log(
+      `GitHub integration ${githubIntegration.id} disabled successfully`,
+    );
 
     return {
       success: true,
@@ -696,34 +717,51 @@ export class IntegrationController {
     const organizationId = getRequiredOrganizationId(req);
 
     // Find a disabled GitHub integration
-    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const integrations =
+      await this.integrationService.getIntegrations(organizationId);
     const disabledIntegration = integrations.find(
-      (i) => i.type === IntegrationType.GITHUB && !i.isActive && i.installationId,
+      (i) =>
+        i.type === IntegrationType.GITHUB && !i.isActive && i.installationId,
     );
 
     if (!disabledIntegration) {
       throw new NotFoundException('No disabled GitHub integration found');
     }
 
-    this.logger.log(`Enabling GitHub integration ${disabledIntegration.id} for org ${organizationId}`);
+    this.logger.log(
+      `Enabling GitHub integration ${disabledIntegration.id} for org ${organizationId}`,
+    );
 
     // Verify the GitHub installation still exists
     try {
-      await this.githubAppService.getInstallationToken(disabledIntegration.installationId!);
-      this.logger.log(`GitHub installation ${disabledIntegration.installationId} verified`);
+      await this.githubAppService.getInstallationToken(
+        disabledIntegration.installationId!,
+      );
+      this.logger.log(
+        `GitHub installation ${disabledIntegration.installationId} verified`,
+      );
     } catch (error) {
-      this.logger.error(`GitHub installation ${disabledIntegration.installationId} no longer valid:`, error);
+      this.logger.error(
+        `GitHub installation ${disabledIntegration.installationId} no longer valid:`,
+        error,
+      );
       throw new BadRequestException(
         'The GitHub App was uninstalled from GitHub. Please connect again to reinstall.',
       );
     }
 
     // Re-enable the integration
-    await this.integrationService.updateIntegration(disabledIntegration.id, organizationId, {
-      isActive: true,
-    });
+    await this.integrationService.updateIntegration(
+      disabledIntegration.id,
+      organizationId,
+      {
+        isActive: true,
+      },
+    );
 
-    this.logger.log(`GitHub integration ${disabledIntegration.id} enabled successfully`);
+    this.logger.log(
+      `GitHub integration ${disabledIntegration.id} enabled successfully`,
+    );
 
     return {
       success: true,
@@ -741,7 +779,8 @@ export class IntegrationController {
     const organizationId = getRequiredOrganizationId(req);
 
     // Find any GitHub integration (active or disabled)
-    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const integrations =
+      await this.integrationService.getIntegrations(organizationId);
     const githubIntegration = integrations.find(
       (i) => i.type === IntegrationType.GITHUB && i.installationId,
     );
@@ -750,24 +789,38 @@ export class IntegrationController {
       throw new NotFoundException('No GitHub integration found');
     }
 
-    this.logger.log(`Removing GitHub integration ${githubIntegration.id} for org ${organizationId}`);
-    this.logger.log(`Uninstalling GitHub App installation ${githubIntegration.installationId}`);
+    this.logger.log(
+      `Removing GitHub integration ${githubIntegration.id} for org ${organizationId}`,
+    );
+    this.logger.log(
+      `Uninstalling GitHub App installation ${githubIntegration.installationId}`,
+    );
 
     // Call GitHub API to delete the installation
     try {
-      await this.githubAppService.deleteInstallation(githubIntegration.installationId!);
-      this.logger.log(`GitHub installation ${githubIntegration.installationId} deleted from GitHub`);
+      await this.githubAppService.deleteInstallation(
+        githubIntegration.installationId!,
+      );
+      this.logger.log(
+        `GitHub installation ${githubIntegration.installationId} deleted from GitHub`,
+      );
     } catch (error) {
       this.logger.error(`Failed to delete GitHub installation:`, error);
       // Continue anyway - user might have already uninstalled from GitHub
     }
 
     // Mark as inactive (the GitHub installation is now deleted)
-    await this.integrationService.updateIntegration(githubIntegration.id, organizationId, {
-      isActive: false,
-    });
+    await this.integrationService.updateIntegration(
+      githubIntegration.id,
+      organizationId,
+      {
+        isActive: false,
+      },
+    );
 
-    this.logger.log(`GitHub integration ${githubIntegration.id} removed successfully`);
+    this.logger.log(
+      `GitHub integration ${githubIntegration.id} removed successfully`,
+    );
 
     return {
       success: true,
@@ -786,7 +839,8 @@ export class IntegrationController {
     const organizationId = getRequiredOrganizationId(req);
 
     // Find the GitHub integration for this organization
-    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const integrations =
+      await this.integrationService.getIntegrations(organizationId);
     const githubIntegration = integrations.find(
       (i) => i.type === IntegrationType.GITHUB && i.isActive,
     );
@@ -820,7 +874,8 @@ export class IntegrationController {
     const organizationId = getRequiredOrganizationId(req);
 
     // Find the GitHub integration for this organization
-    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const integrations =
+      await this.integrationService.getIntegrations(organizationId);
     const githubIntegration = integrations.find(
       (i) => i.type === IntegrationType.GITHUB && i.isActive,
     );
@@ -858,7 +913,8 @@ export class IntegrationController {
     const organizationId = getRequiredOrganizationId(req);
 
     // Find the GitHub integration for this organization
-    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const integrations =
+      await this.integrationService.getIntegrations(organizationId);
     const githubIntegration = integrations.find(
       (i) => i.type === IntegrationType.GITHUB && i.isActive,
     );
@@ -867,10 +923,11 @@ export class IntegrationController {
       throw new BadRequestException('GitHub integration not connected');
     }
 
-    const unlinked = await this.githubIntegrationService.unlinkProjectFromRepository(
-      githubIntegration.id,
-      projectId,
-    );
+    const unlinked =
+      await this.githubIntegrationService.unlinkProjectFromRepository(
+        githubIntegration.id,
+        projectId,
+      );
 
     return { success: unlinked };
   }
@@ -907,25 +964,35 @@ export class IntegrationController {
     this.logger.log(`Raw Body Size: ${rawBody ? rawBody.length : 0} bytes`);
 
     if (!rawBody) {
-      this.logger.error('❌ No raw body - webhook signature verification will fail');
-      throw new BadRequestException('Raw body required for webhook verification');
+      this.logger.error(
+        '❌ No raw body - webhook signature verification will fail',
+      );
+      throw new BadRequestException(
+        'Raw body required for webhook verification',
+      );
     }
 
     // Verify signature
     const webhookSecret = this.githubAppService.getWebhookSecret();
-    this.logger.log(`Webhook Secret Configured: ${webhookSecret ? 'YES' : 'NO'}`);
+    this.logger.log(
+      `Webhook Secret Configured: ${webhookSecret ? 'YES' : 'NO'}`,
+    );
 
     if (signature && webhookSecret) {
       const isValid = this.githubAppService.verifyWebhookSignature(
         rawBody,
         signature,
       );
-      this.logger.log(`Signature Verification: ${isValid ? '✅ VALID' : '❌ INVALID'}`);
+      this.logger.log(
+        `Signature Verification: ${isValid ? '✅ VALID' : '❌ INVALID'}`,
+      );
       if (!isValid) {
         throw new BadRequestException('Invalid webhook signature');
       }
     } else {
-      this.logger.warn('⚠️ Skipping signature verification (secret or signature missing)');
+      this.logger.warn(
+        '⚠️ Skipping signature verification (secret or signature missing)',
+      );
     }
 
     this.logger.log(`Processing event: ${event}`);
@@ -936,7 +1003,12 @@ export class IntegrationController {
 
         // Type the full payload from GitHub
         const installationPayload = payload as unknown as {
-          action: 'created' | 'deleted' | 'suspend' | 'unsuspend' | 'new_permissions_accepted';
+          action:
+            | 'created'
+            | 'deleted'
+            | 'suspend'
+            | 'unsuspend'
+            | 'new_permissions_accepted';
           installation: {
             id: number;
             account: {
@@ -975,24 +1047,30 @@ export class IntegrationController {
               // Find or create integration for this installation
               // Note: We need to find the org that initiated this installation
               // For now, we'll create/update based on accountLogin
-              this.logger.log('🔧 Creating/updating integration from webhook...');
+              this.logger.log(
+                '🔧 Creating/updating integration from webhook...',
+              );
 
               // Find existing integration by installation ID
-              let existingIntegration = await this.integrationService.findByInstallationId(
-                installation.id.toString(),
-              );
+              let existingIntegration =
+                await this.integrationService.findByInstallationId(
+                  installation.id.toString(),
+                );
 
               if (!existingIntegration) {
                 // Try to find by account login (for org matching)
-                const integrations = await this.integrationService.findByAccountLogin(
-                  installation.account.login,
-                );
+                const integrations =
+                  await this.integrationService.findByAccountLogin(
+                    installation.account.login,
+                  );
                 existingIntegration = integrations[0] || null;
               }
 
               if (existingIntegration) {
                 // Update existing integration
-                this.logger.log(`Updating existing integration ${existingIntegration.id}`);
+                this.logger.log(
+                  `Updating existing integration ${existingIntegration.id}`,
+                );
                 await this.githubAppService.handleInstallationEvent(
                   installationPayload,
                   existingIntegration.organizationId,
@@ -1001,7 +1079,7 @@ export class IntegrationController {
                 // New installation - log warning (callback should handle this)
                 this.logger.warn(
                   `New installation ${installation.id} for ${installation.account.login} - ` +
-                  `awaiting callback with organization context`,
+                    `awaiting callback with organization context`,
                 );
               }
               break;
@@ -1009,9 +1087,10 @@ export class IntegrationController {
 
             case 'deleted': {
               this.logger.log('🗑️ Deactivating integration...');
-              const integration = await this.integrationService.findByInstallationId(
-                installation.id.toString(),
-              );
+              const integration =
+                await this.integrationService.findByInstallationId(
+                  installation.id.toString(),
+                );
               if (integration) {
                 await this.githubAppService.handleInstallationEvent(
                   installationPayload,
@@ -1019,16 +1098,19 @@ export class IntegrationController {
                 );
                 this.logger.log(`Deactivated integration ${integration.id}`);
               } else {
-                this.logger.warn(`No integration found for installation ${installation.id}`);
+                this.logger.warn(
+                  `No integration found for installation ${installation.id}`,
+                );
               }
               break;
             }
 
             case 'suspend': {
               this.logger.log('⏸️ Suspending integration...');
-              const integration = await this.integrationService.findByInstallationId(
-                installation.id.toString(),
-              );
+              const integration =
+                await this.integrationService.findByInstallationId(
+                  installation.id.toString(),
+                );
               if (integration) {
                 await this.githubAppService.handleInstallationEvent(
                   installationPayload,
@@ -1041,9 +1123,10 @@ export class IntegrationController {
 
             case 'unsuspend': {
               this.logger.log('▶️ Unsuspending integration...');
-              const integration = await this.integrationService.findByInstallationId(
-                installation.id.toString(),
-              );
+              const integration =
+                await this.integrationService.findByInstallationId(
+                  installation.id.toString(),
+                );
               if (integration) {
                 await this.githubAppService.handleInstallationEvent(
                   installationPayload,
@@ -1077,7 +1160,9 @@ export class IntegrationController {
       case 'push':
       case 'pull_request':
       case 'issues': {
-        this.logger.log(`🔀 Forwarding ${event.toUpperCase()} event to legacy handler`);
+        this.logger.log(
+          `🔀 Forwarding ${event.toUpperCase()} event to legacy handler`,
+        );
         await this.githubIntegrationService.handleWebhook(
           payload as unknown as GitHubWebhookPayload,
         );
@@ -1103,7 +1188,9 @@ export class IntegrationController {
   getGitHubAppInstallUrl(@Request() req: AuthenticatedRequest) {
     try {
       this.logger.log('GitHub App setup requested');
-      this.logger.debug(`User: ${req.user?.id}, Org: ${req.user?.organizationId}`);
+      this.logger.debug(
+        `User: ${req.user?.id}, Org: ${req.user?.organizationId}`,
+      );
 
       const organizationId = getRequiredOrganizationId(req);
       this.logger.debug(`Organization ID: ${organizationId}`);
@@ -1112,8 +1199,12 @@ export class IntegrationController {
       this.logger.debug(`GitHub App configured: ${isConfigured}`);
 
       if (!isConfigured) {
-        this.logger.warn('GitHub App is not configured - missing GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY');
-        throw new BadRequestException('GitHub App is not configured. Set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY in .env');
+        this.logger.warn(
+          'GitHub App is not configured - missing GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY',
+        );
+        throw new BadRequestException(
+          'GitHub App is not configured. Set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY in .env',
+        );
       }
 
       // Generate state with user context
@@ -1146,7 +1237,7 @@ export class IntegrationController {
   /**
    * Callback after GitHub App installation.
    * Creates the integration record.
-   * 
+   *
    * IMPORTANT: GitHub redirects here AFTER the user installs the app.
    * The `state` param contains encoded user/org context.
    * @Public() - No auth required, callback comes from GitHub redirect
@@ -1165,7 +1256,9 @@ export class IntegrationController {
     this.logger.log('=== GitHub App Callback Hit ===');
     this.logger.log(`Installation ID: ${installationId}`);
     this.logger.log(`Setup Action: ${setupAction}`);
-    this.logger.log(`State: ${state ? state.substring(0, 50) + '...' : 'MISSING'}`);
+    this.logger.log(
+      `State: ${state ? state.substring(0, 50) + '...' : 'MISSING'}`,
+    );
 
     // Validate installation ID
     if (!installationId) {
@@ -1178,7 +1271,9 @@ export class IntegrationController {
     // Handle missing state (can happen if cookies cleared or different browser)
     if (!state) {
       this.logger.warn('Missing state parameter - cannot identify user/org');
-      this.logger.warn('Integration will be created when webhook fires instead');
+      this.logger.warn(
+        'Integration will be created when webhook fires instead',
+      );
       return res.redirect(
         `${frontendUrl}/projects?github_connected=true&installation=${installationId}`,
       );
@@ -1192,12 +1287,10 @@ export class IntegrationController {
       try {
         stateData = JSON.parse(
           Buffer.from(state, 'base64').toString('utf-8'),
-        );
+        ) as { userId: string; organizationId: string };
       } catch (parseError) {
         this.logger.error('Failed to parse state:', parseError);
-        return res.redirect(
-          `${frontendUrl}/projects?error=invalid_state`,
-        );
+        return res.redirect(`${frontendUrl}/projects?error=invalid_state`);
       }
 
       this.logger.log(`User ID: ${stateData.userId}`);
@@ -1205,15 +1298,20 @@ export class IntegrationController {
 
       // Get installation details from GitHub
       this.logger.debug('Fetching repos from GitHub...');
-      let repos: Array<{ full_name: string; name: string; private: boolean }> = [];
+      let repos: Array<{ full_name: string; name: string; private: boolean }> =
+        [];
 
       try {
-        repos = await this.githubAppService.listInstallationRepositories(
-          installationId,
-        );
+        repos =
+          await this.githubAppService.listInstallationRepositories(
+            installationId,
+          );
         this.logger.log(`Found ${repos.length} repositories`);
       } catch (repoError) {
-        this.logger.error('Failed to fetch repos (will continue with empty list):', repoError);
+        this.logger.error(
+          'Failed to fetch repos (will continue with empty list):',
+          repoError,
+        );
         // Continue anyway - we can sync repos later
       }
 
@@ -1272,20 +1370,26 @@ export class IntegrationController {
     const configured = this.githubAppService.isConfigured();
 
     // Check if there's an existing GitHub App integration
-    const integrations = await this.integrationService.getIntegrations(organizationId);
+    const integrations =
+      await this.integrationService.getIntegrations(organizationId);
     const githubAppIntegration = integrations.find(
-      (i) => i.type === IntegrationType.GITHUB && i.installationId && !i.isLegacyOAuth,
+      (i) =>
+        i.type === IntegrationType.GITHUB &&
+        i.installationId &&
+        !i.isLegacyOAuth,
     );
 
     return {
       configured,
       hasInstallation: !!githubAppIntegration,
-      integration: githubAppIntegration ? {
-        id: githubAppIntegration.id,
-        accountLogin: githubAppIntegration.accountLogin,
-        accountType: githubAppIntegration.accountType,
-        installationId: githubAppIntegration.installationId,
-      } : null,
+      integration: githubAppIntegration
+        ? {
+            id: githubAppIntegration.id,
+            accountLogin: githubAppIntegration.accountLogin,
+            accountType: githubAppIntegration.accountType,
+            installationId: githubAppIntegration.installationId,
+          }
+        : null,
     };
   }
   @Post('jira/webhook')

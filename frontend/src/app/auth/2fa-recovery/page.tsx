@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
@@ -29,7 +29,7 @@ interface RecoveryResponse {
     message: string;
 }
 
-export default function TwoFactorRecoveryPage() {
+function TwoFactorRecoveryContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
 
@@ -253,5 +253,33 @@ export default function TwoFactorRecoveryPage() {
                 )}
             </Card>
         </AuthLayout>
+    );
+}
+
+// Loading fallback for Suspense
+function RecoveryPageLoading() {
+    return (
+        <AuthLayout
+            title="2FA Recovery"
+            subtitle="Regain access to your account"
+        >
+            <Card className="p-6">
+                <div className="text-center">
+                    <div className="animate-spin h-12 w-12 border-4 border-primary-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <Typography variant="h3" className="mb-2">
+                        Loading...
+                    </Typography>
+                </div>
+            </Card>
+        </AuthLayout>
+    );
+}
+
+// Main page component wrapped in Suspense
+export default function TwoFactorRecoveryPage() {
+    return (
+        <Suspense fallback={<RecoveryPageLoading />}>
+            <TwoFactorRecoveryContent />
+        </Suspense>
     );
 }

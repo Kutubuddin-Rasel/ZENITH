@@ -297,8 +297,8 @@ export default function WorkflowsPage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as 'workflows' | 'rules' | 'templates' | 'analytics')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                      : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300 dark:text-neutral-400 dark:hover:text-neutral-300'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300 dark:text-neutral-400 dark:hover:text-neutral-300'
                     }`}
                 >
                   <Icon className="h-5 w-5" />

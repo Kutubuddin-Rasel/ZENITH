@@ -1,12 +1,11 @@
 import {
-    Entity,
-    PrimaryGeneratedColumn,
-    Column,
-    ManyToOne,
-    JoinColumn,
-    CreateDateColumn,
-    UpdateDateColumn,
-    Index,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+  Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
@@ -17,52 +16,52 @@ import { User } from '../../users/entities/user.entity';
  */
 @Entity({ name: 'user_sessions' })
 export class UserSession {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    @Column()
-    @Index()
-    userId: string;
+  @Column()
+  @Index()
+  userId: string;
 
-    @ManyToOne(() => User, { onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'userId' })
-    user: User;
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'userId' })
+  user: User;
 
-    // Hashed refresh token (never exposed)
-    @Column({ type: 'text' })
-    tokenHash: string;
+  // Hashed refresh token (never exposed)
+  @Column({ type: 'text' })
+  tokenHash: string;
 
-    // Device identification
-    @Column({ type: 'varchar', length: 500, nullable: true })
-    userAgent: string | null;
+  // Device identification
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  userAgent: string | null;
 
-    @Column({ type: 'varchar', length: 100, nullable: true })
-    deviceType: string | null; // 'desktop', 'mobile', 'tablet', 'unknown'
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  deviceType: string | null; // 'desktop', 'mobile', 'tablet', 'unknown'
 
-    @Column({ type: 'varchar', length: 100, nullable: true })
-    browser: string | null; // 'Chrome', 'Firefox', 'Safari', etc.
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  browser: string | null; // 'Chrome', 'Firefox', 'Safari', etc.
 
-    @Column({ type: 'varchar', length: 100, nullable: true })
-    os: string | null; // 'Windows 11', 'macOS', 'iOS', etc.
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  os: string | null; // 'Windows 11', 'macOS', 'iOS', etc.
 
-    // Location/Network
-    @Column({ type: 'varchar', length: 45, nullable: true })
-    ipAddress: string | null;
+  // Location/Network
+  @Column({ type: 'varchar', length: 45, nullable: true })
+  ipAddress: string | null;
 
-    @Column({ type: 'varchar', length: 100, nullable: true })
-    location: string | null; // 'New York, US' (from IP geolocation if available)
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  location: string | null; // 'New York, US' (from IP geolocation if available)
 
-    // Timestamps
-    @CreateDateColumn()
-    createdAt: Date;
+  // Timestamps
+  @CreateDateColumn()
+  createdAt: Date;
 
-    @Column({ type: 'timestamp', nullable: true })
-    lastUsedAt: Date | null;
+  @Column({ type: 'timestamp', nullable: true })
+  lastUsedAt: Date | null;
 
-    @Column({ type: 'timestamp', nullable: true })
-    expiresAt: Date | null;
+  @Column({ type: 'timestamp', nullable: true })
+  expiresAt: Date | null;
 
-    // Is this the current session making the request?
-    // (Not stored in DB, computed at runtime)
-    isCurrent?: boolean;
+  // Is this the current session making the request?
+  // (Not stored in DB, computed at runtime)
+  isCurrent?: boolean;
 }

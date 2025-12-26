@@ -32,7 +32,6 @@ export default function ProjectError({ error, reset }: ProjectErrorProps) {
 
     // Parse violation details if available
     let violationType = 'general';
-    let redirectPath = '/settings/security';
 
     if (error.message?.includes('2FA') || error.message?.includes('two-factor')) {
         violationType = '2fa';
@@ -72,7 +71,7 @@ export default function ProjectError({ error, reset }: ProjectErrorProps) {
                             <>This project requires Two-Factor Authentication to be enabled on your account.</>
                         )}
                         {violationType === 'password' && (
-                            <>Your password does not meet this project's security requirements.</>
+                            <>Your password does not meet this project&apos;s security requirements.</>
                         )}
                         {violationType === 'ip' && (
                             <>Your IP address is not on the allowlist for this project.</>

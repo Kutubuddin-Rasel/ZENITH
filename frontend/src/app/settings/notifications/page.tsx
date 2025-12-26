@@ -15,6 +15,7 @@ import {
     RocketLaunchIcon,
     FlagIcon,
     PencilSquareIcon,
+    AtSymbolIcon,
 } from '@heroicons/react/24/outline';
 
 /**
@@ -94,6 +95,9 @@ export default function NotificationsPage() {
         { key: 'sprintStarted', label: 'Sprint Started', description: 'When a sprint you\'re in begins', icon: RocketLaunchIcon },
         { key: 'sprintCompleted', label: 'Sprint Completed', description: 'When a sprint is finished', icon: CheckCircleIcon },
         { key: 'projectInvited', label: 'Project Invited', description: 'When you\'re invited to a project', icon: FlagIcon },
+        // Enterprise: @mentions
+        { key: 'mentionedInComment', label: '@Mentioned in Comment', description: 'When someone @mentions you in a comment', icon: AtSymbolIcon },
+        { key: 'mentionedInDescription', label: '@Mentioned in Description', description: 'When someone @mentions you in an issue description', icon: AtSymbolIcon },
     ];
 
     return (

@@ -16,9 +16,6 @@ import {
   Injectable,
   UseInterceptors,
   UploadedFile,
-  ParseFilePipe,
-  MaxFileSizeValidator,
-  FileTypeValidator,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -54,7 +51,7 @@ export class UsersController {
     private readonly usersService: UsersService,
     private readonly userSecuritySettingsService: UserSecuritySettingsService,
     private readonly projectMembersService: ProjectMembersService,
-  ) { }
+  ) {}
 
   // GET /users (scoped to current user's organization)
   @UseGuards(JwtAuthGuard, SuperAdminGuard)
@@ -246,15 +243,7 @@ export class UsersController {
     }),
   )
   async uploadAvatar(
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
-          new FileTypeValidator({ fileType: /^image\/(jpeg|jpg|png)$/ }),
-        ],
-      }),
-    )
-    file: Express.Multer.File,
+    @UploadedFile() file: Express.Multer.File,
     @Request() req: AuthenticatedRequest,
   ): Promise<{ success: boolean; avatarUrl: string }> {
     // Generate URL for the uploaded file

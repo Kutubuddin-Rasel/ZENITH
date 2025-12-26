@@ -28,6 +28,7 @@ import { ProjectRoleGuard } from '../auth/guards/project-role.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { IssueStatus } from './entities/issue.entity';
+import { MoveIssueDto } from './dto/move-issue.dto';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 import { RequireProjectRole } from '../auth/decorators/require-project-role.decorator';
 import { ProjectRole } from '../membership/enums/project-role.enum';
@@ -227,6 +228,21 @@ export class IssuesController {
       status,
       req.user.userId,
     );
+  }
+
+  /**
+   * Unified move endpoint for drag-and-drop operations.
+   * Handles sprint assignment, status changes, and position updates atomically.
+   */
+  @RequirePermission('issues:update')
+  @Post(':id/move')
+  async moveIssue(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @Body() dto: MoveIssueDto,
+    @Request() req: { user: JwtRequestUser },
+  ) {
+    return this.issuesService.moveIssue(projectId, id, req.user.userId, dto);
   }
 
   @Patch(':issueId')

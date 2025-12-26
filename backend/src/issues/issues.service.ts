@@ -19,6 +19,7 @@ import { IssueLink, LinkType } from './entities/issue-link.entity';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 import { CreateIssueDto } from './dto/create-issue.dto';
 import { UpdateIssueDto } from './dto/update-issue.dto';
+import { MoveIssueDto } from './dto/move-issue.dto';
 import { Project } from '../projects/entities/project.entity';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import { UsersService } from '../users/users.service';
@@ -791,6 +792,85 @@ export class IssuesService implements OnModuleInit {
     });
 
     return saved;
+  }
+
+  /**
+   * Unified move endpoint for drag-and-drop operations.
+   * Handles sprint assignment, status changes, and position updates atomically.
+   * Used by the useZenithDrag hook for all D&D contexts.
+   */
+  async moveIssue(
+    projectId: string,
+    issueId: string,
+    userId: string,
+    dto: MoveIssueDto,
+  ): Promise<Issue> {
+    const issue = await this.findOne(projectId, issueId, userId);
+
+    // Optimistic locking check
+    if (
+      dto.expectedVersion !== undefined &&
+      dto.expectedVersion !== issue.version
+    ) {
+      throw new ConflictException({
+        message:
+          'This issue was modified by another user. Please refresh and try again.',
+        currentVersion: issue.version,
+        yourVersion: dto.expectedVersion,
+      });
+    }
+
+    // Use transaction for atomic updates
+    const result = await this.issueRepo.manager.transaction(async (manager) => {
+      // 1. Handle Status change (Board column move)
+      if (dto.targetStatusId) {
+        const newStatus = await this.workflowStatusesService.findById(
+          dto.targetStatusId,
+        );
+        if (!newStatus) {
+          throw new BadRequestException('Invalid target status');
+        }
+        if (newStatus.projectId !== projectId) {
+          throw new BadRequestException(
+            'Status does not belong to this project',
+          );
+        }
+        issue.statusId = dto.targetStatusId;
+        issue.status = newStatus.name;
+      }
+
+      // 2. Handle position change
+      if (dto.targetPosition !== undefined) {
+        issue.backlogOrder = dto.targetPosition;
+      }
+
+      // Save the issue
+      const savedIssue = await manager.save(issue);
+
+      return savedIssue;
+    });
+
+    // Invalidate cache
+    await this.cacheService.del(`issue:${issueId}`);
+
+    // Emit event
+    this.eventEmitter.emit('issue.moved', {
+      projectId,
+      issueId: result.id,
+      actorId: userId,
+      targetStatusId: dto.targetStatusId,
+      targetPosition: dto.targetPosition,
+    });
+
+    // REAL-TIME: Broadcast move
+    void this.broadcastToBoards(projectId, 'issue.moved', {
+      issueId: result.id,
+      newColumnId: result.status,
+      newIndex: result.backlogOrder,
+      updatedIssueSlim: this.toSlimIssue(result),
+    });
+
+    return result;
   }
 
   /**

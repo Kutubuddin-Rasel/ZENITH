@@ -18,6 +18,9 @@ import { UserPreferencesData } from '../entities/user-preferences.entity';
  * Endpoints:
  * - GET /user-preferences/me - Fetch current user's preferences
  * - PATCH /user-preferences/me - Update current user's preferences (partial)
+ *
+ * Note: TransformInterceptor automatically wraps responses with {success, data}.
+ * Do NOT manually wrap responses here or it will cause double-nesting.
  */
 @Controller('user-preferences')
 @UseGuards(JwtAuthGuard)
@@ -26,38 +29,35 @@ export class UserPreferencesController {
 
   /**
    * Get current user's preferences
-   * Uses @CurrentUser from JwtAuthGuard via req.user
+   * Returns just the preferences data (TransformInterceptor wraps it)
    */
   @Get('me')
-  async getMyPreferences(@Request() req: AuthenticatedRequest) {
-    const preferences = await this.smartDefaultsService.getUserPreferences(
-      req.user.userId,
-    );
+  async getMyPreferences(
+    @Request() req: AuthenticatedRequest,
+  ): Promise<UserPreferencesData> {
+    const preferencesEntity =
+      await this.smartDefaultsService.getUserPreferences(req.user.userId);
 
-    return {
-      success: true,
-      data: preferences,
-    };
+    // Return raw preferences data - TransformInterceptor wraps it with {success, data}
+    return preferencesEntity.preferences;
   }
 
   /**
    * Update current user's preferences (partial update)
-   * Accepts any subset of UserPreferencesData
+   * Returns just the updated preferences data (TransformInterceptor wraps it)
    */
   @Patch('me')
   async updateMyPreferences(
     @Request() req: AuthenticatedRequest,
     @Body() body: Partial<UserPreferencesData>,
-  ) {
-    const preferences = await this.smartDefaultsService.updateUserPreferences(
-      req.user.userId,
-      body,
-    );
+  ): Promise<UserPreferencesData> {
+    const preferencesEntity =
+      await this.smartDefaultsService.updateUserPreferences(
+        req.user.userId,
+        body,
+      );
 
-    return {
-      success: true,
-      data: preferences,
-      message: 'Preferences updated successfully',
-    };
+    // Return raw preferences data - TransformInterceptor wraps it with {success, data}
+    return preferencesEntity.preferences;
   }
 }

@@ -71,7 +71,12 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
     ProjectRoleGuard,
     { provide: 'LOCAL_GUARD', useClass: LocalAuthGuard },
   ],
-  controllers: [AuthController, TwoFactorAuthController, SAMLController, SessionsController],
+  controllers: [
+    AuthController,
+    TwoFactorAuthController,
+    SAMLController,
+    SessionsController,
+  ],
   exports: [
     AuthService,
     TwoFactorAuthService,
@@ -81,4 +86,4 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
     ProjectRoleGuard,
   ],
 })
-export class AuthModule { }
+export class AuthModule {}

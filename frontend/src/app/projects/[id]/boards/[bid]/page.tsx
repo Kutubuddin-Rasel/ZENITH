@@ -1,13 +1,12 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import Image from "next/image";
-import { useBoard } from "../../../../../hooks/useBoard";
-import type { BoardColumn } from "../../../../../hooks/useBoard";
-import { useBoardIssues } from "../../../../../hooks/useBoardIssues";
-import { useUpdateIssueStatus } from "../../../../../hooks/useUpdateIssueStatus";
-import { useReorderBoardIssues } from "../../../../../hooks/useReorderBoardIssues";
-import Spinner from "../../../../../components/Spinner";
+import { useBoard } from "@/hooks/useBoard";
+import type { BoardColumn } from "@/hooks/useBoard";
+import { useBoardIssues } from "@/hooks/useBoardIssues";
+import { useUpdateIssueStatus } from "@/hooks/useUpdateIssueStatus";
+import { useReorderBoardIssues } from "@/hooks/useReorderBoardIssues";
+import Spinner from "@/components/Spinner";
 import {
   DndContext,
   closestCenter,
@@ -15,6 +14,7 @@ import {
   useDroppable,
   DragStartEvent,
   DragEndEvent,
+  DragOverEvent,
   useSensor,
   useSensors,
   PointerSensor,
@@ -23,219 +23,175 @@ import {
 import {
   SortableContext,
   arrayMove,
-  useSortable,
   sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Issue } from '@/hooks/useProjectIssues';
 import { connectSocket, getSocket } from '@/lib/socket';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
-import BoardManagementModal from "../../../../../components/BoardManagementModal";
-import { useProject } from "../../../../../hooks/useProject";
-import Button from "../../../../../components/Button";
-import {
-  PlusIcon as PlusIconSolid,
-  BookmarkSquareIcon,
-  BugAntIcon,
-  CheckCircleIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
-} from '@heroicons/react/24/solid';
-import {
-  EllipsisHorizontalIcon,
-  UserIcon,
-  TagIcon,
-} from '@heroicons/react/24/outline';
-import QuickCreateIssueForm from "../../../../../components/QuickCreateIssueForm";
-import { CSS } from '@dnd-kit/utilities';
-import Typography from "../../../../../components/Typography";
-import Card from "../../../../../components/Card";
+import BoardManagementModal from "@/components/BoardManagementModal";
+import { useProject } from "@/hooks/useProject";
+import Button from "@/components/Button";
+import { PlusIcon } from '@heroicons/react/24/solid';
+import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
+import QuickCreateIssueForm from "@/components/QuickCreateIssueForm";
+import Typography from "@/components/Typography";
+import { DraggableCard, DragOverlayCard, DragContext } from "@/components/DraggableCard";
+import { DROP_ANIMATION, DRAG_ACTIVATION_CONSTRAINT } from "@/lib/drag-physics";
 
-const typeBadge: Record<Issue['type'], { icon: React.ReactElement; text: string; color: string }> = {
-  Epic: { icon: <TagIcon className="h-4 w-4 mr-1" />, text: 'Epic', color: 'bg-purple-100 text-purple-700' },
-  Story: { icon: <BookmarkSquareIcon className="h-4 w-4 mr-1" />, text: 'Story', color: 'bg-green-100 text-green-700' },
-  Task: { icon: <CheckCircleIcon className="h-4 w-4 mr-1" />, text: 'Task', color: 'bg-blue-100 text-blue-700' },
-  Bug: { icon: <BugAntIcon className="h-4 w-4 mr-1" />, text: 'Bug', color: 'bg-red-100 text-red-700' },
-  'Sub-task': { icon: <PlusIconSolid className="h-4 w-4 mr-1" />, text: 'Sub-task', color: 'bg-neutral-100 text-neutral-700' },
-};
+// ============================================================================
+// DROPPABLE COLUMN CONTAINER
+// ============================================================================
 
-const priorityBadge: Record<Issue['priority'], { icon: React.ReactElement; text: string; color: string }> = {
-  Highest: { icon: <ArrowUpIcon className="h-4 w-4 mr-1" />, text: 'Highest', color: 'bg-red-100 text-red-700' },
-  High: { icon: <ArrowUpIcon className="h-4 w-4 mr-1" />, text: 'High', color: 'bg-orange-100 text-orange-700' },
-  Medium: { icon: <span className="h-4 w-4 mr-1 flex items-center justify-center font-bold text-yellow-500">=</span>, text: 'Medium', color: 'bg-yellow-100 text-yellow-700' },
-  Low: { icon: <ArrowDownIcon className="h-4 w-4 mr-1" />, text: 'Low', color: 'bg-green-100 text-green-700' },
-  Lowest: { icon: <ArrowDownIcon className="h-4 w-4 mr-1" />, text: 'Lowest', color: 'bg-neutral-100 text-neutral-700' },
-};
-
-function SortableIssueCard({ issue, children }: { issue: Issue; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: issue.id });
-
-  const style = {
-    transform: CSS.Translate.toString(transform), // Use Translate instead of Transform to avoid scaling distortions
-    transition,
-    opacity: isDragging ? 0 : 1, // Hide original element while dragging (the overlay shows the item)
-  };
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-    >
-      {children}
-    </div>
-  );
-}
-
-type BoardColumnProps = {
+interface DroppableColumnProps {
   col: BoardColumn;
-  issuesByColumn: Record<string, Issue[]>;
+  issues: Issue[];
+  isOver: boolean;
   showCreateForm: string | null;
   setShowCreateForm: (id: string | null) => void;
   currentUserRole: string | undefined;
   projectId: string;
+  boardId: string;
   refetch: () => void;
-};
+}
 
-const BoardColumn: React.FC<BoardColumnProps> = ({
+function DroppableColumn({
   col,
-  issuesByColumn,
+  issues,
+  isOver,
   showCreateForm,
   setShowCreateForm,
   currentUserRole,
   projectId,
+  boardId,
   refetch,
-}) => {
-  const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id: col.id });
-  const issueIds = (issuesByColumn[col.id] || []).filter(issue => !issue.parentId).map(issue => issue.id);
-  return (
-    <SortableContext id={col.id} items={issueIds}>
-      <div
-        ref={setDroppableRef}
-        className={`relative flex-shrink-0 w-[280px] max-h-full flex flex-col rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 shadow-sm transition-all duration-200 ${isOver ? 'ring-2 ring-blue-500 ring-opacity-50 bg-blue-50 dark:bg-blue-950/20' : ''}`}
-      >
-        {/* Header */}
-        <div className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 rounded-t-lg sticky top-0 z-10">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Typography variant="h4" className="text-neutral-700 dark:text-neutral-200 font-semibold uppercase text-sm tracking-wider">
-                {col.name}
-              </Typography>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300">
-                {(issuesByColumn[col.id] || []).length}
-              </span>
-            </div>
-            {/* Simple actions menu placeholder */}
-            <div className="flex items-center">
-              <button className="p-1 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded text-neutral-400">
-                <EllipsisHorizontalIcon className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
+}: DroppableColumnProps) {
+  const { setNodeRef } = useDroppable({
+    id: col.id,
+    data: {
+      type: 'column',
+      columnId: col.id,
+      statusId: col.statusId,
+      statusName: col.name,
+    }
+  });
 
-        {/* Issues list - Scrollable Area */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 flex flex-col gap-2 min-h-0 custom-scrollbar">
-          {issueIds.length === 0 && !showCreateForm && (
-            <div className={`flex flex-col items-center justify-center text-neutral-400 text-sm text-center py-8 ${isOver ? 'bg-blue-50 dark:bg-blue-950/20 border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-lg' : ''}`} style={{ minHeight: 80 }}>
-              <svg width="32" height="32" fill="none" viewBox="0 0 32 32" aria-hidden="true" className="mb-2 text-neutral-300">
-                <rect x="4" y="8" width="24" height="16" rx="4" fill="currentColor" opacity="0.2" />
-                <rect x="8" y="14" width="16" height="2" rx="1" fill="currentColor" opacity="0.4" />
-                <rect x="8" y="18" width="12" height="2" rx="1" fill="currentColor" opacity="0.3" />
-              </svg>
-              <span>No issues</span>
-              {isOver && <span className="block mt-1 text-xs text-blue-600 dark:text-blue-400">Drop here</span>}
-            </div>
-          )}
-          {issueIds.map(issueId => {
-            const issue = (issuesByColumn[col.id] || []).find(i => i.id === issueId);
-            if (!issue) return null;
-            return (
-              <SortableIssueCard key={issue.id} issue={issue}>
-                <Card className="p-3 hover:shadow-md transition-shadow">
-                  {/* Top row: type and priority badges */}
-                  <div className="flex gap-2 mb-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${typeBadge[issue.type]?.color || 'bg-neutral-100 text-neutral-600'}`}>
-                      {typeBadge[issue.type]?.icon || <TagIcon className="h-4 w-4 mr-1" />} {typeBadge[issue.type]?.text || issue.type}
-                    </span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${priorityBadge[issue.priority]?.color || 'bg-neutral-100 text-neutral-600'}`}>
-                      {priorityBadge[issue.priority]?.icon || <EllipsisHorizontalIcon className="h-4 w-4 mr-1" />} {priorityBadge[issue.priority]?.text || issue.priority}
-                    </span>
-                  </div>
-                  {/* Issue name */}
-                  <Typography variant="body" className="font-semibold text-neutral-900 dark:text-neutral-100 mb-1 line-clamp-2">
-                    {issue.title}
-                  </Typography>
-                  {/* Labels (if any) */}
-                  {issue.labels && issue.labels.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-1">
-                      {issue.labels.map((label, index) => (
-                        <span key={`${label}-${index}`} className="px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {/* Bottom row: key (left), assignee avatar (right) */}
-                  <div className="flex items-center justify-between mt-auto pt-1">
-                    <Typography variant="body-xs" className="text-neutral-400 font-mono">{issue.key}</Typography>
-                    {issue.assignee ? (
-                      typeof issue.assignee === 'object' ? (
-                        <div className="w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-300 dark:border-neutral-600" title={issue.assignee.name || '?'}>
-                          {issue.assignee.avatarUrl ? (
-                            <Image src={issue.assignee.avatarUrl} alt={issue.assignee.name || '?'} className="w-full h-full object-cover" width={32} height={32} />
-                          ) : (
-                            <span>{issue.assignee.name ? issue.assignee.name[0] : <UserIcon className="h-4 w-4 text-neutral-400" />}</span>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-300 dark:border-neutral-600" title={issue.assignee}>
-                          <span>{issue.assignee[0] || <UserIcon className="h-4 w-4 text-neutral-400" />}</span>
-                        </div>
-                      )
-                    ) : (
-                      <div className="w-7 h-7 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-200 dark:border-neutral-700">
-                        <UserIcon className="h-4 w-4 text-neutral-300" />
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              </SortableIssueCard>
-            );
-          })}
-          {showCreateForm === col.id ? (
-            <QuickCreateIssueForm
-              projectId={projectId}
-              status={col.name}
-              onClose={() => setShowCreateForm(null)}
-              onIssueCreated={() => {
-                setShowCreateForm(null);
-                refetch();
-              }}
-            />
-          ) : (
-            ['Super-Admin', 'ProjectLead', 'Developer', 'QA'].includes(currentUserRole ?? "") && (
-              <Button
-                onClick={() => setShowCreateForm(col.id)}
-                variant="secondary"
-                size="sm"
-                className="mt-2 w-full"
-              >
-                <PlusIconSolid className="h-4 w-4 mr-2" />
-                Add Issue
-              </Button>
-            )
-          )}
+  const context: DragContext = {
+    type: 'board',
+    boardId,
+    columnId: col.id
+  };
+
+  // Filter out sub-tasks from top level
+  const topLevelIssues = issues.filter(issue => !issue.parentId);
+  const issueIds = topLevelIssues.map(issue => issue.id);
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`
+        relative flex-shrink-0 w-[300px] max-h-full flex flex-col 
+        rounded-xl bg-neutral-100 dark:bg-neutral-800/80
+        border border-neutral-200 dark:border-neutral-700
+        shadow-sm transition-all duration-200
+        ${isOver
+          ? 'ring-2 ring-blue-500 ring-opacity-50 bg-blue-50/50 dark:bg-blue-950/20 border-blue-400'
+          : ''
+        }
+      `}
+    >
+      {/* Column Header */}
+      <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50/80 dark:bg-neutral-800 rounded-t-xl sticky top-0 z-10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Typography variant="h4" className="text-neutral-700 dark:text-neutral-200 font-semibold uppercase text-xs tracking-wider">
+              {col.name}
+            </Typography>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300">
+              {topLevelIssues.length}
+            </span>
+          </div>
+          <button className="p-1 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded text-neutral-400 transition-colors">
+            <EllipsisHorizontalIcon className="h-4 w-4" />
+          </button>
         </div>
       </div>
-    </SortableContext>
+
+      {/* Issues List - Scrollable */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 flex flex-col gap-3 min-h-0 custom-scrollbar">
+        {issueIds.length === 0 && !showCreateForm ? (
+          <div className={`
+            flex flex-col items-center justify-center text-neutral-400 text-sm text-center py-10 rounded-lg
+            ${isOver ? 'bg-blue-50 dark:bg-blue-950/20 border-2 border-dashed border-blue-300 dark:border-blue-700' : ''}
+          `}>
+            <svg width="40" height="40" fill="none" viewBox="0 0 40 40" className="mb-3 text-neutral-300 dark:text-neutral-600">
+              <rect x="6" y="10" width="28" height="20" rx="4" fill="currentColor" opacity="0.15" />
+              <rect x="10" y="16" width="20" height="3" rx="1.5" fill="currentColor" opacity="0.3" />
+              <rect x="10" y="22" width="14" height="3" rx="1.5" fill="currentColor" opacity="0.2" />
+            </svg>
+            <span className="font-medium">No issues</span>
+            {isOver && <span className="block mt-1 text-xs text-blue-600 dark:text-blue-400 font-medium">Drop here</span>}
+          </div>
+        ) : (
+          <SortableContext items={issueIds} strategy={verticalListSortingStrategy}>
+            {topLevelIssues.map(issue => (
+              <DraggableCard
+                key={issue.id}
+                issue={issue}
+                context={context}
+                variant="card"
+              />
+            ))}
+          </SortableContext>
+        )}
+
+        {/* Quick Create Form */}
+        {showCreateForm === col.id ? (
+          <QuickCreateIssueForm
+            projectId={projectId}
+            status={col.name}
+            onClose={() => setShowCreateForm(null)}
+            onIssueCreated={() => {
+              setShowCreateForm(null);
+              refetch();
+            }}
+          />
+        ) : (
+          ['Super-Admin', 'ProjectLead', 'Developer', 'QA'].includes(currentUserRole ?? "") && (
+            <Button
+              onClick={() => setShowCreateForm(col.id)}
+              variant="ghost"
+              size="sm"
+              className="w-full mt-2 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+            >
+              <PlusIcon className="h-4 w-4 mr-2" />
+              Add Issue
+            </Button>
+          )
+        )}
+      </div>
+    </div>
   );
-};
+}
+
+// ============================================================================
+// MAIN BOARD PAGE
+// ============================================================================
 
 export default function BoardPage() {
   const { id: projectId, bid: boardId } = useParams<{ id: string; bid: string }>();
-  const { board, columns, isLoading: loadingBoard, isError: errorBoard,
-    updateBoard, deleteBoard, addColumn, updateColumn, deleteColumn, reorderColumns
+  const {
+    board,
+    columns,
+    isLoading: loadingBoard,
+    isError: errorBoard,
+    updateBoard,
+    deleteBoard,
+    addColumn,
+    updateColumn,
+    deleteColumn,
+    reorderColumns
   } = useBoard(projectId, boardId);
   const { issuesByColumn, isLoading: loadingIssues, isError: errorIssues, refetch } = useBoardIssues(projectId, columns);
   const updateIssueStatus = useUpdateIssueStatus(projectId);
@@ -243,26 +199,25 @@ export default function BoardPage() {
   const { showToast } = useToast();
   const { user } = useAuth();
   const { currentUserRole } = useProject(projectId);
+
+  // UI State
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState<string | null>(null);
-  const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
+  const [activeItem, setActiveItem] = useState<{ issue: Issue; context: DragContext } | null>(null);
+  const [overColumnId, setOverColumnId] = useState<string | null>(null);
 
-  // Sensors for better control and prevention of accidental drags
+  // Sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5, // Require 5px movement to start drag
-      },
+      activationConstraint: DRAG_ACTIVATION_CONSTRAINT,
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
-  // Real-time board events
+  // Real-time socket events
   React.useEffect(() => {
-    // Connect and join board room
-    // Connect and join board room
     const initSocket = async () => {
       const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
       const socket = getSocket() || await connectSocket(token || '');
@@ -270,11 +225,10 @@ export default function BoardPage() {
       if (socket) {
         socket.emit('join-board', { projectId, boardId });
 
-        // Listen for board events
         const handleBoardEvent = (event: unknown) => {
           if (typeof event === 'object' && event !== null && 'userId' in event) {
             const evt = event as { userId: string };
-            refetch(); // refetch issues on any board event
+            refetch();
             if (evt.userId && user && evt.userId !== user.id) {
               showToast('Board updated by another user', 'info');
             }
@@ -286,7 +240,6 @@ export default function BoardPage() {
         socket.on('issue-moved', handleBoardEvent);
         socket.on('issue-reordered', handleBoardEvent);
 
-        // Store cleanup function
         return () => {
           socket.emit('leave-board', { projectId, boardId });
           socket.off('issue-moved', handleBoardEvent);
@@ -296,97 +249,184 @@ export default function BoardPage() {
     };
 
     const cleanupPromise = initSocket();
-
-    // Cleanup on unmount
     return () => {
       cleanupPromise.then(cleanup => cleanup && cleanup());
     };
   }, [projectId, boardId, refetch, showToast, user]);
 
-  // dnd-kit: onDragEnd handler for issues
-  function handleDragStart(event: DragStartEvent) {
-    setActiveIssueId(event.active.id as string);
-  }
+  // =========================================================================
+  // DRAG HANDLERS
+  // =========================================================================
 
-  function onDragEnd(event: DragEndEvent) {
-    setActiveIssueId(null);
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const data = event.active.data.current as { issue: Issue; context: DragContext } | undefined;
+    if (data?.issue) {
+      setActiveItem(data);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const { over } = event;
+    if (!over) {
+      setOverColumnId(null);
+      return;
+    }
+
+    const overId = String(over.id);
+    const overData = over.data.current as { type?: string; columnId?: string } | undefined;
+
+    // If over a column directly
+    if (overData?.type === 'column' && overData.columnId) {
+      setOverColumnId(overData.columnId);
+    }
+    // If over an issue, get its column
+    else if (overData?.type === 'issue') {
+      const context = (over.data.current as { context?: DragContext })?.context;
+      if (context?.type === 'board' && context.columnId) {
+        setOverColumnId(context.columnId);
+      }
+    }
+    // Fallback: check if over ID matches a column
+    else {
+      const matchingCol = columns.find(c => c.id === overId);
+      if (matchingCol) {
+        setOverColumnId(matchingCol.id);
+      }
+    }
+  }, [columns]);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over) return;
-    const activeId = active.id as string;
-    const overId = over.id as string;
 
-    // Find source and destination columns by ID
+    // Reset state
+    setActiveItem(null);
+    setOverColumnId(null);
+
+    if (!over) return;
+
+    const activeData = active.data.current as { issue: Issue; context: DragContext } | undefined;
+    if (!activeData) return;
+
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    const overData = over.data.current as {
+      type?: string;
+      columnId?: string;
+      statusId?: string;
+      statusName?: string;
+    } | undefined;
+
+    // Find source column
     let sourceColId: string | undefined;
-    let destColId: string | undefined;
     for (const col of columns) {
-      const ids = (issuesByColumn[col.id] || []).filter(issue => !issue.parentId).map(issue => issue.id);
-      if (ids.includes(activeId)) sourceColId = col.id;
-      if (ids.includes(overId)) destColId = col.id;
+      const ids = (issuesByColumn[col.id] || []).filter(i => !i.parentId).map(i => i.id);
+      if (ids.includes(activeId)) {
+        sourceColId = col.id;
+        break;
+      }
     }
-    // If dropped on a column (not an issue), use that column
-    if (!destColId) {
-      const col = columns.find(c => c.id === overId);
-      if (col) destColId = col.id;
+
+    // Find destination column
+    let destColId: string | undefined;
+    let destStatusId: string | null | undefined;
+
+    if (overData?.type === 'column') {
+      destColId = overData.columnId;
+      destStatusId = overData.statusId;
+    } else {
+      // Dropped on an issue - find its column
+      for (const col of columns) {
+        const ids = (issuesByColumn[col.id] || []).filter(i => !i.parentId).map(i => i.id);
+        if (ids.includes(overId)) {
+          destColId = col.id;
+          destStatusId = col.statusId;
+          break;
+        }
+      }
+      // Or dropped on column itself
+      if (!destColId) {
+        const col = columns.find(c => c.id === overId);
+        if (col) {
+          destColId = col.id;
+          destStatusId = col.statusId;
+        }
+      }
     }
+
     if (!sourceColId || !destColId) return;
 
-    // If moved to a new column (including dropping on a column itself)
+    // Case 1: Moved to a different column (status change)
     if (sourceColId !== destColId) {
-      // Find the destination column to get its statusId
       const destColumn = columns.find(c => c.id === destColId);
       if (destColumn) {
-        // RELATIONAL STATUS: Prefer statusId, fallback to column name
         if (destColumn.statusId) {
-          updateIssueStatus.mutate({ issueId: activeId, statusId: destColumn.statusId, status: destColumn.name });
+          updateIssueStatus.mutate({
+            issueId: activeId,
+            statusId: destColumn.statusId,
+            status: destColumn.name
+          });
         } else {
-          // Legacy fallback: column has no statusId, use name
-          updateIssueStatus.mutate({ issueId: activeId, status: destColumn.name });
+          updateIssueStatus.mutate({
+            issueId: activeId,
+            status: destColumn.name
+          });
         }
       }
       return;
     }
 
-
-    // If reordered within the same column
+    // Case 2: Reordered within the same column
     const colIssues = (issuesByColumn[sourceColId] || []).filter(issue => !issue.parentId);
     const oldIndex = colIssues.findIndex(issue => issue.id === activeId);
     let newIndex = colIssues.findIndex(issue => issue.id === overId);
-    // If dropped on the column itself (not an issue), move to end
+
     if (columns.some(c => c.id === overId)) {
       newIndex = colIssues.length - 1;
     }
+
     if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
       const newOrder = arrayMove(colIssues, oldIndex, newIndex).map(i => i.id);
       reorderIssues.mutate({ columnId: sourceColId, orderedIssueIds: newOrder });
     }
-  }
+  }, [columns, issuesByColumn, updateIssueStatus, reorderIssues]);
 
-  // Handlers for board/column management
-  const handleBoardRename = async (name: string) => {
+  // =========================================================================
+  // BOARD MANAGEMENT HANDLERS
+  // =========================================================================
+
+  const handleBoardRename = useCallback(async (name: string) => {
     await updateBoard(name);
     showToast('Board renamed!', 'success');
-  };
-  const handleBoardDelete = async () => {
+  }, [updateBoard, showToast]);
+
+  const handleBoardDelete = useCallback(async () => {
     await deleteBoard();
-    // Redirect or show a message, e.g., router.push(`/projects/${projectId}/boards`);
     showToast('Board deleted!', 'success');
-  };
-  const handleColumnAdd = async (name: string) => {
+  }, [deleteBoard, showToast]);
+
+  const handleColumnAdd = useCallback(async (name: string) => {
     await addColumn(name);
     showToast('Column added!', 'success');
-  };
-  const handleColumnEdit = async (columnId: string, name: string) => {
+  }, [addColumn, showToast]);
+
+  const handleColumnEdit = useCallback(async (columnId: string, name: string) => {
     await updateColumn({ columnId, name });
     showToast('Column updated!', 'success');
-  };
-  const handleColumnDelete = async (columnId: string) => {
+  }, [updateColumn, showToast]);
+
+  const handleColumnDelete = useCallback(async (columnId: string) => {
     await deleteColumn(columnId);
     showToast('Column deleted!', 'success');
-  };
-  const handleColumnsReorder = async (orderedIds: string[]) => {
+  }, [deleteColumn, showToast]);
+
+  const handleColumnsReorder = useCallback(async (orderedIds: string[]) => {
     await reorderColumns(orderedIds);
     showToast('Columns reordered!', 'success');
-  };
+  }, [reorderColumns, showToast]);
+
+  // =========================================================================
+  // RENDER
+  // =========================================================================
 
   if (loadingBoard || loadingIssues) {
     return (
@@ -400,6 +440,7 @@ export default function BoardPage() {
       </div>
     );
   }
+
   if (errorBoard || !board) {
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
@@ -414,6 +455,7 @@ export default function BoardPage() {
       </div>
     );
   }
+
   if (errorIssues) {
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
@@ -429,12 +471,10 @@ export default function BoardPage() {
     );
   }
 
-
-
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
-      {/* Clean Board Header */}
-      <header className="bg-white dark:bg-neutral-800 border-b-2 border-neutral-300 dark:border-neutral-600 px-6 py-4 shadow-sm">
+      {/* Board Header */}
+      <header className="bg-white dark:bg-neutral-800 border-b-2 border-neutral-200 dark:border-neutral-700 px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Typography variant="h2" className="text-neutral-900 dark:text-white font-semibold">
@@ -453,6 +493,7 @@ export default function BoardPage() {
         </div>
       </header>
 
+      {/* Board Management Modal */}
       {isManageModalOpen && (
         <BoardManagementModal
           open={isManageModalOpen}
@@ -470,85 +511,45 @@ export default function BoardPage() {
         />
       )}
 
-      {/* Board Content Area */}
-      <main className="flex-1 overflow-hidden h-[calc(100vh-65px)] p-0 bg-neutral-50 dark:bg-neutral-900">
+      {/* Board Content */}
+      <main className="flex-1 overflow-hidden h-[calc(100vh-73px)] p-4 bg-neutral-50 dark:bg-neutral-900">
         <DndContext
           sensors={sensors}
-          onDragEnd={onDragEnd}
-          onDragStart={handleDragStart}
           collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
         >
-          {/* Horizontal scrolling container */}
-          <div className="flex flex-row flex-nowrap gap-4 overflow-x-auto h-[calc(100vh-140px)] items-start justify-start w-full px-1 pb-4">
+          {/* Horizontal scrolling container for columns */}
+          <div className="flex flex-row flex-nowrap gap-4 overflow-x-auto h-full items-start justify-start w-full pb-4">
             {columns.map((col) => (
-              <BoardColumn
+              <DroppableColumn
                 key={col.id}
                 col={col}
-                issuesByColumn={issuesByColumn}
+                issues={issuesByColumn[col.id] || []}
+                isOver={overColumnId === col.id}
                 showCreateForm={showCreateForm}
                 setShowCreateForm={setShowCreateForm}
                 currentUserRole={currentUserRole}
                 projectId={projectId}
+                boardId={boardId}
                 refetch={refetch}
               />
             ))}
           </div>
-          <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18,0.67,0.6,1.22)' }}>
-            {activeIssueId ? (() => {
-              const issue = columns.flatMap(col => (issuesByColumn[col.id] || [])).find(i => i.id === activeIssueId);
-              if (!issue) return null;
-              return (
-                <div className="cursor-grabbing scale-105 rotate-2 shadow-2xl opacity-100 ring-1 ring-black/10 dark:ring-white/10 rounded-lg">
-                  <Card className="p-4 min-h-[100px] w-[320px] bg-white dark:bg-neutral-800 border-none transition-transform duration-200 ease-out">
-                    <div className="flex gap-2 mb-2">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${typeBadge[issue.type]?.color || 'bg-neutral-100 text-neutral-500'}`}>
-                        {typeBadge[issue.type]?.icon || <TagIcon className="h-4 w-4 mr-1" />} {typeBadge[issue.type]?.text || issue.type}
-                      </span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${priorityBadge[issue.priority]?.color || 'bg-neutral-100 text-neutral-500'}`}>
-                        {priorityBadge[issue.priority]?.icon || <EllipsisHorizontalIcon className="h-4 w-4 mr-1" />} {priorityBadge[issue.priority]?.text || issue.priority}
-                      </span>
-                    </div>
-                    <Typography variant="body" className="font-semibold text-neutral-900 dark:text-neutral-100 mb-1 line-clamp-2">
-                      {issue.title}
-                    </Typography>
-                    {issue.labels && issue.labels.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-1">
-                        {issue.labels.map((label, index) => (
-                          <span key={`${label}-${index}`} className="px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
-                            {label}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between mt-auto pt-1">
-                      <Typography variant="body-xs" className="text-neutral-400 font-mono">{issue.key}</Typography>
-                      {issue.assignee ? (
-                        typeof issue.assignee === 'object' ? (
-                          <div className="w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-300 dark:border-neutral-600" title={issue.assignee.name || '?'}>
-                            {issue.assignee.avatarUrl ? (
-                              <Image src={issue.assignee.avatarUrl} alt={issue.assignee.name || '?'} className="w-full h-full object-cover" width={32} height={32} />
-                            ) : (
-                              <span>{issue.assignee.name ? issue.assignee.name[0] : <UserIcon className="h-4 w-4 text-neutral-400" />}</span>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-300 dark:border-neutral-600" title={issue.assignee}>
-                            <span>{issue.assignee[0] || <UserIcon className="h-4 w-4 text-neutral-400" />}</span>
-                          </div>
-                        )
-                      ) : (
-                        <div className="w-7 h-7 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-xs font-bold overflow-hidden border border-neutral-200 dark:border-neutral-700">
-                          <UserIcon className="h-4 w-4 text-neutral-300" />
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                </div>
-              );
-            })() : null}
+
+          {/* Drag Overlay */}
+          <DragOverlay dropAnimation={DROP_ANIMATION}>
+            {activeItem ? (
+              <DragOverlayCard
+                issue={activeItem.issue}
+                context={activeItem.context}
+                variant="card"
+              />
+            ) : null}
           </DragOverlay>
         </DndContext>
       </main>
     </div>
   );
-} 
+}

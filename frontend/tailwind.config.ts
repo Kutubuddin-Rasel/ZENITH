@@ -8,19 +8,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Primary brand colors
+        // Primary brand colors - using CSS variables for accent color support
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-          950: '#172554',
+          50: 'color-mix(in srgb, var(--accent-color, #3b82f6) 5%, white)',
+          100: 'color-mix(in srgb, var(--accent-color, #3b82f6) 10%, white)',
+          200: 'color-mix(in srgb, var(--accent-color, #3b82f6) 20%, white)',
+          300: 'color-mix(in srgb, var(--accent-color, #3b82f6) 35%, white)',
+          400: 'color-mix(in srgb, var(--accent-color, #3b82f6) 60%, white)',
+          500: 'var(--accent-color, #3b82f6)',
+          600: 'color-mix(in srgb, var(--accent-color, #3b82f6), black 15%)',
+          700: 'color-mix(in srgb, var(--accent-color, #3b82f6), black 30%)',
+          800: 'color-mix(in srgb, var(--accent-color, #3b82f6), black 45%)',
+          900: 'color-mix(in srgb, var(--accent-color, #3b82f6), black 60%)',
+          950: 'color-mix(in srgb, var(--accent-color, #3b82f6), black 75%)',
         },
         // Neutral colors for backgrounds and text
         neutral: {
@@ -83,6 +83,8 @@ const config: Config = {
           secondary: '#f5f5f5',
           'secondary-dark': '#171717',
         },
+        // Dynamic accent foreground (for text on accent backgrounds) - always white
+        'accent-foreground': '#FFFFFF',
         // Legacy support
         accent: {
           blue: '#3b82f6',
@@ -93,6 +95,8 @@ const config: Config = {
           dark: '#fafafa',
           secondary: '#525252',
           'secondary-dark': '#a3a3a3',
+          // Dynamic accent-on-background text color (uses luminance calculation)
+          accent: 'var(--accent-foreground, #FFFFFF)',
         },
       },
       borderRadius: {

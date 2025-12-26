@@ -312,7 +312,7 @@ export class SprintsService implements OnModuleInit {
     this.eventEmitter.emit('sprint.event', deletePayload);
   }
 
-  /** Add an existing issue to sprint */
+  /** Add an existing issue to sprint (TRANSACTIONAL) */
   async addIssue(
     projectId: string,
     sprintId: string,
@@ -321,18 +321,38 @@ export class SprintsService implements OnModuleInit {
   ): Promise<SprintIssue> {
     const sprint = await this.findOne(projectId, sprintId, userId);
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (role !== ProjectRole.PROJECT_LEAD) {
-      throw new ForbiddenException('Only ProjectLead can add issues');
+    if (role !== ProjectRole.PROJECT_LEAD && role !== ProjectRole.MEMBER) {
+      throw new ForbiddenException('Insufficient permissions to add issues');
     }
-    await this.issuesService.findOne(projectId, dto.issueId, userId);
+    const issue = await this.issuesService.findOne(
+      projectId,
+      dto.issueId,
+      userId,
+    );
 
-    const si = this.siRepo.create({
-      sprintId,
-      issueId: dto.issueId,
-      sprintOrder: dto.sprintOrder ?? 0,
+    // ATOMIC TRANSACTION: Update both join table AND issue status
+    const saved = await this.siRepo.manager.transaction(async (manager) => {
+      // 1. Create Sprint-Issue relationship
+      const si = manager.create(SprintIssue, {
+        sprintId,
+        issueId: dto.issueId,
+        sprintOrder: dto.sprintOrder ?? 0,
+      });
+      const savedRelation = await manager.save(si);
+
+      // 2. Update Issue status if moving from Backlog
+      // Note: status is a flexible string field, so compare against known backlog values
+      const backlogStatuses = ['Backlog', 'backlog'];
+      if (backlogStatuses.includes(issue.status)) {
+        await manager.update(Issue, dto.issueId, {
+          status: IssueStatus.TODO,
+        });
+      }
+
+      return savedRelation;
     });
-    const saved = await this.siRepo.save(si);
 
+    // Emit event after successful transaction
     const addIssuePayload = EventFactory.createSprintEvent({
       projectId,
       sprintId: sprint.id,
@@ -346,7 +366,7 @@ export class SprintsService implements OnModuleInit {
     return saved;
   }
 
-  /** Remove an issue from sprint */
+  /** Remove an issue from sprint (TRANSACTIONAL) */
   async removeIssue(
     projectId: string,
     sprintId: string,
@@ -355,16 +375,27 @@ export class SprintsService implements OnModuleInit {
   ): Promise<void> {
     const sprint = await this.findOne(projectId, sprintId, userId);
     const role = await this.membersService.getUserRole(projectId, userId);
-    if (role !== ProjectRole.PROJECT_LEAD) {
-      throw new ForbiddenException('Only ProjectLead can remove issues');
+    if (role !== ProjectRole.PROJECT_LEAD && role !== ProjectRole.MEMBER) {
+      throw new ForbiddenException('Insufficient permissions to remove issues');
     }
     const si = await this.siRepo.findOneBy({
       sprintId,
       issueId: dto.issueId,
     });
     if (!si) throw new NotFoundException('Issue not in sprint');
-    await this.siRepo.remove(si);
 
+    // ATOMIC TRANSACTION: Remove join table AND update issue status
+    await this.siRepo.manager.transaction(async (manager) => {
+      // 1. Remove Sprint-Issue relationship
+      await manager.remove(si);
+
+      // 2. Update Issue status back to Backlog
+      await manager.update(Issue, dto.issueId, {
+        status: IssueStatus.BACKLOG,
+      });
+    });
+
+    // Emit event after successful transaction
     const removeIssuePayload = EventFactory.createSprintEvent({
       projectId,
       sprintId: sprint.id,

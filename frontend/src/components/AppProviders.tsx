@@ -3,7 +3,7 @@
 import React, { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { AuthProvider } from '../context/AuthContext';
-import { ThemeProvider } from '../context/ThemeContext';
+import { AppearanceProvider } from '../context/AppearanceContext';
 import { ToastProvider } from '../context/ToastContext';
 import { NotificationsSocketProvider } from '../context/NotificationsSocketProvider';
 import { RoleProvider } from '../context/RoleContext';
@@ -11,7 +11,6 @@ import { ProgressiveDisclosureProvider } from '../context/ProgressiveDisclosureC
 import QueryClientWrapper from './QueryClientWrapper';
 import ThemeScript from './ThemeScript';
 import SecurityScript from './SecurityScript';
-import ThemeEffect from './ThemeEffect';
 
 import dynamic from 'next/dynamic';
 
@@ -29,7 +28,7 @@ export default function AppProviders({ children }: AppProvidersProps) {
 
     return (
         <ToastProvider>
-            <ThemeProvider>
+            <AppearanceProvider>
                 <AuthProvider>
                     <RoleProvider>
                         <ProgressiveDisclosureProvider>
@@ -37,7 +36,6 @@ export default function AppProviders({ children }: AppProvidersProps) {
                                 <NotificationsSocketProvider>
                                     <SecurityScript />
                                     <ThemeScript />
-                                    <ThemeEffect />
                                     {!isAuthPage && <OnboardingManager />}
                                     {children}
                                 </NotificationsSocketProvider>
@@ -45,7 +43,7 @@ export default function AppProviders({ children }: AppProvidersProps) {
                         </ProgressiveDisclosureProvider>
                     </RoleProvider>
                 </AuthProvider>
-            </ThemeProvider>
+            </AppearanceProvider>
         </ToastProvider>
     );
 }

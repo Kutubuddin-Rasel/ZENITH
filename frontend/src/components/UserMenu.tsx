@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Menu } from '@headlessui/react';
-import { ChevronDownIcon, ArrowRightOnRectangleIcon, UserIcon, Cog6ToothIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ArrowRightOnRectangleIcon, Cog6ToothIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -43,8 +43,16 @@ const UserMenu = () => {
   return (
     <Menu as="div" className="relative inline-block text-left ml-2">
       <Menu.Button ref={buttonRef} className="flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-accent-blue rounded-full" onClick={() => setMenuOpen((v) => !v)}>
-        <div className="w-8 h-8 rounded-full bg-neutral-300 text-neutral-900 dark:bg-neutral-700 flex items-center justify-center font-bold text-sm">
-          {initials}
+        <div className="w-8 h-8 rounded-full bg-neutral-300 text-neutral-900 dark:bg-neutral-700 flex items-center justify-center font-bold text-sm overflow-hidden">
+          {user?.avatarUrl ? (
+            <img
+              src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `http://localhost:3000${user.avatarUrl}`}
+              alt={user.name || 'Avatar'}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            initials
+          )}
         </div>
         <ChevronDownIcon className="h-4 w-4 text-neutral-500" />
       </Menu.Button>
@@ -58,17 +66,24 @@ const UserMenu = () => {
             left: dropdownPosition.left,
           }}
         >
-          <div className="px-4 py-3 border-b border-neutral-100 dark:border-neutral-800">
-            <div className="font-semibold text-neutral-900 dark:text-neutral-100">{user?.name || 'User'}</div>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400">{user?.email}</div>
+          <div className="px-4 py-3 border-b border-neutral-100 dark:border-neutral-800 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center font-bold text-sm overflow-hidden flex-shrink-0">
+              {user?.avatarUrl ? (
+                <img
+                  src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `http://localhost:3000${user.avatarUrl}`}
+                  alt={user.name || 'Avatar'}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                initials
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="font-semibold text-neutral-900 dark:text-neutral-100 truncate">{user?.name || 'User'}</div>
+              <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{user?.email}</div>
+            </div>
           </div>
           <div className="py-1">
-            <button
-              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-900 dark:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              onClick={() => { setMenuOpen(false); router.push('/profile'); }}
-            >
-              <UserIcon className="h-5 w-5" /> Profile
-            </button>
             <button
               className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 text-primary-600 dark:text-primary-400"
               onClick={() => {
@@ -80,9 +95,9 @@ const UserMenu = () => {
             </button>
             <button
               className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-900 dark:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              onClick={() => { setMenuOpen(false); router.push('/settings/preferences'); }}
+              onClick={() => { setMenuOpen(false); router.push('/settings/appearance'); }}
             >
-              <Cog6ToothIcon className="h-5 w-5" /> Preferences
+              <Cog6ToothIcon className="h-5 w-5" /> Settings
             </button>
             <button
               className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-neutral-100 dark:hover:bg-neutral-800"

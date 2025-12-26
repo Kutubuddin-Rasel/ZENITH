@@ -30,12 +30,12 @@ const ButtonSpinner = ({ className }: { className?: string }) => (
 );
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center font-medium rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none ring-offset-white dark:ring-offset-neutral-950",
+  "inline-flex items-center justify-center font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none shadow-sm",
   {
     variants: {
       variant: {
-        primary: "bg-primary-600 text-white hover:bg-primary-700 focus-visible:ring-primary-500 border border-transparent shadow-sm",
-        secondary: "bg-neutral-100 text-neutral-900 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700 focus-visible:ring-neutral-500 border border-neutral-200 dark:border-neutral-700",
+        primary: "bg-primary-600 text-accent-foreground hover:bg-primary-700 border border-transparent shadow-md hover:shadow-lg transform active:scale-95",
+        secondary: "bg-white text-neutral-900 hover:bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600",
         ghost: "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 focus-visible:ring-neutral-500 border border-transparent",
         danger: "bg-error-600 text-white hover:bg-error-700 focus-visible:ring-error-500 border border-transparent shadow-sm",
         warning: "bg-warning-600 text-white hover:bg-warning-700 focus-visible:ring-warning-500 border border-transparent shadow-sm",
@@ -44,9 +44,9 @@ const buttonVariants = cva(
         gradient: "bg-gradient-to-r from-primary-600 to-purple-600 text-white hover:from-primary-700 hover:to-purple-700 border-transparent shadow-md focus-visible:ring-primary-500",
       },
       size: {
-        xs: "px-2.5 py-1.5 text-xs gap-1.5",
-        sm: "px-3 py-2 text-sm gap-2",
-        md: "px-4 py-2.5 text-sm gap-2",
+        xs: "h-7 px-2.5 text-xs gap-1.5",
+        sm: "h-8 px-3 text-sm gap-2",
+        md: "h-10 px-4 text-sm gap-2",
         lg: "px-5 py-3 text-base gap-2.5",
         xl: "px-6 py-4 text-lg gap-3",
       },

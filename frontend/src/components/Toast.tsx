@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { InformationCircleIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid';
 
 export interface ToastProps {
   message: string;
@@ -14,9 +15,9 @@ const typeStyles = {
 };
 
 const typeIcons = {
-  info: 'ℹ️',
-  success: '✅',
-  error: '❌',
+  info: <InformationCircleIcon className="h-5 w-5" />,
+  success: <CheckCircleIcon className="h-5 w-5" />,
+  error: <XCircleIcon className="h-5 w-5" />,
 };
 
 const Toast: React.FC<ToastProps> = ({ message, type = 'info', onClose, duration = 4000 }) => {
@@ -58,7 +59,7 @@ const Toast: React.FC<ToastProps> = ({ message, type = 'info', onClose, duration
       `}
     >
       <div className="flex items-center gap-3">
-        <span className="text-lg">{typeIcons[type]}</span>
+        <span className="flex-shrink-0">{typeIcons[type]}</span>
         <span className="flex-1 text-sm font-medium">{message}</span>
         {onClose && (
           <button

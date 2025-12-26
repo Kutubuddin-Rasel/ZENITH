@@ -19,7 +19,7 @@ export function NotificationsSocketProvider({ children }: { children: React.Reac
 
   useEffect(() => {
     const socket = getSocket();
-    
+
     const notificationHandler = (notification: { message: string; type?: 'info' | 'success' | 'error' }) => {
       // Show a toast as a subtle indicator
       showToast(notification.message, notification.type);
@@ -44,7 +44,7 @@ export function NotificationsSocketProvider({ children }: { children: React.Reac
       socket.on('notification_deleted', deletionHandler);
       socket.on('notification_updated', updateHandler);
     }
-    
+
     return () => {
       if (socket) {
         socket.off('notification', notificationHandler);

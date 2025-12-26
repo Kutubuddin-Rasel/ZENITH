@@ -17,7 +17,7 @@ export class TwoFactorAuthService {
     private twoFactorRepo: Repository<TwoFactorAuth>,
     @InjectRepository(User)
     private userRepo: Repository<User>,
-  ) { }
+  ) {}
 
   /**
    * Generate TOTP secret and QR code for user
@@ -313,7 +313,8 @@ export class TwoFactorAuthService {
       // Don't reveal if user exists or not (security best practice)
       return {
         success: true,
-        message: 'If an account exists with this email and has 2FA enabled, a recovery link has been sent.',
+        message:
+          'If an account exists with this email and has 2FA enabled, a recovery link has been sent.',
       };
     }
 
@@ -326,7 +327,8 @@ export class TwoFactorAuthService {
       // No 2FA enabled, nothing to recover
       return {
         success: true,
-        message: 'If an account exists with this email and has 2FA enabled, a recovery link has been sent.',
+        message:
+          'If an account exists with this email and has 2FA enabled, a recovery link has been sent.',
       };
     }
 
@@ -335,10 +337,7 @@ export class TwoFactorAuthService {
 
     // Hash the token before storing (like password)
     const crypto = await import('crypto');
-    const hashedToken = crypto
-      .createHash('sha256')
-      .update(token)
-      .digest('hex');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     // Set token expiry to 15 minutes
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
@@ -354,7 +353,8 @@ export class TwoFactorAuthService {
 
     return {
       success: true,
-      message: 'If an account exists with this email and has 2FA enabled, a recovery link has been sent.',
+      message:
+        'If an account exists with this email and has 2FA enabled, a recovery link has been sent.',
       token, // This will be sent via email
       userId: user.id,
     };
@@ -403,10 +403,7 @@ export class TwoFactorAuthService {
 
     // Hash the provided token and compare
     const crypto = await import('crypto');
-    const hashedToken = crypto
-      .createHash('sha256')
-      .update(token)
-      .digest('hex');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     if (hashedToken !== twoFactorAuth.recoveryToken) {
       throw new UnauthorizedException('Invalid or expired recovery link');
@@ -421,7 +418,8 @@ export class TwoFactorAuthService {
 
     return {
       success: true,
-      message: 'Two-factor authentication has been disabled. You can now log in with just your password.',
+      message:
+        'Two-factor authentication has been disabled. You can now log in with just your password.',
       userId: user.id,
     };
   }
@@ -430,7 +428,8 @@ export class TwoFactorAuthService {
    * Generate a secure random token for recovery
    */
   private generateSecureToken(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const chars =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
     for (let i = 0; i < 64; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -438,4 +437,3 @@ export class TwoFactorAuthService {
     return result;
   }
 }
-

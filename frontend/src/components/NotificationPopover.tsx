@@ -12,7 +12,7 @@ export default function NotificationPopover() {
   const { notifications, isLoading, markAsRead } = useNotifications();
   const { respondToInviteMutation } = useProjectInvites();
   const { showToast } = useToast();
-  
+
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'unread' | 'history'>('unread');
   const [rejectReason, setRejectReason] = useState("");
@@ -20,7 +20,7 @@ export default function NotificationPopover() {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [pendingRejectId, setPendingRejectId] = useState<string | null>(null);
-  
+
   const buttonRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -34,12 +34,12 @@ export default function NotificationPopover() {
       unreadNotifications.forEach(notification => {
         // Only mark as read if it's not an actionable notification (like pending invites)
         const isActionable = notification.context && notification.context.inviteId;
-        const isPendingInvite = isActionable && 
-          notification.message.includes('invited to join') && 
+        const isPendingInvite = isActionable &&
+          notification.message.includes('invited to join') &&
           !notification.message.includes('has been revoked') &&
           !notification.message.includes('accepted your invite') &&
           !notification.message.includes('rejected your invite');
-        
+
         // Mark as read if it's not a pending invite
         if (!notification.read && !isPendingInvite) {
           markAsRead.mutate(notification.id);
@@ -51,9 +51,9 @@ export default function NotificationPopover() {
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
-        popoverRef.current && 
+        popoverRef.current &&
         !popoverRef.current.contains(event.target as Node) &&
-        buttonRef.current && 
+        buttonRef.current &&
         !buttonRef.current.contains(event.target as Node)
       ) {
         setIsOpen(false);
@@ -96,7 +96,7 @@ export default function NotificationPopover() {
 
   const handleRejectConfirm = () => {
     if (!pendingRejectId) return;
-    
+
     setRejectingId(pendingRejectId);
     respondToInviteMutation.mutate(
       { inviteId: pendingRejectId, accept: false, reason: rejectReason },
@@ -129,19 +129,19 @@ export default function NotificationPopover() {
 
   const renderNotification = (notification: Notification) => {
     const isInvite = notification.context && notification.context.inviteId;
-    
+
     // Only show Accept/Reject buttons for pending invitations
     // Check if the message indicates it's a pending invitation (not revoked)
-    const isPendingInvite = isInvite && 
-      notification.message.includes('invited to join') && 
+    const isPendingInvite = isInvite &&
+      notification.message.includes('invited to join') &&
       !notification.message.includes('has been revoked') &&
       !notification.message.includes('accepted your invite') &&
       !notification.message.includes('rejected your invite');
-    
+
     // Determine notification type and icon
     let icon = <InformationCircleIcon className="h-5 w-5 text-blue-500" />;
     let bgColor = "bg-blue-50 dark:bg-blue-900/20";
-    
+
     if (notification.message.includes('has been revoked')) {
       icon = <ExclamationTriangleIcon className="h-5 w-5 text-orange-500" />;
       bgColor = "bg-orange-50 dark:bg-orange-900/20";
@@ -155,7 +155,7 @@ export default function NotificationPopover() {
       icon = <InformationCircleIcon className="h-5 w-5 text-blue-500" />;
       bgColor = "bg-blue-50 dark:bg-blue-900/20";
     }
-    
+
     return (
       <div key={notification.id} className={`p-3 border-b border-neutral-100 dark:border-neutral-800 last:border-b-0 ${bgColor}`}>
         <div className="flex items-start gap-3">
@@ -250,26 +250,24 @@ export default function NotificationPopover() {
                   </svg>
                 </button>
               </div>
-              
+
               {/* Tabs */}
               <div className="flex space-x-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1">
                 <button
                   onClick={() => setActiveTab('unread')}
-                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-                    activeTab === 'unread'
+                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'unread'
                       ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-sm'
                       : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-                  }`}
+                    }`}
                 >
                   Unread ({unreadCount})
                 </button>
                 <button
                   onClick={() => setActiveTab('history')}
-                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-                    activeTab === 'history'
+                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'history'
                       ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-sm'
                       : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-                  }`}
+                    }`}
                 >
                   History ({readNotifications.length})
                 </button>

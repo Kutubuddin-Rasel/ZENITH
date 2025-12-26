@@ -30,7 +30,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Issue } from '../hooks/useProjectIssues';
 import { useSprintAttachments, SprintAttachment } from '../hooks/useSprints';
-import { TrashIcon, Bars3Icon, TagIcon, BookmarkSquareIcon, CheckCircleIcon, BugAntIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, TagIcon, BookmarkSquareIcon, CheckCircleIcon, BugAntIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useProject } from '@/hooks/useProject';
 
 interface SprintDetailModalProps {
@@ -83,6 +83,8 @@ function SortableModalIssueCard({
     <div
       ref={setNodeRef}
       style={style}
+      {...attributes}
+      {...listeners}
       className={`group bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg transition-all duration-200 cursor-grab active:cursor-grabbing ${isDragging
         ? 'shadow-2xl rotate-1 scale-105 z-50 border-blue-400'
         : 'hover:shadow-lg hover:border-neutral-300 dark:hover:border-neutral-600'
@@ -90,15 +92,6 @@ function SortableModalIssueCard({
     >
       <div className="p-4">
         <div className="flex items-start gap-3">
-          {/* Drag Handle */}
-          <div
-            {...attributes}
-            {...listeners}
-            className="mt-1 p-2 rounded-md bg-neutral-100 dark:bg-neutral-700 transition-colors group-hover:bg-neutral-200 dark:group-hover:bg-neutral-600 cursor-grab"
-          >
-            <Bars3Icon className="h-4 w-4 text-neutral-400" />
-          </div>
-
           {/* Issue Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between mb-3">
@@ -182,7 +175,6 @@ function DragOverlayModalCard({ issue, isSprint }: { issue: Issue; isSprint: boo
   return (
     <div className={`bg-white dark:bg-neutral-800 rounded-lg border-2 ${isSprint ? 'border-blue-400' : 'border-green-400'} p-4 shadow-2xl scale-105 w-full max-w-md`}>
       <div className="flex items-start gap-3">
-        <Bars3Icon className="h-4 w-4 text-neutral-400 mt-1" />
         <div className="flex-1 min-w-0">
           <Typography variant="body" className={`font-medium ${isSprint ? 'text-blue-600' : 'text-green-600'} mb-2`}>
             {issue.title}

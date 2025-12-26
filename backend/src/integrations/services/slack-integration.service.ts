@@ -531,7 +531,10 @@ export class SlackIntegrationService extends BaseIntegrationService {
       switch (action) {
         case 'create':
           // Open modal for issue creation (modern UX)
-          return await this.openCreateIssueModal(command.trigger_id, command.team_id);
+          return await this.openCreateIssueModal(
+            command.trigger_id,
+            command.team_id,
+          );
         case 'create-issue':
           return await this.handleCreateIssueCommand(command, args);
         case 'list-issues':
@@ -767,7 +770,10 @@ export class SlackIntegrationService extends BaseIntegrationService {
             element: {
               type: 'plain_text_input',
               action_id: 'title_input',
-              placeholder: { type: 'plain_text', text: 'Brief description of the issue' },
+              placeholder: {
+                type: 'plain_text',
+                text: 'Brief description of the issue',
+              },
             },
           },
           {
@@ -779,7 +785,10 @@ export class SlackIntegrationService extends BaseIntegrationService {
               type: 'plain_text_input',
               action_id: 'description_input',
               multiline: true,
-              placeholder: { type: 'plain_text', text: 'Detailed description...' },
+              placeholder: {
+                type: 'plain_text',
+                text: 'Detailed description...',
+              },
             },
           },
           {
@@ -791,11 +800,20 @@ export class SlackIntegrationService extends BaseIntegrationService {
               action_id: 'priority_select',
               placeholder: { type: 'plain_text', text: 'Select priority' },
               options: [
-                { text: { type: 'plain_text', text: '🔴 High' }, value: 'high' },
-                { text: { type: 'plain_text', text: '🟡 Medium' }, value: 'medium' },
+                {
+                  text: { type: 'plain_text', text: '🔴 High' },
+                  value: 'high',
+                },
+                {
+                  text: { type: 'plain_text', text: '🟡 Medium' },
+                  value: 'medium',
+                },
                 { text: { type: 'plain_text', text: '⚪ Low' }, value: 'low' },
               ],
-              initial_option: { text: { type: 'plain_text', text: '🟡 Medium' }, value: 'medium' },
+              initial_option: {
+                text: { type: 'plain_text', text: '🟡 Medium' },
+                value: 'medium',
+              },
             },
           },
           {
@@ -808,11 +826,23 @@ export class SlackIntegrationService extends BaseIntegrationService {
               placeholder: { type: 'plain_text', text: 'Select type' },
               options: [
                 { text: { type: 'plain_text', text: '🐛 Bug' }, value: 'bug' },
-                { text: { type: 'plain_text', text: '✨ Feature' }, value: 'story' },
-                { text: { type: 'plain_text', text: '📋 Task' }, value: 'task' },
-                { text: { type: 'plain_text', text: '🔧 Improvement' }, value: 'task' },
+                {
+                  text: { type: 'plain_text', text: '✨ Feature' },
+                  value: 'story',
+                },
+                {
+                  text: { type: 'plain_text', text: '📋 Task' },
+                  value: 'task',
+                },
+                {
+                  text: { type: 'plain_text', text: '🔧 Improvement' },
+                  value: 'task',
+                },
               ],
-              initial_option: { text: { type: 'plain_text', text: '📋 Task' }, value: 'task' },
+              initial_option: {
+                text: { type: 'plain_text', text: '📋 Task' },
+                value: 'task',
+              },
             },
           },
         ],
@@ -857,29 +887,38 @@ export class SlackIntegrationService extends BaseIntegrationService {
    * Handle modal form submission from Slack.
    * Called when user clicks "Create" on the issue creation modal.
    */
-  async handleViewSubmission(
-    payload: SlackInteractivePayload,
-  ): Promise<{ response_action?: string; errors?: Record<string, string> } | void> {
+  async handleViewSubmission(payload: SlackInteractivePayload): Promise<{
+    response_action?: string;
+    errors?: Record<string, string>;
+  } | void> {
     try {
       if (payload.view?.callback_id !== 'create_issue_modal') {
-        this.logger.warn(`Unknown modal callback_id: ${payload.view?.callback_id}`);
+        this.logger.warn(
+          `Unknown modal callback_id: ${payload.view?.callback_id}`,
+        );
         return;
       }
 
       const values = payload.view.state.values;
 
       // Extract form values
-      const projectKey = values.project_block?.project_input?.value?.toUpperCase() || '';
+      const projectKey =
+        values.project_block?.project_input?.value?.toUpperCase() || '';
       const title = values.title_block?.title_input?.value || '';
-      const description = values.description_block?.description_input?.value || '';
-      const priority = values.priority_block?.priority_select?.selected_option?.value;
-      const issueTypeValue = values.type_block?.type_select?.selected_option?.value;
+      const description =
+        values.description_block?.description_input?.value || '';
+      const priority =
+        values.priority_block?.priority_select?.selected_option?.value;
+      const issueTypeValue =
+        values.type_block?.type_select?.selected_option?.value;
 
       // Validate required fields
       if (!projectKey || projectKey.length < 2) {
         return {
           response_action: 'errors',
-          errors: { project_block: 'Please enter a valid project key (e.g., ZEN)' },
+          errors: {
+            project_block: 'Please enter a valid project key (e.g., ZEN)',
+          },
         };
       }
 
@@ -891,7 +930,9 @@ export class SlackIntegrationService extends BaseIntegrationService {
       }
 
       // Get integration from metadata
-      const metadata = JSON.parse(payload.view.private_metadata || '{}');
+      const metadata = JSON.parse(payload.view.private_metadata || '{}') as {
+        integrationId?: string;
+      };
       const integrationId = metadata.integrationId;
 
       if (!integrationId) {
@@ -918,22 +959,34 @@ export class SlackIntegrationService extends BaseIntegrationService {
       }
 
       // Resolve Slack user to Zenith user
-      const reporterId = await this.resolveZenithUser(integration, payload.user.id);
+      const reporterId = await this.resolveZenithUser(
+        integration,
+        payload.user.id,
+      );
       if (!reporterId) {
         return {
           response_action: 'errors',
-          errors: { project_block: 'Could not match your Slack account to a Zenith user. Ensure emails match.' },
+          errors: {
+            project_block:
+              'Could not match your Slack account to a Zenith user. Ensure emails match.',
+          },
         };
       }
 
       // Map issue type and priority
-      const issueType = issueTypeValue === 'bug' ? IssueType.BUG
-        : issueTypeValue === 'story' ? IssueType.STORY
-          : IssueType.TASK;
+      const issueType =
+        issueTypeValue === 'bug'
+          ? IssueType.BUG
+          : issueTypeValue === 'story'
+            ? IssueType.STORY
+            : IssueType.TASK;
 
-      const issuePriority = priority === 'high' ? IssuePriority.HIGH
-        : priority === 'low' ? IssuePriority.LOW
-          : IssuePriority.MEDIUM;
+      const issuePriority =
+        priority === 'high'
+          ? IssuePriority.HIGH
+          : priority === 'low'
+            ? IssuePriority.LOW
+            : IssuePriority.MEDIUM;
 
       // Create the issue
       const issue = await this.issuesService.create(project.id, reporterId, {
@@ -945,7 +998,9 @@ export class SlackIntegrationService extends BaseIntegrationService {
 
       // Post confirmation message to user via Slack
       const accessToken = this.getAccessToken(integration);
-      const issueNumber = issue.number ? `${project.key}-${issue.number}` : 'New Issue';
+      const issueNumber = issue.number
+        ? `${project.key}-${issue.number}`
+        : 'New Issue';
       const appUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       const issueUrl = `${appUrl}/projects/${project.id}/issues/${issue.id}`;
 
@@ -971,7 +1026,9 @@ export class SlackIntegrationService extends BaseIntegrationService {
         }),
       });
 
-      this.logger.log(`Issue ${issueNumber} created via Slack modal by ${payload.user.username}`);
+      this.logger.log(
+        `Issue ${issueNumber} created via Slack modal by ${payload.user.username}`,
+      );
 
       // Close modal successfully
       return;

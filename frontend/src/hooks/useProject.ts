@@ -33,6 +33,8 @@ export function useProjectSummary(id: string) {
     queryKey: ['project-summary', id],
     queryFn: () => apiFetch(`/projects/${id}/summary`),
     enabled: !!id,
+    staleTime: 0, // Always consider data stale
+    refetchOnMount: 'always', // Refetch when component mounts
   });
 }
 
@@ -106,7 +108,7 @@ export function useUpdateProjectMemberRole(id: string) {
       queryClient.invalidateQueries({ queryKey: ['project-members', id] });
     },
   });
-} 
+}
 
 export function useAddProjectMember(id: string) {
   const queryClient = useQueryClient();

@@ -9,6 +9,9 @@ export interface NotificationTypes {
     sprintStarted: boolean;
     sprintCompleted: boolean;
     projectInvited: boolean;
+    // Enterprise: @mentions
+    mentionedInComment: boolean;
+    mentionedInDescription: boolean;
 }
 
 export interface NotificationPreferences {
@@ -20,12 +23,10 @@ export interface NotificationPreferences {
 }
 
 export interface UIPreferences {
-    theme: 'light' | 'dark' | 'auto';
-    sidebarCollapsed: boolean;
-    defaultView: 'board' | 'list' | 'timeline';
-    itemsPerPage: number;
-    showAdvancedFeatures: boolean;
+    theme: 'light' | 'dark';
+    accentColor: string;
     compactMode: boolean;
+    sidebarStyle: 'default' | 'compact';
 }
 
 export interface WorkPreferences {
@@ -62,10 +63,7 @@ export interface UserPreferencesData {
     };
 }
 
-interface PreferencesResponse {
-    success: boolean;
-    data: UserPreferencesData;
-}
+// Note: apiFetch already unwraps { success, data } and returns just data
 
 /**
  * Payload type for updating preferences - allows partial nested objects
@@ -83,12 +81,10 @@ export interface UpdatePreferencesPayload {
 
 const DEFAULT_PREFERENCES: UserPreferencesData = {
     ui: {
-        theme: 'auto',
-        sidebarCollapsed: false,
-        defaultView: 'board',
-        itemsPerPage: 25,
-        showAdvancedFeatures: false,
+        theme: 'light',
+        accentColor: '#3B82F6',
         compactMode: false,
+        sidebarStyle: 'default',
     },
     notifications: {
         email: true,
@@ -102,13 +98,16 @@ const DEFAULT_PREFERENCES: UserPreferencesData = {
             sprintStarted: true,
             sprintCompleted: true,
             projectInvited: true,
+            // Enterprise: @mentions
+            mentionedInComment: true,
+            mentionedInDescription: true,
         },
     },
     work: {
         workingHours: {
             start: '09:00',
             end: '17:00',
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            timezone: 'UTC', // Static SSR-safe default - detect client-side
             workingDays: [1, 2, 3, 4, 5], // Mon-Fri
         },
         defaultSprintDuration: 14,
@@ -118,16 +117,19 @@ const DEFAULT_PREFERENCES: UserPreferencesData = {
     },
 };
 
+
 /**
  * Fetch current user's preferences
+ * Note: apiFetch unwraps the API response and returns data directly
  */
 export function useUserPreferences() {
     return useQuery({
         queryKey: ['user-preferences'],
         queryFn: async (): Promise<UserPreferencesData> => {
             try {
-                const response = await apiFetch<PreferencesResponse>('/user-preferences/me');
-                return response.data || DEFAULT_PREFERENCES;
+                // apiFetch already unwraps { success, data } - returns UserPreferencesData directly
+                const preferences = await apiFetch<UserPreferencesData>('/user-preferences/me');
+                return preferences || DEFAULT_PREFERENCES;
             } catch {
                 // Return defaults if preferences don't exist yet
                 return DEFAULT_PREFERENCES;
@@ -139,46 +141,60 @@ export function useUserPreferences() {
 
 /**
  * Update user preferences (partial update)
+ * Fixed: Proper conditional deep merge for nested objects
  */
 export function useUpdatePreferences() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: async (update: UpdatePreferencesPayload) => {
-            return apiFetch<PreferencesResponse>('/user-preferences/me', {
+            // apiFetch unwraps response - returns UserPreferencesData directly
+            return apiFetch<UserPreferencesData>('/user-preferences/me', {
                 method: 'PATCH',
                 body: JSON.stringify(update),
                 headers: { 'Content-Type': 'application/json' },
             });
         },
-        // Optimistic update for instant feedback
+        // Optimistic update with conditional deep merge
         onMutate: async (update) => {
             await queryClient.cancelQueries({ queryKey: ['user-preferences'] });
             const previousPrefs = queryClient.getQueryData<UserPreferencesData>(['user-preferences']);
 
             if (previousPrefs) {
-                queryClient.setQueryData<UserPreferencesData>(['user-preferences'], {
-                    ...previousPrefs,
-                    ...update,
-                    // Deep merge for nested objects
-                    ui: { ...previousPrefs.ui, ...update.ui },
-                    notifications: {
+                const newData = { ...previousPrefs };
+
+                // Conditional merge - only update if field provided
+                if (update.ui) {
+                    newData.ui = { ...previousPrefs.ui, ...update.ui };
+                }
+
+                if (update.notifications) {
+                    // Handle nested types separately
+                    const types = update.notifications.types
+                        ? { ...previousPrefs.notifications.types, ...update.notifications.types }
+                        : previousPrefs.notifications.types;
+
+                    newData.notifications = {
                         ...previousPrefs.notifications,
                         ...update.notifications,
-                        types: {
-                            ...previousPrefs.notifications?.types,
-                            ...update.notifications?.types
-                        },
-                    },
-                    work: {
+                        types,
+                    };
+                }
+
+                if (update.work) {
+                    // Handle nested workingHours separately
+                    const workingHours = update.work.workingHours
+                        ? { ...previousPrefs.work.workingHours, ...update.work.workingHours }
+                        : previousPrefs.work.workingHours;
+
+                    newData.work = {
                         ...previousPrefs.work,
                         ...update.work,
-                        workingHours: {
-                            ...previousPrefs.work?.workingHours,
-                            ...update.work?.workingHours
-                        },
-                    },
-                });
+                        workingHours,
+                    };
+                }
+
+                queryClient.setQueryData<UserPreferencesData>(['user-preferences'], newData);
             }
 
             return { previousPrefs };
@@ -194,3 +210,4 @@ export function useUpdatePreferences() {
         },
     });
 }
+

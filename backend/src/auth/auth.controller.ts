@@ -137,7 +137,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  getProfile(
+  async getProfile(
     @Request()
     req: {
       user: {
@@ -148,16 +148,21 @@ export class AuthController {
       };
     },
   ) {
-    if (
-      req &&
-      typeof req === 'object' &&
-      req.user &&
-      typeof req.user === 'object'
-    ) {
-      const user = req.user;
-      return user;
+    if (!req?.user?.userId) {
+      return null;
     }
-    return null;
+
+    // Fetch fresh user data from DB to get latest avatarUrl and other fields
+    const freshUser = await this.authService.findUserById(req.user.userId);
+
+    return {
+      userId: freshUser.id,
+      email: freshUser.email,
+      name: freshUser.name,
+      isSuperAdmin: freshUser.isSuperAdmin,
+      avatarUrl: freshUser.avatarUrl,
+      organizationId: freshUser.organizationId,
+    };
   }
 
   @UseGuards(JwtAuthGuard)

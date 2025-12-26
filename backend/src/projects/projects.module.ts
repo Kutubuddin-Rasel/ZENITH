@@ -16,7 +16,12 @@ import { WorkflowsModule } from '../workflows/workflows.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Project, ProjectAccessSettings, ProjectSecurityPolicy, Issue]),
+    TypeOrmModule.forFeature([
+      Project,
+      ProjectAccessSettings,
+      ProjectSecurityPolicy,
+      Issue,
+    ]),
     // CYCLE FIX: Mutual cycle with InvitesModule - both use forwardRef
     forwardRef(() => InvitesModule),
     WorkflowsModule,
@@ -25,4 +30,4 @@ import { WorkflowsModule } from '../workflows/workflows.module';
   controllers: [ProjectsController, ProjectSecurityPolicyController],
   exports: [ProjectsService, ProjectSecurityPolicyService],
 })
-export class ProjectsModule { }
+export class ProjectsModule {}

@@ -5,4 +5,5 @@ export interface SafeUser {
   isSuperAdmin: boolean;
   isActive: boolean;
   organizationId?: string; // Added for workspace context
+  avatarUrl?: string; // Profile picture URL
 }

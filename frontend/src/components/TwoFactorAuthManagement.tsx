@@ -3,11 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../lib/api-client';
 import { getErrorMessage } from '../lib/error-utils';
 import Button from './Button';
-import Typography from './Typography';
-import Card from './Card';
+import { SettingsCard } from './settings-ui';
 import TwoFactorAuthSetup from './TwoFactorAuthSetup';
 import {
-  ShieldCheckIcon,
   ExclamationTriangleIcon,
   KeyIcon,
   TrashIcon
@@ -63,39 +61,36 @@ export default function TwoFactorAuthManagement() {
 
   if (isLoading) {
     return (
-      <Card className="p-6">
-        <div className="animate-pulse">
-          <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-1/4 mb-4"></div>
-          <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-1/2"></div>
+      <SettingsCard
+        title="Two-Factor Authentication"
+        description="Checking security status..."
+      >
+        <div className="animate-pulse space-y-4">
+          <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-1/4"></div>
+          <div className="h-10 bg-neutral-200 dark:bg-neutral-700 rounded w-1/3"></div>
         </div>
-      </Card>
+      </SettingsCard>
     );
   }
 
   return (
     <>
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <ShieldCheckIcon className="h-6 w-6 text-blue-600" />
-            <Typography variant="h3">Two-Factor Authentication</Typography>
-          </div>
-          <div className={`px-3 py-1 rounded-full text-sm font-medium ${isEnabled
-            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-            : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+      <SettingsCard
+        title="Two-Factor Authentication"
+        description="Two-factor authentication adds an extra layer of security to your account by requiring a verification code from your mobile device."
+        headerAction={
+          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${isEnabled
+            ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
+            : 'bg-neutral-100 text-neutral-600 border-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-700'
             }`}>
             {isEnabled ? 'Enabled' : 'Disabled'}
-          </div>
-        </div>
-
-        <Typography variant="body" className="text-neutral-600 dark:text-neutral-400 mb-6">
-          Two-factor authentication adds an extra layer of security to your account by requiring a verification code from your mobile device.
-        </Typography>
-
+          </span>
+        }
+      >
         {error && (
-          <div className="flex items-center space-x-2 text-red-600 dark:text-red-400 mb-4">
+          <div className="flex items-center space-x-2 text-red-600 dark:text-red-400 mb-4 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg">
             <ExclamationTriangleIcon className="h-5 w-5" />
-            <Typography variant="body" className="text-sm">{error}</Typography>
+            <span className="text-sm font-medium">{error}</span>
           </div>
         )}
 
@@ -127,15 +122,15 @@ export default function TwoFactorAuthManagement() {
 
               {backupCodes.length > 0 && (
                 <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                  <Typography variant="h4" className="text-yellow-800 dark:text-yellow-200 mb-2">
+                  <h4 className="text-sm font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
                     New Backup Codes Generated
-                  </Typography>
-                  <Typography variant="body" className="text-yellow-700 dark:text-yellow-300 mb-3">
+                  </h4>
+                  <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
                     Save these codes in a safe place. Each code can only be used once.
-                  </Typography>
-                  <div className="grid grid-cols-2 gap-2 font-mono text-sm">
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 font-mono text-xs sm:text-sm">
                     {backupCodes.map((code, index) => (
-                      <div key={index} className="bg-white dark:bg-neutral-800 p-2 rounded text-center border">
+                      <div key={index} className="bg-white dark:bg-neutral-800 p-2 rounded text-center border dark:border-neutral-700">
                         {code}
                       </div>
                     ))}
@@ -145,7 +140,7 @@ export default function TwoFactorAuthManagement() {
             </div>
           )}
         </div>
-      </Card>
+      </SettingsCard>
 
       <TwoFactorAuthSetup
         isOpen={showSetup}
@@ -155,16 +150,18 @@ export default function TwoFactorAuthManagement() {
 
       {/* Disable 2FA Confirmation Modal */}
       {showDisable && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="max-w-md w-full p-6">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl max-w-md w-full p-6 border border-neutral-200 dark:border-neutral-800">
             <div className="text-center">
-              <ExclamationTriangleIcon className="h-16 w-16 text-red-600 mx-auto mb-4" />
-              <Typography variant="h3" className="mb-2">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
+                <ExclamationTriangleIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">
                 Disable Two-Factor Authentication?
-              </Typography>
-              <Typography variant="body" className="text-neutral-600 dark:text-neutral-400 mb-6">
+              </h3>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">
                 This will make your account less secure. Are you sure you want to continue?
-              </Typography>
+              </p>
               <div className="flex space-x-3">
                 <Button
                   variant="secondary"
@@ -182,7 +179,7 @@ export default function TwoFactorAuthManagement() {
                 </Button>
               </div>
             </div>
-          </Card>
+          </div>
         </div>
       )}
     </>

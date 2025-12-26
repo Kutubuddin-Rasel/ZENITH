@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from 'react';
-import Card from '@/components/Card';
+import { SettingsHeader, SettingsCard } from '@/components/settings-ui';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import Modal from '@/components/Modal';
@@ -104,45 +104,38 @@ export default function DeveloperPage() {
     }
 
     return (
-        <div className="max-w-3xl mx-auto p-6 space-y-8">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
-                        Developer Settings
-                    </h1>
-                    <p className="text-neutral-500 mt-2">
-                        Manage API tokens for programmatic access.
-                    </p>
-                </div>
+        <div className="max-w-4xl mx-auto space-y-8">
+            <SettingsHeader
+                title="Developer Settings"
+                description="Manage API tokens and developer access."
+            >
                 <Button onClick={() => setIsModalOpen(true)} className="gap-2">
                     <PlusIcon className="h-5 w-5" />
                     Generate New Token
                 </Button>
-            </div>
+            </SettingsHeader>
 
             {/* Info Card */}
-            <Card className="p-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                <div className="flex items-start gap-3">
-                    <KeyIcon className="h-5 w-5 text-blue-600 mt-0.5" />
+            <SettingsCard
+                title="Personal Access Tokens"
+                description="Tokens allow you to authenticate with the Zenith API for scripts and integrations."
+                className="!bg-blue-50/50 dark:!bg-blue-900/10 !border-blue-200 dark:!border-blue-800"
+            >
+                <div className="flex items-start gap-3 text-sm text-blue-900 dark:text-blue-200">
+                    <KeyIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
                     <div>
-                        <p className="text-sm text-blue-800 dark:text-blue-200">
-                            <strong>Personal Access Tokens</strong> allow you to authenticate with the Zenith API
-                            for scripts, CI/CD pipelines, and integrations.
-                        </p>
-                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                        <p>
                             Tokens are shown only once upon creation. Store them securely.
                         </p>
                     </div>
                 </div>
-            </Card>
+            </SettingsCard>
 
             {/* Tokens List */}
-            <Card className="p-6">
-                <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-4">
-                    Active Tokens
-                </h2>
-
+            <SettingsCard
+                title="Active Tokens"
+                description="Your generated API keys."
+            >
                 {isError ? (
                     <div className="text-center py-8 text-neutral-500">
                         Failed to load tokens
@@ -160,7 +153,7 @@ export default function DeveloperPage() {
                         {apiKeys.map((key) => (
                             <div
                                 key={key.id}
-                                className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-neutral-800 rounded-xl"
+                                className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-100 dark:border-neutral-700 hover:border-neutral-200 dark:hover:border-neutral-600 transition-colors"
                             >
                                 <div className="flex items-center gap-4">
                                     <div className="p-2 bg-neutral-200 dark:bg-neutral-700 rounded-lg">
@@ -171,7 +164,9 @@ export default function DeveloperPage() {
                                             {key.name}
                                         </p>
                                         <div className="flex items-center gap-4 text-xs text-neutral-500 mt-1">
-                                            <span className="font-mono">{key.keyPrefix}•••••••</span>
+                                            <span className="font-mono bg-neutral-100 dark:bg-neutral-900 px-1.5 py-0.5 rounded text-xs border border-neutral-200 dark:border-neutral-700">
+                                                {key.keyPrefix}•••••••
+                                            </span>
                                             <span className="flex items-center gap-1">
                                                 <ClockIcon className="h-3 w-3" />
                                                 Created {formatDate(key.createdAt)}
@@ -187,7 +182,7 @@ export default function DeveloperPage() {
                                     size="sm"
                                     onClick={() => handleRevokeToken(key.id)}
                                     loading={revokingId === key.id}
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border-transparent hover:border-red-100"
                                 >
                                     <TrashIcon className="h-4 w-4" />
                                 </Button>
@@ -195,11 +190,11 @@ export default function DeveloperPage() {
                         ))}
                     </div>
                 )}
-            </Card>
+            </SettingsCard>
 
             {/* Create Token Modal */}
             <Modal open={isModalOpen} onClose={closeModal} title="Generate New Token">
-                <div className="space-y-6">
+                <div className="space-y-6 pt-2">
                     {!newToken ? (
                         <>
                             <div>
@@ -210,6 +205,7 @@ export default function DeveloperPage() {
                                     value={newTokenName}
                                     onChange={(e) => setNewTokenName(e.target.value)}
                                     placeholder="e.g., CI/CD Pipeline, Local Development"
+                                    autoFocus
                                 />
                                 <p className="text-xs text-neutral-500 mt-2">
                                     Give your token a descriptive name to identify its purpose.
@@ -240,7 +236,7 @@ export default function DeveloperPage() {
                             </div>
 
                             <div className="relative">
-                                <div className="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-xl font-mono text-sm break-all">
+                                <div className="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-xl font-mono text-sm break-all border border-neutral-200 dark:border-neutral-700">
                                     {newToken}
                                 </div>
                                 <Button

@@ -102,7 +102,7 @@ export default function ComparisonTable() {
                 <ScrollReveal delay={0.3} className="mt-10 text-center">
                     <Link
                         href="/auth/register"
-                        className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+                        className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-primary-600 text-accent-foreground font-semibold hover:bg-primary-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
                     >
                         Start Free Trial
                         <ArrowRightIcon className="h-5 w-5" />

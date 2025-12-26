@@ -39,7 +39,7 @@ export class GitHubIssueLinkService {
     @InjectRepository(ExternalData)
     private externalDataRepo: Repository<ExternalData>,
     private readonly eventEmitter: EventEmitter2,
-  ) { }
+  ) {}
 
   /**
    * Parse issue key from branch name.
@@ -181,7 +181,7 @@ export class GitHubIssueLinkService {
         if (!projectKey) {
           this.logger.warn(
             `SECURITY: Ignoring "${magicWord.rawMatch}" - repository has no project mapping. ` +
-            `Only PROJ-123 style references are allowed for unmapped repos.`,
+              `Only PROJ-123 style references are allowed for unmapped repos.`,
           );
           continue;
         }
@@ -198,8 +198,8 @@ export class GitHubIssueLinkService {
         continue;
       }
 
-      // Skip if already done
-      if (issue.status === IssueStatus.DONE) {
+      // Skip if already done (use string comparison since status is a string field)
+      if (issue.status === 'Done') {
         this.logger.debug(`Issue ${resolvedKey} already done, skipping`);
         continue;
       }

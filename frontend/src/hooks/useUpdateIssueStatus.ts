@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/fetcher';
-import { Issue } from './useProjectIssues'; // Assuming Issue is exported from here
+import { Issue } from './useProjectIssues';
 
 /**
  * Hook to update issue status via drag-and-drop.
@@ -12,7 +12,6 @@ export function useUpdateIssueStatus(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ issueId, statusId, status }: { issueId: string; statusId?: string; status?: string }) => {
-      // RELATIONAL STATUS: Send statusId if available, otherwise fallback to status
       const body = statusId
         ? { statusId }
         : { status };
@@ -21,7 +20,6 @@ export function useUpdateIssueStatus(projectId: string) {
         method: 'PATCH',
         body: JSON.stringify(body),
       });
-      console.log('Status update response:', response);
       return response;
     },
     onMutate: async ({ issueId, statusId, status }) => {
@@ -44,7 +42,6 @@ export function useUpdateIssueStatus(projectId: string) {
       }
     },
     onSettled: () => {
-      // Invalidate queries to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ['project-issues', projectId] });
       queryClient.invalidateQueries({ queryKey: ['backlog', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project-summary', projectId] });

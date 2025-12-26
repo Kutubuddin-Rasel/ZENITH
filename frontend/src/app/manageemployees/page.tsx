@@ -8,9 +8,9 @@ import Input from '@/components/Input';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { 
-  PencilSquareIcon, 
-  TrashIcon, 
+import {
+  PencilSquareIcon,
+  TrashIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
   UserPlusIcon,
@@ -18,7 +18,12 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   TrophyIcon,
-  SparklesIcon
+  SparklesIcon,
+  ShieldCheckIcon,
+  CodeBracketIcon,
+  SwatchIcon,
+  EyeIcon,
+  UserIcon
 } from '@heroicons/react/24/outline';
 import { useToast } from '@/context/ToastContext';
 import PageLayout from '@/components/PageLayout';
@@ -69,14 +74,15 @@ const getRoleColor = (role: string) => {
   }
 };
 
-const getRoleIcon = (role: string) => {
+const getRoleIcon = (role: string): React.ReactElement => {
+  const iconClass = "h-4 w-4";
   switch (role) {
-    case 'ProjectLead': return '👑';
-    case 'Developer': return '💻';
-    case 'QA': return '🔍';
-    case 'Designer': return '🎨';
-    case 'Viewer': return '👁️';
-    default: return '👤';
+    case 'ProjectLead': return <ShieldCheckIcon className={iconClass} />;
+    case 'Developer': return <CodeBracketIcon className={iconClass} />;
+    case 'QA': return <MagnifyingGlassIcon className={iconClass} />;
+    case 'Designer': return <SwatchIcon className={iconClass} />;
+    case 'Viewer': return <EyeIcon className={iconClass} />;
+    default: return <UserIcon className={iconClass} />;
   }
 };
 
@@ -162,7 +168,7 @@ const ManageEmployeesPage: React.FC = () => {
       await apiFetch(`/users/${user.id}/${user.isActive ? 'deactivate' : 'activate'}`, { method: 'PATCH' });
       refetch();
       showToast(`User ${user.isActive ? 'deactivated' : 'activated'} successfully!`, 'success');
-      } catch {
+    } catch {
       showToast('Failed to update user status', 'error');
     } finally {
       setActivatingUserId(null);
@@ -385,10 +391,10 @@ const ManageEmployeesPage: React.FC = () => {
 
         {/* Actions */}
         <div className="flex items-center gap-2 pt-4 border-t border-neutral-200 dark:border-neutral-700">
-          <Button 
+          <Button
             variant="secondary"
             size="sm"
-            onClick={() => setEditUser(user)} 
+            onClick={() => setEditUser(user)}
             className="flex-1"
           >
             <PencilSquareIcon className="h-4 w-4 mr-1" />
@@ -410,10 +416,10 @@ const ManageEmployeesPage: React.FC = () => {
               </>
             )}
           </Button>
-          <Button 
+          <Button
             variant="danger"
             size="sm"
-            onClick={() => setDeleteUser(user)} 
+            onClick={() => setDeleteUser(user)}
             className="flex-1"
           >
             <TrashIcon className="h-4 w-4 mr-1" />
@@ -511,7 +517,7 @@ const ManageEmployeesPage: React.FC = () => {
                 )}
               </div>
             </div>
-            
+
             <div>
               <Typography variant="label" className="block mb-2">
                 Password
@@ -523,13 +529,13 @@ const ManageEmployeesPage: React.FC = () => {
                 </Typography>
               )}
             </div>
-            
+
             <div>
               <Typography variant="label" className="block mb-2">
                 Default Role
               </Typography>
-              <select 
-                {...register('defaultRole')} 
+              <select
+                {...register('defaultRole')}
                 className="w-full px-4 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-medium transition-all"
               >
                 <option value="">Select a role</option>
@@ -543,17 +549,17 @@ const ManageEmployeesPage: React.FC = () => {
                 </Typography>
               )}
             </div>
-            
+
             <div className="flex justify-end gap-3 pt-4">
-              <Button 
-                type="button" 
-                variant="secondary" 
+              <Button
+                type="button"
+                variant="secondary"
                 onClick={() => { setShowForm(false); reset(); }}
               >
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? <Spinner className="h-4 w-4" /> : (
@@ -583,20 +589,20 @@ const ManageEmployeesPage: React.FC = () => {
                 </Typography>
               )}
             </div>
-            
+
             <div>
               <Typography variant="label" className="block mb-2">
                 Email Address
               </Typography>
               <Input value={editUser.email} readOnly className="opacity-70 cursor-not-allowed" />
             </div>
-            
+
             <div>
               <Typography variant="label" className="block mb-2">
                 Default Role
               </Typography>
-              <select 
-                {...editRegister('defaultRole')} 
+              <select
+                {...editRegister('defaultRole')}
                 className="w-full px-4 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-medium transition-all"
               >
                 <option value="">Select a role</option>
@@ -610,13 +616,13 @@ const ManageEmployeesPage: React.FC = () => {
                 </Typography>
               )}
             </div>
-            
+
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="secondary" onClick={() => setEditUser(null)}>
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={isEditSubmitting}
               >
                 {isEditSubmitting ? <Spinner className="h-4 w-4" /> : (
@@ -649,9 +655,9 @@ const ManageEmployeesPage: React.FC = () => {
             <Button variant="secondary" onClick={() => setDeleteUser(null)} disabled={!!deletingUserId}>
               Cancel
             </Button>
-            <Button 
-              variant="danger" 
-              onClick={handleDeleteUser} 
+            <Button
+              variant="danger"
+              onClick={handleDeleteUser}
               disabled={!!deletingUserId}
             >
               {deletingUserId ? <Spinner className="h-4 w-4" /> : (

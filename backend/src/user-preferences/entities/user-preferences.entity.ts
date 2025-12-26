@@ -11,14 +11,12 @@ import {
 import { User } from '../../users/entities/user.entity';
 
 export interface UserPreferencesData {
-  // UI Preferences
+  // Appearance Preferences (all visually applied)
   ui: {
-    theme: 'light' | 'dark' | 'auto';
-    sidebarCollapsed: boolean;
-    defaultView: 'board' | 'list' | 'timeline';
-    itemsPerPage: number;
-    showAdvancedFeatures: boolean;
-    compactMode: boolean;
+    theme: 'light' | 'dark'; // Applied via document.classList
+    accentColor: string; // Hex color, applied via CSS variables
+    compactMode: boolean; // Applied via .compact class
+    sidebarStyle: 'default' | 'compact'; // Sidebar width mode
   };
 
   // Notification Preferences
@@ -34,6 +32,9 @@ export interface UserPreferencesData {
       sprintStarted: boolean;
       sprintCompleted: boolean;
       projectInvited: boolean;
+      // Enterprise: @mentions
+      mentionedInComment: boolean;
+      mentionedInDescription: boolean;
     };
   };
 

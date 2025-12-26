@@ -243,7 +243,7 @@ export class GitHubIntegrationService extends BaseIntegrationService {
 
   /**
    * Register a repository-to-project mapping.
-   * 
+   *
    * REQUIRED for #123 style Magic Words to work safely.
    * Without this mapping, only PROJ-123 style references will be processed.
    *
@@ -300,9 +300,14 @@ export class GitHubIntegrationService extends BaseIntegrationService {
    * List all repositories accessible to the authenticated GitHub user.
    * Used to populate the repository dropdown in project settings.
    */
-  async listUserRepositories(
-    integrationId: string,
-  ): Promise<Array<{ full_name: string; name: string; private: boolean; description: string | null }>> {
+  async listUserRepositories(integrationId: string): Promise<
+    Array<{
+      full_name: string;
+      name: string;
+      private: boolean;
+      description: string | null;
+    }>
+  > {
     const integration = await this.integrationRepo.findOne({
       where: { id: integrationId, type: IntegrationType.GITHUB },
     });
@@ -313,72 +318,71 @@ export class GitHubIntegrationService extends BaseIntegrationService {
 
     try {
       // Fetch repos with automatic token refresh
-      const repos = await this.executeWithTokenAndRetry<Array<{
-        full_name: string;
-        name: string;
-        private: boolean;
-        description: string | null;
-      }>>(
-        integrationId,
-        async (token) => {
-          const allRepos: Array<{
+      const repos = await this.executeWithTokenAndRetry<
+        Array<{
+          full_name: string;
+          name: string;
+          private: boolean;
+          description: string | null;
+        }>
+      >(integrationId, async (token) => {
+        const allRepos: Array<{
+          full_name: string;
+          name: string;
+          private: boolean;
+          description: string | null;
+        }> = [];
+
+        let page = 1;
+        const perPage = 100;
+
+        // Paginate through all repos
+        while (true) {
+          const response = await fetch(
+            `${this.githubApiBase}/user/repos?per_page=${perPage}&page=${page}&sort=updated`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/vnd.github.v3+json',
+              },
+            },
+          );
+
+          if (!response.ok) {
+            throw new Error(`Failed to list repositories: ${response.status}`);
+          }
+
+          const pageRepos = (await response.json()) as Array<{
             full_name: string;
             name: string;
             private: boolean;
             description: string | null;
-          }> = [];
+          }>;
 
-          let page = 1;
-          const perPage = 100;
+          allRepos.push(
+            ...pageRepos.map((r) => ({
+              full_name: r.full_name,
+              name: r.name,
+              private: r.private,
+              description: r.description,
+            })),
+          );
 
-          // Paginate through all repos
-          while (true) {
-            const response = await fetch(
-              `${this.githubApiBase}/user/repos?per_page=${perPage}&page=${page}&sort=updated`,
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  Accept: 'application/vnd.github.v3+json',
-                },
-              },
-            );
-
-            if (!response.ok) {
-              throw new Error(`Failed to list repositories: ${response.status}`);
-            }
-
-            const pageRepos = (await response.json()) as Array<{
-              full_name: string;
-              name: string;
-              private: boolean;
-              description: string | null;
-            }>;
-
-            allRepos.push(
-              ...pageRepos.map((r) => ({
-                full_name: r.full_name,
-                name: r.name,
-                private: r.private,
-                description: r.description,
-              })),
-            );
-
-            // If fewer than perPage results, we've reached the end
-            if (pageRepos.length < perPage) {
-              break;
-            }
-
-            page++;
-            // Safety limit
-            if (page > 10) {
-              this.logger.warn('Reached pagination limit (1000 repos)');
-              break;
-            }
+          // If fewer than perPage results, we've reached the end
+          if (pageRepos.length < perPage) {
+            break;
           }
 
-          return allRepos;
-        },
-      );
+          page++;
+          // Safety limit
+          if (page > 10) {
+            this.logger.warn('Reached pagination limit (1000 repos)');
+            break;
+          }
+        }
+
+        return allRepos;
+      });
 
       this.logger.log(
         `Listed ${repos.length} repositories for integration ${integrationId}`,
@@ -397,7 +401,11 @@ export class GitHubIntegrationService extends BaseIntegrationService {
   async getProjectRepositoryLink(
     integrationId: string,
     projectId: string,
-  ): Promise<{ repositoryFullName: string; projectKey: string; linkedAt: string } | null> {
+  ): Promise<{
+    repositoryFullName: string;
+    projectKey: string;
+    linkedAt: string;
+  } | null> {
     // Query ExternalData for repo_project_link where rawData contains projectId
     const links = await this.externalDataRepo.find({
       where: {
@@ -439,7 +447,9 @@ export class GitHubIntegrationService extends BaseIntegrationService {
       link.repositoryFullName,
     );
 
-    this.logger.log(`Unlinked project ${projectId} from ${link.repositoryFullName}`);
+    this.logger.log(
+      `Unlinked project ${projectId} from ${link.repositoryFullName}`,
+    );
     return true;
   }
 
@@ -891,7 +901,7 @@ export class GitHubIntegrationService extends BaseIntegrationService {
 
   /**
    * Handle push events - process commits for "Magic Words" (Fixes #123, etc.)
-   * 
+   *
    * SECURITY: #123 short references are ONLY resolved if the repository
    * has an explicit project mapping stored in ExternalData.
    * This prevents cross-project issue closure attacks.
@@ -930,8 +940,8 @@ export class GitHubIntegrationService extends BaseIntegrationService {
     } else {
       this.logger.warn(
         `Repository ${repoFullName} has no project mapping. ` +
-        `#123 style magic words will be IGNORED for security. ` +
-        `Only PROJ-123 style references will be processed.`,
+          `#123 style magic words will be IGNORED for security. ` +
+          `Only PROJ-123 style references will be processed.`,
       );
     }
 
@@ -979,7 +989,10 @@ export class GitHubIntegrationService extends BaseIntegrationService {
       allClosedKeys.push(...closedKeys);
 
       // Also link all mentioned issues (references, not just closes)
-      await this.issueLinkService.linkCommitToIssues(integrationId, gitHubCommit);
+      await this.issueLinkService.linkCommitToIssues(
+        integrationId,
+        gitHubCommit,
+      );
     }
 
     if (allClosedKeys.length > 0) {

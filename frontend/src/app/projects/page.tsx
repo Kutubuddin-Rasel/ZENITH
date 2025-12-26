@@ -10,7 +10,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
-import { PlusIcon, UserIcon, MagnifyingGlassIcon, SparklesIcon, Cog6ToothIcon, FolderIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, UserIcon, MagnifyingGlassIcon, SparklesIcon, Cog6ToothIcon, FolderIcon, EllipsisHorizontalIcon, ArchiveBoxIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useToast } from "@/context/ToastContext";
 import ProjectsCreateModalContext from '@/context/ProjectsCreateModalContext';
 import ProjectWizard from '../../components/ProjectWizard/ProjectWizard';
@@ -23,7 +23,6 @@ interface User {
   avatarUrl?: string;
 }
 import { useRole } from "@/context/RoleContext";
-import RoleBadge from "@/components/RoleBadge";
 import { useProjectSummary } from "@/hooks/useProjectSummary";
 import { useActiveSprint } from "@/hooks/useSprints";
 import { useQuery } from "@tanstack/react-query";
@@ -34,6 +33,8 @@ import Typography from "@/components/Typography";
 import ProjectCardSkeleton from "@/components/skeletons/ProjectCardSkeleton";
 import FadeIn from "@/components/animations/FadeIn";
 import { motion } from "framer-motion";
+import { Menu, Transition } from "@headlessui/react";
+import { Fragment } from "react";
 
 const createProjectSchema = z.object({
   name: z.string().min(3, "Project name must be at least 3 characters"),
@@ -44,10 +45,6 @@ const createProjectSchema = z.object({
 
 type CreateProjectData = z.infer<typeof createProjectSchema>;
 
-import { Menu, Transition } from "@headlessui/react";
-import { Fragment } from "react";
-import { TrashIcon, ArchiveBoxIcon, EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
-
 function ProjectCard({ project, role, onArchive, onDelete }: { project: Project; role: string | undefined; onArchive: (id: string) => void; onDelete: (id: string) => void }) {
   const { summary } = useProjectSummary(project.id);
   const { activeSprint, isLoading: isSprintLoading } = useActiveSprint(project.id);
@@ -55,115 +52,174 @@ function ProjectCard({ project, role, onArchive, onDelete }: { project: Project;
   const progress = summary?.percentDone || 0;
   const isOwnerOrAdmin = role === 'Super-Admin' || role === 'ProjectLead';
 
+  // Premium Rich Gradients
+  const bgGradients = [
+    'from-indigo-500 via-purple-500 to-pink-500', // Nebula
+    'from-emerald-400 via-teal-500 to-cyan-600',   // Ocean
+    'from-orange-400 via-amber-500 to-yellow-500', // Sunset
+    'from-rose-500 via-red-500 to-orange-500',     // Fire
+    'from-blue-600 via-indigo-600 to-violet-600',  // Deep Blue
+    'from-slate-600 via-zinc-600 to-neutral-600'   // Monochrome
+  ];
+  const colorIndex = project.key.length % bgGradients.length;
+  const badgeGradient = bgGradients[colorIndex];
+
   return (
-    <div className="group h-full bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-blue-500/50 dark:hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/5 transition-all duration-300 overflow-hidden flex flex-col relative">
-      {/* Card Content Link */}
-      <Link href={`/projects/${project.id}`} className="flex-1 flex flex-col p-6 pb-0">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-md shrink-0">
-              {project.key.substring(0, 2)}
+    <motion.div
+      whileHover={{ y: -4, transition: { duration: 0.2, ease: "easeOut" } }}
+      className="group relative h-full flex flex-col bg-white dark:bg-[#1C1C1E] rounded-xl border border-neutral-200/80 dark:border-white/5 shadow-sm hover:shadow-xl hover:shadow-neutral-200/50 dark:hover:shadow-black/40 hover:border-neutral-300 dark:hover:border-white/10 transition-colors duration-300 overflow-hidden"
+    >
+      {/* 
+        Fix: Interaction Layer 
+        The Link covers the whole card but sits at z-0. 
+        Interactive elements (like the menu) sit at z-10/20 on top.
+      */}
+      <Link href={`/projects/${project.id}`} className="absolute inset-0 z-0" aria-label={`View project ${project.name}`} />
+
+      <div className="flex-1 flex flex-col p-6 pointer-events-none relative z-10">
+        {/* Header: Icon + Meta */}
+        <div className="flex items-start justify-between mb-5">
+          <div className="flex gap-4">
+            {/* Project Icon */}
+            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${badgeGradient} shadow-lg shadow-black/10 flex items-center justify-center shrink-0`}>
+              <span className="text-lg font-bold text-white tracking-tight drop-shadow-md">
+                {project.key.substring(0, 2)}
+              </span>
             </div>
-            <div className="min-w-0">
-              <h3 className="text-lg font-bold text-neutral-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate pr-4">
+
+            <div className="flex flex-col pt-0.5 min-w-0">
+              {/* Title */}
+              <h3 className="text-lg font-bold text-neutral-900 dark:text-white truncate max-w-[180px] leading-tight group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                 {project.name}
               </h3>
-              <p className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
-                {project.key}
-              </p>
+
+              {/* Meta Row: Key + Role */}
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-bold text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 rounded border border-neutral-200 dark:border-white/5">
+                  {project.key}
+                </span>
+
+                {role && role !== 'Member' && (
+                  <span className={`
+                       px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded border
+                       ${role === 'Super-Admin'
+                      ? 'bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800/30'
+                      : 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800/30'}
+                     `}>
+                    {role === 'Super-Admin' ? 'Admin' : 'Lead'}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Sprints & Status Badges */}
-        <div className="mb-4 flex flex-wrap gap-2">
-          {activeSprint && !isSprintLoading && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5 animate-pulse"></span>
-              Sprint Active
-            </span>
+          {/* Action Menu (Top Right)
+              Crucial: 'pointer-events-auto' restores clickability to this div 
+              since parent has 'pointer-events-none' to let clicks pass through to the Link.
+          */}
+          {isOwnerOrAdmin && (
+            <div className="pointer-events-auto opacity-0 group-hover:opacity-100 transition-all duration-200 focus-within:opacity-100 -mr-2 -mt-2">
+              <Menu as="div" className="relative inline-block text-left">
+                <Menu.Button className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors">
+                  <EllipsisHorizontalIcon className="h-6 w-6" />
+                </Menu.Button>
+                <Transition
+                  as={Fragment}
+                  enter="transition ease-out duration-100"
+                  enterFrom="transform opacity-0 scale-95"
+                  enterTo="transform opacity-100 scale-100"
+                  leave="transition ease-in duration-75"
+                  leaveFrom="transform opacity-100 scale-100"
+                  leaveTo="transform opacity-0 scale-95"
+                >
+                  <Menu.Items className="absolute right-0 mt-1 w-48 origin-top-right bg-white dark:bg-[#2C2C2E] border border-neutral-200 dark:border-white/10 rounded-xl shadow-xl ring-1 ring-black/5 focus:outline-none z-50 overflow-hidden divide-y divide-neutral-100 dark:divide-white/5">
+                    <div className="p-1">
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onArchive(project.id);
+                            }}
+                            className={`${active ? 'bg-neutral-50 dark:bg-white/5' : ''} group flex w-full items-center rounded-lg px-2 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 transition-colors`}
+                          >
+                            <ArchiveBoxIcon className="mr-2 h-4 w-4 text-neutral-400 group-hover:text-neutral-500" aria-hidden="true" />
+                            Archive Project
+                          </button>
+                        )}
+                      </Menu.Item>
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onDelete(project.id);
+                            }}
+                            className={`${active ? 'bg-red-50 dark:bg-red-900/20' : ''} group flex w-full items-center rounded-lg px-2 py-2 text-xs font-medium text-red-600 dark:text-red-400 transition-colors`}
+                          >
+                            <TrashIcon className="mr-2 h-4 w-4" aria-hidden="true" />
+                            Delete Project
+                          </button>
+                        )}
+                      </Menu.Item>
+                    </div>
+                  </Menu.Items>
+                </Transition>
+              </Menu>
+            </div>
           )}
         </div>
 
         {/* Description */}
-        <p className="text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2 mb-6 flex-1">
-          {project.description || "No description provided."}
-        </p>
-
-        {/* Progress Section */}
-        <div className="mt-auto mb-6">
-          <div className="flex justify-between items-end mb-2">
-            <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Progress</span>
-            <span className="text-sm font-bold text-neutral-900 dark:text-white">{progress}%</span>
-          </div>
-          <div className="w-full bg-neutral-100 dark:bg-neutral-700 rounded-full h-1.5 overflow-hidden">
-            <div
-              className="bg-gradient-to-r from-blue-500 to-purple-600 h-1.5 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      </Link>
-
-      {/* Footer */}
-      <div className="px-6 py-4 bg-neutral-50 dark:bg-neutral-800/50 border-t border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {role ? <RoleBadge role={role} /> : <span className="text-xs text-neutral-400">Member</span>}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Admin Actions Menu */}
-          {isOwnerOrAdmin && (
-            <Menu as="div" className="relative ml-2">
-              <Menu.Button className="p-1.5 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-500 transition-colors" onClick={(e) => e.stopPropagation()}>
-                <EllipsisHorizontalIcon className="h-5 w-5" />
-              </Menu.Button>
-              <Transition
-                as={Fragment}
-                enter="transition ease-out duration-100"
-                enterFrom="transform opacity-0 scale-95"
-                enterTo="transform opacity-100 scale-100"
-                leave="transition ease-in duration-75"
-                leaveFrom="transform opacity-100 scale-100"
-                leaveTo="transform opacity-0 scale-95"
-              >
-                <Menu.Items className="absolute right-0 bottom-full mb-2 w-48 origin-bottom-right bg-white dark:bg-neutral-800 divide-y divide-neutral-100 dark:divide-neutral-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-                  <div className="px-1 py-1">
-                    <Menu.Item>
-                      {({ active }) => (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onArchive(project.id); }}
-                          className={`${active ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'
-                            } group flex w-full items-center rounded-md px-2 py-2 text-sm`}
-                        >
-                          <ArchiveBoxIcon className="mr-2 h-4 w-4" aria-hidden="true" />
-                          Archive Project
-                        </button>
-                      )}
-                    </Menu.Item>
-                  </div>
-                  <div className="px-1 py-1">
-                    <Menu.Item>
-                      {({ active }) => (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onDelete(project.id); }}
-                          className={`${active ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'text-red-600 dark:text-red-400'
-                            } group flex w-full items-center rounded-md px-2 py-2 text-sm`}
-                        >
-                          <TrashIcon className="mr-2 h-4 w-4" aria-hidden="true" />
-                          Delete Project
-                        </button>
-                      )}
-                    </Menu.Item>
-                  </div>
-                </Menu.Items>
-              </Transition>
-            </Menu>
+        <div className="mb-6 min-h-[48px]">
+          {project.description ? (
+            <p className="text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2 leading-relaxed">
+              {project.description}
+            </p>
+          ) : (
+            <span className="text-sm text-neutral-400 dark:text-neutral-600 italic">
+              No description visible
+            </span>
           )}
         </div>
+
+        {/* Footer Info: Sprint & Progress */}
+        <div className="mt-auto flex items-end justify-between">
+          {/* Sprint Status */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+              Current Sprint
+            </span>
+            {activeSprint && !isSprintLoading ? (
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                  {activeSprint.name}
+                </span>
+              </div>
+            ) : (
+              <span className="text-xs text-neutral-500 dark:text-neutral-500 font-medium">No active sprint</span>
+            )}
+          </div>
+
+          {/* Progress */}
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-[10px] font-semibold text-neutral-900 dark:text-white">{progress}% Done</span>
+            <div className="w-20 h-1.5 bg-neutral-100 dark:bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-neutral-800 to-neutral-600 dark:from-white dark:to-neutral-400 rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -248,23 +304,23 @@ export default function ProjectsPage() {
       show: {
         opacity: 1,
         transition: {
-          staggerChildren: 0.1
+          staggerChildren: 0.05
         }
       }
     };
 
     const itemVariants = {
-      hidden: { opacity: 0, y: 20 },
+      hidden: { opacity: 0, scale: 0.95 },
       show: {
         opacity: 1,
-        y: 0,
-        transition: { type: "spring" as const, stiffness: 50 }
+        scale: 1,
+        transition: { type: "spring" as const, stiffness: 100, damping: 15 }
       }
     };
 
     if (isLoading || rolesLoading) {
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[...Array(6)].map((_, i) => (
             <ProjectCardSkeleton key={i} />
           ))}
@@ -293,17 +349,12 @@ export default function ProjectsPage() {
 
     const visibleProjects: Project[] = isSuperAdmin ? (projects || []) : (projects || []).filter((p) => projectRoles[p.id]);
 
-
-
-    // Actually, I need to get deleteProject/archiveProject from the hook result
-    // But destructured { createProject } earlier.
-
     if (!visibleProjects || visibleProjects.length === 0) {
       return (
         <FadeIn>
-          <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-white dark:bg-neutral-800 rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-700">
-            <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-6">
-              <FolderIcon className="h-10 w-10 text-blue-500 dark:text-blue-400" />
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-white dark:bg-neutral-800 rounded-3xl border border-dashed border-neutral-300 dark:border-neutral-700">
+            <div className="w-20 h-20 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
+              <FolderIcon className="h-10 w-10 text-neutral-400 dark:text-neutral-500" />
             </div>
             <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-3">
               No projects found
@@ -340,11 +391,26 @@ export default function ProjectsPage() {
 
     return (
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
         variants={containerVariants}
         initial="hidden"
         animate="show"
       >
+        {/* Quick Add Card for Admins - Always first */}
+        {isSuperAdmin && (
+          <motion.button
+            variants={itemVariants}
+            onClick={() => setModalOpen(true)}
+            whileHover={{ y: -4, transition: { duration: 0.2, ease: "easeOut" } }}
+            className="group h-full min-h-[220px] w-full flex flex-col items-center justify-center bg-white dark:bg-[#1C1C1E] rounded-xl border border-neutral-200/80 dark:border-white/5 hover:border-blue-500/50 dark:hover:border-blue-500/50 hover:shadow-lg transition-all duration-300 transform"
+          >
+            <div className="w-16 h-16 rounded-3xl bg-neutral-50 dark:bg-white/5 group-hover:bg-blue-50 dark:group-hover:bg-blue-500/10 flex items-center justify-center mb-5 transition-colors duration-300">
+              <PlusIcon className="h-8 w-8 text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
+            </div>
+            <span className="font-semibold text-lg text-neutral-600 dark:text-neutral-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">Create Project</span>
+          </motion.button>
+        )}
+
         {visibleProjects.map((project) => (
           <motion.div key={project.id} variants={itemVariants}>
             <ProjectCard
@@ -395,20 +461,6 @@ export default function ProjectsPage() {
             />
           </motion.div>
         ))}
-
-        {/* Quick Add Card for Admins */}
-        {isSuperAdmin && (
-          <motion.button
-            variants={itemVariants}
-            onClick={() => setModalOpen(true)}
-            className="group h-full min-h-[280px] w-full flex flex-col items-center justify-center bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border-2 border-dashed border-neutral-300 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-all duration-300"
-          >
-            <div className="w-14 h-14 rounded-full bg-white dark:bg-neutral-800 shadow-sm flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-              <PlusIcon className="h-6 w-6 text-neutral-400 group-hover:text-blue-500 transition-colors" />
-            </div>
-            <span className="font-semibold text-neutral-600 dark:text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">Create New Project</span>
-          </motion.button>
-        )}
       </motion.div>
     );
   };
@@ -419,24 +471,18 @@ export default function ProjectsPage() {
       <Button
         variant="secondary"
         onClick={() => router.push('/manageemployees')}
+        className="hidden sm:flex"
       >
         <UserIcon className="h-4 w-4 mr-2" />
-        Manage Employees
+        Manage Team
       </Button>
       <Button
+        variant="primary"
         onClick={() => setModalOpen(true)}
-        className="shadow-lg shadow-blue-500/20"
+        className="shadow-lg shadow-primary-500/20"
       >
         <PlusIcon className="h-4 w-4 mr-2" />
         New Project
-      </Button>
-      <Button
-        variant="secondary"
-        onClick={() => setShowProjectWizard(true)}
-        className="hidden sm:flex"
-      >
-        <SparklesIcon className="h-4 w-4 mr-2 text-purple-500" />
-        Smart Setup
       </Button>
     </div>
   ) : null;
@@ -444,13 +490,14 @@ export default function ProjectsPage() {
   return (
     <PageLayout
       title="Projects"
-      subtitle="Manage and track your team's work across projects."
+      subtitle="Overview of all workspace projects."
       actions={actionButtons}
+      className="max-w-[1600px] mx-auto"
     >
-      {/* Page Title for Projects - Hidden on mobile as PageLayout handles it, but kept for structure if needed */}
-      <div className="mb-8 md:hidden">
+      {/* Page Title for Projects - Mobile */}
+      <div className="mb-6 md:hidden">
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">Projects</h1>
-        <p className="text-neutral-500 dark:text-neutral-400">Manage and track your projects</p>
+        <p className="text-neutral-500 dark:text-neutral-400 text-sm">Manage and track your projects</p>
       </div>
 
       {renderContent()}
@@ -626,4 +673,4 @@ export default function ProjectsPage() {
 
     </PageLayout>
   );
-} 
+}

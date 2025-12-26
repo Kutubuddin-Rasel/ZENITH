@@ -296,6 +296,9 @@ export class TemplateApplicationService {
         this.logger.log(`Created ${statusMap.size} workflow statuses`);
       }
 
+      // 2.5. Validate template config (fail-fast for mismatches)
+      this.validateTemplateConfig(config, statusMap);
+
       // 3. Create boards with status references
       if (!options?.skipBoards) {
         await this.createBoards(projectId, userId, config, statusMap);
@@ -448,6 +451,35 @@ export class TemplateApplicationService {
   }
 
   /**
+   * Validate template config for consistency
+   * Warns (fail-fast) when board columns reference statuses that don't exist
+   */
+  private validateTemplateConfig(
+    config: TemplateConfig,
+    statusMap: Map<string, string>,
+  ): void {
+    if (!config.defaultBoards?.length) {
+      return; // Default boards are handled separately
+    }
+
+    const availableStatuses = Array.from(statusMap.keys());
+
+    for (const board of config.defaultBoards) {
+      for (const col of board.columns) {
+        const statusName = col.status || col.name;
+        if (!statusMap.has(statusName)) {
+          this.logger.warn(
+            `[TEMPLATE VALIDATION] Board "${board.name}" column "${col.name}" ` +
+              `references status "${statusName}" which was not created. ` +
+              `Available statuses: [${availableStatuses.join(', ')}]. ` +
+              `This will result in null statusId!`,
+          );
+        }
+      }
+    }
+  }
+
+  /**
    * Create boards with columns linked to workflow statuses
    */
   private async createBoards(
@@ -457,12 +489,16 @@ export class TemplateApplicationService {
     statusMap: Map<string, string>,
   ): Promise<void> {
     if (!config.defaultBoards?.length) {
-      // Create a default board if none defined
+      // Create a default board if none defined - MUST link to statusMap
       const defaultColumns = [
-        { name: 'Backlog', order: 0 },
-        { name: 'To Do', order: 1 },
-        { name: 'In Progress', order: 2 },
-        { name: 'Done', order: 3 },
+        { name: 'Backlog', order: 0, statusId: statusMap.get('Backlog') },
+        { name: 'To Do', order: 1, statusId: statusMap.get('To Do') },
+        {
+          name: 'In Progress',
+          order: 2,
+          statusId: statusMap.get('In Progress'),
+        },
+        { name: 'Done', order: 3, statusId: statusMap.get('Done') },
       ];
 
       try {

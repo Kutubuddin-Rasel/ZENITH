@@ -139,8 +139,8 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
             <button
               onClick={() => setViewMode('individual')}
               className={`px-3 py-2 text-sm font-medium rounded-l-md border ${viewMode === 'individual'
-                  ? 'bg-primary-600 text-white border-primary-600'
-                  : 'bg-white text-neutral-700 border-neutral-300'
+                ? 'bg-primary-600 text-accent-foreground border-primary-600'
+                : 'bg-white text-neutral-700 border-neutral-300'
                 }`}
             >
               Individual
@@ -148,8 +148,8 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
             <button
               onClick={() => setViewMode('team')}
               className={`px-3 py-2 text-sm font-medium rounded-r-md border-t border-r border-b ${viewMode === 'team'
-                  ? 'bg-primary-600 text-white border-primary-600'
-                  : 'bg-white text-neutral-700 border-neutral-300'
+                ? 'bg-primary-600 text-accent-foreground border-primary-600'
+                : 'bg-white text-neutral-700 border-neutral-300'
                 }`}
             >
               Team
@@ -240,8 +240,8 @@ export default function CapacityDashboard({ className = '' }: CapacityDashboardP
               <div
                 key={day.id}
                 className={`p-3 rounded-lg text-center ${!day.isWorkingDay
-                    ? 'bg-neutral-100 text-neutral-400'
-                    : getUtilizationColor(day.capacityPercentage)
+                  ? 'bg-neutral-100 text-neutral-400'
+                  : getUtilizationColor(day.capacityPercentage)
                   }`}
               >
                 <div className="text-sm font-medium">

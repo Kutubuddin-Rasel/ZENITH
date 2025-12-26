@@ -65,7 +65,7 @@ export default function Hero() {
                     <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-20">
                         <Link
                             href="/auth/register"
-                            className="group inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+                            className="group inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-primary-600 text-accent-foreground font-semibold hover:bg-primary-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
                         >
                             Create Workspace
                             <ArrowRightIcon className="h-5 w-5 group-hover:translate-x-1 transition-transform" />

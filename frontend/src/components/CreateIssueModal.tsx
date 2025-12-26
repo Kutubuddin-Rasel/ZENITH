@@ -6,6 +6,8 @@ import { z } from 'zod';
 import Modal from './Modal';
 import Button from './Button';
 import Input from './Input';
+import Select from './Select';
+import TextArea from './TextArea';
 import { useCreateIssue } from '@/hooks/useCreateIssue';
 import { useUpdateIssue } from '@/hooks/useProjectIssues';
 import { useToast } from '@/context/ToastContext';
@@ -214,10 +216,9 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
           <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
             Description
           </label>
-          <textarea
+          <TextArea
             {...register('description')}
             rows={4}
-            className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-neutral-400 resize-none"
             placeholder="Describe the issue..."
           />
         </div>
@@ -236,14 +237,13 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
                 </span>
               )}
             </div>
-            <select
+            <Select
               {...register('type')}
-              className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
             >
               {ISSUE_TYPES.map((type) => (
                 <option key={type} value={type}>{type}</option>
               ))}
-            </select>
+            </Select>
             {getSuggestion('type')?.reason && (
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                 {getSuggestion('type')?.reason}
@@ -263,14 +263,13 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
                 </span>
               )}
             </div>
-            <select
+            <Select
               {...register('priority')}
-              className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
             >
               {ISSUE_PRIORITIES.map((priority) => (
                 <option key={priority} value={priority}>{priority}</option>
               ))}
-            </select>
+            </Select>
             {getSuggestion('priority')?.reason && (
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                 {getSuggestion('priority')?.reason}
@@ -285,15 +284,14 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Status
             </label>
-            <select
+            <Select
               {...register('status')}
-              className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
             >
               {/* FIX: Use project-specific statuses instead of hardcoded ISSUE_STATUSES */}
               {statuses.map((status) => (
                 <option key={status.id} value={status.name}>{status.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div>
@@ -308,9 +306,8 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
                 </span>
               )}
             </div>
-            <select
+            <Select
               {...register('assigneeId')}
-              className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-xl focus:ring-2 focus:ring-accent-blue focus:border-accent-blue bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
             >
               <option value="">Unassigned</option>
               {members?.map((member) => (
@@ -318,7 +315,7 @@ export default function CreateIssueModal({ isOpen, onClose, projectId, issue, mo
                   {member.user?.name || member.userId}
                 </option>
               ))}
-            </select>
+            </Select>
             {getSuggestion('assignee')?.reason && (
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                 {getSuggestion('assignee')?.reason}

@@ -676,12 +676,10 @@ export class SmartDefaultsService {
         userId,
         preferences: {
           ui: {
-            theme: 'auto',
-            sidebarCollapsed: false,
-            defaultView: 'board',
-            itemsPerPage: 20,
-            showAdvancedFeatures: true,
+            theme: 'light',
+            accentColor: '#3B82F6', // Tailwind Blue-500
             compactMode: false,
+            sidebarStyle: 'default',
           },
           notifications: {
             email: true,
@@ -695,6 +693,9 @@ export class SmartDefaultsService {
               sprintStarted: true,
               sprintCompleted: true,
               projectInvited: true,
+              // Enterprise: @mentions
+              mentionedInComment: true,
+              mentionedInDescription: true,
             },
           },
           work: {
@@ -733,7 +734,8 @@ export class SmartDefaultsService {
   }
 
   /**
-   * Update user preferences
+   * Update user preferences with proper deep merge
+   * Fixed: Now handles nested objects (notifications.types, work.workingHours) correctly
    */
   async updateUserPreferences(
     userId: string,
@@ -741,18 +743,59 @@ export class SmartDefaultsService {
   ): Promise<UserPreferences> {
     const preferences = await this.getUserPreferences(userId);
 
-    // Deep merge updates
-    preferences.preferences = {
-      ...preferences.preferences,
-      ...updates,
-      ui: { ...preferences.preferences.ui, ...updates.ui },
-      notifications: {
+    // Conditional deep merge - only merge if field provided
+    if (updates.ui) {
+      preferences.preferences.ui = {
+        ...preferences.preferences.ui,
+        ...updates.ui,
+      };
+    }
+
+    if (updates.notifications) {
+      // Handle nested types object separately
+      const types = updates.notifications.types
+        ? {
+            ...preferences.preferences.notifications.types,
+            ...updates.notifications.types,
+          }
+        : preferences.preferences.notifications.types;
+
+      preferences.preferences.notifications = {
         ...preferences.preferences.notifications,
         ...updates.notifications,
-      },
-      work: { ...preferences.preferences.work, ...updates.work },
-      learning: { ...preferences.preferences.learning, ...updates.learning },
-    };
+        types,
+      };
+    }
+
+    if (updates.work) {
+      // Handle nested workingHours object separately
+      const workingHours = updates.work.workingHours
+        ? {
+            ...preferences.preferences.work.workingHours,
+            ...updates.work.workingHours,
+          }
+        : preferences.preferences.work.workingHours;
+
+      preferences.preferences.work = {
+        ...preferences.preferences.work,
+        ...updates.work,
+        workingHours,
+      };
+    }
+
+    if (updates.learning) {
+      preferences.preferences.learning = {
+        ...preferences.preferences.learning,
+        ...updates.learning,
+      };
+    }
+
+    if (updates.onboarding) {
+      preferences.preferences.onboarding = {
+        ...preferences.preferences.onboarding,
+        ...updates.onboarding,
+      };
+    }
 
     return this.preferencesRepo.save(preferences);
   }
