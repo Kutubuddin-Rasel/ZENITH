@@ -2,7 +2,7 @@
 // Unified draggable card component for both list and board views
 
 'use client';
-import React from 'react';
+import React, { memo } from 'react';
 import Image from 'next/image';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -33,11 +33,31 @@ const priorityColors = {
     Lowest: 'bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-900/20 dark:text-blue-300',
 } as const;
 
-export function DraggableCard({
+/**
+ * Custom equality function for React.memo
+ * Only re-render when meaningful props change
+ */
+function arePropsEqual(
+    prev: DraggableCardProps,
+    next: DraggableCardProps
+): boolean {
+    return (
+        prev.issue.id === next.issue.id &&
+        prev.issue.status === next.issue.status &&
+        prev.issue.title === next.issue.title &&
+        prev.issue.priority === next.issue.priority &&
+        prev.issue.storyPoints === next.issue.storyPoints &&
+        prev.issue.assignee?.id === next.issue.assignee?.id &&
+        prev.variant === next.variant &&
+        prev.isOverlay === next.isOverlay &&
+        prev.onRemove === next.onRemove
+    );
+}
+
+function DraggableCardComponent({
     issue,
     context,
     variant,
-    onRemove,
     isOverlay = false
 }: DraggableCardProps) {
     const {
@@ -198,6 +218,9 @@ export function DraggableCard({
     );
 }
 
+// Memoized DraggableCard to prevent unnecessary re-renders during drag
+export const DraggableCard = memo(DraggableCardComponent, arePropsEqual);
+
 // Reusable Assignee Avatar
 function AssigneeAvatar({
     assignee,
@@ -226,7 +249,7 @@ function AssigneeAvatar({
                         className="w-full h-full object-cover"
                         width={size === 'sm' ? 24 : 28}
                         height={size === 'sm' ? 24 : 28}
-                        unoptimized
+                        sizes="32px"
                     />
                 ) : (
                     <div className="w-full h-full bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900 dark:to-primary-800 flex items-center justify-center text-[10px] font-bold text-primary-700 dark:text-primary-300">

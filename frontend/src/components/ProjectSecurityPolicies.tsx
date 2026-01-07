@@ -135,7 +135,7 @@ export default function ProjectSecurityPolicies({ projectId }: ProjectSecurityPo
                                 Enforce Session Timeout
                             </Label>
                             <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                                Apply project's session timeout to all members (max {policy.maxSessionTimeoutMinutes} minutes)
+                                Apply project&apos;s session timeout to all members (max {policy.maxSessionTimeoutMinutes} minutes)
                             </p>
                         </div>
                         <Switch
@@ -193,7 +193,7 @@ export default function ProjectSecurityPolicies({ projectId }: ProjectSecurityPo
                                 Notify on Policy Violations
                             </Label>
                             <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                                Receive alerts when members don't meet security requirements
+                                Receive alerts when members don&apos;t meet security requirements
                             </p>
                         </div>
                         <Switch
@@ -229,7 +229,7 @@ export default function ProjectSecurityPolicies({ projectId }: ProjectSecurityPo
                 <Shield className="h-4 w-4" />
                 <AlertDescription>
                     <strong>Note:</strong> These policies apply to all project members.
-                    Members who don't meet the requirements will be blocked from accessing the project
+                    Members who don&apos;t meet the requirements will be blocked from accessing the project
                     and redirected to their security settings.
                 </AlertDescription>
             </Alert>

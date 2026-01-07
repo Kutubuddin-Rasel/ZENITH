@@ -1,13 +1,13 @@
 # Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (including devDependencies for build)
-RUN npm ci
+# Install all dependencies (including dev) for build
+RUN npm ci --legacy-peer-deps
 
 # Copy source code
 COPY . .
@@ -16,29 +16,31 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
-# Set production environment
 ENV NODE_ENV=production
 
-# Copy package files for production install
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nestjs
+
+# Copy package files and install production dependencies only
 COPY package*.json ./
+RUN npm ci --omit=dev --legacy-peer-deps
 
-# Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy built assets from builder
+# Copy built application
 COPY --from=builder /app/dist ./dist
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nestjs -u 1001
+# Create uploads directory with correct permissions
+RUN mkdir -p /app/uploads && chown nestjs:nodejs /app/uploads
+
+# Set ownership
+RUN chown -R nestjs:nodejs /app
+
 USER nestjs
 
-# Expose port
 EXPOSE 3000
 
-# Start application
 CMD ["node", "dist/main"]

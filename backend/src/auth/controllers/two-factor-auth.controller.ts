@@ -10,7 +10,9 @@ import {
   HttpCode,
   HttpStatus,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { TwoFactorAuthService } from '../services/two-factor-auth.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { Public } from '../decorators/public.decorator';
@@ -24,7 +26,9 @@ import {
 @Controller('auth/2fa')
 @UseGuards(JwtAuthGuard)
 export class TwoFactorAuthController {
-  constructor(private twoFactorAuthService: TwoFactorAuthService) {}
+  private readonly logger = new Logger(TwoFactorAuthController.name);
+
+  constructor(private twoFactorAuthService: TwoFactorAuthService) { }
 
   @Post('generate')
   async generate(@Request() req: { user: { userId: string; email: string } }) {
@@ -140,6 +144,7 @@ export class TwoFactorAuthController {
    * This is a PUBLIC endpoint (no auth required - user is locked out!)
    */
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 300000 } }) // 3 per 5 minutes - prevent email bombing
   @Post('recovery/request')
   @HttpCode(HttpStatus.OK)
   async requestRecovery(@Body() body: { email: string }) {
@@ -148,9 +153,9 @@ export class TwoFactorAuthController {
     );
 
     // TODO: Send email with recovery link
-    // For now, log the token (in production, never expose this!)
-    if (result.token) {
-      console.log(
+    // For now, log the token (in development only, NEVER expose in production!)
+    if (result.token && process.env.NODE_ENV !== 'production') {
+      this.logger.debug(
         `[DEV ONLY] Recovery link for ${body.email}: /auth/2fa-recovery?email=${encodeURIComponent(body.email)}&token=${result.token}`,
       );
     }
@@ -168,6 +173,7 @@ export class TwoFactorAuthController {
    * This is a PUBLIC endpoint (no auth required - user is locked out!)
    */
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 per minute - prevent brute force
   @Post('recovery/verify')
   @HttpCode(HttpStatus.OK)
   async verifyRecovery(@Body() body: { email: string; token: string }) {

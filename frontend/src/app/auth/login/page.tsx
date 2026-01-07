@@ -9,7 +9,7 @@ import Button from "@/components/Button";
 import FormError from "@/components/FormError";
 import TwoFactorAuthVerification from "@/components/TwoFactorAuthVerification";
 import AuthLayout from "@/components/AuthLayout";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, TwoFactorError } from "@/context/AuthContext";
 import Link from "next/link";
 
 const schema = z.object({
@@ -38,7 +38,8 @@ function SocialButton({ provider, icon, disabled = true }: { provider: string; i
 export default function LoginPage() {
   const { login, loading } = useAuth();
   const [requires2FA, setRequires2FA] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
+  // SECURITY: Store signed session token, not raw userId
+  const [twoFactorSessionToken, setTwoFactorSessionToken] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
   const [shakeForm, setShakeForm] = useState(false);
 
@@ -54,16 +55,15 @@ export default function LoginPage() {
       await login(data.email, data.password);
     } catch (e: unknown) {
       // Check if 2FA is required
-      if (e && typeof e === 'object' && 'message' in e && (e as { message?: string }).message === '2FA_REQUIRED') {
-        const error = e as Error & { userId?: string };
-        if (error.userId) {
-          setUserId(error.userId);
-          setRequires2FA(true);
-          return;
-        }
+      const error = e as TwoFactorError;
+      if (error?.message === '2FA_REQUIRED' && error.twoFactorSessionToken) {
+        // SECURITY: Store signed session token (not raw userId)
+        setTwoFactorSessionToken(error.twoFactorSessionToken);
+        setRequires2FA(true);
+        return;
       }
 
-      const message = e && typeof e === 'object' && 'message' in e ? (e as { message?: string }).message : undefined;
+      const message = error?.message;
       setError("root", { message: message || "Invalid email or password. Please try again." });
       // Trigger shake animation
       setShakeForm(true);
@@ -72,21 +72,21 @@ export default function LoginPage() {
   };
 
   const handle2FASuccess = () => {
-    // HttpOnly cookies are set by backend after 2FA verification
-    // No need to store token in localStorage - just redirect
+    // Access token already stored in memory by TwoFactorAuthVerification
+    // Just redirect to projects
     window.location.href = '/projects';
   };
 
   const handle2FACancel = () => {
     setRequires2FA(false);
-    setUserId(null);
+    setTwoFactorSessionToken(null);
   };
 
-  if (requires2FA && userId) {
+  if (requires2FA && twoFactorSessionToken) {
     return (
       <AuthLayout title="Two-Factor Authentication" subtitle="Enter your verification code">
         <TwoFactorAuthVerification
-          userId={userId}
+          twoFactorSessionToken={twoFactorSessionToken}
           onSuccess={handle2FASuccess}
           onCancel={handle2FACancel}
         />

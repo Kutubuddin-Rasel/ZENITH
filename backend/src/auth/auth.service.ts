@@ -18,6 +18,9 @@ import { RegisterDto } from './dto/register.dto';
 import { SafeUser } from './types/safe-user.interface';
 import { JwtRequestUser } from './types/jwt-request-user.interface';
 import { RedeemInviteDto } from './dto/redeem-invite.dto';
+import { AuditLogsService } from '../audit/audit-logs.service';
+import { ClsService } from 'nestjs-cls';
+import { v4 as uuidv4 } from 'uuid';
 
 // Argon2id = version 3 (see passwordVersion column in User entity)
 const ARGON2ID_VERSION = 3;
@@ -33,18 +36,58 @@ export class AuthService {
     private onboardingService: OnboardingService,
     private configService: ConfigService,
     private passwordService: PasswordService,
-  ) {}
+    private auditLogsService: AuditLogsService,
+    private cls: ClsService,
+  ) { }
 
   // Validate credentials for LocalStrategy
-  async validateUser(email: string, pass: string): Promise<SafeUser | null> {
+  async validateUser(
+    email: string,
+    pass: string,
+    ipAddress?: string,
+  ): Promise<SafeUser | null> {
     const user = await this.usersService.findOneByEmail(email.toLowerCase());
     if (!user || !user.isActive) {
+      // Audit: LOGIN_FAILED (user not found)
+      await this.auditLogsService.log({
+        event_uuid: uuidv4(),
+        timestamp: new Date(),
+        tenant_id: 'unknown',
+        actor_id: 'unknown',
+        actor_ip: ipAddress,
+        resource_type: 'User',
+        resource_id: email,
+        action_type: 'LOGIN',
+        action: 'LOGIN_FAILED',
+        metadata: {
+          reason: 'User not found or inactive',
+          email,
+          requestId: this.cls.get('requestId'),
+        },
+      });
       return null;
     }
 
     // Verify password using Argon2id
     const isValid = await this.passwordService.verify(pass, user.passwordHash);
     if (!isValid) {
+      // Audit: LOGIN_FAILED (invalid password)
+      await this.auditLogsService.log({
+        event_uuid: uuidv4(),
+        timestamp: new Date(),
+        tenant_id: user.organizationId || 'unknown',
+        actor_id: user.id,
+        actor_ip: ipAddress,
+        resource_type: 'User',
+        resource_id: user.id,
+        action_type: 'LOGIN',
+        action: 'LOGIN_FAILED',
+        metadata: {
+          reason: 'Invalid password',
+          email,
+          requestId: this.cls.get('requestId'),
+        },
+      });
       return null;
     }
 
@@ -55,7 +98,7 @@ export class AuthService {
   }
 
   // Issue Access and Refresh Tokens
-  async login(user: SafeUser) {
+  async login(user: SafeUser, ipAddress?: string) {
     const tokens = await this.getTokens(
       user.id,
       user.email,
@@ -64,6 +107,24 @@ export class AuthService {
       user.name,
     );
     await this.updateRefreshToken(user.id, tokens.refresh_token);
+
+    // Audit: LOGIN_SUCCESS
+    await this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: user.organizationId || 'unknown',
+      actor_id: user.id,
+      actor_ip: ipAddress,
+      resource_type: 'User',
+      resource_id: user.id,
+      action_type: 'LOGIN',
+      action: 'LOGIN_SUCCESS',
+      metadata: {
+        email: user.email,
+        requestId: this.cls.get('requestId'),
+      },
+    });
+
     return {
       ...tokens,
       user: {
@@ -241,5 +302,58 @@ export class AuthService {
       access_token: accessToken,
       refresh_token: refreshToken,
     };
+  }
+
+  /**
+   * Generate a short-lived signed token for 2FA verification step.
+   * This token cryptographically binds the 2FA verification to the original login attempt,
+   * preventing attackers from substituting arbitrary userIds.
+   *
+   * SECURITY: This token is ONLY valid for completing 2FA, not for accessing resources.
+   */
+  async generate2FASessionToken(userId: string, email: string): Promise<string> {
+    const payload = {
+      userId,
+      email,
+      purpose: '2fa_verification', // Clearly scoped purpose
+      iat: Math.floor(Date.now() / 1000),
+    };
+
+    return this.jwtService.signAsync(payload, {
+      secret: this.configService.getOrThrow<string>('JWT_SECRET'),
+      expiresIn: '5m', // Very short-lived - only for 2FA step
+    });
+  }
+
+  /**
+   * Verify and decode a 2FA session token.
+   * Returns the userId if valid, throws if invalid/expired.
+   *
+   * SECURITY: Only trusts userId from this signed token, not from client body.
+   */
+  async verify2FASessionToken(token: string): Promise<{ userId: string; email: string }> {
+    try {
+      const payload = await this.jwtService.verifyAsync<{
+        userId: string;
+        email: string;
+        purpose: string;
+      }>(token, {
+        secret: this.configService.getOrThrow<string>('JWT_SECRET'),
+      });
+
+      // Verify this token was issued for 2FA verification purpose
+      if (payload.purpose !== '2fa_verification') {
+        throw new UnauthorizedException('Invalid session token');
+      }
+
+      return {
+        userId: payload.userId,
+        email: payload.email,
+      };
+    } catch (error) {
+      throw new UnauthorizedException(
+        'Invalid or expired 2FA session. Please login again.',
+      );
+    }
   }
 }

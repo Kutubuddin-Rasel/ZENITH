@@ -1,9 +1,25 @@
 "use client";
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+  useCallback,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '../lib/fetcher';
 import { connectSocket } from '../lib/socket';
 import { safeLocalStorage } from '../lib/safe-local-storage';
+import { usePremiumToast } from '@/hooks/use-premium-toast';
+import {
+  setAccessToken,
+  clearAccessToken,
+  tryRestoreSession,
+  onTokenChangeCallback,
+  onAuthErrorCallback,
+  getAccessToken,
+} from '../lib/auth-tokens';
 
 type User = {
   id: string;
@@ -25,25 +41,43 @@ interface AuthContextProps {
   loading: boolean;
   isSuperAdmin: boolean;
   projectRoles: { [projectId: string]: string };
-  login: (email: string, password: string, redirectPath?: string) => Promise<void>;
-  register: (email: string, password: string, name?: string, workspaceName?: string, redirectPath?: string) => Promise<void>;
+  login: (
+    email: string,
+    password: string,
+    redirectPath?: string
+  ) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    name?: string,
+    workspaceName?: string,
+    redirectPath?: string
+  ) => Promise<void>;
   logout: () => void;
   refreshUserData: () => Promise<void>;
+}
+
+// Error type for 2FA flow
+interface TwoFactorError extends Error {
+  twoFactorSessionToken?: string;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  // Token state removed as it is now HttpOnly cookie
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [projectRoles, setProjectRoles] = useState<{ [projectId: string]: string }>({});
+  const [projectRoles, setProjectRoles] = useState<{
+    [projectId: string]: string;
+  }>({});
   const router = useRouter();
+  const { toast } = usePremiumToast();
 
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     try {
-      // Fetch user profile - Cookie is sent automatically
+      // Fetch user profile - Bearer token added by api-client
       const userData = await apiFetch<{
         userId: string;
         email: string;
@@ -59,13 +93,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: userData.name,
         avatarUrl: userData.avatarUrl,
         isSuperAdmin: userData.isSuperAdmin,
-        organizationId: userData.organizationId
+        organizationId: userData.organizationId,
       };
 
       setUser(mappedUser);
       setIsSuperAdmin(!!userData.isSuperAdmin);
 
-      // Update local storage with fresh user data (ignoring token)
+      // Update local storage with fresh user data
       safeLocalStorage.setItem('user_data', JSON.stringify(mappedUser));
 
       // If super-admin, skip memberships fetch
@@ -74,7 +108,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         // Fetch project memberships
         try {
-          const memberships = await apiFetch<ProjectMembership[]>('/users/me/project-memberships');
+          const memberships = await apiFetch<ProjectMembership[]>(
+            '/users/me/project-memberships'
+          );
 
           const roles: { [projectId: string]: string } = {};
           memberships.forEach((m: ProjectMembership) => {
@@ -82,139 +118,200 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
           setProjectRoles(roles);
         } catch (membershipError) {
-          console.error('Failed to fetch project memberships:', membershipError);
+          console.error(
+            'Failed to fetch project memberships:',
+            membershipError
+          );
           setProjectRoles({});
         }
       }
 
-      // Connect to notifications socket (Socket needs cookie auth or ticket)
-      // For now, let's assume socket auth needs potential refactor if it depended on Bearer.
-      // But typically sockets use cookies too if on same domain.
+      // Connect to notifications socket
       await connectSocket(null, userData.userId);
-
     } catch (err) {
       console.error('Failed to fetch user data:', err);
-      if (err instanceof Response) {
-        const text = await err.text();
-        console.error('Response body:', text);
-      }
       setUser(null);
       setIsSuperAdmin(false);
       setProjectRoles({});
-      // safeLocalStorage.removeItem('access_token'); // Gone
     }
-  };
-
-  const refreshUserData = async () => {
-    await fetchUserData();
-  };
-
-  useEffect(() => {
-    // Initial load check
-    const storedUserData = safeLocalStorage.getItem('user_data');
-
-    // Optimistically set user from storage if available
-    if (storedUserData) {
-      try {
-        const parsedUser = JSON.parse(storedUserData);
-        setUser(parsedUser);
-        setIsSuperAdmin(!!parsedUser.isSuperAdmin);
-      } catch (e) {
-        console.error('Failed to parse stored user data', e);
-      }
-    }
-
-    setLoading(true);
-    // Attempt to hit /auth/me. If cookies are valid, it works.
-    fetchUserData().finally(() => setLoading(false));
   }, []);
 
-  const login = async (email: string, password: string, redirectPath?: string) => {
-    setLoading(true);
-    try {
-      // Login sets cookies - but may require 2FA first
-      const data = await apiFetch<{
-        user?: User;
-        requires2FA?: boolean;
-        userId?: string;
-        message?: string;
-      }>('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
+  const refreshUserData = useCallback(async () => {
+    await fetchUserData();
+  }, [fetchUserData]);
 
-      // Check if 2FA is required
-      if (data.requires2FA && data.userId) {
-        // Throw a special error that the login page can catch
-        const error = new Error('2FA_REQUIRED') as Error & { userId: string };
-        error.userId = data.userId;
-        throw error;
+  // Handle auth errors (token refresh failures)
+  const handleAuthError = useCallback(() => {
+    setUser(null);
+    setToken(null);
+    setIsSuperAdmin(false);
+    setProjectRoles({});
+    safeLocalStorage.removeItem('user_data');
+    router.push('/auth/login?expired=true');
+  }, [router]);
+
+  useEffect(() => {
+    // Subscribe to token changes
+    const unsubToken = onTokenChangeCallback((newToken) => {
+      setToken(newToken);
+    });
+
+    // Subscribe to auth errors
+    const unsubError = onAuthErrorCallback(handleAuthError);
+
+    // Initialize: Try to restore session from refresh cookie
+    const initAuth = async () => {
+      setLoading(true);
+
+      // Optimistically set user from storage
+      const storedUserData = safeLocalStorage.getItem('user_data');
+      if (storedUserData) {
+        try {
+          const parsedUser = JSON.parse(storedUserData);
+          setUser(parsedUser);
+          setIsSuperAdmin(!!parsedUser.isSuperAdmin);
+        } catch (e) {
+          console.error('Failed to parse stored user data', e);
+        }
       }
 
-      // Normal login flow (no 2FA or 2FA already verified)
-      if (!data.user) {
-        throw new Error('Invalid response from server');
+      // Try to get a fresh access token via refresh cookie
+      const restored = await tryRestoreSession();
+
+      if (restored) {
+        // Fetch full user data
+        await fetchUserData();
+      } else {
+        // No valid session - clear any stale data
+        setUser(null);
+        setIsSuperAdmin(false);
+        setProjectRoles({});
       }
 
-      console.log('Login successful, setting user data:', data.user);
-
-      // No token to store
-      // safeLocalStorage.setItem('access_token', data.access_token);
-      safeLocalStorage.setItem('user_data', JSON.stringify(data.user));
-
-      setUser(data.user);
-      setIsSuperAdmin(!!data.user.isSuperAdmin);
-
-      // Fetch complete user data including roles (async, but UI is unlocked)
-      fetchUserData();
-
-      router.push(redirectPath || '/projects');
-    } finally {
       setLoading(false);
-    }
-  };
+    };
 
-  const register = async (email: string, password: string, name?: string, workspaceName?: string, redirectPath?: string) => {
-    setLoading(true);
+    initAuth();
+
+    return () => {
+      unsubToken();
+      unsubError();
+    };
+  }, [fetchUserData, handleAuthError]);
+
+  const login = useCallback(
+    async (email: string, password: string, redirectPath?: string) => {
+      setLoading(true);
+      try {
+        // Login - may require 2FA
+        const data = await apiFetch<{
+          access_token?: string;
+          user?: User;
+          requires2FA?: boolean;
+          twoFactorSessionToken?: string; // NEW: Signed session token
+          message?: string;
+        }>('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email, password }),
+        });
+
+        // Check if 2FA is required
+        if (data.requires2FA && data.twoFactorSessionToken) {
+          // Throw a special error that the login page can catch
+          const error = new Error('2FA_REQUIRED') as TwoFactorError;
+          error.twoFactorSessionToken = data.twoFactorSessionToken;
+          throw error;
+        }
+
+        // Normal login flow (no 2FA or 2FA already verified)
+        if (!data.user || !data.access_token) {
+          throw new Error('Invalid response from server');
+        }
+
+        // Store access token in memory
+        setAccessToken(data.access_token);
+
+        // Store user data
+        safeLocalStorage.setItem('user_data', JSON.stringify(data.user));
+
+        setUser(data.user);
+        setIsSuperAdmin(!!data.user.isSuperAdmin);
+
+        // Fetch complete user data including roles
+        fetchUserData();
+
+        // Success toast
+        toast.success('Logged in successfully', 'Welcome back to Zenith');
+
+        router.push(redirectPath || '/projects');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [router, toast, fetchUserData]
+  );
+
+  const register = useCallback(
+    async (
+      email: string,
+      password: string,
+      name?: string,
+      workspaceName?: string,
+      redirectPath?: string
+    ) => {
+      setLoading(true);
+      try {
+        // Registration returns user data
+        await apiFetch<{ id: string; email: string; name: string }>(
+          '/auth/register',
+          {
+            method: 'POST',
+            body: JSON.stringify({ email, password, name, workspaceName }),
+          }
+        );
+
+        // After successful registration, login to get tokens
+        await login(email, password, redirectPath);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [login]
+  );
+
+  const logout = useCallback(async () => {
     try {
-      // Registration returns user data, we need to login after
-      await apiFetch<{ id: string; email: string; name: string }>('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({ email, password, name, workspaceName }),
-      });
-
-      // After successful registration, login to get cookies
-      await login(email, password, redirectPath);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const logout = async () => {
-    try {
-      await apiFetch('/auth/logout'); // Call backend to clear cookies
+      await apiFetch('/auth/logout', { method: 'POST' });
     } catch (e) {
       console.error('Logout failed', e);
     }
-    // safeLocalStorage.removeItem('access_token');
+
+    // Clear in-memory token
+    clearAccessToken();
+
+    // Clear local state
+    safeLocalStorage.removeItem('user_data');
     setUser(null);
     setIsSuperAdmin(false);
     setProjectRoles({});
+
     router.push('/auth/login');
-  };
+  }, [router]);
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      token: null, // Computed property if needed, but we don't have it.
-      loading,
-      isSuperAdmin,
-      projectRoles,
-      login,
-      register,
-      logout,
-      refreshUserData
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        loading,
+        isSuperAdmin,
+        projectRoles,
+        login,
+        register,
+        logout,
+        refreshUserData,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -225,3 +322,6 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
+
+// Export for use in TwoFactorAuthVerification
+export type { TwoFactorError };

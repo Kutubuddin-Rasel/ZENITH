@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Inject,
   forwardRef,
+  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ProjectSecurityPolicyService } from '../../projects/project-security-policy.service';
@@ -63,6 +64,8 @@ export const SkipPolicyCheck = () => {
  */
 @Injectable()
 export class ProjectSecurityPolicyGuard implements CanActivate {
+  private readonly logger = new Logger(ProjectSecurityPolicyGuard.name);
+
   constructor(
     private readonly policyService: ProjectSecurityPolicyService,
     @Inject(forwardRef(() => TwoFactorAuthService))
@@ -146,8 +149,8 @@ export class ProjectSecurityPolicyGuard implements CanActivate {
 
     if (violations.length > 0) {
       // Log security event
-      console.log(
-        `[SECURITY] Policy violation for user ${user.userId} on project ${projectId}: ${violations.join(', ')}`,
+      this.logger.warn(
+        `Policy violation for user ${user.userId} on project ${projectId}: ${violations.join(', ')}`,
       );
 
       // Build user-friendly message

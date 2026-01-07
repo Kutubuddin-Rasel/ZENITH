@@ -204,6 +204,9 @@ describe('ConversationManagerService', () => {
         'website_development' as typeof criteria.projectType;
       criteria.teamSize = '2-5';
       criteria.workStyle = 'scrum' as typeof criteria.workStyle;
+      criteria.projectName = 'Test Project';
+      criteria.description = 'Test Description';
+      criteria.industry = 'technology';
 
       const missing = service.getMissingCriteria(criteria);
 

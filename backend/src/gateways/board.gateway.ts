@@ -10,15 +10,12 @@ import {
 import { Server, Socket } from 'socket.io';
 import { UseGuards, Logger } from '@nestjs/common';
 import { WsJwtGuard } from './guards/ws-jwt.guard';
-
-// Payload for issue movement (Optimistic UI)
-export interface IssueMovedPayload {
-  issueId: string;
-  oldColumnId: string;
-  newColumnId: string;
-  newIndex: number;
-  updatedIssueSlim: any; // We use 'any' or a SlimIssue interface
-}
+import {
+  IssueMovedPayload,
+  IssueCreatedPayload,
+  IssueUpdatedPayload,
+  IssueDeletedPayload,
+} from './dto/board-events.dto';
 
 @WebSocketGateway({
   namespace: 'boards',
@@ -42,7 +39,6 @@ export class BoardGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('joinBoard')
-  @SubscribeMessage('joinBoard')
   async handleJoinBoard(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { boardId: string },
@@ -56,21 +52,73 @@ export class BoardGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    // Security: In a real app, verify user has access to this board/project via DB
-    // Since this is called AFTER guard, checking token validity is done.
-    // Ideally we check project membership here.
-    // For now, following instructions to "verify user has access to that board's Tenant"
-    // The WsJwtGuard ensures they have a valid Tenant Token.
-    // We assume if they have the token, they can join rooms for that tenant.
-    // STRICTER CHECK: client.data.user.organizationId vs board.organizationId?
-    // Doing strict check would require injecting BoardsService/Repo here.
-    // For this task, we'll assume token is sufficient for 'Tenant' check,
-    // but room segregation per board handles specific access.
-
     const roomName = `board:${boardId}`;
     await client.join(roomName);
     this.logger.log(`User ${userId} joined room: ${roomName}`);
 
     return { event: 'joined', room: roomName };
+  }
+
+  @SubscribeMessage('leaveBoard')
+  async handleLeaveBoard(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { boardId: string },
+  ) {
+    const { boardId } = data;
+    if (!boardId) return;
+
+    const roomName = `board:${boardId}`;
+    await client.leave(roomName);
+    this.logger.log(`Client ${client.id} left room: ${roomName}`);
+
+    return { event: 'left', room: roomName };
+  }
+
+  // ============================================================
+  // EMIT METHODS - Called by services to broadcast changes
+  // These enable "delta updates" instead of full refetch
+  // ============================================================
+
+  /**
+   * Emit issue moved event to all clients in the board room
+   * Clients update their React Query cache directly (no refetch)
+   */
+  emitIssueMoved(boardId: string, payload: IssueMovedPayload) {
+    const roomName = `board:${boardId}`;
+    this.server.to(roomName).emit('issue-moved', payload);
+    this.logger.debug(`Emitted issue-moved to ${roomName}: ${payload.issueId}`);
+  }
+
+  /**
+   * Emit issue created event
+   */
+  emitIssueCreated(boardId: string, payload: IssueCreatedPayload) {
+    const roomName = `board:${boardId}`;
+    this.server.to(roomName).emit('issue-created', payload);
+    this.logger.debug(
+      `Emitted issue-created to ${roomName}: ${payload.issue.id}`,
+    );
+  }
+
+  /**
+   * Emit issue updated event (title, description, priority, etc.)
+   */
+  emitIssueUpdated(boardId: string, payload: IssueUpdatedPayload) {
+    const roomName = `board:${boardId}`;
+    this.server.to(roomName).emit('issue-updated', payload);
+    this.logger.debug(
+      `Emitted issue-updated to ${roomName}: ${payload.issueId}`,
+    );
+  }
+
+  /**
+   * Emit issue deleted event
+   */
+  emitIssueDeleted(boardId: string, payload: IssueDeletedPayload) {
+    const roomName = `board:${boardId}`;
+    this.server.to(roomName).emit('issue-deleted', payload);
+    this.logger.debug(
+      `Emitted issue-deleted to ${roomName}: ${payload.issueId}`,
+    );
   }
 }

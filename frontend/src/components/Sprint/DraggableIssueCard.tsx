@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import Image from 'next/image';
 import Typography from '../Typography';
 import { Issue } from '../../hooks/useProjectIssues';
@@ -43,6 +43,28 @@ interface DraggableIssueCardProps {
 }
 
 /**
+ * Custom equality function for React.memo
+ * Only re-render when meaningful props change
+ */
+function arePropsEqual(
+    prev: DraggableIssueCardProps,
+    next: DraggableIssueCardProps
+): boolean {
+    return (
+        prev.issue.id === next.issue.id &&
+        prev.issue.title === next.issue.title &&
+        prev.issue.type === next.issue.type &&
+        prev.issue.priority === next.issue.priority &&
+        prev.issue.storyPoints === next.issue.storyPoints &&
+        prev.issue.key === next.issue.key &&
+        prev.isDragging === next.isDragging &&
+        prev.showRemoveButton === next.showRemoveButton &&
+        prev.dragColor === next.dragColor &&
+        prev.onRemove === next.onRemove
+    );
+}
+
+/**
  * Draggable Issue Card Component
  * 
  * A reusable card component for displaying issues in drag-and-drop contexts.
@@ -50,7 +72,7 @@ interface DraggableIssueCardProps {
  * 
  * Extracted from SprintDetailModal for better reusability.
  */
-export function DraggableIssueCard({
+function DraggableIssueCardComponent({
     issue,
     isDragging = false,
     showRemoveButton = false,
@@ -169,4 +191,6 @@ function AssigneeAvatar({ assignee }: AssigneeAvatarProps) {
     );
 }
 
+// Memoized DraggableIssueCard to prevent unnecessary re-renders during drag
+export const DraggableIssueCard = memo(DraggableIssueCardComponent, arePropsEqual);
 export default DraggableIssueCard;

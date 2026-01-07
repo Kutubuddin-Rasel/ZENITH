@@ -127,7 +127,7 @@ export function useZenithDrag({
         },
     });
 
-    // Sprint assignment mutations
+    // Sprint assignment mutations with optimistic updates
     const assignToSprint = useMutation({
         mutationFn: async ({ issueId, sprintId }: { issueId: string; sprintId: string }) => {
             return apiFetch(`/projects/${projectId}/sprints/${sprintId}/issues`, {
@@ -135,7 +135,54 @@ export function useZenithDrag({
                 body: JSON.stringify({ issueId }),
             });
         },
-        onSuccess: (_, variables) => {
+
+        onMutate: async ({ issueId, sprintId }) => {
+            // 1. Cancel in-flight queries to prevent race conditions
+            await queryClient.cancelQueries({ queryKey: ['backlog', projectId] });
+            await queryClient.cancelQueries({ queryKey: ['sprint-issues', projectId, sprintId] });
+
+            // 2. Snapshot current state for rollback
+            const previousBacklog = queryClient.getQueryData<Issue[]>(['backlog', projectId]);
+            const previousSprintIssues = queryClient.getQueryData<Issue[]>(
+                ['sprint-issues', projectId, sprintId]
+            );
+
+            // 3. Find the issue being moved
+            const issue = previousBacklog?.find((i) => i.id === issueId);
+
+            if (issue) {
+                // 4a. Remove from backlog (simple array filter)
+                queryClient.setQueryData<Issue[]>(
+                    ['backlog', projectId],
+                    (old) => old?.filter((i) => i.id !== issueId) ?? []
+                );
+
+                // 4b. Add to sprint issues
+                queryClient.setQueryData<Issue[]>(
+                    ['sprint-issues', projectId, sprintId],
+                    (old) => [...(old ?? []), issue]
+                );
+            }
+
+            // 5. Return context for rollback
+            return { previousBacklog, previousSprintIssues, sprintId };
+        },
+
+        onError: (err, variables, context) => {
+            // Rollback to snapshots on error
+            if (context?.previousBacklog) {
+                queryClient.setQueryData(['backlog', projectId], context.previousBacklog);
+            }
+            if (context?.previousSprintIssues) {
+                queryClient.setQueryData(
+                    ['sprint-issues', projectId, context.sprintId],
+                    context.previousSprintIssues
+                );
+            }
+        },
+
+        onSettled: (_, __, variables) => {
+            // Reconcile with server truth
             queryClient.invalidateQueries({ queryKey: ['sprint-issues', projectId, variables.sprintId] });
             queryClient.invalidateQueries({ queryKey: ['backlog', projectId] });
         },
@@ -148,7 +195,51 @@ export function useZenithDrag({
                 body: JSON.stringify({ issueId }),
             });
         },
-        onSuccess: (_, variables) => {
+
+        onMutate: async ({ issueId, sprintId }) => {
+            // 1. Cancel in-flight queries
+            await queryClient.cancelQueries({ queryKey: ['sprint-issues', projectId, sprintId] });
+            await queryClient.cancelQueries({ queryKey: ['backlog', projectId] });
+
+            // 2. Snapshot for rollback
+            const previousSprintIssues = queryClient.getQueryData<Issue[]>(
+                ['sprint-issues', projectId, sprintId]
+            );
+            const previousBacklog = queryClient.getQueryData<Issue[]>(['backlog', projectId]);
+
+            // 3. Find the issue being removed
+            const issue = previousSprintIssues?.find((i) => i.id === issueId);
+
+            if (issue) {
+                // 4a. Remove from sprint
+                queryClient.setQueryData<Issue[]>(
+                    ['sprint-issues', projectId, sprintId],
+                    (old) => old?.filter((i) => i.id !== issueId) ?? []
+                );
+
+                // 4b. Add to backlog
+                queryClient.setQueryData<Issue[]>(
+                    ['backlog', projectId],
+                    (old) => [...(old ?? []), issue]
+                );
+            }
+
+            return { previousSprintIssues, previousBacklog, sprintId };
+        },
+
+        onError: (err, variables, context) => {
+            if (context?.previousSprintIssues) {
+                queryClient.setQueryData(
+                    ['sprint-issues', projectId, context.sprintId],
+                    context.previousSprintIssues
+                );
+            }
+            if (context?.previousBacklog) {
+                queryClient.setQueryData(['backlog', projectId], context.previousBacklog);
+            }
+        },
+
+        onSettled: (_, __, variables) => {
             queryClient.invalidateQueries({ queryKey: ['sprint-issues', projectId, variables.sprintId] });
             queryClient.invalidateQueries({ queryKey: ['backlog', projectId] });
         },
@@ -164,19 +255,6 @@ export function useZenithDrag({
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['project-issues', projectId] });
-        },
-    });
-
-    // Reorder mutations
-    const reorderBacklog = useMutation({
-        mutationFn: async (issueIds: string[]) => {
-            return apiFetch(`/projects/${projectId}/backlog/reorder`, {
-                method: 'POST',
-                body: JSON.stringify({ issueIds }),
-            });
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['backlog', projectId] });
         },
     });
 
@@ -244,14 +322,18 @@ export function useZenithDrag({
         if (targetContext) {
             // Inline logic to avoid stale closures
             if (!isSameContext(sourceContext, targetContext)) {
-                // Backlog -> Sprint
+                // Backlog -> Sprint (with rAF delay for animation coordination)
                 if (sourceContext.type === 'backlog' && targetContext.type === 'sprint') {
-                    assignToSprint.mutate({ issueId: activeId, sprintId: targetContext.sprintId });
+                    requestAnimationFrame(() => {
+                        assignToSprint.mutate({ issueId: activeId, sprintId: targetContext.sprintId });
+                    });
                     return;
                 }
-                // Sprint -> Backlog
+                // Sprint -> Backlog (with rAF delay for animation coordination)
                 if (sourceContext.type === 'sprint' && targetContext.type === 'backlog') {
-                    removeFromSprint.mutate({ issueId: activeId, sprintId: sourceContext.sprintId });
+                    requestAnimationFrame(() => {
+                        removeFromSprint.mutate({ issueId: activeId, sprintId: sourceContext.sprintId });
+                    });
                     return;
                 }
                 // Sprint -> Sprint (different sprints) - sequential with onSuccess

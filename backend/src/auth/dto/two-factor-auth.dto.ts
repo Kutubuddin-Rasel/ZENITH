@@ -28,4 +28,13 @@ export class VerifyLogin2FADto {
     message: 'Token must be 6-8 alphanumeric characters',
   })
   token: string;
+
+  /**
+   * Signed session token from login step.
+   * This cryptographically binds the 2FA verification to the original login attempt.
+   * SECURITY: Never trust userId from client body - extract from this signed token.
+   */
+  @IsString()
+  @IsNotEmpty()
+  twoFactorSessionToken: string;
 }

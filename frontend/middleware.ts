@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
 
 /**
  * Content Security Policy Middleware
@@ -80,8 +79,8 @@ function buildCSP(nonce: string): string {
         .join('; ');
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function middleware(_request: NextRequest) {
+
+export function middleware() {
     const nonce = generateNonce();
     const csp = buildCSP(nonce);
 

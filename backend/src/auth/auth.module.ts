@@ -22,6 +22,7 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { JwtCookieStrategy } from './strategies/jwt-cookie.strategy';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { ProjectRoleGuard } from './guards/project-role.guard';
+import { CsrfGuard } from './guards/csrf.guard';
 
 // **Entities**
 import { TwoFactorAuth } from './entities/two-factor-auth.entity';
@@ -36,6 +37,7 @@ import { InvitesModule } from '../invites/invites.module';
 import { CacheModule } from '../cache/cache.module';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { OnboardingModule } from '../onboarding/onboarding.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
@@ -43,6 +45,7 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
     UsersModule,
     OrganizationsModule,
     OnboardingModule,
+    AuditModule, // Required for TwoFactorAuthService security event logging
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -69,6 +72,7 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
     JwtRefreshStrategy,
     JwtCookieStrategy,
     ProjectRoleGuard,
+    CsrfGuard,
     { provide: 'LOCAL_GUARD', useClass: LocalAuthGuard },
   ],
   controllers: [
@@ -84,6 +88,7 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
     CookieService,
     SessionsService,
     ProjectRoleGuard,
+    CsrfGuard,
   ],
 })
-export class AuthModule {}
+export class AuthModule { }

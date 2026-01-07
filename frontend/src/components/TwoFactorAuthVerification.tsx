@@ -4,19 +4,41 @@ import Button from './Button';
 import Input from './Input';
 import Typography from './Typography';
 import Card from './Card';
-import { ExclamationTriangleIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
+import {
+  ExclamationTriangleIcon,
+  ShieldCheckIcon,
+} from '@heroicons/react/24/outline';
+import { setAccessToken } from '@/lib/auth-tokens';
 
 interface TwoFactorAuthVerificationProps {
-  userId: string;
-  onSuccess: (token: string) => void;
+  /**
+   * Signed session token from login response.
+   * Contains the userId cryptographically signed by the server.
+   * This prevents attackers from substituting a different userId.
+   */
+  twoFactorSessionToken: string;
+
+  /**
+   * Called after successful 2FA verification.
+   * Access token is already stored in memory by this component.
+   */
+  onSuccess: () => void;
+
+  /**
+   * Called when user cancels 2FA verification.
+   */
   onCancel: () => void;
 }
 
-export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel }: TwoFactorAuthVerificationProps) {
+export default function TwoFactorAuthVerification({
+  twoFactorSessionToken,
+  onSuccess,
+  onCancel,
+}: TwoFactorAuthVerificationProps) {
   const [verificationCode, setVerificationCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState(30);
+  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes (matches backend token expiry)
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -29,6 +51,9 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
     if (timeLeft > 0) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
+    } else {
+      // Session token expired - cancel verification
+      setError('Session expired. Please login again.');
     }
   }, [timeLeft]);
 
@@ -44,23 +69,26 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
       setIsLoading(true);
       setError(null);
 
-      // Use hardcoded API URL to ensure it's correct
-      const API_URL = 'http://localhost:3000';
+      const API_URL =
+        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
       const response = await fetch(`${API_URL}/auth/verify-2fa-login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // For setting refresh token cookie
         body: JSON.stringify({
-          userId,
           token: verificationCode,
+          twoFactorSessionToken: twoFactorSessionToken, // SECURE: Signed token, not raw userId
         }),
       });
 
       const data = await response.json();
 
-      if (data.success) {
-        onSuccess(data.access_token);
+      if (data.success && data.access_token) {
+        // Store access token in memory
+        setAccessToken(data.access_token);
+        onSuccess();
       } else {
         setError(data.message || 'Invalid verification code');
         setVerificationCode('');
@@ -78,6 +106,12 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
     setError(null);
   };
 
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -86,7 +120,10 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
           <Typography variant="h2" className="mb-2">
             Two-Factor Authentication
           </Typography>
-          <Typography variant="body" className="text-neutral-600 dark:text-neutral-400">
+          <Typography
+            variant="body"
+            className="text-neutral-600 dark:text-neutral-400"
+          >
             Enter the verification code from your authenticator app
           </Typography>
         </div>
@@ -94,7 +131,10 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="verification-code" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+              <label
+                htmlFor="verification-code"
+                className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2"
+              >
                 Verification Code
               </label>
               <Input
@@ -106,7 +146,7 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
                 onChange={handleCodeChange}
                 maxLength={8}
                 className="text-center text-2xl tracking-widest"
-                disabled={isLoading}
+                disabled={isLoading || timeLeft === 0}
               />
               <Typography variant="body" className="text-xs text-neutral-500 mt-1">
                 Enter 6-digit TOTP code or 8-character backup code
@@ -116,14 +156,18 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
             {error && (
               <div className="flex items-center space-x-2 text-red-600 dark:text-red-400">
                 <ExclamationTriangleIcon className="h-5 w-5" />
-                <Typography variant="body" className="text-sm">{error}</Typography>
+                <Typography variant="body" className="text-sm">
+                  {error}
+                </Typography>
               </div>
             )}
 
             <div className="space-y-3">
               <Button
                 type="submit"
-                disabled={isLoading || verificationCode.length < 6}
+                disabled={
+                  isLoading || verificationCode.length < 6 || timeLeft === 0
+                }
                 className="w-full"
               >
                 {isLoading ? 'Verifying...' : 'Verify Code'}
@@ -143,7 +187,7 @@ export default function TwoFactorAuthVerification({ userId, onSuccess, onCancel 
             {timeLeft > 0 && (
               <div className="text-center">
                 <Typography variant="body" className="text-sm text-neutral-500">
-                  Code expires in {timeLeft} seconds
+                  Session expires in {formatTime(timeLeft)}
                 </Typography>
               </div>
             )}

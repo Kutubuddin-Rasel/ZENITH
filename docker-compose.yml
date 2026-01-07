@@ -1,62 +1,104 @@
+# =============================================================================
+# ZENITH DEVELOPMENT ENVIRONMENT
+# =============================================================================
+# Usage: docker compose up -d
+# Loads environment from backend/.env
+# =============================================================================
+
 services:
-  # Database Service
+  # ===========================================================================
+  # LAYER 1: DATA STORES
+  # ===========================================================================
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg17
     container_name: zenith_db
+    env_file:
+      - ./backend/.env
     environment:
-      POSTGRES_USER: ${DATABASE_USER:-postgres}
-      POSTGRES_PASSWORD: ${DATABASE_PASS:-password}
-      POSTGRES_DB: ${DATABASE_NAME:-zenith}
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASS}
+      POSTGRES_DB: ${DATABASE_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - zenith-network
     ports:
-      - "${DATABASE_PORT:-5432}:5432"
+      - "${DATABASE_PORT}:5432"
     restart: always
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DATABASE_USER}" ]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # Cache Service
   redis:
-    image: redis:7-alpine
+    image: redis:7.4-alpine
     container_name: zenith_redis
+    env_file:
+      - ./backend/.env
     networks:
       - zenith-network
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT}:6379"
     restart: always
     command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
 
-  # ========================================
-  # Backend API Service (HTTP only)
-  # ========================================
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.12
+    container_name: zenith_clickhouse
+    env_file:
+      - ./backend/.env
+    ports:
+      - "${CLICKHOUSE_PORT}:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DATABASE}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    networks:
+      - zenith-network
+    restart: always
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8123/ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # LAYER 2: APPLICATION
+  # ===========================================================================
   backend-api:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: zenith_api
-    command: ["node", "dist/main.js"]
+    command: [ "node", "dist/main.js" ]
+    env_file:
+      - ./backend/.env
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
-      PORT: ${PORT:-3000}
-      HOST: ${HOST:-0.0.0.0}
-      DATABASE_HOST: ${DATABASE_HOST:-postgres}
-      DATABASE_PORT: ${DATABASE_PORT:-5432}
-      DATABASE_USER: ${DATABASE_USER:-postgres}
-      DATABASE_PASS: ${DATABASE_PASS:-password}
-      DATABASE_NAME: ${DATABASE_NAME:-zenith}
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${PORT}
+      HOST: ${HOST}
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASS: ${DATABASE_PASS}
+      DATABASE_NAME: ${DATABASE_NAME}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_DB: ${REDIS_DB}
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
+      FRONTEND_URL: ${FRONTEND_URL}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       GROQ_API_KEY: ${GROQ_API_KEY}
@@ -76,7 +118,7 @@ services:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
       CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE}
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT}:3000"
     networks:
       - zenith-network
     depends_on:
@@ -86,51 +128,35 @@ services:
         condition: service_started
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:3000/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
-  # ========================================
-  # Backend Worker Service (Queue processors only)
-  # ========================================
-  backend-worker:
+  frontend:
     build:
-      context: ./backend
+      context: ./frontend
       dockerfile: Dockerfile
-    container_name: zenith_worker
-    command: ["node", "dist/worker.main.js"]
+    container_name: zenith_frontend
+    env_file:
+      - ./backend/.env
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
-      DATABASE_HOST: ${DATABASE_HOST:-postgres}
-      DATABASE_PORT: ${DATABASE_PORT:-5432}
-      DATABASE_USER: ${DATABASE_USER:-postgres}
-      DATABASE_PASS: ${DATABASE_PASS:-password}
-      DATABASE_NAME: ${DATABASE_NAME:-zenith}
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      REDIS_DB: ${REDIS_DB:-0}
-      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST}
-      CLICKHOUSE_PORT: ${CLICKHOUSE_PORT}
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
-      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      WORKER_GRACE_PERIOD_MS: ${WORKER_GRACE_PERIOD_MS:-10000}
+      NODE_ENV: ${NODE_ENV}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    ports:
+      - "3001:3001"
     networks:
       - zenith-network
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
+      - backend-api
     restart: always
 
-  # Observability - Prometheus
+  # ===========================================================================
+  # LAYER 3: OBSERVABILITY
+  # ===========================================================================
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.0.0
     container_name: zenith_prometheus
     volumes:
       - ./backend/prometheus.yml:/etc/prometheus/prometheus.yml
@@ -140,39 +166,32 @@ services:
       - zenith-network
     restart: always
 
-  # Observability - Grafana
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.4.0
     container_name: zenith_grafana
     depends_on:
       - prometheus
     ports:
-      - "3002:3000" # Map host 3002 to container 3000
-    networks:
-      - zenith-network
-    restart: always
-
-  # Frontend App Service
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: zenith_frontend
+      - "3002:3000"
+    volumes:
+      - ./backend/grafana/provisioning:/etc/grafana/provisioning
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
-    ports:
-      - "3001:3001"
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
     networks:
       - zenith-network
-    depends_on:
-      - backend
     restart: always
 
+# =============================================================================
+# VOLUMES
+# =============================================================================
 volumes:
   postgres_data:
+  clickhouse_data:
 
-
+    # =============================================================================
+    # NETWORK
+    # =============================================================================
 networks:
   zenith-network:
     driver: bridge

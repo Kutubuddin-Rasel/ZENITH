@@ -61,8 +61,10 @@ export function trackEvent(
  * Send event to analytics provider
  * Replace this with your actual analytics implementation
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function sendEvent(_event: AnalyticsEvent): void {
+
+function sendEvent(event: AnalyticsEvent): void {
+    // Acknowledge parameter until analytics provider is integrated
+    void event;
     // TODO: Integrate with analytics provider
     // Example: mixpanel.track(event.name, event.properties);
     // Example: amplitude.logEvent(event.name, event.properties);

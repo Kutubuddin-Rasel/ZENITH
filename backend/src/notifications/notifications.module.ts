@@ -3,7 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Notification } from './entities/notification.entity';
 import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
-import { BullModule } from '@nestjs/bullmq';
 import { BriefingService } from './services/briefing.service';
 import { DailyDigestProcessor } from './processors/daily-digest.processor';
 import { NotificationsConsumer } from './processors/notifications.consumer';
@@ -24,10 +23,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     ConfigModule,
     CacheModule,
     ScheduleModule.forRoot(),
-    BullModule.registerQueue({
-      name: 'notifications',
-    }),
-    // REFACTORED: All forwardRefs eliminated - using global core modules
+    // Queue registration now in CoreQueueModule (global)
   ],
   providers: [
     NotificationsService,
@@ -42,4 +38,4 @@ import { ScheduleModule } from '@nestjs/schedule';
   controllers: [NotificationsController],
   exports: [NotificationsService, SmartDigestService],
 })
-export class NotificationsModule {}
+export class NotificationsModule { }

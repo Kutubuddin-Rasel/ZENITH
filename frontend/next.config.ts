@@ -35,6 +35,14 @@ const nextConfig: NextConfig = {
         hostname: 'avatars.githubusercontent.com',
       },
       {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.pravatar.cc',
+      },
+      {
         protocol: 'http',
         hostname: 'localhost',
       },

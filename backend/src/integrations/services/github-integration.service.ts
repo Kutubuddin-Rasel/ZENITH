@@ -610,6 +610,7 @@ export class GitHubIntegrationService extends BaseIntegrationService {
    * - Incremental sync (only changes since last sync)
    * - Pagination for large issue lists
    * - Filters out pull requests
+   * - Uses executeWithTokenAndRetry for automatic token refresh and rate limiting
    */
   async syncIssues(
     integrationId: string,
@@ -623,9 +624,6 @@ export class GitHubIntegrationService extends BaseIntegrationService {
       throw new Error(`GitHub integration ${integrationId} not found`);
     }
 
-    const accessToken = this.getAccessToken(integration);
-    const allIssues: GitHubIssue[] = [];
-
     // Get last sync time for incremental sync
     const lastSyncAt = integration.lastSyncAt;
     const sinceParam = lastSyncAt
@@ -636,61 +634,74 @@ export class GitHubIntegrationService extends BaseIntegrationService {
       `Syncing issues from ${repository}${lastSyncAt ? ` since ${lastSyncAt.toISOString()}` : ' (full sync)'}`,
     );
 
-    // GitHub API pagination
-    let page = 1;
-    const perPage = 100; // Max allowed by GitHub
-    let hasMore = true;
+    // Use executeWithTokenAndRetry for automatic token refresh and rate limiting
+    const allIssues = await this.executeWithTokenAndRetry<GitHubIssue[]>(
+      integrationId,
+      async (token) => {
+        const issues: GitHubIssue[] = [];
+        let page = 1;
+        const perPage = 100; // Max allowed by GitHub
+        let hasMore = true;
 
-    while (hasMore) {
-      const response = await fetch(
-        `${this.githubApiBase}/repos/${repository}/issues?state=all&per_page=${perPage}&page=${page}${sinceParam}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: 'application/vnd.github.v3+json',
-          },
-        },
-      );
+        while (hasMore) {
+          const response = await fetch(
+            `${this.githubApiBase}/repos/${repository}/issues?state=all&per_page=${perPage}&page=${page}${sinceParam}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/vnd.github.v3+json',
+              },
+            },
+          );
 
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch issues from ${repository}: ${response.status}`,
-        );
-      }
+          if (!response.ok) {
+            throw new Error(
+              `Failed to fetch issues from ${repository}: ${response.status}`,
+            );
+          }
 
-      const issues = (await response.json()) as Record<string, unknown>[];
+          const pageIssues = (await response.json()) as Record<
+            string,
+            unknown
+          >[];
 
-      if (issues.length === 0) {
-        hasMore = false;
-        break;
-      }
+          if (pageIssues.length === 0) {
+            hasMore = false;
+            break;
+          }
 
-      // Filter out pull requests (GitHub API returns PRs in issues endpoint)
-      const actualIssues = issues.filter((issue) => !issue.pull_request);
+          // Filter out pull requests (GitHub API returns PRs in issues endpoint)
+          const actualIssues = pageIssues.filter(
+            (issue) => !issue.pull_request,
+          );
 
-      for (const issue of actualIssues) {
-        const githubIssue = issue as unknown as GitHubIssue;
-        allIssues.push(githubIssue);
+          for (const issue of actualIssues) {
+            const githubIssue = issue as unknown as GitHubIssue;
+            issues.push(githubIssue);
 
-        // Store the issue
-        await this.storeGitHubData(integrationId, 'issue', githubIssue.id, {
-          ...issue,
-          repository,
-          syncedAt: new Date(),
-        });
-      }
+            // Store the issue
+            await this.storeGitHubData(integrationId, 'issue', githubIssue.id, {
+              ...issue,
+              repository,
+              syncedAt: new Date(),
+            });
+          }
 
-      this.logger.log(
-        `Fetched page ${page} of issues (${actualIssues.length} issues)`,
-      );
+          this.logger.log(
+            `Fetched page ${page} of issues (${actualIssues.length} issues)`,
+          );
 
-      // Check if there are more pages
-      if (issues.length < perPage) {
-        hasMore = false;
-      } else {
-        page++;
-      }
-    }
+          // Check if there are more pages
+          if (pageIssues.length < perPage) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        }
+
+        return issues;
+      },
+    );
 
     // Update last sync timestamp
     integration.lastSyncAt = new Date();
@@ -940,8 +951,8 @@ export class GitHubIntegrationService extends BaseIntegrationService {
     } else {
       this.logger.warn(
         `Repository ${repoFullName} has no project mapping. ` +
-          `#123 style magic words will be IGNORED for security. ` +
-          `Only PROJ-123 style references will be processed.`,
+        `#123 style magic words will be IGNORED for security. ` +
+        `Only PROJ-123 style references will be processed.`,
       );
     }
 

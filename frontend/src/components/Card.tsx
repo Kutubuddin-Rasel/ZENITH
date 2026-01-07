@@ -1,4 +1,5 @@
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
@@ -9,47 +10,43 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   hover?: boolean;
 }
 
-const Card: React.FC<CardProps> = ({ 
-  children, 
-  className = '', 
+const Card: React.FC<CardProps> = ({
+  children,
+  className = '',
   variant = 'default',
   padding = 'md',
   onClick,
   hover = false,
-  ...props 
+  ...props
 }) => {
-  const baseClasses = 'rounded-lg transition-all duration-200';
-  
+  const baseClasses = 'rounded-xl transition-all duration-200 bg-card text-card-foreground';
+
   const variantClasses = {
-    default: 'bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800',
-    elevated: 'bg-white dark:bg-neutral-900 shadow-md border border-neutral-200 dark:border-neutral-800',
-    outlined: 'bg-transparent border border-neutral-200 dark:border-neutral-800',
+    default: 'border border-border shadow-sm',
+    elevated: 'shadow-md border-none', // Elevated cards typically don't need borders if shadow is enough, but adhering to system
+    outlined: 'border border-border bg-transparent shadow-none',
   };
-  
+
   const paddingClasses = {
     none: '',
     sm: 'p-3',
-    md: 'p-4',
-    lg: 'p-6',
+    md: 'p-6', // Standard card padding increased to 24px (p-6) for airiness
+    lg: 'p-8',
   };
-  
-  const hoverClasses = hover ? 'hover:shadow-lg hover:border-neutral-300 dark:hover:border-neutral-700' : '';
+
+  const hoverClasses = hover ? 'hover:shadow-lg transition-shadow cursor-pointer' : '';
   const clickableClasses = onClick ? 'cursor-pointer' : '';
-  
-  const combinedClassName = [
-    baseClasses,
-    variantClasses[variant],
-    paddingClasses[padding],
-    hoverClasses,
-    clickableClasses,
-    className,
-  ]
-    .filter(Boolean)
-    .join(' ');
 
   return (
     <div
-      className={combinedClassName}
+      className={cn(
+        baseClasses,
+        variantClasses[variant],
+        paddingClasses[padding],
+        hoverClasses,
+        clickableClasses,
+        className
+      )}
       onClick={onClick}
       {...props}
     >
@@ -58,4 +55,4 @@ const Card: React.FC<CardProps> = ({
   );
 };
 
-export default Card; 
+export default Card;

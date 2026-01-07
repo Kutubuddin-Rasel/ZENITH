@@ -96,7 +96,7 @@ export default function SecuritySettingsPage() {
                     </li>
                     <li className="flex items-start gap-3">
                         <DevicePhoneMobileIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
-                        <span>Review your active sessions regularly and revoke any you don't recognize</span>
+                        <span>Review your active sessions regularly and revoke any you don&apos;t recognize</span>
                     </li>
                     <li className="flex items-start gap-3">
                         <ArrowTopRightOnSquareIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />

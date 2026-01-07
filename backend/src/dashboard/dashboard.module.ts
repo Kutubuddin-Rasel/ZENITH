@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CacheModule } from '@nestjs/cache-manager';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 import { IssuesModule } from '../issues/issues.module';
@@ -9,6 +10,8 @@ import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
+    // Enable caching for this module - uses the global Redis cache
+    CacheModule.register(),
     IssuesModule,
     SprintsModule,
     NotificationsModule,

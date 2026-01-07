@@ -10,6 +10,7 @@ import { BillingService } from './billing.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 import { Request } from 'express';
+import { RequireCsrf } from '../security/csrf/csrf.guard';
 
 @Controller('billing')
 export class BillingController {
@@ -17,6 +18,7 @@ export class BillingController {
 
   @Post('checkout')
   @UseGuards(JwtAuthGuard)
+  @RequireCsrf()
   async createCheckout(
     @Req() req: { user: JwtRequestUser },
     @Body() body: { priceId: string; orgId: string },
@@ -27,6 +29,7 @@ export class BillingController {
 
   @Post('portal')
   @UseGuards(JwtAuthGuard)
+  @RequireCsrf()
   async createPortal(
     @Req() req: { user: JwtRequestUser },
     @Body() body: { orgId: string },

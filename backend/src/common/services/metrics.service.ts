@@ -1,18 +1,42 @@
-import { Injectable } from '@nestjs/common';
-import { Counter, Histogram, Gauge, Registry, register } from 'prom-client';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import {
+  Counter,
+  Histogram,
+  Gauge,
+  Registry,
+  register,
+  collectDefaultMetrics,
+} from 'prom-client';
 
 /**
- * Service for collecting and exposing Prometheus metrics.
+ * Unified Prometheus Metrics Service
  *
- * Tracks:
- * - Sync success/failure rates
- * - API call latencies
- * - Token refresh success rates
- * - Active integration counts
+ * This is the SINGLE source of truth for all Prometheus metrics in Zenith.
+ * Consolidates both Node.js runtime metrics and application-specific metrics.
+ *
+ * Metrics Categories:
+ * 1. Node.js Runtime (via collectDefaultMetrics):
+ *    - nodejs_active_handles_total
+ *    - nodejs_heap_size_total_bytes
+ *    - nodejs_eventloop_lag_seconds
+ *    - process_cpu_*
+ *
+ * 2. Integration Metrics:
+ *    - integration_sync_total (counter)
+ *    - integration_sync_duration_seconds (histogram)
+ *    - integration_api_calls_total (counter)
+ *    - integration_api_call_duration_seconds (histogram)
+ *    - integration_token_refresh_total (counter)
+ *    - integration_active_total (gauge)
+ *    - integration_health_status (gauge)
+ *
+ * All metrics use the global prom-client registry to ensure
+ * they are all exposed at a single /metrics endpoint.
  */
 @Injectable()
-export class MetricsService {
-  private registry: Registry;
+export class MetricsService implements OnModuleInit {
+  private readonly logger = new Logger(MetricsService.name);
+  private readonly registry: Registry;
 
   // Sync metrics
   private syncCounter: Counter;
@@ -96,6 +120,34 @@ export class MetricsService {
       labelNames: ['integration_id', 'integration_type'],
       registers: [this.registry],
     });
+  }
+
+  /**
+   * Lifecycle hook: Initialize Node.js default metrics collection.
+   *
+   * This collects standard Node.js metrics that Prometheus expects:
+   * - CPU usage (process_cpu_*)
+   * - Memory usage (nodejs_heap_*, process_resident_memory_bytes)
+   * - Event loop lag (nodejs_eventloop_lag_*)
+   * - Active handles (nodejs_active_*)
+   * - GC metrics (nodejs_gc_*)
+   */
+  onModuleInit(): void {
+    collectDefaultMetrics({
+      register: this.registry,
+      prefix: '', // No prefix - use standard naming
+    });
+    this.logger.log(
+      'Prometheus metrics initialized: Node.js defaults + Integration metrics',
+    );
+  }
+
+  /**
+   * Returns the proper Content-Type for Prometheus metrics.
+   * Required for Prometheus scraping to work correctly.
+   */
+  getMetricsContentType(): string {
+    return this.registry.contentType;
   }
 
   /**

@@ -1,6 +1,7 @@
 "use client";
 import React, { useRef, useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
+import Image from 'next/image';
 import { Menu } from '@headlessui/react';
 import { ChevronDownIcon, ArrowRightOnRectangleIcon, Cog6ToothIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
@@ -43,12 +44,14 @@ const UserMenu = () => {
   return (
     <Menu as="div" className="relative inline-block text-left ml-2">
       <Menu.Button ref={buttonRef} className="flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-accent-blue rounded-full" onClick={() => setMenuOpen((v) => !v)}>
-        <div className="w-8 h-8 rounded-full bg-neutral-300 text-neutral-900 dark:bg-neutral-700 flex items-center justify-center font-bold text-sm overflow-hidden">
+        <div className="w-8 h-8 rounded-full bg-neutral-300 text-neutral-900 dark:bg-neutral-700 flex items-center justify-center font-bold text-sm overflow-hidden relative">
           {user?.avatarUrl ? (
-            <img
+            <Image
               src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `http://localhost:3000${user.avatarUrl}`}
               alt={user.name || 'Avatar'}
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
+              unoptimized
             />
           ) : (
             initials
@@ -67,12 +70,14 @@ const UserMenu = () => {
           }}
         >
           <div className="px-4 py-3 border-b border-neutral-100 dark:border-neutral-800 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center font-bold text-sm overflow-hidden flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center font-bold text-sm overflow-hidden flex-shrink-0 relative">
               {user?.avatarUrl ? (
-                <img
+                <Image
                   src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `http://localhost:3000${user.avatarUrl}`}
                   alt={user.name || 'Avatar'}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  unoptimized
                 />
               ) : (
                 initials

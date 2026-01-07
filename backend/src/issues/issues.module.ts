@@ -25,4 +25,4 @@ import { Board } from '../boards/entities/board.entity';
   controllers: [IssuesController],
   exports: [IssuesService, WorkLogsService],
 })
-export class IssuesModule {}
+export class IssuesModule { }

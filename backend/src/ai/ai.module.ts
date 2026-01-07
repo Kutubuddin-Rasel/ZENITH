@@ -5,6 +5,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Issue } from '../issues/entities/issue.entity';
 import { OpenAiService } from './services/openai.service';
 import { EmbeddingsService } from './services/embeddings.service';
+import { SemanticSearchService } from './services/semantic-search.service';
+import { ProjectRAGService } from './services/project-rag.service';
 import { TriageWorker } from './workers/triage.worker';
 import { TriageListener } from './listeners/triage.listener';
 import { ProjectIntelligenceService } from './services/project-intelligence.service';
@@ -14,6 +16,7 @@ import { OpenRouterProvider } from './providers/openrouter.provider';
 import { GroqProvider } from './providers/groq.provider';
 import { ProjectTemplate } from '../project-templates/entities/project-template.entity';
 import { CacheModule } from '../cache/cache.module';
+import { TenantModule } from '../core/tenant/tenant.module';
 // New Intelligent Smart Setup Services
 import { ConversationManagerService } from './services/conversation-manager.service';
 import { SemanticExtractorService } from './services/semantic-extractor.service';
@@ -28,10 +31,12 @@ import { AIPredictionLog } from './entities/ai-prediction-log.entity';
 import { SuggestionsService } from './services/suggestions.service';
 import { PredictionAnalyticsService } from './services/prediction-analytics.service';
 import { SuggestionsController } from './controllers/suggestions.controller';
+import { ProjectChatController } from './controllers/project-chat.controller';
 
 @Module({
   imports: [
     ConfigModule,
+    TenantModule,
     TypeOrmModule.forFeature([
       Issue,
       ProjectTemplate,
@@ -44,10 +49,12 @@ import { SuggestionsController } from './controllers/suggestions.controller';
     }),
     CacheModule,
   ],
-  controllers: [SuggestionsController],
+  controllers: [SuggestionsController, ProjectChatController],
   providers: [
     OpenAiService,
     EmbeddingsService,
+    SemanticSearchService,
+    ProjectRAGService,
     TriageWorker,
     TriageListener,
     ProjectIntelligenceService,
@@ -69,6 +76,8 @@ import { SuggestionsController } from './controllers/suggestions.controller';
   exports: [
     OpenAiService,
     EmbeddingsService,
+    SemanticSearchService,
+    ProjectRAGService,
     ProjectIntelligenceService,
     // Export new services for use in other modules
     ConversationManagerService,

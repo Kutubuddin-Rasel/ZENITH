@@ -7,6 +7,7 @@ import {
   Body,
   Get,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { TwoFactorAuthService } from './services/two-factor-auth.service';
 import { CookieService } from './services/cookie.service';
@@ -15,6 +16,7 @@ import { RegisterDto } from './dto/register.dto';
 import { RedeemInviteDto } from './dto/redeem-invite.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshAuthGuard } from './guards/jwt-refresh-auth.guard';
+import { CsrfGuard } from './guards/csrf.guard';
 import { Public } from './decorators/public.decorator';
 import { VerifyLogin2FADto } from './dto/two-factor-auth.dto';
 import { Response } from 'express';
@@ -25,10 +27,12 @@ export class AuthController {
     private authService: AuthService,
     private twoFactorAuthService: TwoFactorAuthService,
     private cookieService: CookieService,
-  ) {}
+  ) { }
 
   // POST /auth/login
+  // Rate limit: 5 attempts per minute to prevent brute force
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseGuards(LocalAuthGuard)
   @Post('login')
   async login(
@@ -51,10 +55,16 @@ export class AuthController {
     const has2FA = await this.twoFactorAuthService.isEnabled(req.user.id);
 
     if (has2FA) {
-      // Don't set cookies yet - wait for 2FA verification
+      // SECURITY: Return a signed session token instead of raw userId
+      // This prevents attackers from substituting their own userId in the 2FA step
+      const twoFactorSessionToken = await this.authService.generate2FASessionToken(
+        req.user.id,
+        req.user.email,
+      );
+
       return {
         requires2FA: true,
-        userId: req.user.id,
+        twoFactorSessionToken, // Signed token, not raw userId
         message: 'Please provide your 2FA token to complete login',
       };
     }
@@ -76,14 +86,22 @@ export class AuthController {
   }
 
   // POST /auth/verify-2fa-login
+  // Rate limit: 5 attempts per minute (same as login - brute force prevention)
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('verify-2fa-login')
   async verify2FALogin(
-    @Body() dto: VerifyLogin2FADto & { userId: string },
+    @Body() dto: VerifyLogin2FADto,
     @Res({ passthrough: true }) res: Response,
   ) {
+    // SECURITY: Extract userId from signed session token, NOT from request body
+    // This prevents attackers from substituting arbitrary userIds
+    const { userId } = await this.authService.verify2FASessionToken(
+      dto.twoFactorSessionToken,
+    );
+
     const isValid = await this.twoFactorAuthService.verifyToken(
-      dto.userId,
+      userId,
       dto.token,
     );
 
@@ -92,7 +110,7 @@ export class AuthController {
     }
 
     // Generate final JWT token
-    const user = await this.authService.findUserById(dto.userId);
+    const user = await this.authService.findUserById(userId);
     const result = await this.authService.login(user);
 
     // Set HttpOnly Cookies after successful 2FA
@@ -111,7 +129,9 @@ export class AuthController {
   }
 
   // POST /auth/register
+  // Rate limit: 3 attempts per minute to prevent spam registration
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
@@ -170,11 +190,11 @@ export class AuthController {
   testProtected(
     @Request() req: { user: { id: string; email: string; name: string } },
   ) {
-    console.log('testProtected req.user:', req.user);
+    // Debug logging handled by Pino at request level
     return req.user;
   }
 
-  @UseGuards(JwtRefreshAuthGuard)
+  @UseGuards(JwtRefreshAuthGuard, CsrfGuard)
   @Get('refresh')
   async refreshTokens(
     @Request() req: { user: { userId: string; refreshToken: string } },
@@ -184,14 +204,14 @@ export class AuthController {
     const refreshToken = req.user['refreshToken'];
     const result = await this.authService.refreshTokens(userId, refreshToken);
 
-    // Set new HttpOnly Cookies after refresh
-    this.cookieService.setAuthCookies(
-      res,
-      result.access_token,
-      result.refresh_token,
-    );
+    // Set new refresh token cookie (access token returned in body only)
+    this.cookieService.setRefreshTokenCookie(res, result.refresh_token);
 
-    return result;
+    // Return access token in body (SPA stores in memory)
+    return {
+      access_token: result.access_token,
+      expires_in: 900, // 15 minutes in seconds
+    };
   }
 
   @UseGuards(JwtAuthGuard)

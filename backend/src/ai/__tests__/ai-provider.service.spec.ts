@@ -51,7 +51,12 @@ describe('AIProviderService', () => {
       const result = await service.complete({
         messages: [{ role: 'user', content: 'test' }],
       });
-      expect(result).toBeNull();
+      expect(result).toEqual({
+        content: expect.stringContaining('unavailable'),
+        latencyMs: 0,
+        model: 'none',
+        provider: 'fallback',
+      });
     });
   });
 

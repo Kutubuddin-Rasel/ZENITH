@@ -4,6 +4,10 @@ import { ProjectWizardService } from './project-wizard.service';
 import { ProjectTemplate } from '../entities/project-template.entity';
 import { UserPreferences } from '../../user-preferences/entities/user-preferences.entity';
 import { ProjectsService } from '../../projects/projects.service';
+import { BoardsService } from '../../boards/boards.service';
+import { SprintsService } from '../../sprints/sprints.service';
+import { DataSource } from 'typeorm';
+import { Project } from '../../projects/entities/project.entity';
 
 describe('ProjectWizardService', () => {
   let service: ProjectWizardService;
@@ -19,6 +23,7 @@ describe('ProjectWizardService', () => {
   };
   let mockProjectsService: {
     create: jest.Mock;
+    findByKey: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -36,7 +41,13 @@ describe('ProjectWizardService', () => {
 
     mockProjectsService = {
       create: jest.fn(),
+      findByKey: jest.fn().mockResolvedValue(null),
     };
+
+    const mockBoardsService = { create: jest.fn() };
+    const mockSprintsService = { create: jest.fn() };
+    const mockDataSource = { transaction: jest.fn() };
+    const mockProjectRepo = { findOne: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -52,6 +63,22 @@ describe('ProjectWizardService', () => {
         {
           provide: ProjectsService,
           useValue: mockProjectsService,
+        },
+        {
+          provide: BoardsService,
+          useValue: mockBoardsService,
+        },
+        {
+          provide: SprintsService,
+          useValue: mockSprintsService,
+        },
+        {
+          provide: DataSource,
+          useValue: mockDataSource,
+        },
+        {
+          provide: getRepositoryToken(Project), // Import Project entity needed
+          useValue: mockProjectRepo,
         },
       ],
     }).compile();

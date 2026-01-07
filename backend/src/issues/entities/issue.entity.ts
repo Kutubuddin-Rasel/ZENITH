@@ -134,12 +134,13 @@ export class Issue {
   @JoinColumn({ name: 'assigneeId' })
   assignee?: User;
 
-  @Column()
-  reporterId: string;
+  // Reporter - nullable to preserve issues when user is deleted
+  @Column({ nullable: true })
+  reporterId: string | null;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'reporterId' })
-  reporter: User;
+  reporter: User | null;
 
   @CreateDateColumn()
   createdAt: Date;
@@ -149,6 +150,12 @@ export class Issue {
 
   @Column({ type: 'int', default: 0 })
   backlogOrder: number;
+
+  // Lexorank string for O(1) reordering (used by Jira/Trello pattern)
+  // Format: "0|aaaaaa:" - enables insertion between any two items with 1 UPDATE
+  @Column({ type: 'varchar', length: 50, nullable: true, default: '0|HZZZZZ:' })
+  @Index('IDX_issue_lexorank')
+  lexorank: string;
 
   @Column({ type: 'enum', enum: IssueType, default: IssueType.TASK })
   type: IssueType;
@@ -186,4 +193,10 @@ export class Issue {
   // But strictly, we update this via raw SQL usually.
   @Column('float', { array: true, nullable: true })
   embedding: number[];
+
+  // PostgreSQL full-text search vector (auto-updated via database trigger)
+  // DO NOT set this manually - the database trigger handles it
+  // select: false excludes from default queries (it's only used for search)
+  @Column({ type: 'tsvector', nullable: true, select: false })
+  searchVector?: string;
 }

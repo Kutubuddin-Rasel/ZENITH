@@ -6,6 +6,7 @@ import { RevisionSubscriber } from './subscribers/revision.subscriber';
 import { UserIdInterceptor } from './interceptors/user-id.interceptor';
 import { RevisionsService } from './revisions.service';
 import { RevisionsController } from './revisions.controller';
+import { DiffService } from './services/diff.service';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { MembershipModule } from '../membership/membership.module';
 
@@ -14,9 +15,10 @@ import { MembershipModule } from '../membership/membership.module';
   providers: [
     RevisionSubscriber,
     RevisionsService,
+    DiffService,
     { provide: APP_INTERCEPTOR, useClass: UserIdInterceptor },
   ],
   controllers: [RevisionsController],
-  exports: [RevisionsService],
+  exports: [RevisionsService, DiffService],
 })
 export class RevisionsModule {}

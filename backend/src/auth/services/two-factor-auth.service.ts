@@ -3,12 +3,18 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { randomInt } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
 import { TwoFactorAuth } from '../entities/two-factor-auth.entity';
 import { User } from '../../users/entities/user.entity';
+import { AuditService } from '../../audit/services/audit.service';
+import {
+  AuditEventType,
+  AuditSeverity,
+} from '../../audit/entities/audit-log.entity';
 
 @Injectable()
 export class TwoFactorAuthService {
@@ -17,7 +23,8 @@ export class TwoFactorAuthService {
     private twoFactorRepo: Repository<TwoFactorAuth>,
     @InjectRepository(User)
     private userRepo: Repository<User>,
-  ) {}
+    private readonly auditService: AuditService,
+  ) { }
 
   /**
    * Generate TOTP secret and QR code for user
@@ -93,7 +100,7 @@ export class TwoFactorAuthService {
       secret: twoFactorAuth.secret,
       encoding: 'base32',
       token,
-      window: 2, // Allow 2 time windows for clock drift
+      window: 1, // Allow 1 time window for clock drift (±30 seconds)
     });
 
     if (!verified) {
@@ -145,7 +152,7 @@ export class TwoFactorAuthService {
       secret: twoFactorAuth.secret,
       encoding: 'base32',
       token,
-      window: 2,
+      window: 1, // Tighter window for verification (±30 seconds)
     });
 
     if (verified) {
@@ -212,13 +219,14 @@ export class TwoFactorAuthService {
   }
 
   /**
-   * Generate random backup code
+   * Generate cryptographically secure random backup code
    */
   private generateRandomCode(): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
     for (let i = 0; i < 8; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+      // crypto.randomInt is cryptographically secure
+      result += chars.charAt(randomInt(chars.length));
     }
     return result;
   }
@@ -249,9 +257,22 @@ export class TwoFactorAuthService {
     // Delete the 2FA record completely
     await this.twoFactorRepo.remove(twoFactorAuth);
 
-    // Log the admin action (the controller should also log to AuditLogs)
-    console.log(
-      `[SECURITY] Admin ${adminUserId} reset 2FA for user ${targetUserId}. Reason: ${reason || 'Not specified'}`,
+    // Log the admin action to audit trail
+    await this.auditService.logSecurityEvent(
+      AuditEventType.TWO_FA_DISABLED,
+      `Admin reset 2FA for user`,
+      targetUserId,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      {
+        adminUserId,
+        targetUserId,
+        reason: reason || 'Not specified',
+        action: 'admin_reset',
+      },
+      AuditSeverity.HIGH,
     );
 
     return {
@@ -347,8 +368,17 @@ export class TwoFactorAuthService {
     twoFactorAuth.recoveryTokenExpiresAt = expiresAt;
     await this.twoFactorRepo.save(twoFactorAuth);
 
-    console.log(
-      `[SECURITY] 2FA recovery token generated for user ${user.id} (${email})`,
+    // Log the security event to audit trail
+    await this.auditService.logSecurityEvent(
+      AuditEventType.PASSWORD_RESET,
+      `2FA recovery token generated`,
+      user.id,
+      email,
+      user.name,
+      undefined,
+      undefined,
+      { action: 'two_fa_recovery_token_generated' },
+      AuditSeverity.MEDIUM,
     );
 
     return {
@@ -412,8 +442,17 @@ export class TwoFactorAuthService {
     // Token is valid - disable 2FA and clear recovery token
     await this.twoFactorRepo.remove(twoFactorAuth);
 
-    console.log(
-      `[SECURITY] 2FA recovery completed for user ${user.id} (${email}) - 2FA disabled`,
+    // Log the security event to audit trail
+    await this.auditService.logSecurityEvent(
+      AuditEventType.TWO_FA_DISABLED,
+      `2FA disabled via recovery`,
+      user.id,
+      email,
+      undefined,
+      undefined,
+      undefined,
+      { action: 'recovery_completed' },
+      AuditSeverity.HIGH,
     );
 
     return {
@@ -425,14 +464,15 @@ export class TwoFactorAuthService {
   }
 
   /**
-   * Generate a secure random token for recovery
+   * Generate a cryptographically secure random token for recovery
    */
   private generateSecureToken(): string {
     const chars =
       'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
     for (let i = 0; i < 64; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+      // crypto.randomInt is cryptographically secure
+      result += chars.charAt(randomInt(chars.length));
     }
     return result;
   }

@@ -33,6 +33,7 @@ import { UpdateUserSecuritySettingsDto } from './dto/user-security-settings.dto'
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import { AuthenticatedRequest } from 'src/common/types/authenticated-request.interface';
+import { RequireCsrf } from 'src/security/csrf/csrf.guard';
 
 @Injectable()
 export class SuperAdminGuard implements CanActivate {
@@ -184,6 +185,7 @@ export class UsersController {
   // PATCH /users/:id/password
   @UseGuards(JwtAuthGuard)
   @Patch(':id/password')
+  @RequireCsrf()
   async changePassword(
     @Param('id') id: string,
     @Body() dto: ChangePasswordDto,
@@ -206,6 +208,7 @@ export class UsersController {
   // DELETE /users/:id - User can delete their own account, or SuperAdmin can delete any
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
+  @RequireCsrf()
   async deleteAccount(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,

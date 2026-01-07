@@ -164,20 +164,26 @@ export const createRedisConfig = (configService: ConfigService) => {
     enableAutoPipelining: true,
     maxMemoryPolicy: 'allkeys-lru',
     // Monitoring
+    // Monitoring - only log errors to stderr, connection events handled internally
     onError: (err: Error) => {
-      console.error('Redis connection error:', err);
+      // Use stderr for errors (these go to Pino structured logs in production)
+      if (process.env.NODE_ENV === 'production') {
+        process.stderr.write(`Redis connection error: ${err.message}\n`);
+      } else {
+        console.error('Redis connection error:', err);
+      }
     },
     onConnect: () => {
-      console.log('Redis connected successfully');
+      // Silent in production - Pino handles startup logs
     },
     onReady: () => {
-      console.log('Redis ready for operations');
+      // Silent in production - use health checks instead of connection logs
     },
     onReconnecting: () => {
-      console.log('Redis reconnecting...');
+      // Silent in production - use health checks instead of connection logs
     },
     onEnd: () => {
-      console.log('Redis connection ended');
+      // Silent in production
     },
   };
 };

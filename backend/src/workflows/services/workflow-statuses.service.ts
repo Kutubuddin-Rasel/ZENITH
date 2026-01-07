@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -21,6 +22,8 @@ export interface CreateWorkflowStatusDto {
 
 @Injectable()
 export class WorkflowStatusesService {
+  private readonly logger = new Logger(WorkflowStatusesService.name);
+
   constructor(
     @InjectRepository(WorkflowStatus)
     private readonly statusRepo: Repository<WorkflowStatus>,
@@ -35,7 +38,7 @@ export class WorkflowStatusesService {
 
     // If category not found, try seeding defaults first (race condition protection)
     if (!category) {
-      console.log(
+      this.logger.warn(
         `Category "${dto.categoryKey}" not found, seeding defaults...`,
       );
       await this.categoriesService.seedDefaultCategories();
@@ -52,7 +55,7 @@ export class WorkflowStatusesService {
     });
     if (existing) {
       // Return existing status instead of throwing error (idempotent)
-      console.log(
+      this.logger.debug(
         `Status "${dto.name}" already exists in project ${dto.projectId}, returning existing`,
       );
       return existing;

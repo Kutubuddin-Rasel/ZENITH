@@ -325,7 +325,7 @@ export default function SprintDetailPage() {
             Sprint not found
           </Typography>
           <Typography variant="body" className="text-red-600 dark:text-red-400">
-            The sprint you're looking for doesn't exist.
+            The sprint you&apos;re looking for doesn&apos;t exist.
           </Typography>
         </Card>
       </div>

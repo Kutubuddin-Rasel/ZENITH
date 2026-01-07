@@ -30,7 +30,6 @@ import {
 import { useActiveSprint } from '@/hooks/useSprints';
 import { useSprintIssues } from '@/hooks/useSprintIssues';
 import { XCircleIcon, Cog6ToothIcon } from '@heroicons/react/24/solid';
-import { PlusIcon } from '@heroicons/react/24/outline';
 import { getProjectHealth, getHealthBadgeClasses } from '@/lib/project-health';
 import CreateIssueModal from '@/components/CreateIssueModal';
 import EmptyProjectHero from '@/components/EmptyProjectHero';
@@ -132,7 +131,6 @@ export default function ProjectDashboard() {
   const totalMembers = members?.length || 0;
   const percentDone = summary?.percentDone || 0;
   const totalIssues = summary?.totalIssues || 0;
-  const doneIssues = summary?.doneIssues || 0;
 
   // Calculate project health (must be after percentDone is defined)
   const health = getProjectHealth(summary?.statusCounts, percentDone);

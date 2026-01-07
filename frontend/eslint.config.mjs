@@ -21,6 +21,14 @@ const eslintConfig = [
       "react/no-unescaped-entities": "warn"
     }
   },
+  // TwoFactorAuthSetup uses data URLs for QR codes which next/image cannot handle
+  // This is a documented limitation: https://nextjs.org/docs/api-reference/next/image#known-browser-bugs
+  {
+    files: ["**/TwoFactorAuthSetup.tsx"],
+    rules: {
+      "@next/next/no-img-element": "off"
+    }
+  },
   {
     ignores: [
       "node_modules/**",

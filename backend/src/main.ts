@@ -1,19 +1,16 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
-import {
-  ValidationPipe,
-  Logger,
-  ClassSerializerInterceptor,
-} from '@nestjs/common';
+import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
+import { Logger } from 'nestjs-pino';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 import helmet from 'helmet';
-import * as compression from 'compression';
+import shrinkRay from 'shrink-ray-current';
 import * as cookieParser from 'cookie-parser';
 import { HTTPSConfigService } from './encryption/config/https.config';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import * as https from 'https';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -21,8 +18,14 @@ import * as bodyParser from 'body-parser';
 import { join } from 'path';
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true, // Buffer logs until Pino is ready
+  });
+
+  // Use Pino logger globally
+  app.useLogger(app.get(Logger));
+  const logger = app.get(Logger);
+
   const configService = app.get(ConfigService);
 
   // Enable graceful shutdown hooks
@@ -62,11 +65,10 @@ async function bootstrap() {
     }),
   );
 
-  // Compression - eslint exception for compression library type
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-  const compressionMiddleware = compression();
-
-  app.use(compressionMiddleware as Parameters<typeof app.use>[0]);
+  // Brotli + Gzip Compression
+  // shrink-ray-current provides Brotli (15-20% smaller than Gzip) with Gzip fallback
+  // for clients that don't support Brotli. This significantly reduces API response sizes.
+  app.use(shrinkRay() as Parameters<typeof app.use>[0]);
 
   // Cookie Parser
   app.use(cookieParser());
@@ -150,13 +152,6 @@ async function bootstrap() {
   // Static file serving for uploads (avatars, etc.)
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
-  });
-
-  // Request logging
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const requestId = (req.headers['x-request-id'] as string) || 'unknown';
-    logger.log(`${req.method} ${req.url} - ${requestId}`);
-    next();
   });
 
   // Swagger Documentation

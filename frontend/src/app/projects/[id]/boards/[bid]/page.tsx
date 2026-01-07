@@ -328,18 +328,15 @@ export default function BoardPage() {
 
     // Find destination column
     let destColId: string | undefined;
-    let destStatusId: string | null | undefined;
 
     if (overData?.type === 'column') {
       destColId = overData.columnId;
-      destStatusId = overData.statusId;
     } else {
       // Dropped on an issue - find its column
       for (const col of columns) {
         const ids = (issuesByColumn[col.id] || []).filter(i => !i.parentId).map(i => i.id);
         if (ids.includes(overId)) {
           destColId = col.id;
-          destStatusId = col.statusId;
           break;
         }
       }
@@ -348,7 +345,6 @@ export default function BoardPage() {
         const col = columns.find(c => c.id === overId);
         if (col) {
           destColId = col.id;
-          destStatusId = col.statusId;
         }
       }
     }

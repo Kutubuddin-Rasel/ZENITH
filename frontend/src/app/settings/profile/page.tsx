@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { apiFetch } from '@/lib/fetcher';
@@ -219,10 +220,12 @@ export default function ProfilePage() {
                                 >
                                     <div className="w-24 h-24 rounded-full overflow-hidden bg-neutral-100 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 group-hover:border-primary-500 transition-all duration-200 shadow-sm">
                                         {user.avatarUrl ? (
-                                            <img
+                                            <Image
                                                 src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `${API_URL}${user.avatarUrl}`}
                                                 alt={user.name || 'Avatar'}
-                                                className="w-full h-full object-cover"
+                                                fill
+                                                className="object-cover"
+                                                unoptimized={user.avatarUrl.startsWith('http') && !user.avatarUrl.includes('localhost')}
                                             />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">

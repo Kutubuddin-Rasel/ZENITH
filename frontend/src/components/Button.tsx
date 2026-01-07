@@ -30,25 +30,34 @@ const ButtonSpinner = ({ className }: { className?: string }) => (
 );
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none shadow-sm",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        primary: "bg-primary-600 text-accent-foreground hover:bg-primary-700 border border-transparent shadow-md hover:shadow-lg transform active:scale-95",
-        secondary: "bg-white text-neutral-900 hover:bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600",
-        ghost: "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 focus-visible:ring-neutral-500 border border-transparent",
-        danger: "bg-error-600 text-white hover:bg-error-700 focus-visible:ring-error-500 border border-transparent shadow-sm",
-        warning: "bg-warning-600 text-white hover:bg-warning-700 focus-visible:ring-warning-500 border border-transparent shadow-sm",
-        success: "bg-success-600 text-white hover:bg-success-700 focus-visible:ring-success-500 border border-transparent shadow-sm",
-        outline: "text-primary-600 border border-primary-200 hover:bg-primary-50 hover:border-primary-300 dark:text-primary-400 dark:border-primary-800 dark:hover:bg-primary-900/20 focus-visible:ring-primary-500 bg-transparent",
-        gradient: "bg-gradient-to-r from-primary-600 to-purple-600 text-white hover:from-primary-700 hover:to-purple-700 border-transparent shadow-md focus-visible:ring-primary-500",
+        primary: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive:
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline:
+          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        secondary:
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
+        // Legacy variant mapping for compatibility, upgrading to safe defaults
+        success: "bg-success-600 text-white hover:bg-success-600/90",
+        warning: "bg-warning-500 text-white hover:bg-warning-500/90",
+        danger: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        gradient: "bg-primary text-primary-foreground hover:bg-primary/90", // Fallback to primary for now
       },
       size: {
-        xs: "h-7 px-2.5 text-xs gap-1.5",
-        sm: "h-8 px-3 text-sm gap-2",
-        md: "h-10 px-4 text-sm gap-2",
-        lg: "px-5 py-3 text-base gap-2.5",
-        xl: "px-6 py-4 text-lg gap-3",
+        default: "h-10 px-4 py-2",
+        sm: "h-9 rounded-md px-3",
+        lg: "h-11 rounded-md px-8",
+        icon: "h-10 w-10",
+        // Legacy size mapping
+        xs: "h-8 px-2 text-xs",
+        md: "h-10 px-4 py-2",
+        xl: "h-12 rounded-md px-8 text-lg",
       },
       fullWidth: {
         true: "w-full",
@@ -56,7 +65,7 @@ const buttonVariants = cva(
     },
     defaultVariants: {
       variant: "primary",
-      size: "md",
+      size: "default",
       fullWidth: false,
     },
   }
@@ -83,14 +92,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   return (
     <motion.button
       ref={ref}
-      whileTap={{ scale: 0.97 }}
+      whileTap={{ scale: 0.98 }}
       className={cn(buttonVariants({ variant, size, fullWidth, className }))}
       disabled={loading || disabled}
       // Use standard button type by default to avoid form submission issues
       type={props.type || "button"}
       {...props}
     >
-      {loading && <ButtonSpinner className="h-4 w-4" />}
+      {loading && <ButtonSpinner className="mr-2 h-4 w-4" />}
       {children}
     </motion.button>
   );

@@ -509,6 +509,8 @@ export class BoardsService {
       .map((id, idx) => `WHEN '${id}' THEN ${idx} `)
       .join(' ');
 
+    // @RAW_QUERY_AUDIT: Tenant isolation verified via findOne() + boardId scope
+    // Column IDs are validated against board which is project-scoped
     await this.colRepo.query(
       `UPDATE board_columns 
        SET "order" = CASE id ${caseStatements} END
@@ -606,6 +608,8 @@ export class BoardsService {
       .map((id, idx) => `WHEN '${id}' THEN ${idx} `)
       .join(' ');
 
+    // @RAW_QUERY_AUDIT: Tenant isolation verified via findOne() + projectId filter
+    // Issues are scoped by projectId which is checked at method entry
     await this.dataSource.query(
       `UPDATE issues 
        SET "backlogOrder" = CASE id ${caseStatements} END

@@ -24,7 +24,7 @@ import {
   DeepPartial,
 } from 'typeorm';
 import { TenantContext } from './tenant-context.service';
-import { Logger } from '@nestjs/common';
+import { Logger, ForbiddenException } from '@nestjs/common';
 
 /**
  * Interface for entities that support tenant isolation
@@ -34,6 +34,13 @@ export interface TenantAwareEntity extends ObjectLiteral {
   organizationId?: string;
   // Some entities link through project.organizationId
   project?: { organizationId?: string };
+}
+
+/**
+ * Interface for entities that support soft delete
+ */
+export interface SoftDeletableEntity extends TenantAwareEntity {
+  deletedAt?: Date | null;
 }
 
 /**
@@ -66,42 +73,69 @@ export class TenantRepository<T extends TenantAwareEntity> {
 
   /**
    * Merge tenant filter into existing where clause
+   * Also applies soft-delete filter if entity has deletedAt field
    */
   private applyTenantFilter<O extends FindManyOptions<T> | FindOneOptions<T>>(
     options?: O,
+    includeDeleted = false,
   ): O {
     const tenantId = this.getCurrentTenantId();
-    if (!tenantId) {
-      // No tenant context or bypass enabled - return as-is
+
+    // Build base filter
+    const baseFilter: Record<string, unknown> = {};
+
+    // Add tenant filter if available
+    if (tenantId) {
+      baseFilter[this.tenantField as string] = tenantId;
+    }
+
+    // Add soft-delete filter if entity supports it and not bypassed
+    if (!includeDeleted && this.hasSoftDelete()) {
+      baseFilter['deletedAt'] = null; // TypeORM treats null as IS NULL
+    }
+
+    // If no filters to apply, return options as-is
+    if (Object.keys(baseFilter).length === 0) {
       return options || ({} as O);
     }
 
-    const tenantFilter = {
-      [this.tenantField]: tenantId,
-    } as FindOptionsWhere<T>;
+    const filter = baseFilter as FindOptionsWhere<T>;
 
     if (!options) {
-      return { where: tenantFilter } as O;
+      return { where: filter } as O;
     }
 
     if (!options.where) {
-      return { ...options, where: tenantFilter } as O;
+      return { ...options, where: filter } as O;
     }
 
     // Merge with existing where clause
     if (Array.isArray(options.where)) {
-      // OR conditions - apply tenant to each
+      // OR conditions - apply filter to each
       return {
         ...options,
-        where: options.where.map((w) => ({ ...w, ...tenantFilter })),
+        where: options.where.map((w) => ({ ...w, ...filter })),
       } as O;
     }
 
-    // Single where object - merge tenant
+    // Single where object - merge filter
     return {
       ...options,
-      where: { ...options.where, ...tenantFilter },
+      where: { ...options.where, ...filter },
     } as O;
+  }
+
+  /**
+   * Check if entity has soft delete support (deletedAt field)
+   */
+  private hasSoftDelete(): boolean {
+    try {
+      return this.repository.metadata.columns.some(
+        (col) => col.propertyName === 'deletedAt',
+      );
+    } catch {
+      return false;
+    }
   }
 
   // ============================================================
@@ -157,12 +191,15 @@ export class TenantRepository<T extends TenantAwareEntity> {
   }
 
   /**
-   * Create a query builder with tenant filter pre-applied
+   * Create a query builder with tenant and soft-delete filters pre-applied
    *
    * Returns a QueryBuilder with the tenant WHERE clause already added.
    * Developer can chain additional conditions.
    */
-  createQueryBuilder(alias: string): SelectQueryBuilder<T> {
+  createQueryBuilder(
+    alias: string,
+    includeDeleted = false,
+  ): SelectQueryBuilder<T> {
     const qb = this.repository.createQueryBuilder(alias);
 
     const tenantId = this.getCurrentTenantId();
@@ -175,17 +212,49 @@ export class TenantRepository<T extends TenantAwareEntity> {
       qb.andWhere(`${fieldPath} = :tenantId`, { tenantId });
     }
 
+    // Apply soft-delete filter if entity supports it
+    if (!includeDeleted && this.hasSoftDelete()) {
+      qb.andWhere(`${alias}."deletedAt" IS NULL`);
+    }
+
     return qb;
   }
 
   // ============================================================
-  // WRITE OPERATIONS - Pass through to underlying repository
-  // Security note: Load entity first with tenant filter to verify access
+  // WRITE OPERATIONS - WITH TENANT VALIDATION
+  // Security: Validates organizationId matches current context
   // ============================================================
 
   /**
-   * Save entity - PASSTHROUGH
-   * Note: Always load the entity first using find/findOne to verify tenant access
+   * Validate entity has correct tenant ID before write
+   * Throws ForbiddenException if mismatch detected
+   */
+  private validateTenantOnWrite(entity: DeepPartial<T>): void {
+    const tenantId = this.getCurrentTenantId();
+
+    // Skip validation if bypass enabled or no tenant context
+    if (!tenantId) return;
+
+    // Get entity's organizationId
+    const entityOrgId = (entity as TenantAwareEntity).organizationId;
+
+    // Skip if entity doesn't have organizationId (new entity or non-tenant entity)
+    if (entityOrgId === undefined) return;
+
+    // SECURITY: Reject if attempting to write to different tenant
+    if (entityOrgId !== tenantId) {
+      this.logger.error(
+        `Tenant violation detected! Context: ${tenantId}, Entity: ${entityOrgId}`,
+      );
+      throw new ForbiddenException(
+        'Cannot write entity belonging to different organization',
+      );
+    }
+  }
+
+  /**
+   * Save entity - WITH TENANT VALIDATION
+   * Validates organizationId matches current context before write
    */
   async save<E extends DeepPartial<T>>(entity: E): Promise<T>;
   async save<E extends DeepPartial<T>>(entities: E[]): Promise<T[]>;
@@ -193,9 +262,26 @@ export class TenantRepository<T extends TenantAwareEntity> {
     entityOrEntities: E | E[],
   ): Promise<T | T[]> {
     if (Array.isArray(entityOrEntities)) {
+      // Validate each entity in batch
+      for (const entity of entityOrEntities) {
+        this.validateTenantOnWrite(entity);
+      }
       return this.repository.save(entityOrEntities);
     }
+
+    // Validate single entity
+    this.validateTenantOnWrite(entityOrEntities);
     return this.repository.save(entityOrEntities);
+  }
+
+  /**
+   * Insert entity - WITH TENANT VALIDATION
+   * Validates organizationId matches current context before insert
+   */
+  async insert(entity: DeepPartial<T>): Promise<T> {
+    this.validateTenantOnWrite(entity);
+    const result = await this.repository.insert(entity as never);
+    return result.generatedMaps[0] as T;
   }
 
   /**

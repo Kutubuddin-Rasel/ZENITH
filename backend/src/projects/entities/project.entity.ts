@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   Unique,
   ManyToOne,
   JoinColumn,
@@ -20,8 +21,8 @@ import { Organization } from '../../organizations/entities/organization.entity';
 @Index('IDX_project_org_archived', ['organizationId', 'isArchived'])
 @Index('IDX_project_created_at', ['createdAt'])
 @Index('IDX_project_updated_at', ['updatedAt'])
-// @Index('IDX_project_name_search', { synchronize: false }) // GIN index placeholder
-// @Index('IDX_project_description_search', { synchronize: false }) // GIN index placeholder
+@Index('IDX_project_deleted_at', ['deletedAt']) // Soft delete index
+@Index('IDX_project_org_deleted', ['organizationId', 'deletedAt']) // Tenant + soft delete
 export class Project {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -53,7 +54,7 @@ export class Project {
   };
 
   @Column({ default: false })
-  isArchived: boolean; // optional: allow archiving later
+  isArchived: boolean;
 
   // Organization relationship
   @Column({ type: 'uuid', nullable: true })
@@ -68,4 +69,21 @@ export class Project {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  // =====================
+  // Soft Delete Fields
+  // =====================
+
+  /**
+   * Soft delete timestamp - when set, project is considered deleted
+   * Use softDelete() method instead of remove() to set this
+   */
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
+
+  /**
+   * User who performed the soft delete (for audit trail)
+   */
+  @Column({ type: 'uuid', nullable: true })
+  deletedBy: string | null;
 }

@@ -8,8 +8,10 @@ import {
   Param,
   Body,
   UseGuards,
+  UseInterceptors,
   Request,
 } from '@nestjs/common';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { BoardsService } from './boards.service';
 import { UsersService } from '../users/users.service';
 import { CreateBoardDto } from './dto/create-board.dto';
@@ -27,7 +29,7 @@ export class BoardsController {
   constructor(
     private svc: BoardsService,
     private readonly usersService: UsersService,
-  ) {}
+  ) { }
 
   /**
    * Helper: Get user's organization ID
@@ -50,7 +52,13 @@ export class BoardsController {
     return this.svc.create(projectId, req.user.userId, dto, orgId);
   }
 
+  /**
+   * CACHED: List all boards in a project
+   * Uses 5-second micro-cache to prevent standup refresh storms.
+   */
   @RequirePermission('boards:view')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(5000)
   @Get()
   async findAll(
     @Param('projectId') projectId: string,
@@ -60,7 +68,13 @@ export class BoardsController {
     return this.svc.findAll(projectId, req.user.userId, orgId);
   }
 
+  /**
+   * CACHED: Get single board by ID
+   * Uses 5-second micro-cache to prevent duplicate queries.
+   */
   @RequirePermission('boards:view')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(5000)
   @Get(':boardId')
   async findOne(
     @Param('projectId') projectId: string,
@@ -72,13 +86,17 @@ export class BoardsController {
   }
 
   /**
-   * OPTIMIZED: Get board with slim issues (Phase 2)
+   * OPTIMIZED + CACHED: Get board with slim issues
    *
    * Returns board + columns + issues with selective fields only.
    * Excludes heavy fields: description, metadata, embedding.
    * Uses 5-second micro-cache for standup refresh storms.
+   *
+   * This is the PRIMARY endpoint for Kanban board views.
    */
   @RequirePermission('boards:view')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(5000)
   @Get(':boardId/slim')
   async findOneSlim(
     @Param('projectId') projectId: string,

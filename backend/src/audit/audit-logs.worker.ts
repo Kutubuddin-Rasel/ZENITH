@@ -1,10 +1,12 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
+import { Logger } from '@nestjs/common';
 import { ClickHouseClient } from './clickhouse.client';
 import { AuditLogEvent } from './interfaces/audit-log-event.interface';
 
 @Processor('audit-queue')
 export class AuditLogsWorker extends WorkerHost {
+  private readonly logger = new Logger(AuditLogsWorker.name);
   private buffer: any[] = [];
   private readonly BATCH_SIZE = 100;
   private readonly FLUSH_INTERVAL = 5000; // 5 seconds
@@ -50,11 +52,9 @@ export class AuditLogsWorker extends WorkerHost {
 
     try {
       await this.clickHouse.insertBatch(batch);
-      console.log(
-        `[AuditLogsWorker] Flushed ${batch.length} events to ClickHouse`,
-      );
+      this.logger.log(`Flushed ${batch.length} events to ClickHouse`);
     } catch (error) {
-      console.error('[AuditLogsWorker] Failed to flush batch', error);
+      this.logger.error('Failed to flush batch', error);
       // Re-queue logic or dead letter would go here
       // For now, simple error log is MVP
     }

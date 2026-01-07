@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 import Image from 'next/image';
 import Modal from './Modal';
 import Button from './Button';
@@ -48,16 +48,37 @@ const typeBadge: Record<Issue['type'], { icon: React.ReactElement; text: string;
   'Sub-task': { icon: <PlusIcon className="h-3 w-3" />, text: 'Sub-task', color: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-200' },
 };
 
-// Sortable Issue Card Component
-function SortableModalIssueCard({
-  issue,
-  containerId,
-  onRemove
-}: {
+// Props interface for SortableModalIssueCard
+interface SortableModalIssueCardProps {
   issue: Issue;
   containerId: string;
   onRemove?: (id: string) => void;
-}) {
+}
+
+// Custom equality function for memo
+function areSortableCardPropsEqual(
+  prev: SortableModalIssueCardProps,
+  next: SortableModalIssueCardProps
+): boolean {
+  return (
+    prev.issue.id === next.issue.id &&
+    prev.issue.title === next.issue.title &&
+    prev.issue.type === next.issue.type &&
+    prev.issue.status === next.issue.status &&
+    prev.issue.priority === next.issue.priority &&
+    prev.issue.storyPoints === next.issue.storyPoints &&
+    prev.issue.key === next.issue.key &&
+    prev.containerId === next.containerId &&
+    prev.onRemove === next.onRemove
+  );
+}
+
+// Sortable Issue Card Component - wrapped in memo for performance
+const SortableModalIssueCard = memo(function SortableModalIssueCardComponent({
+  issue,
+  containerId,
+  onRemove
+}: SortableModalIssueCardProps) {
   const {
     attributes,
     listeners,
@@ -168,7 +189,7 @@ function SortableModalIssueCard({
       </div>
     </div>
   );
-}
+}, areSortableCardPropsEqual);
 
 // Drag Overlay Card
 function DragOverlayModalCard({ issue, isSprint }: { issue: Issue; isSprint: boolean }) {
@@ -332,9 +353,10 @@ const SprintDetailModal = ({ open, onClose, sprint, projectId }: SprintDetailMod
     }
   }
 
-  function handleRemoveFromSprint(issueId: string) {
+  // Stabilized callback for remove handler - prevents unnecessary re-renders
+  const handleRemoveFromSprint = useCallback((issueId: string) => {
     removeIssueFromSprint.mutate(issueId);
-  }
+  }, [removeIssueFromSprint]);
 
   // Progress bar
   const total = localSprintIssues.length;

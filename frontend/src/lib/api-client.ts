@@ -1,3 +1,5 @@
+import { getAccessToken, refreshAccessToken } from './auth-tokens';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
@@ -5,6 +7,7 @@ const RETRY_DELAY_MS = 1000;
 interface RequestOptions extends RequestInit {
     params?: Record<string, string>;
     skipRetry?: boolean;
+    skipAuth?: boolean; // Skip adding Authorization header (for public endpoints)
 }
 
 interface RateLimitInfo {
@@ -46,28 +49,41 @@ function parseRateLimitHeaders(response: Response): RateLimitInfo | undefined {
  * Wait for specified milliseconds
  */
 function delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * Core fetch wrapper with rate limiting and retry support
+ * Core fetch wrapper with authentication, rate limiting, and retry support
+ *
+ * Modern SPA Pattern:
+ * - Access token from in-memory storage (not cookies)
+ * - Automatic token refresh on 401
+ * - HttpOnly cookies still sent for /auth routes
  */
 async function fetchWrapper<T>(
     endpoint: string,
     options: RequestOptions = {},
-    retryCount = 0
+    retryCount = 0,
+    isRetryAfterRefresh = false
 ): Promise<T> {
-    const { params, skipRetry, ...customConfig } = options;
+    const { params, skipRetry, skipAuth, ...customConfig } = options;
 
+    // Build headers with Bearer token
     const headers: HeadersInit = {
         'Content-Type': 'application/json',
         ...customConfig.headers,
     };
 
+    // Add Authorization header if authenticated and not skipped
+    const token = getAccessToken();
+    if (token && !skipAuth) {
+        (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+    }
+
     const config: RequestInit = {
         ...customConfig,
         headers,
-        credentials: 'include', // Ensure HttpOnly cookies are sent
+        credentials: 'include', // Still send HttpOnly cookies for refresh/logout
     };
 
     let url = `${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
@@ -96,11 +112,33 @@ async function fetchWrapper<T>(
             : RETRY_DELAY_MS * Math.pow(2, retryCount); // Exponential backoff
 
         if (process.env.NODE_ENV === 'development') {
-            console.warn(`[API] Rate limited. Retrying in ${waitTime}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+            console.warn(
+                `[API] Rate limited. Retrying in ${waitTime}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`
+            );
         }
 
         await delay(waitTime);
         return fetchWrapper<T>(endpoint, options, retryCount + 1);
+    }
+
+    // Handle 401 Unauthorized - attempt token refresh
+    if (response.status === 401 && !isRetryAfterRefresh && !skipAuth) {
+        if (process.env.NODE_ENV === 'development') {
+            console.log('[API] 401 received, attempting token refresh...');
+        }
+
+        const refreshed = await refreshAccessToken();
+
+        if (refreshed) {
+            // Retry original request with new token
+            if (process.env.NODE_ENV === 'development') {
+                console.log('[API] Token refreshed, retrying original request...');
+            }
+            return fetchWrapper<T>(endpoint, options, 0, true);
+        } else {
+            // Refresh failed - user will be redirected to login by auth-tokens module
+            throw new ApiError(401, 'Session expired. Please login again.', rateLimit);
+        }
     }
 
     if (!response.ok) {
@@ -137,15 +175,30 @@ export const apiClient = {
         fetchWrapper<T>(endpoint, { ...options, method: 'GET' }),
 
     post: <T>(endpoint: string, body: unknown, options?: RequestOptions) =>
-        fetchWrapper<T>(endpoint, { ...options, method: 'POST', body: JSON.stringify(body) }),
+        fetchWrapper<T>(endpoint, {
+            ...options,
+            method: 'POST',
+            body: JSON.stringify(body),
+        }),
 
     put: <T>(endpoint: string, body: unknown, options?: RequestOptions) =>
-        fetchWrapper<T>(endpoint, { ...options, method: 'PUT', body: JSON.stringify(body) }),
+        fetchWrapper<T>(endpoint, {
+            ...options,
+            method: 'PUT',
+            body: JSON.stringify(body),
+        }),
 
     patch: <T>(endpoint: string, body: unknown, options?: RequestOptions) =>
-        fetchWrapper<T>(endpoint, { ...options, method: 'PATCH', body: JSON.stringify(body) }),
+        fetchWrapper<T>(endpoint, {
+            ...options,
+            method: 'PATCH',
+            body: JSON.stringify(body),
+        }),
 
     delete: <T>(endpoint: string, body?: unknown, options?: RequestOptions) =>
-        fetchWrapper<T>(endpoint, { ...options, method: 'DELETE', body: body ? JSON.stringify(body) : undefined }),
+        fetchWrapper<T>(endpoint, {
+            ...options,
+            method: 'DELETE',
+            body: body ? JSON.stringify(body) : undefined,
+        }),
 };
-

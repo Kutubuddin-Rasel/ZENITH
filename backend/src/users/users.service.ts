@@ -10,6 +10,9 @@ import { User } from './entities/user.entity';
 import { Brackets } from 'typeorm';
 import * as argon2 from 'argon2';
 import { ChangePasswordDto } from './dto/create-user.dto';
+import { AuditLogsService } from '../audit/audit-logs.service';
+import { ClsService } from 'nestjs-cls';
+import { v4 as uuidv4 } from 'uuid';
 
 interface RawUserRow {
   user_id: string;
@@ -31,6 +34,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    private readonly auditLogsService: AuditLogsService,
+    private readonly cls: ClsService,
   ) {}
 
   /** Create a new user */
@@ -270,12 +275,31 @@ export class UsersService {
     });
     user.passwordVersion = 3; // Argon2id version
     await this.userRepo.save(user);
+
+    // Audit: PASSWORD_CHANGE (Severity: HIGH)
+    await this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: user.organizationId || 'unknown',
+      actor_id: id,
+      resource_type: 'User',
+      resource_id: id,
+      action_type: 'UPDATE',
+      action: 'PASSWORD_CHANGE',
+      metadata: {
+        severity: 'HIGH',
+        requestId: this.cls.get('requestId'),
+      },
+    });
+
     return { success: true };
   }
 
   /** Delete a user's account (soft-delete: deactivate and anonymize) */
   async deleteAccount(id: string): Promise<{ success: boolean }> {
     const user = await this.findOneById(id);
+    const originalEmail = user.email;
+    const originalName = user.name;
 
     // Soft-delete: deactivate and anonymize user data for GDPR compliance
     user.isActive = false;
@@ -286,6 +310,25 @@ export class UsersService {
     user.passwordHash = ''; // Invalidate password
 
     await this.userRepo.save(user);
+
+    // Audit: USER_DELETED (Severity: CRITICAL)
+    await this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: user.organizationId || 'unknown',
+      actor_id: id,
+      resource_type: 'User',
+      resource_id: id,
+      action_type: 'DELETE',
+      action: 'USER_DELETED',
+      metadata: {
+        severity: 'CRITICAL',
+        originalEmail,
+        originalName,
+        requestId: this.cls.get('requestId'),
+      },
+    });
+
     return { success: true };
   }
 }

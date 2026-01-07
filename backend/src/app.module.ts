@@ -1,12 +1,18 @@
-import { Module, OnApplicationShutdown, Logger } from '@nestjs/common';
+import {
+  Module,
+  OnApplicationShutdown,
+  NestModule,
+  MiddlewareConsumer,
+} from '@nestjs/common';
 import { ModuleRef, APP_INTERCEPTOR } from '@nestjs/core';
-import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClsModule } from 'nestjs-cls';
+import { LoggingModule } from './common/logging/logging.module';
+import { CorrelationMiddleware } from './common/middleware/correlation.middleware';
 // Core Infrastructure Modules
 import { CoreEntitiesModule } from './core/entities/core-entities.module';
 import { ProjectCoreModule } from './core/membership/project-core.module';
@@ -14,6 +20,7 @@ import { UsersCoreModule } from './core/users/users-core.module';
 import { AuthCoreModule } from './core/auth/auth-core.module';
 import { TenantModule } from './core/tenant/tenant.module';
 import { CircuitBreakerModule } from './core/integrations/circuit-breaker.module';
+import { CoreQueueModule } from './core/core-queue.module';
 import { TenantInterceptor } from './core/tenant/tenant.interceptor';
 import { OptimisticLockingInterceptor } from './core/interceptors/optimistic-locking.interceptor';
 import { UsersModule } from './users/users.module';
@@ -66,6 +73,10 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { BillingModule } from './billing/billing.module';
 import { SearchModule } from './search/search.module';
 import { GatewaysModule } from './gateways/gateways.module';
+import { RBACModule } from './rbac/rbac.module';
+import { ScheduledTasksModule } from './scheduled-tasks/scheduled-tasks.module';
+import { HealthModule } from './health/health.module';
+import { CsrfModule } from './security/csrf/csrf.module';
 
 @Module({
   imports: [
@@ -81,6 +92,8 @@ import { GatewaysModule } from './gateways/gateways.module';
         mount: true, // Mount as middleware for all routes
       },
     }),
+    // Structured Logging with Pino (Phase 7)
+    LoggingModule,
     ScheduleModule.forRoot(),
     // Configure TypeORM asynchronously using ConfigService with optimizations
     TypeOrmModule.forRootAsync({
@@ -101,6 +114,7 @@ import { GatewaysModule } from './gateways/gateways.module';
     AuthCoreModule, // Global: JwtAuthGuard, PermissionsGuard via APP_GUARD
     TenantModule, // Global: Tenant isolation infrastructure
     CircuitBreakerModule, // Global: Circuit breaker gateway for external APIs
+    CoreQueueModule, // Global: Centralized BullMQ queue configuration
     // AI Module - provides AI-powered smart setup capabilities
     AiModule,
     CacheModule,
@@ -151,17 +165,14 @@ import { GatewaysModule } from './gateways/gateways.module';
     SearchModule,
     // NEW: Real-time Gateways
     GatewaysModule,
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        connection: {
-          host: configService.get('REDIS_HOST', 'localhost'),
-          port: configService.get('REDIS_PORT', 6379),
-          password: configService.get('REDIS_PASSWORD'),
-        },
-      }),
-      inject: [ConfigService],
-    }),
+    // NEW: Dynamic RBAC (database-backed roles and permissions)
+    RBACModule,
+    // NEW: Scheduled Tasks (cron jobs for cleanup)
+    ScheduledTasksModule,
+    // Phase 7: Advanced Health Checks with Terminus
+    HealthModule,
+    // Phase 7: CSRF Defense-in-Depth (global guard, activates with @RequireCsrf)
+    CsrfModule,
   ],
   controllers: [AppController],
   providers: [
@@ -182,22 +193,17 @@ import { GatewaysModule } from './gateways/gateways.module';
     },
   ],
 })
-export class AppModule implements OnApplicationShutdown {
-  private readonly logger = new Logger(AppModule.name);
+export class AppModule implements OnApplicationShutdown, NestModule {
+  constructor(private readonly moduleRef: ModuleRef) { }
 
-  constructor(private readonly moduleRef: ModuleRef) {}
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CorrelationMiddleware).forRoutes('*');
+  }
 
   async onApplicationShutdown(signal?: string) {
-    this.logger.log(`🛑 Shutdown signal received: ${signal}`);
-
     // 1. Stop accepting new HTTP requests (handled by NestJS)
-    this.logger.log('Stopping HTTP server...');
-
     // 2. Wait for in-flight requests to complete
-    this.logger.log('Waiting for in-flight requests to complete...');
     const gracePeriod = parseInt(process.env.API_GRACE_PERIOD_MS || '5000', 10);
     await new Promise((resolve) => setTimeout(resolve, gracePeriod));
-
-    this.logger.log('✅ Graceful shutdown complete');
   }
 }

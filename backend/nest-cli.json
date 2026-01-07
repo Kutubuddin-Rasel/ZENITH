@@ -3,6 +3,21 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "webpack": false
+  },
+  "projects": {
+    "main": {
+      "type": "application",
+      "root": ".",
+      "entryFile": "main",
+      "sourceRoot": "src"
+    },
+    "worker": {
+      "type": "application",
+      "root": ".",
+      "entryFile": "worker.main",
+      "sourceRoot": "src"
+    }
   }
 }

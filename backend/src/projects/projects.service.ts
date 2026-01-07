@@ -32,6 +32,7 @@ import {
   TenantRepository,
   TenantContext,
 } from '../core/tenant';
+import { ClsService } from 'nestjs-cls';
 
 @Injectable()
 export class ProjectsService implements OnModuleInit {
@@ -62,6 +63,7 @@ export class ProjectsService implements OnModuleInit {
     // TENANT ISOLATION: Inject factory and context
     private readonly tenantRepoFactory?: TenantRepositoryFactory,
     private readonly tenantContext?: TenantContext,
+    private readonly cls?: ClsService,
   ) {}
 
   /**
@@ -351,7 +353,29 @@ export class ProjectsService implements OnModuleInit {
    */
   async remove(projectId: string): Promise<void> {
     const project = await this.findOneById(projectId);
+    const projectName = project.name;
+    const organizationId = project.organizationId;
+
     await this.projectRepo.remove(project);
+
+    // Audit: PROJECT_DELETED (Severity: HIGH)
+    await this.auditLogsService.log({
+      event_uuid: require('uuid').v4(),
+      timestamp: new Date(),
+      tenant_id: organizationId || 'unknown',
+      actor_id: this.cls?.get('userId') || 'system',
+      projectId,
+      resource_type: 'Project',
+      resource_id: projectId,
+      action_type: 'DELETE',
+      action: 'PROJECT_DELETED',
+      metadata: {
+        severity: 'HIGH',
+        projectName,
+        requestId: this.cls?.get('requestId'),
+      },
+    });
+
     // Invalidate cache
     await this.cacheService.invalidateProjectCache(projectId);
   }

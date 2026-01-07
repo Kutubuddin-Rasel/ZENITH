@@ -71,7 +71,6 @@ interface DroppableSprintContainerProps {
   isOver: boolean;
   isExpanded: boolean;
   onToggle: () => void;
-  projectId: string;
 }
 
 function DroppableSprintContainer({
@@ -80,7 +79,6 @@ function DroppableSprintContainer({
   isOver,
   isExpanded,
   onToggle,
-  projectId,
 }: DroppableSprintContainerProps) {
   const { setNodeRef } = useDroppable({
     id: `sprint-${sprint.id}`,
@@ -488,7 +486,6 @@ export default function BacklogPage() {
                       isOver={overSprintId === sprint.id}
                       isExpanded={expandedSprints.has(sprint.id)}
                       onToggle={() => toggleSprint(sprint.id)}
-                      projectId={projectId}
                     />
                   );
                 })

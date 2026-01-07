@@ -2,8 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TriageWorker } from './triage.worker';
 import { OpenAiService } from '../services/openai.service';
 import { EmbeddingsService } from '../services/embeddings.service';
+import { SuggestionsService } from '../services/suggestions.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Issue } from '../../issues/entities/issue.entity';
+import { Issue, IssuePriority } from '../../issues/entities/issue.entity'; // Import IssuePriority
 import { Job } from 'bullmq';
 
 describe('TriageWorker', () => {
@@ -11,6 +12,7 @@ describe('TriageWorker', () => {
   let issueRepo: { findOne: jest.Mock; save: jest.Mock };
   let openAiService: { generateText: jest.Mock };
   let embeddingsService: { create: jest.Mock };
+  let suggestionsService: { create: jest.Mock };
 
   beforeEach(async () => {
     issueRepo = {
@@ -21,6 +23,9 @@ describe('TriageWorker', () => {
       generateText: jest.fn(),
     };
     embeddingsService = {
+      create: jest.fn(),
+    };
+    suggestionsService = {
       create: jest.fn(),
     };
 
@@ -38,6 +43,10 @@ describe('TriageWorker', () => {
         {
           provide: EmbeddingsService,
           useValue: embeddingsService,
+        },
+        {
+          provide: SuggestionsService,
+          useValue: suggestionsService,
         },
       ],
     }).compile();
@@ -63,7 +72,11 @@ describe('TriageWorker', () => {
     issueRepo.findOne.mockResolvedValue(issue);
     embeddingsService.create.mockResolvedValue([0.1, 0.2]);
     openAiService.generateText.mockResolvedValue(
-      JSON.stringify({ priority: 'High', labels: ['Bug', 'Backend'] }),
+      JSON.stringify({
+        priority: 'High',
+        labels: ['Bug', 'Backend'],
+        confidence: 0.99,
+      }),
     );
 
     await worker.process(job);

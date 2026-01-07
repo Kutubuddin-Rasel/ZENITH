@@ -363,7 +363,7 @@ export default function ProjectIntegrationsPage() {
                         </div>
 
                         <Typography variant="body-sm" color="muted" className="mb-4">
-                            Link a GitHub repository to enable Magic Words (e.g., "Fixes #123" auto-closes issues).
+                            Link a GitHub repository to enable Magic Words (e.g., &quot;Fixes #123&quot; auto-closes issues).
                         </Typography>
 
                         {!gitHubConnected ? (
@@ -420,8 +420,8 @@ export default function ProjectIntegrationsPage() {
                                 </div>
 
                                 <Typography variant="body-sm" color="muted">
-                                    <strong>Magic Words enabled:</strong> Commits with "Fixes {currentLink.projectKey}-123"
-                                    or "closes #{'{'}number{'}'}" will auto-close matching issues.
+                                    <strong>Magic Words enabled:</strong> Commits with &quot;Fixes {currentLink.projectKey}-123&quot;
+                                    or &quot;closes #&#123;number&#125;&quot; will auto-close matching issues.
                                 </Typography>
                             </div>
                         ) : (

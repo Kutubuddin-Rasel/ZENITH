@@ -1,4 +1,35 @@
-
-# macOS system files
+# System & Logs
 .DS_Store
 **/.DS_Store
+*.log
+npm-debug.log*
+yarn-error.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+.npm/
+
+# IDEs & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project Specific
+docs/
+.agent/
+
+# Test & Coverage
+coverage/
+junit.xml
+
+# Build Artifacts
+dist/
+dist-*/

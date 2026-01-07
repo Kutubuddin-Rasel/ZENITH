@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Integration } from './entities/integration.entity';
@@ -28,11 +28,12 @@ import { IntegrationMarketplaceController } from './controllers/integration-mark
 import { OAuthController } from './controllers/oauth.controller';
 import { AuthModule } from '../auth/auth.module';
 import { AccessControlModule } from '../access-control/access-control.module';
-import { QueueModule } from '../queue/queue.module';
 import { UsersModule } from '../users/users.module';
 import { IssuesModule } from '../issues/issues.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { RagModule } from '../rag/rag.module';
+// Sprint 2: Import processor from new location
+import { IntegrationSyncProcessor } from './processors/integration-sync.processor';
 
 @Module({
   imports: [
@@ -46,7 +47,7 @@ import { RagModule } from '../rag/rag.module';
     EventEmitterModule.forRoot(),
     AuthModule,
     AccessControlModule,
-    forwardRef(() => QueueModule),
+    // Queue registration now in CoreQueueModule (global)
     UsersModule,
     IssuesModule,
     ProjectsModule,
@@ -75,6 +76,8 @@ import { RagModule } from '../rag/rag.module';
     TrelloIntegrationService,
     IntercomService,
     UniversalSearchService,
+    // Sprint 2: Add processor to run in-process
+    IntegrationSyncProcessor,
   ],
   exports: [
     IntegrationService,
@@ -95,4 +98,4 @@ import { RagModule } from '../rag/rag.module';
     IntercomService,
   ],
 })
-export class IntegrationsModule {}
+export class IntegrationsModule { }

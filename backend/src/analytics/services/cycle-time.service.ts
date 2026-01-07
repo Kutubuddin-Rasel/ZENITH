@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { RevisionsService } from '../../revisions/revisions.service';
 import { Revision } from '../../revisions/entities/revision.entity';
+import { TenantContext } from '../../core/tenant/tenant-context.service';
+import { tenantJoin } from '../../core/database/safe-query.helper';
 
 export interface CycleTimeMetric {
   issueId: string;
@@ -24,6 +26,7 @@ export class CycleTimeService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly revisionsService: RevisionsService,
+    private readonly tenantContext: TenantContext,
   ) {}
 
   async calculateProjectCycleTime(
@@ -32,14 +35,15 @@ export class CycleTimeService {
     daysLookback = 30,
   ) {
     // 1. Fetch issues that are 'Done' within the lookback period
-
+    // @RAW_QUERY_AUDIT: Tenant isolation verified via projects JOIN + soft-delete filter
     const issues: CycleTimeIssueRow[] = await this.dataSource.query(
       `
-      SELECT id, title, status, "updatedAt"
-      FROM issues
-      WHERE "projectId" = $1
-      AND status = 'Done'
-      AND "updatedAt" > NOW() - INTERVAL '${Number(daysLookback)} days'
+      SELECT i.id, i.title, i.status, i."updatedAt"
+      FROM issues i
+      ${tenantJoin('issues', 'i', this.tenantContext)}
+      WHERE i."projectId" = $1
+      AND i.status = 'Done'
+      AND i."updatedAt" > NOW() - INTERVAL '${Number(daysLookback)} days'
       `,
       [projectId],
     );

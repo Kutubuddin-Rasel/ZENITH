@@ -8,7 +8,8 @@ describe('EncryptionService', () => {
   const mockConfigService = {
     get: jest.fn((key: string) => {
       if (key === 'ENCRYPTION_KEY') {
-        return '12345678901234567890123456789012'; // 32 chars
+        // 64 hex characters = 32 bytes
+        return '1234567890123456789012345678901212345678901234567890123456789012';
       }
       return null;
     }),
@@ -23,6 +24,7 @@ describe('EncryptionService', () => {
     }).compile();
 
     service = module.get<EncryptionService>(EncryptionService);
+    await module.init(); // TRIGGER Lifecycle hooks (onModuleInit)
   });
 
   it('should be defined', () => {

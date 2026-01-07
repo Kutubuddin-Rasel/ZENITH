@@ -4,6 +4,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import Stripe from 'stripe';
 import { Organization } from '../organizations/entities/organization.entity';
+import { AuditLogsService } from '../audit/audit-logs.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class BillingService {
@@ -14,6 +16,7 @@ export class BillingService {
     private configService: ConfigService,
     @InjectRepository(Organization)
     private orgRepo: Repository<Organization>,
+    private auditLogsService: AuditLogsService,
   ) {
     const apiKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     if (apiKey) {
@@ -48,6 +51,23 @@ export class BillingService {
       cancel_url: `${this.configService.get('FRONTEND_URL')}/billing/cancel`,
       subscription_data: {
         metadata: { orgId },
+      },
+    });
+
+    // Audit: BILLING_CHECKOUT_INITIATED
+    await this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: orgId,
+      actor_id: 'system',
+      resource_type: 'Billing',
+      resource_id: session.id,
+      action_type: 'CREATE',
+      action: 'BILLING_CHECKOUT_INITIATED',
+      metadata: {
+        priceId,
+        customerId,
+        organizationName: org.name,
       },
     });
 
@@ -109,12 +129,36 @@ export class BillingService {
     const org = await this.orgRepo.findOneBy({ stripeCustomerId: customerId });
 
     if (org) {
+      const previousStatus = org.subscriptionStatus;
       org.stripeSubscriptionId = sub.id;
       org.subscriptionStatus = sub.status;
       // Cast to custom type or unknown first
       const subWithPeriod = sub as unknown as { current_period_end: number };
       org.currentPeriodEnd = new Date(subWithPeriod.current_period_end * 1000);
       await this.orgRepo.save(org);
+
+      // Audit: SUBSCRIPTION_UPDATED (Severity: CRITICAL if cancelled)
+      const severity = sub.status === 'canceled' ? 'CRITICAL' : 'HIGH';
+      await this.auditLogsService.log({
+        event_uuid: uuidv4(),
+        timestamp: new Date(),
+        tenant_id: org.id,
+        actor_id: 'stripe_webhook',
+        resource_type: 'Subscription',
+        resource_id: sub.id,
+        action_type: 'UPDATE',
+        action:
+          sub.status === 'canceled'
+            ? 'SUBSCRIPTION_CANCELLED'
+            : 'SUBSCRIPTION_UPDATED',
+        metadata: {
+          severity,
+          previousStatus,
+          newStatus: sub.status,
+          organizationName: org.name,
+        },
+      });
+
       this.logger.log(
         `Updated subscription for org ${org.id} to ${sub.status}`,
       );
