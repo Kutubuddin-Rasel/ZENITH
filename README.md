@@ -9,7 +9,6 @@
   <p>
     <a href="https://github.com/Kutubuddin-Rasel/ZENITH/actions"><img src="https://img.shields.io/github/actions/workflow/status/Kutubuddin-Rasel/ZENITH/ci.yml?style=flat-square" alt="Build Status"></a>
     <a href="https://img.shields.io/npm/v/npm.svg?style=flat-square"><img src="https://img.shields.io/npm/v/npm.svg?style=flat-square" alt="Version"></a>
-    <a href="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License"></a>
     <a href="https://github.com/nestjs/nest"><img src="https://img.shields.io/badge/backend-NestJS-E0234E?style=flat-square" alt="Backend"></a>
     <a href="https://nextjs.org/"><img src="https://img.shields.io/badge/frontend-Next.js-black?style=flat-square" alt="Frontend"></a>
   </p>
