@@ -119,12 +119,9 @@ Contributions are what make the open-source community such an amazing place to l
 4.  Push to the Branch (`git push origin feature/AmazingFeature`)
 5.  Open a Pull Request
 
-## License
-
-Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Contact
 
-Kutubuddin Rasel - [@kutubuddin_rasel](https://twitter.com/kutubuddin_rasel) - contact@zenith.com
+Kutubuddin Rasel - [@kutubuddin_rasel](juwelkutubuddin@gmail.com)
 
 Project Link: [https://github.com/Kutubuddin-Rasel/ZENITH](https://github.com/Kutubuddin-Rasel/ZENITH)
