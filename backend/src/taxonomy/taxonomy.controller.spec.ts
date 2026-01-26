@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TaxonomyController } from './taxonomy.controller';
 import { TaxonomyService } from './taxonomy.service';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 
 describe('TaxonomyController', () => {
   let controller: TaxonomyController;

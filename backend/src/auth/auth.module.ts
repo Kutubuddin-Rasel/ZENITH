@@ -12,6 +12,8 @@ import { SAMLService } from './services/saml.service';
 import { SAMLController } from './controllers/saml.controller';
 import { CookieService } from './services/cookie.service';
 import { PasswordService } from './services/password.service';
+import { PasswordBreachService } from './services/password-breach.service';
+import { TokenBlacklistService } from './services/token-blacklist.service';
 import { SessionsService } from './sessions.service';
 import { SessionsController } from './sessions.controller';
 
@@ -19,10 +21,9 @@ import { SessionsController } from './sessions.controller';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
-import { JwtCookieStrategy } from './strategies/jwt-cookie.strategy';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { ProjectRoleGuard } from './guards/project-role.guard';
-import { CsrfGuard } from './guards/csrf.guard';
+import { StatelessCsrfGuard } from './guards/csrf.guard';
 
 // **Entities**
 import { TwoFactorAuth } from './entities/two-factor-auth.entity';
@@ -66,13 +67,14 @@ import { AuditModule } from '../audit/audit.module';
     SAMLService,
     CookieService,
     PasswordService,
+    PasswordBreachService,
+    TokenBlacklistService,
     SessionsService,
     LocalStrategy,
     JwtStrategy,
     JwtRefreshStrategy,
-    JwtCookieStrategy,
     ProjectRoleGuard,
-    CsrfGuard,
+    StatelessCsrfGuard,
     { provide: 'LOCAL_GUARD', useClass: LocalAuthGuard },
   ],
   controllers: [
@@ -86,9 +88,10 @@ import { AuditModule } from '../audit/audit.module';
     TwoFactorAuthService,
     SAMLService,
     CookieService,
+    PasswordBreachService,
     SessionsService,
     ProjectRoleGuard,
-    CsrfGuard,
+    StatelessCsrfGuard,
   ],
 })
-export class AuthModule { }
+export class AuthModule {}

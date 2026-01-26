@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SelectQueryBuilder, ObjectLiteral } from 'typeorm';
 import { CacheService } from '../../cache/cache.service';
+import * as crypto from 'crypto';
 
 export interface QueryOptions {
   useCache?: boolean;
@@ -241,16 +242,21 @@ export class QueryOptimizerService {
   }
 
   /**
-   * Simple hash function for cache keys
+   * Cryptographic hash function for cache keys.
+   *
+   * SECURITY (Phase 3 - Database Remediation):
+   * Replaced weak DJB2-style hash (32-bit, high collision risk) with SHA-256.
+   * Takes first 16 hex characters = 64 bits of entropy, acceptable for cache keys.
+   *
+   * @param str - String to hash (query + parameters)
+   * @returns 16-character hex string
    */
   private hashString(str: string): string {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash).toString(36);
+    return crypto
+      .createHash('sha256')
+      .update(str)
+      .digest('hex')
+      .substring(0, 16);
   }
 
   /**

@@ -33,6 +33,7 @@ import {
   TenantContext,
 } from '../core/tenant';
 import { ClsService } from 'nestjs-cls';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class ProjectsService implements OnModuleInit {
@@ -293,8 +294,11 @@ export class ProjectsService implements OnModuleInit {
       throw new NotFoundException('Project not found');
     }
 
-    // Cache the project
-    await this.cacheService.cacheProject(id, project);
+    // Cache the project (type assertion: JSON serialization converts Date -> string)
+    await this.cacheService.cacheProject(
+      id,
+      project as unknown as import('../cache/cache.interfaces').CachedProject,
+    );
 
     return project;
   }
@@ -360,10 +364,10 @@ export class ProjectsService implements OnModuleInit {
 
     // Audit: PROJECT_DELETED (Severity: HIGH)
     await this.auditLogsService.log({
-      event_uuid: require('uuid').v4(),
+      event_uuid: uuidv4(),
       timestamp: new Date(),
       tenant_id: organizationId || 'unknown',
-      actor_id: this.cls?.get('userId') || 'system',
+      actor_id: this.cls?.get<string>('userId') || 'system',
       projectId,
       resource_type: 'Project',
       resource_id: projectId,
@@ -372,7 +376,7 @@ export class ProjectsService implements OnModuleInit {
       metadata: {
         severity: 'HIGH',
         projectName,
-        requestId: this.cls?.get('requestId'),
+        requestId: this.cls?.get<string>('requestId'),
       },
     });
 

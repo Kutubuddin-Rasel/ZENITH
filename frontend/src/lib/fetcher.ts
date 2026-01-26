@@ -1,6 +1,7 @@
 import { getAccessToken, refreshAccessToken } from './auth-tokens';
+import { config } from './config';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = config.apiUrl;
 
 /**
  * Simple API fetcher with Bearer token support

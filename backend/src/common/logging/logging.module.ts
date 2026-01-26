@@ -16,8 +16,8 @@ import { ClsService } from 'nestjs-cls';
 
           // Auto-attach CLS context to every log line
           mixin: () => ({
-            requestId: cls.get('requestId'),
-            organizationId: cls.get('organizationId'),
+            requestId: cls.get<string>('requestId'),
+            organizationId: cls.get<string>('organizationId'),
           }),
 
           // CRITICAL: Redaction rules for PCI-DSS/GDPR compliance

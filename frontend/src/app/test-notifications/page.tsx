@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useAuth } from '@/context/AuthContext';
+import { config } from '@/lib/config';
 
 export default function TestNotificationsPage() {
   const { user, token } = useAuth();
@@ -15,17 +16,17 @@ export default function TestNotificationsPage() {
         console.log('🔍 Testing notification API...');
         console.log('User:', user);
         console.log('Token:', token);
-        
-        const response = await fetch('http://localhost:3000/notifications', {
+
+        const response = await fetch(`${config.apiUrl}/notifications`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         });
-        
+
         console.log('Response status:', response.status);
         console.log('Response headers:', response.headers);
-        
+
         if (response.ok) {
           const data = await response.json();
           console.log('✅ API Response:', data);
@@ -49,7 +50,7 @@ export default function TestNotificationsPage() {
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold mb-4">Notification System Test</h1>
-      
+
       <div className="space-y-4">
         <div className="bg-neutral-100 p-4 rounded">
           <h2 className="font-semibold">Authentication Status</h2>

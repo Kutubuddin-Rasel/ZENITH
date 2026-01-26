@@ -23,6 +23,10 @@ import { WatchersModule } from '../watchers/watchers.module';
     ]),
     MulterModule.register({
       dest: './uploads/releases',
+      limits: {
+        fileSize: 50 * 1024 * 1024, // 50MB per file (release artifacts/build files)
+        files: 10, // Max 10 files per request
+      },
     }),
     // REFACTORED: Direct imports since cycles are broken
     ProjectsModule,

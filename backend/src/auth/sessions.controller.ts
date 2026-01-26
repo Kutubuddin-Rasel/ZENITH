@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { SessionsService } from './sessions.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { CsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
 
 interface AuthRequest {
   user: {
@@ -20,8 +21,18 @@ interface AuthRequest {
   };
 }
 
+/**
+ * Sessions Controller
+ *
+ * Manages user session lifecycle (list, revoke).
+ *
+ * SECURITY:
+ * - All endpoints require JwtAuthGuard
+ * - State-changing methods (DELETE) require CSRF protection
+ * - Uses StatefulCsrfGuard for Redis-backed token verification
+ */
 @Controller('users/me/sessions')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, CsrfGuard)
 export class SessionsController {
   constructor(private readonly sessionsService: SessionsService) {}
 
@@ -29,6 +40,8 @@ export class SessionsController {
    * GET /users/me/sessions
    * List all active sessions for the current user
    * Returns device info, location, timestamps (NEVER the token)
+   *
+   * No CSRF required - read-only operation
    */
   @Get()
   async listSessions(@Request() req: AuthRequest) {
@@ -46,9 +59,13 @@ export class SessionsController {
   /**
    * DELETE /users/me/sessions/:id
    * Revoke a specific session (log out that device)
+   *
+   * CSRF REQUIRED: State-changing operation
+   * Could be exploited to log user out of legitimate devices
    */
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
+  @RequireCsrf()
   async revokeSession(
     @Param('id') sessionId: string,
     @Request() req: AuthRequest,
@@ -71,9 +88,13 @@ export class SessionsController {
   /**
    * DELETE /users/me/sessions
    * Revoke all sessions except current (log out everywhere else)
+   *
+   * CSRF REQUIRED: High-security state-changing operation
+   * Mass session termination is a destructive action
    */
   @Delete()
   @HttpCode(HttpStatus.OK)
+  @RequireCsrf()
   async revokeAllSessions(@Request() req: AuthRequest) {
     // If we have the current session ID, preserve it
     const currentSessionId = req.user.sessionId;

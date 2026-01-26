@@ -6,7 +6,11 @@ import { ProjectsService } from '../projects/projects.service';
 import { UsersService } from '../users/users.service';
 import { ProjectMembersService } from '../membership/project-members/project-members.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 
 describe('InvitesService', () => {

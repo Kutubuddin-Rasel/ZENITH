@@ -22,7 +22,7 @@ describe('AuthController', () => {
   };
 
   const mockCookieService = {
-    setAuthCookies: jest.fn(),
+    setRefreshTokenCookie: jest.fn(),
     clearAuthCookies: jest.fn(),
   };
 

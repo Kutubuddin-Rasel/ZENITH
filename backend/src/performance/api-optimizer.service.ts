@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CacheService } from '../cache/cache.service';
+import {
+  MetricsService,
+  PerformanceMetrics,
+} from '../common/services/metrics.service';
 import { Request, Response } from 'express';
+import { createHash } from 'crypto';
 
 export interface CompressionOptions {
   threshold: number; // Minimum size to compress (in bytes)
@@ -32,13 +37,22 @@ export class ApiOptimizerService {
     memLevel: 8,
   };
 
-  constructor(private cacheService: CacheService) {}
+  constructor(
+    private cacheService: CacheService,
+    private metricsService: MetricsService,
+  ) {}
 
   /**
    * Set optimal cache headers for API responses
+   *
+   * @param res - Express Response object
+   * @param body - The response body to generate ETag from (for content-based caching)
+   * @param ttl - Cache TTL in seconds (default: 300)
+   * @param isPrivate - Whether response is private (default: false)
    */
-  setCacheHeaders(
+  setCacheHeaders<T>(
     res: Response,
+    body: T,
     ttl: number = 300,
     isPrivate: boolean = false,
   ): void {
@@ -53,22 +67,62 @@ export class ApiOptimizerService {
       'X-Frame-Options': 'DENY',
     });
 
-    // Add ETag for better caching
-    const etag = this.generateETag(res.get('Content-Type') || '');
+    // Generate content-based ETag (RFC 7232 compliant)
+    const etag = this.generateETag(body);
     res.set('ETag', etag);
   }
 
   /**
-   * Generate ETag for response
+   * Generate content-based ETag using MD5 hash (RFC 7232 compliant)
+   *
+   * ETags are derived from response content hash, not timestamps.
+   * This enables proper HTTP 304 Not Modified responses when content
+   * hasn't changed, even across server restarts or redeployments.
+   *
+   * Algorithm: MD5 (fast, collision resistance not a security concern for cache invalidation)
+   * Format: Quoted hex digest, first 32 characters (full MD5)
+   *
+   * @param data - The response body (Buffer, Object, or String)
+   * @returns Quoted ETag string, e.g., '"d41d8cd98f00b204e9800998ecf8427e"'
    */
-  private generateETag(contentType: string): string {
-    const timestamp = Date.now();
-    const hash = this.hashString(`${contentType}:${timestamp}`);
+  generateETag<T>(data: T): string {
+    let content: string | Buffer;
+
+    // Handle different input types
+    if (Buffer.isBuffer(data)) {
+      // Buffer: Hash directly
+      content = data;
+    } else if (typeof data === 'string') {
+      // String: Hash directly
+      content = data;
+    } else if (data === null || data === undefined) {
+      // Null/undefined: Empty content
+      content = '';
+    } else {
+      // Object: Stringify for deterministic hashing
+      // Note: JSON.stringify may throw on circular references
+      try {
+        content = JSON.stringify(data);
+      } catch (error) {
+        // Fallback for circular references or non-serializable objects
+        this.logger.warn(
+          'ETag generation: Failed to stringify object, using fallback',
+          error instanceof Error ? error.message : 'Unknown error',
+        );
+        content = String(data);
+      }
+    }
+
+    // Generate MD5 hash
+    const hash = createHash('md5').update(content).digest('hex');
+
+    // Return quoted ETag (RFC 7232 format)
     return `"${hash}"`;
   }
 
   /**
-   * Simple hash function
+   * Simple hash function for non-cryptographic use (cache keys, etc.)
+   * For cryptographic hashing, use generateETag() or crypto directly.
    */
   private hashString(str: string): string {
     let hash = 0;
@@ -168,17 +222,28 @@ export class ApiOptimizerService {
   }
 
   /**
-   * Optimize response data
+   * Optimize response data by removing null/undefined values.
+   *
+   * TYPE SAFETY (Phase 5):
+   * Uses generic <T> to preserve the input type through the transformation.
+   * The caller's specific interface is maintained in the return type.
+   *
+   * @param data - Input data of type T
+   * @returns Optimized data with nulls removed, typed as T
    */
-  optimizeResponseData(data: any): any {
+  optimizeResponseData<T>(data: T): T {
     if (!data) return data;
 
-    // Remove null/undefined values
+    // Handle arrays - filter null/undefined items
     if (Array.isArray(data)) {
-      return data.filter((item) => item !== null && item !== undefined);
+      return data.filter(
+        (item): item is NonNullable<(typeof data)[number]> =>
+          item !== null && item !== undefined,
+      ) as T;
     }
 
-    if (typeof data === 'object') {
+    // Handle objects - recursively remove null/undefined values
+    if (typeof data === 'object' && data !== null) {
       const optimized: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(
         data as Record<string, unknown>,
@@ -187,16 +252,24 @@ export class ApiOptimizerService {
           optimized[key] = this.optimizeResponseData(value);
         }
       }
-      return optimized;
+      return optimized as T;
     }
 
+    // Primitive types pass through unchanged
     return data;
   }
 
   /**
-   * Compress response data
+   * Compress response data to gzip Buffer.
+   *
+   * TYPE SAFETY (Phase 5):
+   * Uses generic <T> to accept typed input. Output is always Buffer.
+   * JSON.stringify accepts any serializable type.
+   *
+   * @param data - Input data of type T (must be JSON-serializable)
+   * @returns Promise<Buffer> - Compressed or uncompressed buffer
    */
-  async compressResponse(data: any): Promise<Buffer> {
+  async compressResponse<T>(data: T): Promise<Buffer> {
     const zlib = await import('zlib');
     const jsonString = JSON.stringify(data);
     const buffer = Buffer.from(jsonString, 'utf8');
@@ -225,9 +298,20 @@ export class ApiOptimizerService {
   }
 
   /**
-   * Decompress response data
+   * Decompress gzip Buffer back to typed data.
+   *
+   * TYPE SAFETY (Phase 5):
+   * Uses generic <T> so caller specifies expected output type.
+   * JSON.parse returns unknown, we cast to T inside the function.
+   *
+   * USAGE:
+   *   const user = await decompressResponse<User>(buffer);
+   *   // user is typed as User, not any
+   *
+   * @param compressedData - Gzip compressed Buffer (or uncompressed JSON buffer)
+   * @returns Promise<T> - Parsed and typed data
    */
-  async decompressResponse(compressedData: Buffer): Promise<any> {
+  async decompressResponse<T>(compressedData: Buffer): Promise<T> {
     const zlib = await import('zlib');
 
     return new Promise((resolve, reject) => {
@@ -237,7 +321,10 @@ export class ApiOptimizerService {
         } else {
           try {
             const jsonString = decompressed.toString('utf8');
-            resolve(JSON.parse(jsonString));
+            // TYPE ASSERTION: Cast JSON.parse result to caller-specified type T
+            // This is safe because caller knows what type they compressed
+            const parsed: unknown = JSON.parse(jsonString);
+            resolve(parsed as T);
           } catch (parseError) {
             reject(
               parseError instanceof Error
@@ -269,7 +356,23 @@ export class ApiOptimizerService {
   }
 
   /**
-   * Rate limiting check
+   * Rate limiting check using atomic Redis INCR
+   *
+   * **Concurrency Strategy:**
+   * Uses Redis INCR which is atomic at the database level. Even if 1000
+   * concurrent requests hit this code simultaneously:
+   * - Each INCR operation is serialized by Redis
+   * - Each request gets its unique incremented value
+   * - No race condition: can't have two requests both see "99" and both pass
+   *
+   * **TTL Logic:**
+   * - CacheService.incr() sets TTL only on first request (when value === 1)
+   * - This creates a fixed sliding window from the first request
+   *
+   * **Fail Open Strategy:**
+   * - If Redis is down, allow request (log error)
+   * - This prevents total service outage during Redis failures
+   * - For financial/critical limits, change to fail closed
    */
   async checkRateLimit(
     identifier: string,
@@ -277,12 +380,19 @@ export class ApiOptimizerService {
   ): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
     const key = `rate_limit:${identifier}`;
     const now = Date.now();
+    const ttlSeconds = Math.ceil(options.windowMs / 1000);
 
     try {
-      // Get current request count
-      const currentCount = (await this.cacheService.get<number>(key)) || 0;
+      // ATOMIC: Increment and get new value in one Redis operation
+      // CacheService.incr() sets TTL only on first request (value === 1)
+      const currentCount = await this.cacheService.incr(key, {
+        ttl: ttlSeconds,
+        namespace: 'rate_limit',
+      });
 
-      if (currentCount >= options.max) {
+      // Check if limit exceeded AFTER incrementing
+      // This is the key insight: we've already reserved our slot
+      if (currentCount > options.max) {
         return {
           allowed: false,
           remaining: 0,
@@ -290,21 +400,18 @@ export class ApiOptimizerService {
         };
       }
 
-      // Increment counter
-      const newCount = currentCount + 1;
-      await this.cacheService.set(key, newCount, {
-        ttl: Math.ceil(options.windowMs / 1000),
-        namespace: 'rate_limit',
-      });
-
       return {
         allowed: true,
-        remaining: options.max - newCount,
+        remaining: options.max - currentCount,
         resetTime: now + options.windowMs,
       };
-    } catch (error) {
-      this.logger.error(`Error checking rate limit for ${identifier}:`, error);
-      // Allow request if rate limiting fails
+    } catch (error: unknown) {
+      // Fail open: Allow request if Redis is down
+      // This prevents total service outage during Redis failures
+      this.logger.error(
+        `Rate limit check failed for ${identifier}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
       return {
         allowed: true,
         remaining: options.max,
@@ -330,34 +437,13 @@ export class ApiOptimizerService {
   }
 
   /**
-   * Get API performance metrics
+   * Get API performance metrics (Phase 3 - Real Metrics)
+   *
+   * Returns REAL performance data from Prometheus counters,
+   * not mock data. Delegates to MetricsService for actual values.
    */
-  async getPerformanceMetrics(): Promise<{
-    cacheHitRate: number;
-    averageResponseTime: number;
-    totalRequests: number;
-    errorRate: number;
-  }> {
-    try {
-      await this.cacheService.getStats();
-
-      // This would need to be implemented with actual metrics collection
-      // For now, return mock data
-      return {
-        cacheHitRate: 0.85,
-        averageResponseTime: 150,
-        totalRequests: 1000,
-        errorRate: 0.02,
-      };
-    } catch (error) {
-      this.logger.error('Error getting performance metrics:', error);
-      return {
-        cacheHitRate: 0,
-        averageResponseTime: 0,
-        totalRequests: 0,
-        errorRate: 0,
-      };
-    }
+  async getPerformanceMetrics(): Promise<PerformanceMetrics> {
+    return this.metricsService.getPerformanceMetrics();
   }
 
   /**

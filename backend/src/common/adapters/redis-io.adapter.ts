@@ -58,11 +58,22 @@ export class RedisIoAdapter extends IoAdapter {
   }
 
   createIOServer(port: number, options?: ServerOptions): any {
+    // Get CORS origins from configuration
+    interface AppConfig {
+      frontendUrl?: string;
+      cors?: { additionalOrigins?: string[] };
+    }
+    const appConfig = this.configService.get<AppConfig>('app');
+    const frontendUrl = appConfig?.frontendUrl || 'http://localhost:3001';
+    const additionalOrigins: string[] =
+      appConfig?.cors?.additionalOrigins ?? [];
+    const origins = [frontendUrl, ...additionalOrigins];
+
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const server = super.createIOServer(port, {
       ...options,
       cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+        origin: origins,
         credentials: true,
         methods: ['GET', 'POST'],
       },

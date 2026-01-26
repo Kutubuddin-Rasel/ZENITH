@@ -22,7 +22,7 @@ import { UpdateReleaseDto } from './dto/update-release.dto';
 import { AssignIssueDto } from './dto/assign-issue.dto';
 import { UnassignIssueDto } from './dto/unassign-issue.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 

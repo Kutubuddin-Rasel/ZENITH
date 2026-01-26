@@ -29,4 +29,4 @@ import { ClickHouseClient } from './clickhouse.client';
   controllers: [AuditController],
   exports: [AuditService, ClickHouseClient],
 })
-export class AuditModule { }
+export class AuditModule {}

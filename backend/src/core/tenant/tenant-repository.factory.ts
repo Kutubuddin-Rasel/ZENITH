@@ -32,8 +32,9 @@ import {
 /**
  * Extended TenantRepository with soft delete capabilities
  */
-export interface SoftDeletableTenantRepository<T extends SoftDeletableEntity>
-  extends TenantRepository<T> {
+export interface SoftDeletableTenantRepository<
+  T extends SoftDeletableEntity,
+> extends TenantRepository<T> {
   /**
    * Soft delete an entity by setting deletedAt timestamp
    * @param id - Entity ID to soft delete

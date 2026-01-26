@@ -4,6 +4,7 @@ import { EncryptionService } from './services/encryption.service';
 import { MetricsService } from './services/metrics.service';
 import { AlertService } from './services/alert.service';
 import { MetricsController } from './controllers/metrics.controller';
+import { TimingInterceptor } from './interceptors/timing.interceptor';
 import { Integration } from '../integrations/entities/integration.entity';
 
 /**
@@ -12,8 +13,13 @@ import { Integration } from '../integrations/entities/integration.entity';
 @Global()
 @Module({
   imports: [TypeOrmModule.forFeature([Integration])],
-  providers: [EncryptionService, MetricsService, AlertService],
+  providers: [
+    EncryptionService,
+    MetricsService,
+    AlertService,
+    TimingInterceptor,
+  ],
   controllers: [MetricsController],
-  exports: [EncryptionService, MetricsService, AlertService],
+  exports: [EncryptionService, MetricsService, AlertService, TimingInterceptor],
 })
 export class CommonModule {}

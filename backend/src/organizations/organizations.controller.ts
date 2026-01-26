@@ -12,7 +12,7 @@ import {
 import { OrganizationsService } from './organizations.service';
 import { CreateInviteDto } from './dto/create-invite.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 import { Public } from '../auth/decorators/public.decorator';
 

@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from 'src/auth/guards/permissions.guard';
+import { PermissionsGuard } from 'src/core/auth/guards/permissions.guard';
 import { RequirePermission } from 'src/auth/decorators/require-permission.decorator';
 import { AuthenticatedRequest } from 'src/common/types/authenticated-request.interface';
 

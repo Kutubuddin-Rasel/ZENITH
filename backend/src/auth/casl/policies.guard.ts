@@ -9,7 +9,6 @@ import { Reflector } from '@nestjs/core';
 import { AppAbility, CaslAbilityFactory } from './casl-ability.factory';
 import { ProjectMembersService } from '../../membership/project-members/project-members.service';
 import { CacheService } from '../../cache/cache.service';
-import { ProjectRole } from '../../membership/enums/project-role.enum';
 import { Request } from 'express';
 import { JwtAuthenticatedRequest } from '../../auth/interface/jwt-authenticated-request.interface';
 import { User } from '../../users/entities/user.entity';
@@ -64,29 +63,35 @@ export class PoliciesGuard implements CanActivate {
       (request.query as Record<string, any>)?.projectId ||
       (request.body as Record<string, any>)?.projectId) as unknown as string;
 
-    let projectRole: ProjectRole | null = null;
+    let roleId: string | null = null;
 
     if (projectId) {
-      const cacheKey = `project_role:${projectId}:${user.userId}`;
-      const cachedRole = await this.cacheService.get<string>(cacheKey);
-      if (cachedRole) {
-        projectRole = cachedRole as ProjectRole;
+      const cacheKey = `project_role_id:${projectId}:${user.userId}`;
+      const cachedRoleId = await this.cacheService.get<string>(cacheKey);
+      if (cachedRoleId) {
+        roleId = cachedRoleId;
       } else {
-        projectRole = (await this.projectMembersService.getUserRole(
-          projectId,
-          user.userId,
-        )) as ProjectRole;
-        if (projectRole) {
-          await this.cacheService.set(cacheKey, projectRole, {
-            ttl: this.CACHE_TTL,
-          });
+        // Get role details and resolve roleId
+        const roleDetails =
+          await this.projectMembersService.getMemberRoleDetails(
+            projectId,
+            user.userId,
+          );
+        if (roleDetails) {
+          roleId = roleDetails.roleId;
+          if (roleId) {
+            await this.cacheService.set(cacheKey, roleId, {
+              ttl: this.CACHE_TTL,
+            });
+          }
         }
       }
     }
 
-    const ability = this.caslAbilityFactory.createForUser(
+    // createForUser is now async - must await
+    const ability = await this.caslAbilityFactory.createForUser(
       user as unknown as User,
-      projectRole,
+      roleId,
     );
 
     return policyHandlers.every((handler) =>

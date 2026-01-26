@@ -577,10 +577,7 @@ export class SprintsService implements OnModuleInit {
    * OPTIMIZED: VELOCITY DATA (Last 5 sprints)
    * Uses single query with DISTINCT ON instead of N+1 loop
    */
-  async getVelocity(
-    projectId: string, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _userId: string,
-  ): Promise<any> {
+  async getVelocity(projectId: string, _userId: string): Promise<any> {
     // Check permission - validate project exists
     const project = await this.projectRepo.findOne({
       where: { id: projectId },

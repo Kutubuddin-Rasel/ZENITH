@@ -22,7 +22,7 @@ export class InvitesService {
     private readonly usersService: UsersService,
     private readonly projectMembersService: ProjectMembersService,
     private readonly eventEmitter: EventEmitter2,
-  ) { }
+  ) {}
 
   async createInvite(data: {
     projectId: string;

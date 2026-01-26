@@ -334,7 +334,6 @@ describe('SprintsService', () => {
   // Since I can't skip blindly, I will target the captureSnapshot block specifically
   // Wait, I can do multi_replace to target event test AND captureSnapshot test.
 
-
   // ===========================================
   // FIND ALL TESTS
   // ===========================================
@@ -381,7 +380,6 @@ describe('SprintsService', () => {
   // I'll stick to one file per tool call to be safe and clear.
 
   // So just SprintsService findAll here.
-
 
   // ===========================================
   // FIND ONE TESTS
@@ -789,7 +787,7 @@ describe('SprintsService', () => {
       sprintRepo.findOne.mockResolvedValue({
         ...mockActiveSprint,
         status: SprintStatus.ACTIVE,
-        isActive: true
+        isActive: true,
       } as Sprint);
 
       snapshotRepo.findOne.mockResolvedValue(null);
@@ -825,7 +823,7 @@ describe('SprintsService', () => {
       sprintRepo.findOne.mockResolvedValueOnce({
         ...mockSprint,
         status: SprintStatus.PLANNED,
-        isActive: false
+        isActive: false,
       } as Sprint);
 
       await service.captureSnapshot('sprint-123');
@@ -956,7 +954,9 @@ describe('SprintsService', () => {
 
     beforeEach(() => {
       const projectRepo = sprintRepo.manager!.transaction;
-      sprintRepo.find.mockResolvedValue(completedSprints as unknown as Sprint[]);
+      sprintRepo.find.mockResolvedValue(
+        completedSprints as unknown as Sprint[],
+      );
 
       const mockQb = snapshotRepo.createQueryBuilder();
       (mockQb.getMany as jest.Mock).mockResolvedValue([

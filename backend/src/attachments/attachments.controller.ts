@@ -17,7 +17,7 @@ import { Express } from 'express';
 import { Response } from 'express';
 import { AttachmentsService } from './attachments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 import * as fs from 'fs';

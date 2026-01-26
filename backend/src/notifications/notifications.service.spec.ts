@@ -82,7 +82,10 @@ describe('NotificationsService', () => {
     });
 
     it('should save and send immediate notifications for non-INFO types', async () => {
-      const urgentNotif = { ...mockNotification, type: NotificationType.WARNING };
+      const urgentNotif = {
+        ...mockNotification,
+        type: NotificationType.WARNING,
+      };
       // Return what was created, so userId matches
       repo.create.mockImplementation((dto) => ({ ...dto, id: 'new-id' }));
       repo.save.mockImplementation((entities) => Promise.resolve(entities));

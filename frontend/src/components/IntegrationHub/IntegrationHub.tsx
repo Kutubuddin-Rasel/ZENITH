@@ -8,6 +8,7 @@ import { IntegrationCard } from './IntegrationCard';
 import { IntegrationConfig } from './IntegrationConfig';
 import { UniversalSearch } from './UniversalSearch';
 import { apiClient } from '@/lib/api-client';
+import { config } from '@/lib/config';
 
 export interface Integration {
   id: string;
@@ -49,6 +50,14 @@ export interface AvailableIntegration {
   status: 'available' | 'coming_soon' | 'beta';
 }
 
+/**
+ * IntegrationHub - Central hub for managing third-party integrations
+ *
+ * Enterprise Features:
+ * - Uses centralized API client for all requests
+ * - OAuth flows redirect through API_BASE_URL
+ * - Consistent error handling
+ */
 export const IntegrationHub: React.FC = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [availableIntegrations, setAvailableIntegrations] = useState<AvailableIntegration[]>([]);
@@ -61,6 +70,7 @@ export const IntegrationHub: React.FC = () => {
   const loadIntegrations = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await apiClient.get<Integration[]>('/api/integrations');
       // Defensive: ensure we always have an array
       setIntegrations(Array.isArray(data) ? data : []);
@@ -90,11 +100,8 @@ export const IntegrationHub: React.FC = () => {
   }, [loadIntegrations, loadAvailableIntegrations]);
 
   const handleInstallIntegration = (integrationType: string) => {
-    // Redirect to OAuth authorization flow
-    const apiURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    const oauthUrl = `${apiURL}/api/integrations/oauth/${integrationType.toLowerCase()}/authorize`;
-
-    // Redirect to OAuth flow (backend will redirect to third-party, then back to callback)
+    // Redirect to OAuth authorization flow using configured API URL
+    const oauthUrl = `${config.apiUrl}/api/integrations/oauth/${integrationType.toLowerCase()}/authorize`;
     window.location.href = oauthUrl;
   };
 
@@ -105,54 +112,31 @@ export const IntegrationHub: React.FC = () => {
 
   const handleSaveIntegration = async (integration: Integration) => {
     try {
-      const token = localStorage.getItem('access_token');
+      setError(null);
 
       if (integration.id.startsWith('temp-')) {
         // Create new integration
-        const response = await fetch('http://localhost:3000/api/integrations', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+        const newIntegration = await apiClient.post<Integration>('/api/integrations', {
+          name: integration.name,
+          type: integration.type,
+          config: integration.config,
+          authConfig: {
+            type: 'oauth',
+            accessToken: '',
+            scopes: [],
           },
-          body: JSON.stringify({
-            name: integration.name,
-            type: integration.type,
-            config: integration.config,
-            authConfig: {
-              type: 'oauth',
-              accessToken: '',
-              scopes: [],
-            },
-          }),
         });
-
-        if (response.ok) {
-          const newIntegration = await response.json();
-          setIntegrations(prev => [...prev, newIntegration]);
-        } else {
-          throw new Error('Failed to create integration');
-        }
+        setIntegrations(prev => [...prev, newIntegration]);
       } else {
         // Update existing integration
-        const response = await fetch(`http://localhost:3000/api/integrations/${integration.id}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+        const updatedIntegration = await apiClient.put<Integration>(
+          `/api/integrations/${integration.id}`,
+          {
             name: integration.name,
             config: integration.config,
-          }),
-        });
-
-        if (response.ok) {
-          const updatedIntegration = await response.json();
-          setIntegrations(prev => prev.map(i => i.id === integration.id ? updatedIntegration : i));
-        } else {
-          throw new Error('Failed to update integration');
-        }
+          }
+        );
+        setIntegrations(prev => prev.map(i => i.id === integration.id ? updatedIntegration : i));
       }
 
       setShowConfigModal(false);
@@ -165,20 +149,9 @@ export const IntegrationHub: React.FC = () => {
 
   const handleDeleteIntegration = async (integrationId: string) => {
     try {
-      const token = localStorage.getItem('access_token');
-
-      const response = await fetch(`http://localhost:3000/api/integrations/${integrationId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        setIntegrations(prev => prev.filter(i => i.id !== integrationId));
-      } else {
-        throw new Error('Failed to delete integration');
-      }
+      setError(null);
+      await apiClient.delete(`/api/integrations/${integrationId}`);
+      setIntegrations(prev => prev.filter(i => i.id !== integrationId));
     } catch (err) {
       console.error('Failed to delete integration:', err);
       setError('Failed to delete integration');
@@ -187,21 +160,10 @@ export const IntegrationHub: React.FC = () => {
 
   const handleSyncIntegration = async (integrationId: string) => {
     try {
-      const token = localStorage.getItem('access_token');
-
-      const response = await fetch(`http://localhost:3000/api/integrations/${integrationId}/sync`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        // Refresh integrations to get updated sync status
-        await loadIntegrations();
-      } else {
-        throw new Error('Failed to sync integration');
-      }
+      setError(null);
+      await apiClient.post(`/api/integrations/${integrationId}/sync`, {});
+      // Refresh integrations to get updated sync status
+      await loadIntegrations();
     } catch (err) {
       console.error('Failed to sync integration:', err);
       setError('Failed to sync integration');

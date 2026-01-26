@@ -18,7 +18,7 @@ import { UnassignLabelDto } from './dto/unassign-label.dto';
 import { AssignComponentDto } from './dto/assign-component.dto';
 import { UnassignComponentDto } from './dto/unassign-component.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { UpdateComponentDto } from './dto/update-component.dto';
 import { CreateComponentDto } from './dto/create-component.dto';

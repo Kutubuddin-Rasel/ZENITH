@@ -3,21 +3,18 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy, StrategyOptions } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../../users/users.service';
-
-interface JwtPayload {
-  userId: string;
-  email: string;
-  isSuperAdmin: boolean;
-  name: string;
-  organizationId?: string;
-}
+import { TokenBlacklistService } from '../services/token-blacklist.service';
+import { JwtPayload } from '../types/jwt-request-user.interface';
 
 /**
- * JWT Strategy - Modern SPA Pattern
+ * JWT Strategy - Modern SPA Pattern with Token Blacklist
  *
- * Extracts access token from:
- * 1. Authorization: Bearer header (primary - modern SPA)
- * 2. access_token cookie (fallback - migration compatibility)
+ * Extracts access token from Authorization: Bearer header only.
+ *
+ * Security Features:
+ * - Token blacklist check (instant revocation on logout/password change)
+ * - Password version validation (invalidates tokens after password change)
+ * - User existence and active status verification
  *
  * The Bearer pattern is recommended for SPAs because:
  * - Access token stored in memory (cleared on page close)
@@ -29,22 +26,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     cfg: ConfigService,
     private readonly usersService: UsersService,
+    private readonly tokenBlacklistService: TokenBlacklistService,
   ) {
     // SECURITY: Fail if JWT_SECRET not configured
     const secret = cfg.getOrThrow<string>('JWT_SECRET');
 
     const opts: StrategyOptions = {
-      // Extract from Bearer header first, fallback to cookie for migration
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        // Primary: Bearer token header (modern SPA pattern)
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
-        // Fallback: Cookie (for migration period, will be removed)
-        (request: Express.Request) => {
-          const cookies = (request as { cookies?: Record<string, string> })
-            .cookies;
-          return cookies?.access_token ?? null;
-        },
-      ]),
+      // Bearer token header only (modern SPA pattern)
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: secret,
     };
@@ -52,9 +41,31 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
+    // SECURITY CHECK 1: Token Blacklist
+    // Check if this specific token has been revoked (logout, admin ban, etc.)
+    if (payload.jti) {
+      const isBlacklisted = await this.tokenBlacklistService.isBlacklisted(
+        payload.jti,
+      );
+      if (isBlacklisted) {
+        throw new UnauthorizedException(
+          'Token has been revoked. Please login again.',
+        );
+      }
+    }
+
+    // SECURITY CHECK 2: User Existence and Status
     // Verify user still exists and is active
+    // Define expected user properties for type safety
+    interface ValidatedUser {
+      isActive: boolean;
+      passwordVersion?: number;
+    }
+
+    let user: ValidatedUser;
     try {
-      const user = await this.usersService.findOneById(payload.userId);
+      const foundUser = await this.usersService.findOneById(payload.userId);
+      user = foundUser as ValidatedUser;
       if (!user.isActive) {
         throw new UnauthorizedException('User is inactive');
       }
@@ -62,6 +73,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User no longer exists');
     }
 
+    // SECURITY CHECK 3: Password Version (Session Invalidation)
+    // If token's passwordVersion < user's current passwordVersion, reject
+    // This ensures all old tokens are invalidated when password changes
+    if (
+      payload.passwordVersion !== undefined &&
+      user.passwordVersion !== undefined &&
+      payload.passwordVersion < user.passwordVersion
+    ) {
+      throw new UnauthorizedException(
+        'Token invalidated due to password change. Please login again.',
+      );
+    }
+
+    // Return user context for request handlers
     return {
       id: payload.userId,
       userId: payload.userId,
@@ -69,6 +94,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       isSuperAdmin: payload.isSuperAdmin,
       name: payload.name,
       organizationId: payload.organizationId,
+      jti: payload.jti, // Include JTI for logout
+      exp: payload.exp, // Include expiration for logout
     };
   }
 }

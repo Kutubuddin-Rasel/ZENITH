@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProjectMembersController } from './project-members.controller';
 import { ProjectMembersService } from './project-members.service';
-import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
 import { Reflector } from '@nestjs/core';
 
 describe('ProjectMembersController', () => {

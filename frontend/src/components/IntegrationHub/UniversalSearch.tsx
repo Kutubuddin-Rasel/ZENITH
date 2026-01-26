@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  MagnifyingGlassIcon, 
-  XMarkIcon, 
+import {
+  MagnifyingGlassIcon,
+  XMarkIcon,
   DocumentTextIcon,
   ChatBubbleLeftRightIcon,
   CodeBracketIcon,
@@ -12,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import Modal from '../Modal';
 import Input from '../Input';
+import { apiClient } from '@/lib/api-client';
 
 export interface SearchResult {
   id: string;
@@ -65,8 +66,7 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
 
     try {
       setLoading(true);
-      const token = localStorage.getItem('access_token');
-      
+
       const params = new URLSearchParams({
         q: searchQuery,
         limit: '20',
@@ -81,23 +81,17 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
         params.append('contentType', selectedContentType);
       }
 
-      const response = await fetch(`http://localhost:3000/api/integrations/search/universal?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const data = await apiClient.get<UnifiedSearchResults>(
+        `/api/integrations/search/universal?${params}`
+      );
 
-      if (response.ok) {
-        const data: UnifiedSearchResults = await response.json();
-        setResults(data.results);
-        setTotal(data.total);
-        setTook(data.took);
-        setSuggestions(data.suggestions.map(s => ({ text: s, type: 'query' as const })));
-      } else {
-        console.error('Search failed');
-      }
+      setResults(data.results);
+      setTotal(data.total);
+      setTook(data.took);
+      setSuggestions(data.suggestions.map(s => ({ text: s, type: 'query' as const })));
     } catch (error) {
       console.error('Search error:', error);
+      setResults([]);
     } finally {
       setLoading(false);
     }
@@ -110,18 +104,10 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
     }
 
     try {
-      const token = localStorage.getItem('access_token');
-      
-      const response = await fetch(`http://localhost:3000/api/integrations/search/suggestions?q=${encodeURIComponent(partialQuery)}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data: SearchSuggestion[] = await response.json();
-        setSuggestions(data);
-      }
+      const data = await apiClient.get<SearchSuggestion[]>(
+        `/api/integrations/search/suggestions?q=${encodeURIComponent(partialQuery)}`
+      );
+      setSuggestions(data);
     } catch (error) {
       console.error('Suggestions error:', error);
     }
@@ -155,8 +141,8 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
   };
 
   const handleSourceToggle = (source: string) => {
-    setSelectedSources(prev => 
-      prev.includes(source) 
+    setSelectedSources(prev =>
+      prev.includes(source)
         ? prev.filter(s => s !== source)
         : [...prev, source]
     );
@@ -202,7 +188,7 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
     const date = new Date(timestamp);
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
@@ -274,11 +260,10 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
                 <button
                   key={source}
                   onClick={() => handleSourceToggle(source)}
-                  className={`flex items-center space-x-1 px-3 py-1 rounded-full text-sm ${
-                    selectedSources.includes(source)
+                  className={`flex items-center space-x-1 px-3 py-1 rounded-full text-sm ${selectedSources.includes(source)
                       ? 'bg-blue-100 text-blue-800 border border-blue-200'
                       : 'bg-neutral-100 text-neutral-700 border border-neutral-200 hover:bg-neutral-200'
-                  }`}
+                    }`}
                 >
                   {getSourceIcon(source)}
                   <span className="capitalize">{source.replace('_', ' ')}</span>
@@ -310,7 +295,7 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
           {query && (
             <div className="flex items-center justify-between text-sm text-neutral-500 mb-4">
               <span>
-                {total > 0 ? `${total} results` : 'No results'} 
+                {total > 0 ? `${total} results` : 'No results'}
                 {took > 0 && ` (${took}ms)`}
               </span>
               {selectedSources.length > 0 && (
@@ -347,11 +332,11 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ onClose }) => 
                   </span>
                 </div>
               </div>
-              
+
               <p className="text-sm text-neutral-600 mb-2 line-clamp-2">
                 {result.content}
               </p>
-              
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4 text-xs text-neutral-500">
                   <span>by {result.author}</span>

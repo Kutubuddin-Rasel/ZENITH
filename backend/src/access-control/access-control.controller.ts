@@ -22,77 +22,10 @@ import {
   IPType,
 } from './entities/ip-access-rule.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { AuthenticatedRequest } from '../common/types/authenticated-request.interface';
-
-export class CreateAccessRuleDto {
-  ruleType: AccessRuleType;
-  name: string;
-  description?: string;
-  ipAddress: string;
-  ipType?: IPType;
-  endIpAddress?: string;
-  country?: string;
-  region?: string;
-  city?: string;
-  timezone?: string;
-  allowedStartTime?: string;
-  allowedEndTime?: string;
-  allowedDays?: number[];
-  userId?: string;
-  allowedRoles?: string[];
-  allowedProjects?: string[];
-  validFrom?: Date;
-  validUntil?: Date;
-  isTemporary?: boolean;
-  expiresAt?: Date;
-  isEmergency?: boolean;
-  emergencyReason?: string;
-  requiresApproval?: boolean;
-  priority?: number;
-  isLoggingEnabled?: boolean;
-  isNotificationEnabled?: boolean;
-  notificationChannels?: string[];
-  metadata?: Record<string, unknown>;
-}
-
-export class UpdateAccessRuleDto {
-  name?: string;
-  description?: string;
-  status?: AccessRuleStatus;
-  ipAddress?: string;
-  ipType?: IPType;
-  endIpAddress?: string;
-  country?: string;
-  region?: string;
-  city?: string;
-  timezone?: string;
-  allowedStartTime?: string;
-  allowedEndTime?: string;
-  allowedDays?: number[];
-  allowedRoles?: string[];
-  allowedProjects?: string[];
-  validFrom?: Date;
-  validUntil?: Date;
-  isTemporary?: boolean;
-  expiresAt?: Date;
-  isEmergency?: boolean;
-  emergencyReason?: string;
-  requiresApproval?: boolean;
-  priority?: number;
-  isLoggingEnabled?: boolean;
-  isNotificationEnabled?: boolean;
-  notificationChannels?: string[];
-  metadata?: Record<string, unknown>;
-}
-
-export class TestAccessDto {
-  ipAddress: string;
-  userId?: string;
-  projectId?: string;
-  userRoles?: string[];
-}
+import { CreateAccessRuleDto, UpdateAccessRuleDto, TestAccessDto } from './dto';
 
 @Controller('access-control')
 @UseGuards(JwtAuthGuard, PermissionsGuard)

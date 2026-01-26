@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { SmartDefaultsService } from '../services/smart-defaults.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../../auth/decorators/require-permission.decorator';
 import { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
 import { UserPreferencesData } from '../entities/user-preferences.entity';

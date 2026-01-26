@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { IssuesController } from './issues.controller';
 import { IssuesService, WorkLogsService } from './issues.service';
 import { UsersService } from '../users/users.service';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { ProjectRoleGuard } from '../auth/guards/project-role.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PoliciesGuard } from '../auth/casl/policies.guard';

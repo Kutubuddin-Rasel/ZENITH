@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IntegrationType } from '../entities/integration.entity';
+import { AppConfig } from '../../config/app.config';
 
 export interface OAuthConfig {
   clientId: string;
@@ -21,17 +22,71 @@ export interface OAuthTokens {
 
 /**
  * Service for managing OAuth 2.0 flows for third-party integrations.
- * Handles authorization URL generation, token exchange, and token refresh.
+ *
+ * Enterprise Features:
+ * - Redirect URIs are dynamically constructed from API_BASE_URL
+ * - Explicit overrides available via *_REDIRECT_URI env vars
+ * - Single source of truth for all OAuth configuration
+ * - Proper error handling with actionable messages
  */
 @Injectable()
 export class OAuthService {
   private readonly logger = new Logger(OAuthService.name);
+  private readonly apiBaseUrl: string;
 
-  constructor(private configService: ConfigService) {}
+  constructor(private configService: ConfigService) {
+    // Get API base URL from typed configuration
+    const appConfig = this.configService.get<AppConfig>('app');
+    this.apiBaseUrl = appConfig?.apiBaseUrl || 'http://localhost:3000';
+  }
+
+  /**
+   * Builds the default redirect URI for an integration type.
+   * Uses API_BASE_URL from configuration.
+   */
+  private buildDefaultRedirectUri(integrationType: string): string {
+    return `${this.apiBaseUrl}/api/integrations/oauth/${integrationType.toLowerCase()}/callback`;
+  }
+
+  /**
+   * Gets the redirect URI for an integration.
+   * Priority: Explicit env var > Dynamic from API_BASE_URL
+   */
+  private getRedirectUri(type: IntegrationType): string {
+    const envVarMap: Record<IntegrationType, string> = {
+      [IntegrationType.GITHUB]: 'GITHUB_REDIRECT_URI',
+      [IntegrationType.SLACK]: 'SLACK_REDIRECT_URI',
+      [IntegrationType.JIRA]: 'JIRA_REDIRECT_URI',
+      [IntegrationType.GOOGLE_WORKSPACE]: 'GOOGLE_REDIRECT_URI',
+      [IntegrationType.MICROSOFT_TEAMS]: 'MICROSOFT_REDIRECT_URI',
+      [IntegrationType.TRELLO]: 'TRELLO_REDIRECT_URI',
+    };
+
+    const envVar = envVarMap[type];
+    const explicitUri = envVar
+      ? this.configService.get<string>(envVar)
+      : undefined;
+
+    if (explicitUri) {
+      return explicitUri;
+    }
+
+    // Build from API_BASE_URL
+    const typeNameMap: Record<IntegrationType, string> = {
+      [IntegrationType.GITHUB]: 'github',
+      [IntegrationType.SLACK]: 'slack',
+      [IntegrationType.JIRA]: 'jira',
+      [IntegrationType.GOOGLE_WORKSPACE]: 'google',
+      [IntegrationType.MICROSOFT_TEAMS]: 'microsoft',
+      [IntegrationType.TRELLO]: 'trello',
+    };
+
+    return this.buildDefaultRedirectUri(typeNameMap[type] || type);
+  }
 
   /**
    * Gets OAuth configuration for a given integration type.
-   * Configuration is loaded from environment variables.
+   * Configuration is loaded from environment variables with dynamic redirect URIs.
    */
   getOAuthConfig(type: IntegrationType): OAuthConfig {
     switch (type) {
@@ -39,9 +94,7 @@ export class OAuthService {
         return {
           clientId: this.getRequiredEnv('GITHUB_CLIENT_ID'),
           clientSecret: this.getRequiredEnv('GITHUB_CLIENT_SECRET'),
-          redirectUri:
-            this.getRequiredEnv('GITHUB_REDIRECT_URI') ||
-            'http://localhost:3000/api/integrations/oauth/github/callback',
+          redirectUri: this.getRedirectUri(IntegrationType.GITHUB),
           authorizeUrl: 'https://github.com/login/oauth/authorize',
           tokenUrl: 'https://github.com/login/oauth/access_token',
           scopes: ['repo', 'read:user', 'user:email'],
@@ -51,9 +104,7 @@ export class OAuthService {
         return {
           clientId: this.getRequiredEnv('SLACK_CLIENT_ID'),
           clientSecret: this.getRequiredEnv('SLACK_CLIENT_SECRET'),
-          redirectUri:
-            this.getRequiredEnv('SLACK_REDIRECT_URI') ||
-            'http://localhost:3000/api/integrations/oauth/slack/callback',
+          redirectUri: this.getRedirectUri(IntegrationType.SLACK),
           authorizeUrl: 'https://slack.com/oauth/v2/authorize',
           tokenUrl: 'https://slack.com/api/oauth.v2.access',
           scopes: [
@@ -69,9 +120,7 @@ export class OAuthService {
         return {
           clientId: this.getRequiredEnv('JIRA_CLIENT_ID'),
           clientSecret: this.getRequiredEnv('JIRA_CLIENT_SECRET'),
-          redirectUri:
-            this.getRequiredEnv('JIRA_REDIRECT_URI') ||
-            'http://localhost:3000/api/integrations/oauth/jira/callback',
+          redirectUri: this.getRedirectUri(IntegrationType.JIRA),
           authorizeUrl: 'https://auth.atlassian.com/authorize',
           tokenUrl: 'https://auth.atlassian.com/oauth/token',
           scopes: [
@@ -86,9 +135,7 @@ export class OAuthService {
         return {
           clientId: this.getRequiredEnv('GOOGLE_CLIENT_ID'),
           clientSecret: this.getRequiredEnv('GOOGLE_CLIENT_SECRET'),
-          redirectUri:
-            this.getRequiredEnv('GOOGLE_REDIRECT_URI') ||
-            'http://localhost:3000/api/integrations/oauth/google/callback',
+          redirectUri: this.getRedirectUri(IntegrationType.GOOGLE_WORKSPACE),
           authorizeUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
           tokenUrl: 'https://oauth2.googleapis.com/token',
           scopes: [
@@ -102,9 +149,7 @@ export class OAuthService {
         return {
           clientId: this.getRequiredEnv('MICROSOFT_CLIENT_ID'),
           clientSecret: this.getRequiredEnv('MICROSOFT_CLIENT_SECRET'),
-          redirectUri:
-            this.getRequiredEnv('MICROSOFT_REDIRECT_URI') ||
-            'http://localhost:3000/api/integrations/oauth/microsoft/callback',
+          redirectUri: this.getRedirectUri(IntegrationType.MICROSOFT_TEAMS),
           authorizeUrl:
             'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
           tokenUrl:
@@ -118,7 +163,6 @@ export class OAuthService {
 
       case IntegrationType.TRELLO:
         // Trello uses API key + token authentication, not OAuth 2.0
-        // Users should connect via the manual API key flow
         throw new BadRequestException(
           `Trello uses API key authentication, not OAuth. ` +
             `Please connect using your Trello API key and token. ` +
@@ -266,16 +310,19 @@ export class OAuthService {
 
   /**
    * Gets required environment variable or throws error.
+   * Returns empty string during initialization to allow lazy validation.
    */
   private getRequiredEnv(key: string): string {
     const value = this.configService.get<string>(key);
 
     if (!value) {
-      throw new Error(
-        `Missing required environment variable: ${key}. ` +
-          `Please configure OAuth credentials in your .env file. ` +
-          `See INTEGRATION_ENV_SETUP.md for details.`,
+      // Log warning but don't throw during configuration loading
+      // The actual error will be thrown when OAuth flow is initiated
+      this.logger.warn(
+        `Missing OAuth configuration: ${key}. ` +
+          `OAuth flow for this integration will fail until configured.`,
       );
+      return '';
     }
 
     return value;

@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SprintsController } from './sprints.controller';
 import { SprintsService } from './sprints.service';
 import { UsersService } from '../users/users.service';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { ProjectRoleGuard } from '../auth/guards/project-role.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Reflector } from '@nestjs/core';

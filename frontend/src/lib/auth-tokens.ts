@@ -13,8 +13,9 @@
  */
 
 import { getCsrfToken } from './csrf';
+import { config } from './config';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = config.apiUrl;
 
 // Module-level singleton (survives React re-renders)
 let accessToken: string | null = null;

@@ -769,7 +769,7 @@ describe('BoardsService', () => {
         save: jest.fn().mockImplementation((i) => Promise.resolve(i)),
       };
 
-      (mockDataSource.getRepository as jest.Mock)
+      mockDataSource.getRepository
         .mockReturnValueOnce(mockStatusRepo) // WorkflowStatus repo
         .mockReturnValueOnce(mockIssueRepoFromDataSource); // Issue repo
     });
@@ -795,9 +795,9 @@ describe('BoardsService', () => {
 
     it('should throw NotFoundException if workflow status not found', async () => {
       // Reset mock queue from beforeEach and set test-specific value
-      (mockDataSource.getRepository as jest.Mock).mockReset();
+      mockDataSource.getRepository.mockReset();
       const mockStatusRepo = { findOne: jest.fn().mockResolvedValue(null) };
-      (mockDataSource.getRepository as jest.Mock).mockReturnValue(mockStatusRepo);
+      mockDataSource.getRepository.mockReturnValue(mockStatusRepo);
 
       await expect(
         service.moveIssue(
@@ -813,7 +813,7 @@ describe('BoardsService', () => {
 
     it('should throw NotFoundException if issue not found', async () => {
       // Reset mock queue from beforeEach and set test-specific values
-      (mockDataSource.getRepository as jest.Mock).mockReset();
+      mockDataSource.getRepository.mockReset();
       const mockStatusRepo = {
         findOne: jest.fn().mockResolvedValue(mockWorkflowStatus),
       };
@@ -821,7 +821,7 @@ describe('BoardsService', () => {
         findOne: jest.fn().mockResolvedValue(null),
       };
 
-      (mockDataSource.getRepository as jest.Mock)
+      mockDataSource.getRepository
         .mockReturnValueOnce(mockStatusRepo)
         .mockReturnValueOnce(mockIssueRepoFromDataSource);
 

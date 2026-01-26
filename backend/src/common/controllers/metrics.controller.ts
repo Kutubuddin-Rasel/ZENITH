@@ -15,7 +15,7 @@ import { Public } from '../../auth/decorators/public.decorator';
  */
 @Controller('metrics')
 export class MetricsController {
-  constructor(private readonly metricsService: MetricsService) { }
+  constructor(private readonly metricsService: MetricsService) {}
 
   /**
    * Returns metrics in Prometheus text format.

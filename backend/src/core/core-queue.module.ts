@@ -16,33 +16,33 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
  */
 @Global()
 @Module({
-    imports: [
-        // Centralized BullMQ Redis connection
-        BullModule.forRootAsync({
-            imports: [ConfigModule],
-            useFactory: (config: ConfigService) => ({
-                connection: {
-                    host: config.get('REDIS_HOST', 'localhost'),
-                    port: config.get('REDIS_PORT', 6379),
-                    password: config.get('REDIS_PASSWORD'),
-                },
-                defaultJobOptions: {
-                    attempts: 3,
-                    backoff: { type: 'exponential', delay: 1000 },
-                    removeOnComplete: 100,
-                    removeOnFail: false,
-                },
-            }),
-            inject: [ConfigService],
-        }),
+  imports: [
+    // Centralized BullMQ Redis connection
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          host: config.get('REDIS_HOST', 'localhost'),
+          port: config.get('REDIS_PORT', 6379),
+          password: config.get('REDIS_PASSWORD'),
+        },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 1000 },
+          removeOnComplete: 100,
+          removeOnFail: false,
+        },
+      }),
+      inject: [ConfigService],
+    }),
 
-        // All queues registered centrally
-        BullModule.registerQueue(
-            { name: 'audit-queue' },
-            { name: 'notifications' },
-            { name: 'integration-sync' },
-        ),
-    ],
-    exports: [BullModule],
+    // All queues registered centrally
+    BullModule.registerQueue(
+      { name: 'audit-queue' },
+      { name: 'notifications' },
+      { name: 'integration-sync' },
+    ),
+  ],
+  exports: [BullModule],
 })
-export class CoreQueueModule { }
+export class CoreQueueModule {}

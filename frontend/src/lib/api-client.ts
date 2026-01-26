@@ -1,6 +1,7 @@
 import { getAccessToken, refreshAccessToken } from './auth-tokens';
+import { config } from './config';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = config.apiUrl;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 

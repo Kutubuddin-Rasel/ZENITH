@@ -10,41 +10,48 @@ import {
   HttpCode,
   HttpStatus,
   Query,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { SessionService } from './session.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CreateSessionData, SessionInfo } from './session.service';
-import { SessionType } from './entities/session.entity';
 import { AuthenticatedRequest } from '../common/types/authenticated-request.interface';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
 
-export class TerminateSessionDto {
-  sessionId: string;
-  reason?: string;
-}
+// DTOs with strict validation
+import { TerminateSessionDto, LockSessionDto, SessionQueryDto } from './dto';
 
-export class LockSessionDto {
-  sessionId: string;
-  reason: string;
-}
-
-export class SessionQueryDto {
-  userId?: string;
-  status?: string;
-  type?: SessionType;
-  page?: number;
-  limit?: number;
-}
-
+/**
+ * Session Controller (Legacy Enterprise Session Management)
+ *
+ * SECURITY:
+ * - All endpoints require JwtAuthGuard + PermissionsGuard
+ * - State-changing methods require CSRF protection via @RequireCsrf()
+ * - Uses StatefulCsrfGuard for Redis-backed token verification
+ * - All inputs validated via class-validator DTOs
+ *
+ * DTO VALIDATION:
+ * - @IsUUID prevents SQL injection via malformed IDs
+ * - @Length limits strings to prevent storage DoS
+ * - @IsEnum validates status/type values
+ * - @Max(100) limits pagination to prevent query DoS
+ */
 @Controller('sessions')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, StatefulCsrfGuard)
 export class SessionController {
   constructor(private sessionService: SessionService) {}
 
+  /**
+   * Create a new session
+   *
+   * CSRF REQUIRED: State-changing operation
+   */
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @RequirePermission('session:create')
+  @RequireCsrf()
   async createSession(
     @Request() req: AuthenticatedRequest,
     @Body() createSessionData: CreateSessionData,
@@ -54,6 +61,8 @@ export class SessionController {
       userId: req.user.userId,
       ipAddress: req.ip || '',
       userAgent: req.headers?.['user-agent'] || '',
+      // Determine secure connection status from request headers/protocol
+      isSecure: this.sessionService.isSecureConnection(req),
     });
 
     return {
@@ -62,6 +71,11 @@ export class SessionController {
     };
   }
 
+  /**
+   * Get all sessions for the current user
+   *
+   * No CSRF required - read-only operation
+   */
   @Get('my-sessions')
   @RequirePermission('session:read')
   async getMySessions(
@@ -70,6 +84,12 @@ export class SessionController {
     return this.sessionService.getUserSessions(req.user.userId);
   }
 
+  /**
+   * Get all sessions (admin view)
+   *
+   * No CSRF required - read-only operation
+   * Query parameters validated via SessionQueryDto
+   */
   @Get('all')
   @RequirePermission('session:read:all')
   async getAllSessions(@Query() query: SessionQueryDto): Promise<{
@@ -78,7 +98,6 @@ export class SessionController {
     page: number;
     limit: number;
   }> {
-    // This would need to be implemented in the service for pagination
     const sessions = await this.sessionService.getUserSessions(
       query.userId || '',
     );
@@ -91,71 +110,119 @@ export class SessionController {
     };
   }
 
+  /**
+   * Get session statistics
+   *
+   * No CSRF required - read-only operation
+   */
   @Get('stats')
   @RequirePermission('session:read:stats')
   async getSessionStats(): Promise<Record<string, unknown>> {
     return this.sessionService.getSessionStats();
   }
 
+  /**
+   * Terminate a specific session
+   *
+   * CSRF REQUIRED: State-changing operation
+   * Could be exploited to forcefully log out users
+   *
+   * @param sessionId - Validated as UUID via ParseUUIDPipe
+   * @param dto - Optional termination reason (validated)
+   */
   @Delete(':sessionId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission('session:terminate')
+  @RequireCsrf()
   async terminateSession(
-    @Param('sessionId') sessionId: string,
+    @Param('sessionId', ParseUUIDPipe) sessionId: string,
     @Request() req: AuthenticatedRequest,
-    @Body() body: { reason?: string },
+    @Body() dto: TerminateSessionDto,
   ): Promise<void> {
     await this.sessionService.terminateSession(
       sessionId,
       req.user.userId,
-      body.reason,
+      dto.reason,
     );
   }
 
+  /**
+   * Terminate all sessions for the current user
+   *
+   * CSRF REQUIRED: High-security state-changing operation
+   * Mass session termination is a destructive action
+   *
+   * @param dto - Optional reason and exceptCurrent flag (validated)
+   */
   @Delete('my-sessions/all')
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission('session:terminate:own')
+  @RequireCsrf()
   async terminateAllMySessions(
     @Request() req: AuthenticatedRequest & { sessionID?: string },
-    @Body() body: { reason?: string; exceptCurrent?: boolean },
+    @Body() dto: TerminateSessionDto,
   ): Promise<{ terminatedCount: number }> {
-    const exceptSessionId = body.exceptCurrent ? req.sessionID : undefined;
+    const exceptSessionId = dto.exceptCurrent ? req.sessionID : undefined;
     const terminatedCount = await this.sessionService.terminateAllUserSessions(
       req.user.userId,
       exceptSessionId,
       req.user.userId,
-      body.reason,
+      dto.reason,
     );
 
     return { terminatedCount };
   }
 
+  /**
+   * Lock a session (admin action)
+   *
+   * CSRF REQUIRED: State-changing security operation
+   * Could be exploited to lock users out of their sessions
+   *
+   * @param sessionId - Validated as UUID via ParseUUIDPipe
+   * @param dto - Lock reason (REQUIRED, validated)
+   */
   @Post(':sessionId/lock')
   @HttpCode(HttpStatus.OK)
   @RequirePermission('session:lock')
+  @RequireCsrf()
   async lockSession(
-    @Param('sessionId') sessionId: string,
-    @Body() lockSessionDto: LockSessionDto,
+    @Param('sessionId', ParseUUIDPipe) sessionId: string,
+    @Body() dto: LockSessionDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<void> {
     await this.sessionService.lockSession(
       sessionId,
       req.user.userId,
-      lockSessionDto.reason,
+      dto.reason,
     );
   }
 
+  /**
+   * Cleanup expired sessions (admin/cron action)
+   *
+   * CSRF REQUIRED: State-changing operation
+   * Deletes data from the database
+   */
   @Post('cleanup')
   @HttpCode(HttpStatus.OK)
   @RequirePermission('session:cleanup')
+  @RequireCsrf()
   async cleanupExpiredSessions(): Promise<{ cleanedCount: number }> {
     const cleanedCount = await this.sessionService.cleanupExpiredSessions();
     return { cleanedCount };
   }
 
+  /**
+   * Refresh current session's expiration
+   *
+   * CSRF REQUIRED: State-changing operation
+   * Extends session lifetime
+   */
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @RequirePermission('session:refresh')
+  @RequireCsrf()
   async refreshSession(
     @Request() req: AuthenticatedRequest,
   ): Promise<{ expiresAt: Date }> {

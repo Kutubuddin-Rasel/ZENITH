@@ -78,101 +78,153 @@ import { ScheduledTasksModule } from './scheduled-tasks/scheduled-tasks.module';
 import { HealthModule } from './health/health.module';
 import { CsrfModule } from './security/csrf/csrf.module';
 
+import {
+  appConfig,
+  authConfig,
+  rateLimitConfig,
+  cacheConfig,
+  integrationConfig,
+} from './config';
+
 @Module({
   imports: [
-    // Load .env file and make ConfigService available
+    // =========================================================================
+    // LAYER 1: CORE INFRASTRUCTURE
+    // These modules must load first - they provide fundamental services
+    // (config, database, logging, scheduling) that other modules depend on.
+    // =========================================================================
     ConfigModule.forRoot({
       isGlobal: true,
+      load: [
+        appConfig,
+        authConfig,
+        rateLimitConfig,
+        cacheConfig,
+        integrationConfig,
+      ],
     }),
-    // CLS (Continuation-Local Storage) for request-scoped context
-    // This enables tenant context propagation across async boundaries
     ClsModule.forRoot({
       global: true,
       middleware: {
-        mount: true, // Mount as middleware for all routes
+        mount: true,
       },
     }),
-    // Structured Logging with Pino (Phase 7)
     LoggingModule,
     ScheduleModule.forRoot(),
-    // Configure TypeORM asynchronously using ConfigService with optimizations
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: createDatabaseConfig,
     }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000,
-        limit: 100,
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        interface RateLimitCfg {
+          global: { ttlMs?: number; limit?: number };
+        }
+        const rateLimitCfg = configService.get<RateLimitCfg>('rateLimit');
+        return [
+          {
+            ttl: rateLimitCfg?.global.ttlMs || 60000,
+            limit: rateLimitCfg?.global.limit || 100,
+          },
+        ];
       },
-    ]),
-    // Core Infrastructure Modules (MUST load before domain modules)
-    CoreEntitiesModule, // Global: shared entity repositories
-    ProjectCoreModule, // Global: ProjectMembersService for guards
-    UsersCoreModule, // Global: UsersService for user lookup
-    AuthCoreModule, // Global: JwtAuthGuard, PermissionsGuard via APP_GUARD
-    TenantModule, // Global: Tenant isolation infrastructure
-    CircuitBreakerModule, // Global: Circuit breaker gateway for external APIs
-    CoreQueueModule, // Global: Centralized BullMQ queue configuration
-    // AI Module - provides AI-powered smart setup capabilities
-    AiModule,
-    CacheModule,
+    }),
     DatabaseModule,
+    CacheModule,
     PerformanceModule,
+    HealthModule,
+
+    // =========================================================================
+    // LAYER 2: CORE DOMAIN MODULES (Global Providers)
+    // These modules provide shared services used across the application.
+    // They are marked @Global or provide APP_GUARD/APP_INTERCEPTOR bindings.
+    // =========================================================================
+    CoreEntitiesModule,
+    ProjectCoreModule,
+    UsersCoreModule,
+    AuthCoreModule,
+    TenantModule,
+    CircuitBreakerModule,
+    CoreQueueModule,
+
+    // =========================================================================
+    // LAYER 3: SHARED/SECURITY MODULES
+    // Cross-cutting concerns used by multiple feature modules.
+    // =========================================================================
     CommonModule,
-    EncryptionModule,
-    SessionModule,
+    EncryptionModule, // DEDUPLICATED: Was imported twice (lines 148, 169)
+    SessionModule, // DEDUPLICATED: Was imported twice (lines 149, 170)
+    AccessControlModule,
+    CsrfModule,
+    CaslModule,
+    RBACModule,
+    AuditLogsModule,
+    TelemetryModule,
+
+    // =========================================================================
+    // LAYER 4: FEATURE/DOMAIN MODULES
+    // Business logic modules organized by domain area.
+    // =========================================================================
+
+    // --- Identity & Access ---
     OrganizationsModule,
     UsersModule,
     AuthModule,
     InvitesModule,
     MembershipModule,
+    ApiKeysModule,
+
+    // --- Project Management ---
     ProjectsModule,
+    ProjectTemplatesModule,
     IssuesModule,
     SprintsModule,
-    CommentsModule,
-    AttachmentsModule,
+    BacklogModule,
     BoardsModule,
     ReleasesModule,
-    TaxonomyModule,
-    BacklogModule,
+    WorkflowsModule,
+    CustomFieldsModule,
+
+    // --- Collaboration ---
+    CommentsModule,
+    AttachmentsModule,
     WatchersModule,
     RevisionsModule,
     NotificationsModule,
+
+    // --- Taxonomy & Organization ---
+    TaxonomyModule,
+
+    // --- Analytics & Reporting ---
     ReportsModule,
-    AuditLogsModule,
-    EncryptionModule,
-    SessionModule,
-    AccessControlModule,
-    ProjectTemplatesModule,
+    AnalyticsModule,
+    DashboardModule,
+
+    // --- Resource & Capacity ---
+    ResourceManagementModule,
+    ScheduledTasksModule,
+
+    // --- User Experience ---
     UserPreferencesModule,
     OnboardingModule,
     SatisfactionModule,
-    WorkflowsModule,
-    IntegrationsModule,
-    ResourceManagementModule,
-    CustomFieldsModule,
-    ApiKeysModule,
-    WebhooksModule,
-    TelemetryModule,
-    RagModule,
-    AnalyticsModule,
-    CaslModule, // RBAC Refactor
     GamificationModule,
-    DashboardModule,
-    BillingModule,
     SearchModule,
-    // NEW: Real-time Gateways
+
+    // --- Integrations & External ---
+    IntegrationsModule,
+    WebhooksModule,
+    BillingModule,
+
+    // --- AI & Intelligence ---
+    AiModule,
+    RagModule,
+
+    // --- Real-time ---
     GatewaysModule,
-    // NEW: Dynamic RBAC (database-backed roles and permissions)
-    RBACModule,
-    // NEW: Scheduled Tasks (cron jobs for cleanup)
-    ScheduledTasksModule,
-    // Phase 7: Advanced Health Checks with Terminus
-    HealthModule,
-    // Phase 7: CSRF Defense-in-Depth (global guard, activates with @RequireCsrf)
-    CsrfModule,
   ],
   controllers: [AppController],
   providers: [
@@ -194,13 +246,13 @@ import { CsrfModule } from './security/csrf/csrf.module';
   ],
 })
 export class AppModule implements OnApplicationShutdown, NestModule {
-  constructor(private readonly moduleRef: ModuleRef) { }
+  constructor(private readonly moduleRef: ModuleRef) {}
 
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(CorrelationMiddleware).forRoutes('*');
   }
 
-  async onApplicationShutdown(signal?: string) {
+  async onApplicationShutdown(_signal?: string) {
     // 1. Stop accepting new HTTP requests (handled by NestJS)
     // 2. Wait for in-flight requests to complete
     const gracePeriod = parseInt(process.env.API_GRACE_PERIOD_MS || '5000', 10);

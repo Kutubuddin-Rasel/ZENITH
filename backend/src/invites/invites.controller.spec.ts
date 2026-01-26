@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { InvitesController } from './invites.controller';
 import { InvitesService } from './invites.service';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 
 describe('InvitesController', () => {
   let controller: InvitesController;

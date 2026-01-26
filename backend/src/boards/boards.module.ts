@@ -33,5 +33,4 @@ import { BoardsGateway } from './boards.gateway';
   controllers: [BoardsController],
   exports: [BoardsService],
 })
-export class BoardsModule { }
-
+export class BoardsModule {}

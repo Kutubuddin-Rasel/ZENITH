@@ -71,7 +71,6 @@ export class WizardDtoMapper {
   toIntelligentCriteria(
     data: ValidatedWizardData,
   ): ExtendedIntelligentCriteria {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for future use
     const _teamSizeRange = TEAM_SIZE_RANGES[data.teamSize];
     const timelineDuration = TIMELINE_DURATIONS[data.timeline];
 

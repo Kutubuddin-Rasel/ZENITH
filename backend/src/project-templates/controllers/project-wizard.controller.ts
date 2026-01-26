@@ -22,7 +22,7 @@ import { TemplateRecommendationService } from '../services/template-recommendati
 import { ProjectIntelligenceService } from '../../ai/services/project-intelligence.service';
 import { ProjectCategory } from '../entities/project-template.entity';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../../auth/decorators/require-permission.decorator';
 import { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
 

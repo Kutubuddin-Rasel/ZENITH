@@ -450,7 +450,7 @@ export class ProjectWizardService {
     userId: string,
     wizardData: ProjectWizardData,
     templateId: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     _organizationId?: string,
   ): Promise<any> {
     try {

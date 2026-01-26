@@ -38,4 +38,4 @@ import { ScheduleModule } from '@nestjs/schedule';
   controllers: [NotificationsController],
   exports: [NotificationsService, SmartDigestService],
 })
-export class NotificationsModule { }
+export class NotificationsModule {}

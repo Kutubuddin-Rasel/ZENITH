@@ -77,7 +77,10 @@ describe('ProjectsService', () => {
         ProjectsService,
         { provide: getRepositoryToken(Project), useValue: mockProjectRepo },
         { provide: getRepositoryToken(Issue), useValue: mockIssueRepo },
-        { provide: getRepositoryToken(ProjectAccessSettings), useValue: mockAccessSettingsRepo },
+        {
+          provide: getRepositoryToken(ProjectAccessSettings),
+          useValue: mockAccessSettingsRepo,
+        },
         { provide: getRepositoryToken(ProjectTemplate), useValue: {} },
         { provide: ProjectMembersService, useValue: mockProjectMembersService },
         { provide: InvitesService, useValue: mockInvitesService },

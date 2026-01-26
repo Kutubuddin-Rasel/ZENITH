@@ -102,12 +102,9 @@ describe('CommentsService', () => {
       issuesService.findOne.mockRejectedValue(new ForbiddenException());
 
       await expect(
-        service.create(
-          'project-123',
-          'issue-123',
-          'user-123',
-          { content: 'test' },
-        ),
+        service.create('project-123', 'issue-123', 'user-123', {
+          content: 'test',
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -194,13 +191,9 @@ describe('CommentsService', () => {
       commentRepo.findOneBy.mockResolvedValue(null);
 
       await expect(
-        service.update(
-          'project-123',
-          'issue-123',
-          'comment-123',
-          'user-123',
-          { content: 'test' },
-        ),
+        service.update('project-123', 'issue-123', 'comment-123', 'user-123', {
+          content: 'test',
+        }),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -233,12 +226,7 @@ describe('CommentsService', () => {
       membersService.getUserRole.mockResolvedValue(ProjectRole.DEVELOPER);
 
       await expect(
-        service.remove(
-          'project-123',
-          'issue-123',
-          'comment-123',
-          'other-user',
-        ),
+        service.remove('project-123', 'issue-123', 'comment-123', 'other-user'),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -246,12 +234,7 @@ describe('CommentsService', () => {
       commentRepo.findOneBy.mockResolvedValue(null);
 
       await expect(
-        service.remove(
-          'project-123',
-          'issue-123',
-          'comment-123',
-          'user-123',
-        ),
+        service.remove('project-123', 'issue-123', 'comment-123', 'user-123'),
       ).rejects.toThrow(NotFoundException);
     });
   });

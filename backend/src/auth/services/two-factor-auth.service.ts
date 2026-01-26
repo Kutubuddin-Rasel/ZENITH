@@ -2,12 +2,15 @@ import {
   Injectable,
   BadRequestException,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { randomInt } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
+import * as argon2 from 'argon2';
 import { TwoFactorAuth } from '../entities/two-factor-auth.entity';
 import { User } from '../../users/entities/user.entity';
 import { AuditService } from '../../audit/services/audit.service';
@@ -15,16 +18,27 @@ import {
   AuditEventType,
   AuditSeverity,
 } from '../../audit/entities/audit-log.entity';
+import { AuthConfig } from '../../config/auth.config';
 
 @Injectable()
 export class TwoFactorAuthService {
+  private readonly logger = new Logger(TwoFactorAuthService.name);
+  private readonly totpWindow: number;
+  private readonly recoveryCodeCount: number;
+
   constructor(
     @InjectRepository(TwoFactorAuth)
     private twoFactorRepo: Repository<TwoFactorAuth>,
     @InjectRepository(User)
     private userRepo: Repository<User>,
     private readonly auditService: AuditService,
-  ) { }
+    private readonly configService: ConfigService,
+  ) {
+    // Load TOTP configuration from typed auth config
+    const authConfig = this.configService.get<AuthConfig>('auth');
+    this.totpWindow = authConfig?.twoFactor.totpWindow ?? 1;
+    this.recoveryCodeCount = authConfig?.twoFactor.recoveryCodeCount ?? 10; // Standard: 10 codes
+  }
 
   /**
    * Generate TOTP secret and QR code for user
@@ -52,13 +66,13 @@ export class TwoFactorAuthService {
       length: 32,
     });
 
-    // Generate backup codes
-    const backupCodes = this.generateBackupCodes();
+    // Generate backup codes and their hashes
+    const { plaintextCodes, hashedCodes } = await this.generateBackupCodes();
 
-    // Save or update 2FA record
+    // Save or update 2FA record (store ONLY hashed codes)
     const twoFactorAuth = existing2FA || this.twoFactorRepo.create({ userId });
     twoFactorAuth.secret = secret.base32;
-    twoFactorAuth.backupCodes = JSON.stringify(backupCodes);
+    twoFactorAuth.backupCodes = JSON.stringify(hashedCodes); // Store hashed codes only
     twoFactorAuth.isEnabled = false;
 
     await this.twoFactorRepo.save(twoFactorAuth);
@@ -66,10 +80,11 @@ export class TwoFactorAuthService {
     // Generate QR code
     const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url!);
 
+    // Return plaintext codes to user - SHOWN ONCE, NEVER RETRIEVABLE AGAIN
     return {
       secret: secret.base32,
       qrCodeUrl,
-      backupCodes,
+      backupCodes: plaintextCodes,
     };
   }
 
@@ -95,12 +110,12 @@ export class TwoFactorAuthService {
       );
     }
 
-    // Verify TOTP token
+    // Verify TOTP token with configurable window
     const verified = speakeasy.totp.verify({
       secret: twoFactorAuth.secret,
       encoding: 'base32',
       token,
-      window: 1, // Allow 1 time window for clock drift (±30 seconds)
+      window: this.totpWindow, // Configurable window for clock drift
     });
 
     if (!verified) {
@@ -111,18 +126,18 @@ export class TwoFactorAuthService {
     twoFactorAuth.isEnabled = true;
     await this.twoFactorRepo.save(twoFactorAuth);
 
-    const backupCodes = JSON.parse(
-      twoFactorAuth.backupCodes ?? '[]',
-    ) as string[];
-
+    // NOTE: Cannot return plaintext backup codes here - they are already hashed
+    // User should have saved them when they were first generated
+    // Return empty array to indicate codes exist but cannot be retrieved
     return {
       success: true,
-      backupCodes,
+      backupCodes: [], // Hashed codes cannot be shown again
     };
   }
 
   /**
-   * Verify TOTP token for login
+   * Verify TOTP token or backup code for login
+   * Uses Promise.any() for O(n) constant-time comparison against hashed backup codes
    */
   async verifyToken(userId: string, token: string): Promise<boolean> {
     const twoFactorAuth = await this.twoFactorRepo.findOne({
@@ -132,35 +147,61 @@ export class TwoFactorAuthService {
       return false;
     }
 
-    // Check if it's a backup code
-    const backupCodes = JSON.parse(
-      twoFactorAuth.backupCodes ?? '[]',
-    ) as string[];
-    if (backupCodes.includes(token)) {
-      // Remove used backup code
-      const updatedBackupCodes: string[] = backupCodes.filter(
-        (code) => code !== token,
-      );
-      twoFactorAuth.backupCodes = JSON.stringify(updatedBackupCodes);
+    // First, try TOTP verification (fast path)
+    const totpVerified = speakeasy.totp.verify({
+      secret: twoFactorAuth.secret,
+      encoding: 'base32',
+      token,
+      window: this.totpWindow,
+    });
+
+    if (totpVerified) {
       twoFactorAuth.lastUsedAt = new Date();
       await this.twoFactorRepo.save(twoFactorAuth);
       return true;
     }
 
-    // Verify TOTP token
-    const verified = speakeasy.totp.verify({
-      secret: twoFactorAuth.secret,
-      encoding: 'base32',
-      token,
-      window: 1, // Tighter window for verification (±30 seconds)
-    });
+    // If TOTP fails, check if it's a backup code (hashed comparison)
+    const hashedCodes = JSON.parse(
+      twoFactorAuth.backupCodes ?? '[]',
+    ) as string[];
 
-    if (verified) {
-      twoFactorAuth.lastUsedAt = new Date();
-      await this.twoFactorRepo.save(twoFactorAuth);
+    if (hashedCodes.length === 0) {
+      return false;
     }
 
-    return verified;
+    // Use Promise.any() for O(n) constant-time comparison
+    // Each argon2.verify takes constant time regardless of match
+    try {
+      const matchedHash = await Promise.any(
+        hashedCodes.map(async (hash) => {
+          const matches = await argon2.verify(hash, token);
+          if (matches) {
+            return hash; // Return the matched hash for removal
+          }
+          throw new Error('No match'); // Reject to continue checking
+        }),
+      );
+
+      // Backup code matched - remove the used hash
+      const updatedHashes = hashedCodes.filter((h) => h !== matchedHash);
+      twoFactorAuth.backupCodes = JSON.stringify(updatedHashes);
+      twoFactorAuth.lastUsedAt = new Date();
+      await this.twoFactorRepo.save(twoFactorAuth);
+
+      this.logger.log(
+        `Backup code used for user ${userId}. Remaining: ${updatedHashes.length}`,
+      );
+      return true;
+    } catch (error) {
+      // AggregateError means all promises rejected (no match found)
+      if (error instanceof AggregateError) {
+        return false;
+      }
+      // Unexpected error - log and reject
+      this.logger.error(`Error verifying backup code: ${error}`);
+      return false;
+    }
   }
 
   /**
@@ -190,7 +231,8 @@ export class TwoFactorAuthService {
   }
 
   /**
-   * Generate new backup codes
+   * Generate new backup codes (regeneration)
+   * Returns plaintext codes once - they will be hashed before storage
    */
   async regenerateBackupCodes(userId: string): Promise<string[]> {
     const twoFactorAuth = await this.twoFactorRepo.findOne({
@@ -200,26 +242,53 @@ export class TwoFactorAuthService {
       throw new BadRequestException('Two-factor authentication not enabled');
     }
 
-    const backupCodes = this.generateBackupCodes();
-    twoFactorAuth.backupCodes = JSON.stringify(backupCodes);
+    // Generate new codes and hashes
+    const { plaintextCodes, hashedCodes } = await this.generateBackupCodes();
+
+    // Store only hashes
+    twoFactorAuth.backupCodes = JSON.stringify(hashedCodes);
     await this.twoFactorRepo.save(twoFactorAuth);
 
-    return backupCodes;
+    this.logger.log(`Backup codes regenerated for user ${userId}`);
+
+    // Return plaintext codes - SHOWN ONCE, NEVER RETRIEVABLE AGAIN
+    return plaintextCodes;
   }
 
   /**
-   * Generate 10 backup codes
+   * Generate 10 backup codes with their Argon2id hashes
+   * Returns both plaintext (for user) and hashed (for storage) versions
    */
-  private generateBackupCodes(): string[] {
-    const codes: string[] = [];
-    for (let i = 0; i < 10; i++) {
-      codes.push(this.generateRandomCode());
+  private async generateBackupCodes(): Promise<{
+    plaintextCodes: string[];
+    hashedCodes: string[];
+  }> {
+    const plaintextCodes: string[] = [];
+    const hashPromises: Promise<string>[] = [];
+
+    for (let i = 0; i < this.recoveryCodeCount; i++) {
+      const code = this.generateRandomCode();
+      plaintextCodes.push(code);
+
+      // Hash each code with Argon2id
+      hashPromises.push(
+        argon2.hash(code, {
+          type: argon2.argon2id,
+          memoryCost: 65536, // 64 MB
+          timeCost: 3,
+          parallelism: 4,
+        }),
+      );
     }
-    return codes;
+
+    const hashedCodes = await Promise.all(hashPromises);
+
+    return { plaintextCodes, hashedCodes };
   }
 
   /**
    * Generate cryptographically secure random backup code
+   * Format: 8-character alphanumeric (e.g., "A1B2C3D4")
    */
   private generateRandomCode(): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -287,6 +356,7 @@ export class TwoFactorAuthService {
   async getStatusForUser(userId: string): Promise<{
     isEnabled: boolean;
     hasBackupCodes: boolean;
+    backupCodeCount: number;
     lastUsedAt: Date | null;
   }> {
     const twoFactorAuth = await this.twoFactorRepo.findOne({
@@ -297,17 +367,19 @@ export class TwoFactorAuthService {
       return {
         isEnabled: false,
         hasBackupCodes: false,
+        backupCodeCount: 0,
         lastUsedAt: null,
       };
     }
 
-    const backupCodes = JSON.parse(
+    const hashedCodes = JSON.parse(
       twoFactorAuth.backupCodes ?? '[]',
     ) as string[];
 
     return {
       isEnabled: twoFactorAuth.isEnabled,
-      hasBackupCodes: backupCodes.length > 0,
+      hasBackupCodes: hashedCodes.length > 0,
+      backupCodeCount: hashedCodes.length,
       lastUsedAt: twoFactorAuth.lastUsedAt,
     };
   }

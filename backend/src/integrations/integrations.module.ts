@@ -98,4 +98,4 @@ import { IntegrationSyncProcessor } from './processors/integration-sync.processo
     IntercomService,
   ],
 })
-export class IntegrationsModule { }
+export class IntegrationsModule {}

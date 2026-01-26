@@ -3,10 +3,18 @@ import {
   Logger,
   OnModuleInit,
   OnModuleDestroy,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
-// import { promisify } from 'util';
+import { Counter, Histogram, register } from 'prom-client';
+import {
+  CachedUser,
+  CachedProject,
+  CachedIssue,
+  RedisStats,
+} from './cache.interfaces';
+import { IntegrationGateway } from '../core/integrations/integration.gateway';
 
 export interface CacheOptions {
   ttl?: number; // Time to live in seconds
@@ -20,7 +28,57 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   private redis: Redis;
   private isConnected = false;
 
-  constructor(private configService: ConfigService) {}
+  // ==========================================================================
+  // CIRCUIT BREAKER CONFIGURATION (Phase 5 - Cache Module Remediation)
+  // ==========================================================================
+  private readonly breakerConfig = {
+    name: 'redis-cache',
+    timeout: 3000,
+    errorThresholdPercentage: 50,
+    resetTimeout: 30000,
+    volumeThreshold: 5,
+  };
+
+  // ==========================================================================
+  // PROMETHEUS METRICS (Phase 6 - Cache Module Remediation)
+  // Labels: operation (get/set/del), namespace (for hit/miss grouping)
+  // WARNING: Do NOT add 'key' as label - creates cardinality explosion
+  // ==========================================================================
+  private readonly cacheHitsCounter: Counter;
+  private readonly cacheMissesCounter: Counter;
+  private readonly cacheOperationDuration: Histogram;
+
+  constructor(
+    private configService: ConfigService,
+    @Optional() private readonly circuitBreaker?: IntegrationGateway,
+  ) {
+    // Initialize Prometheus metrics
+    // Cache hits counter
+    this.cacheHitsCounter = new Counter({
+      name: 'cache_hits_total',
+      help: 'Total number of cache hits',
+      labelNames: ['namespace'],
+      registers: [register],
+    });
+
+    // Cache misses counter
+    this.cacheMissesCounter = new Counter({
+      name: 'cache_misses_total',
+      help: 'Total number of cache misses',
+      labelNames: ['namespace'],
+      registers: [register],
+    });
+
+    // Operation duration histogram
+    // Redis is fast, so use small buckets (in seconds)
+    this.cacheOperationDuration = new Histogram({
+      name: 'cache_operation_duration_seconds',
+      help: 'Duration of cache operations in seconds',
+      labelNames: ['operation'],
+      buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1],
+      registers: [register],
+    });
+  }
 
   async onModuleInit() {
     try {
@@ -105,28 +163,90 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     return `${namespace}:${key}`;
   }
 
+  /**
+   * Check Redis connectivity using the shared connection pool.
+   * Used by health endpoints to avoid creating new connections per request.
+   *
+   * @returns 'PONG' if connected, throws if disconnected
+   */
+  async ping(): Promise<string> {
+    if (!this.isConnected || !this.redis) {
+      throw new Error('Redis not connected');
+    }
+    return this.redis.ping();
+  }
+
+  /**
+   * Check if the cache service is connected (non-throwing check).
+   */
+  isHealthy(): boolean {
+    return this.isConnected;
+  }
+
   async get<T>(key: string, options?: CacheOptions): Promise<T | null> {
     if (!this.isConnected) {
       this.logger.warn('Cache not connected, returning null');
+      this.cacheMissesCounter.inc({
+        namespace: options?.namespace || 'default',
+      });
       return null;
     }
 
-    try {
+    const namespace = options?.namespace || 'default';
+    const endTimer = this.cacheOperationDuration.startTimer({
+      operation: 'get',
+    });
+
+    const action = async (): Promise<T | null> => {
       const fullKey = this.buildKey(key, options);
       const value = await this.redis.get(fullKey);
 
       if (value === null) {
-        return null;
+        return null; // Cache miss - this is NOT a failure
       }
 
       return JSON.parse(value) as T;
+    };
+
+    // Fallback: return null (simulate cache miss) when circuit is open
+    const fallback = (): T | null => {
+      this.logger.debug(`Circuit breaker fallback for get: ${key}`);
+      return null;
+    };
+
+    let result: T | null = null;
+
+    try {
+      // Use circuit breaker if available (Phase 5)
+      if (this.circuitBreaker) {
+        result = await this.circuitBreaker.execute(
+          this.breakerConfig,
+          action,
+          fallback,
+        );
+      } else {
+        // Fallback to direct call if no circuit breaker
+        result = await action();
+      }
     } catch (error: unknown) {
       this.logger.error(
         `Error getting cache key ${key}:`,
         error instanceof Error ? error.message : 'Unknown error',
       );
-      return null;
+      result = null;
+    } finally {
+      // Record duration
+      endTimer();
+
+      // Record hit or miss (Phase 6)
+      if (result !== null) {
+        this.cacheHitsCounter.inc({ namespace });
+      } else {
+        this.cacheMissesCounter.inc({ namespace });
+      }
     }
+
+    return result;
   }
 
   async set<T>(
@@ -139,7 +259,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       return false;
     }
 
-    try {
+    const endTimer = this.cacheOperationDuration.startTimer({
+      operation: 'set',
+    });
+
+    const action = async (): Promise<boolean> => {
       const fullKey = this.buildKey(key, options);
       const serializedValue = JSON.stringify(value);
 
@@ -157,12 +281,34 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       }
 
       return result === 'OK';
+    };
+
+    // Fallback: return false (fail silently) when circuit is open
+    const fallback = (): boolean => {
+      this.logger.debug(`Circuit breaker fallback for set: ${key}`);
+      return false; // Data won't be cached, but app continues
+    };
+
+    try {
+      // Use circuit breaker if available (Phase 5)
+      if (this.circuitBreaker) {
+        return await this.circuitBreaker.execute(
+          this.breakerConfig,
+          action,
+          fallback,
+        );
+      }
+
+      // Fallback to direct call if no circuit breaker
+      return await action();
     } catch (error: unknown) {
       this.logger.error(
         `Error setting cache key ${key}:`,
         error instanceof Error ? error.message : 'Unknown error',
       );
       return false;
+    } finally {
+      endTimer();
     }
   }
 
@@ -242,6 +388,18 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Flush all keys in a namespace using non-blocking SCAN.
+   *
+   * PERFORMANCE (Cache Module Phase 3):
+   * Replaced blocking KEYS command with cursor-based SCAN iteration.
+   * - KEYS is O(N) and blocks Redis main thread (platform-wide timeouts at scale)
+   * - SCAN iterates in chunks (count: 100), never blocking for more than ~1ms
+   * - Deletions are batched in pipelines for network efficiency
+   *
+   * @param namespace - The namespace prefix to flush (e.g., 'users')
+   * @returns true if successful, false otherwise
+   */
   async flushNamespace(namespace: string): Promise<boolean> {
     if (!this.isConnected) {
       return false;
@@ -249,14 +407,57 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const pattern = `${namespace}:*`;
-      const keys = await this.redis.keys(pattern);
+      let deletedCount = 0;
 
-      if (keys.length === 0) {
-        return true;
-      }
+      // Use SCAN instead of KEYS to avoid blocking Redis
+      return new Promise<boolean>((resolve, reject) => {
+        const stream = this.redis.scanStream({
+          match: pattern,
+          count: 100, // Process 100 keys per cursor iteration
+        });
 
-      const result = await this.redis.del(...keys);
-      return result > 0;
+        stream.on('data', (keys: string[]) => {
+          if (keys.length === 0) return;
+
+          // Use void IIFE to handle async operations in event handler
+          void (async () => {
+            // Pause stream while we delete to prevent backpressure
+            stream.pause();
+
+            try {
+              // Use pipeline for batched network efficiency
+              const pipeline = this.redis.pipeline();
+              for (const key of keys) {
+                pipeline.unlink(key); // UNLINK is non-blocking DEL
+              }
+              await pipeline.exec();
+              deletedCount += keys.length;
+            } catch (error) {
+              this.logger.error(
+                `Error deleting batch in namespace ${namespace}:`,
+                error instanceof Error ? error.message : 'Unknown error',
+              );
+            }
+
+            stream.resume();
+          })();
+        });
+
+        stream.on('end', () => {
+          this.logger.debug(
+            `Flushed namespace ${namespace}: ${deletedCount} keys deleted`,
+          );
+          resolve(true);
+        });
+
+        stream.on('error', (error: Error) => {
+          this.logger.error(
+            `Error scanning namespace ${namespace}:`,
+            error.message,
+          );
+          reject(error);
+        });
+      });
     } catch (error: unknown) {
       this.logger.error(
         `Error flushing namespace ${namespace}:`,
@@ -318,12 +519,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async getStats(): Promise<{
-    connected: boolean;
-    memory: any;
-    info: any;
-    keyspace: any;
-  }> {
+  async getStats(): Promise<RedisStats> {
     if (!this.isConnected) {
       return {
         connected: false,
@@ -374,8 +570,17 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     return result;
   }
 
-  // Cache patterns for common use cases
-  async cacheUser(userId: string, user: any, ttl = 3600): Promise<boolean> {
+  // ==========================================================================
+  // DOMAIN CACHE HELPERS (Phase 4 - Typed Interfaces)
+  // These are typed wrappers around get/set for common entities.
+  // Date fields are strings (JSON serialization reality).
+  // ==========================================================================
+
+  async cacheUser(
+    userId: string,
+    user: CachedUser,
+    ttl = 3600,
+  ): Promise<boolean> {
     return this.set(`user:${userId}`, user, {
       ttl,
       namespace: 'users',
@@ -383,13 +588,13 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async getCachedUser(userId: string): Promise<any> {
-    return this.get(`user:${userId}`, { namespace: 'users' });
+  async getCachedUser(userId: string): Promise<CachedUser | null> {
+    return this.get<CachedUser>(`user:${userId}`, { namespace: 'users' });
   }
 
   async cacheProject(
     projectId: string,
-    project: any,
+    project: CachedProject,
     ttl = 1800,
   ): Promise<boolean> {
     return this.set(`project:${projectId}`, project, {
@@ -399,13 +604,15 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async getCachedProject(projectId: string): Promise<any> {
-    return this.get(`project:${projectId}`, { namespace: 'projects' });
+  async getCachedProject(projectId: string): Promise<CachedProject | null> {
+    return this.get<CachedProject>(`project:${projectId}`, {
+      namespace: 'projects',
+    });
   }
 
   async cacheIssues(
     projectId: string,
-    issues: any[],
+    issues: CachedIssue[],
     ttl = 900,
   ): Promise<boolean> {
     return this.set(`issues:${projectId}`, issues, {
@@ -415,8 +622,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async getCachedIssues(projectId: string): Promise<any[]> {
-    const result = await this.get<any[]>(`issues:${projectId}`, {
+  async getCachedIssues(projectId: string): Promise<CachedIssue[]> {
+    const result = await this.get<CachedIssue[]>(`issues:${projectId}`, {
       namespace: 'issues',
     });
     return result || [];
@@ -496,6 +703,119 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       return await this.redis.llen(fullKey);
     } catch (error) {
       this.logger.error(`Error llen for ${key}`, error);
+      return 0;
+    }
+  }
+
+  // --- Atomic Counter Operations ---
+
+  async incr(key: string, options?: CacheOptions): Promise<number> {
+    if (!this.isConnected) return 0;
+    try {
+      const fullKey = this.buildKey(key, options);
+      const value = await this.redis.incr(fullKey);
+
+      // If new key (value === 1) AND ttl provided, set expiration
+      if (value === 1 && options?.ttl) {
+        await this.redis.expire(fullKey, options.ttl);
+      }
+      return value;
+    } catch (error) {
+      this.logger.error(`Error incr ${key}`, error);
+      return 0;
+    }
+  }
+
+  async decr(key: string, options?: CacheOptions): Promise<number> {
+    if (!this.isConnected) return 0;
+    try {
+      const fullKey = this.buildKey(key, options);
+      const value = await this.redis.decr(fullKey);
+
+      // If new key (value === -1) AND ttl provided, set expiration
+      if (value === -1 && options?.ttl) {
+        await this.redis.expire(fullKey, options.ttl);
+      }
+      return value;
+    } catch (error) {
+      this.logger.error(`Error decr ${key}`, error);
+      return 0;
+    }
+  }
+
+  // ==========================================================================
+  // ROLLING WINDOW COUNTERS (Phase 2 - Common Module Remediation)
+  // Used for distributed failure tracking with automatic expiration
+  // ==========================================================================
+
+  /**
+   * Atomically increment a counter and ALWAYS reset its TTL.
+   *
+   * Unlike `incr()` which only sets TTL on first increment, this method
+   * resets the TTL on EVERY increment. This creates a "rolling window"
+   * where the counter expires after N seconds of inactivity.
+   *
+   * USE CASE: Distributed failure tracking.
+   * - Each failure increments the counter and extends the window.
+   * - If the system is healthy for `ttlSeconds`, the counter expires (resets).
+   *
+   * @param key - The counter key (e.g., 'alert:failures:integration-123')
+   * @param ttlSeconds - Rolling window duration in seconds
+   * @param options - Optional cache options (namespace)
+   * @returns New counter value (1 = first failure in window)
+   */
+  async incrWithRollingWindow(
+    key: string,
+    ttlSeconds: number,
+    options?: CacheOptions,
+  ): Promise<number> {
+    if (!this.isConnected) return 0;
+
+    try {
+      const fullKey = this.buildKey(key, options);
+
+      // Use Redis pipeline for atomicity
+      const pipeline = this.redis.pipeline();
+      pipeline.incr(fullKey);
+      pipeline.expire(fullKey, ttlSeconds);
+
+      const results = await pipeline.exec();
+
+      // Extract the incremented value from pipeline results
+      // results[0] = [error, value] for INCR command
+      if (results && results[0] && results[0][1] !== undefined) {
+        return results[0][1] as number;
+      }
+
+      return 0;
+    } catch (error) {
+      this.logger.error(
+        `Error incrementing rolling window counter ${key}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+      return 0;
+    }
+  }
+
+  /**
+   * Get the current value of a counter without incrementing.
+   *
+   * @param key - The counter key
+   * @param options - Optional cache options
+   * @returns Current counter value, or 0 if not set
+   */
+  async getCounter(key: string, options?: CacheOptions): Promise<number> {
+    if (!this.isConnected) return 0;
+
+    try {
+      const fullKey = this.buildKey(key, options);
+      const value = await this.redis.get(fullKey);
+      return value ? parseInt(value, 10) : 0;
+    } catch (error) {
+      this.logger.error(
+        `Error getting counter ${key}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
       return 0;
     }
   }

@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { RevisionsService } from './revisions.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { EntityType } from './entities/revision.entity';
 

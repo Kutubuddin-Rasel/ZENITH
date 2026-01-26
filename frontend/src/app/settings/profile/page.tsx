@@ -15,8 +15,8 @@ import {
     ShieldCheckIcon,
     SparklesIcon,
 } from '@heroicons/react/24/outline';
-
-const API_URL = 'http://localhost:3000';
+import { config, assetUrl } from '@/lib/config';
+import { getAccessToken } from '@/lib/auth-tokens';
 
 export default function ProfilePage() {
     const { user, refreshUserData, logout } = useAuth();
@@ -137,10 +137,12 @@ export default function ProfilePage() {
             const formData = new FormData();
             formData.append('avatar', file);
 
-            const response = await fetch(`${API_URL}/users/me/avatar`, {
+            const token = getAccessToken();
+            const response = await fetch(`${config.apiUrl}/users/me/avatar`, {
                 method: 'POST',
                 body: formData,
                 credentials: 'include',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
             });
 
             if (!response.ok) {
@@ -221,11 +223,11 @@ export default function ProfilePage() {
                                     <div className="w-24 h-24 rounded-full overflow-hidden bg-neutral-100 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 group-hover:border-primary-500 transition-all duration-200 shadow-sm">
                                         {user.avatarUrl ? (
                                             <Image
-                                                src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `${API_URL}${user.avatarUrl}`}
+                                                src={assetUrl(user.avatarUrl)}
                                                 alt={user.name || 'Avatar'}
                                                 fill
                                                 className="object-cover"
-                                                unoptimized={user.avatarUrl.startsWith('http') && !user.avatarUrl.includes('localhost')}
+                                                unoptimized
                                             />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">

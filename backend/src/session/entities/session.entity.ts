@@ -31,6 +31,7 @@ export enum SessionType {
 @Index('IDX_session_last_activity', ['lastActivity'])
 @Index('IDX_session_ip_address', ['ipAddress'])
 @Index('IDX_session_active', ['userId', 'lastActivity'])
+@Index('IDX_session_token_hash', ['tokenHash']) // For refresh token lookup
 export class Session {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -91,6 +92,46 @@ export class Session {
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
+
+  // ============================================================================
+  // AUTH INTEGRATION FIELDS (Migrated from UserSession for consolidation)
+  // ============================================================================
+  // These fields enable Session to replace UserSession entirely.
+  // ADR: Phase 4 of Session Module Remediation - Entity Unification
+
+  /**
+   * Hashed refresh token (SHA-256)
+   * Used for JWT refresh token validation.
+   * NEVER store plaintext tokens - only the hash.
+   *
+   * Maps from: UserSession.tokenHash
+   */
+  @Column({ type: 'text', nullable: true })
+  tokenHash: string | null;
+
+  /**
+   * Simplified device type classification
+   * Values: 'desktop', 'mobile', 'tablet', 'unknown'
+   *
+   * Maps from: UserSession.deviceType
+   * Note: Session also has isMobile/isTablet/isDesktop booleans for detailed checks
+   */
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  deviceType: string | null;
+
+  /**
+   * Combined location string from IP geolocation
+   * Format: "City, Country" (e.g., "New York, US")
+   *
+   * Maps from: UserSession.location
+   * Note: Session also has separate city/country/region fields for detailed queries
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  location: string | null;
+
+  // ============================================================================
+  // END AUTH INTEGRATION FIELDS
+  // ============================================================================
 
   @Column({ default: false })
   isConcurrent: boolean; // Whether this is a concurrent session

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Response, Request } from 'express';
 import * as crypto from 'crypto';
+import { AuthConfig } from '../../config/auth.config';
 
 /**
  * CookieService - Modern SPA Token Architecture
@@ -17,10 +18,22 @@ import * as crypto from 'crypto';
 export class CookieService {
   private readonly isProduction: boolean;
   private readonly cookieDomain: string | undefined;
+  private readonly refreshTokenTtlMs: number;
+  private readonly cookieSameSite: 'strict' | 'lax' | 'none';
+  private readonly cookieSecure: boolean;
 
   constructor(private configService: ConfigService) {
     this.isProduction = configService.get('NODE_ENV') === 'production';
-    this.cookieDomain = configService.get('COOKIE_DOMAIN');
+
+    // Load from typed auth configuration
+    const authConfig = configService.get<AuthConfig>('auth');
+    this.cookieDomain =
+      authConfig?.cookie.domain || configService.get('COOKIE_DOMAIN');
+    this.refreshTokenTtlMs =
+      (authConfig?.cookie.refreshTokenTtlDays || 7) * 24 * 60 * 60 * 1000;
+    this.cookieSecure = authConfig?.cookie.secure ?? this.isProduction;
+    this.cookieSameSite =
+      authConfig?.cookie.sameSite || (this.isProduction ? 'strict' : 'lax');
   }
 
   /**
@@ -34,17 +47,12 @@ export class CookieService {
    * @returns The CSRF token that was set (for including in response if needed)
    */
   setRefreshTokenCookie(res: Response, refreshToken: string): string {
-    const sameSite: 'strict' | 'lax' | 'none' = this.isProduction
-      ? 'strict'
-      : 'lax';
-    const secure = this.isProduction;
-
     // Refresh token cookie - HttpOnly, only sent to /auth routes
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
-      secure,
-      sameSite,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      secure: this.cookieSecure,
+      sameSite: this.cookieSameSite,
+      maxAge: this.refreshTokenTtlMs,
       path: '/auth', // Only sent to auth endpoints
       domain: this.cookieDomain,
     });
@@ -53,9 +61,9 @@ export class CookieService {
     const csrfToken = this.generateCsrfToken();
     res.cookie('csrf_token', csrfToken, {
       httpOnly: false, // Must be readable by JavaScript
-      secure,
-      sameSite,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // Same as refresh token
+      secure: this.cookieSecure,
+      sameSite: this.cookieSameSite,
+      maxAge: this.refreshTokenTtlMs, // Same as refresh token
       path: '/',
       domain: this.cookieDomain,
     });
@@ -64,61 +72,9 @@ export class CookieService {
   }
 
   /**
-   * @deprecated Use setRefreshTokenCookie() instead.
-   * Kept for backward compatibility during migration.
-   */
-  setAuthCookies(
-    res: Response,
-    accessToken: string,
-    refreshToken: string,
-  ): void {
-    // During migration: still set both for backward compatibility
-    // TODO: Remove access_token cookie after frontend migration complete
-    const sameSite: 'strict' | 'lax' | 'none' = this.isProduction
-      ? 'strict'
-      : 'lax';
-    const secure = this.isProduction;
-
-    // Access token cookie (DEPRECATED - will be removed)
-    res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure,
-      sameSite,
-      maxAge: 15 * 60 * 1000,
-      path: '/',
-      domain: this.cookieDomain,
-    });
-
-    // Refresh token cookie
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure,
-      sameSite,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/auth',
-      domain: this.cookieDomain,
-    });
-
-    // CSRF token (new)
-    const csrfToken = this.generateCsrfToken();
-    res.cookie('csrf_token', csrfToken, {
-      httpOnly: false,
-      secure,
-      sameSite,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/',
-      domain: this.cookieDomain,
-    });
-  }
-
-  /**
    * Clear all authentication cookies on logout
    */
   clearAuthCookies(res: Response): void {
-    res.clearCookie('access_token', {
-      path: '/',
-      domain: this.cookieDomain,
-    });
     res.clearCookie('refresh_token', {
       path: '/auth',
       domain: this.cookieDomain,
@@ -130,21 +86,15 @@ export class CookieService {
   }
 
   /**
-   * Extract access token from request.
-   * Priority: Bearer header > Cookie (for migration period)
+   * Extract access token from Bearer header.
+   * Cookie-based access token is no longer supported.
    */
   extractAccessToken(req: Request): string | null {
-    // Check Bearer header first (modern SPA pattern)
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
       return authHeader.substring(7);
     }
-
-    // Fallback: Cookie (for migration compatibility)
-    const cookies = req.cookies as
-      | Record<string, string | undefined>
-      | undefined;
-    return cookies?.access_token ?? null;
+    return null;
   }
 
   /**

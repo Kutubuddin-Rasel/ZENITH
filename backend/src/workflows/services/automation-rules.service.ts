@@ -288,9 +288,8 @@ export class AutomationRulesService {
   }
 
   private evaluateScheduledTrigger(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _config: TriggerDefinition['config'],
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     _context: Record<string, unknown>,
   ): boolean {
     // This would be handled by the cron scheduler
@@ -403,7 +402,7 @@ export class AutomationRulesService {
 
   private executeUpdateFieldAction(
     action: ActionDefinition,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     _context: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const { field, value } = action.config as {
@@ -416,7 +415,7 @@ export class AutomationRulesService {
 
   private executeSendNotificationAction(
     action: ActionDefinition,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     _context: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const { template, userId } = action.config as {
@@ -429,7 +428,7 @@ export class AutomationRulesService {
 
   private executeAssignUserAction(
     action: ActionDefinition,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     _context: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const { userId } = action.config as { userId?: string };
@@ -439,7 +438,7 @@ export class AutomationRulesService {
 
   private executeCreateIssueAction(
     action: ActionDefinition,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     _context: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const { title, description, type, priority } = action.config as {
@@ -460,7 +459,7 @@ export class AutomationRulesService {
 
   private executeUpdateStatusAction(
     action: ActionDefinition,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     _context: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const { status } = action.config as { status?: string };
@@ -470,7 +469,7 @@ export class AutomationRulesService {
 
   private executeSendEmailAction(
     action: ActionDefinition,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     _context: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const { template, to, subject } = action.config as {
@@ -484,7 +483,7 @@ export class AutomationRulesService {
 
   private executeWebhookCallAction(
     action: ActionDefinition,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     _context: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const { url, method, headers, body } = action.config as {
@@ -499,7 +498,7 @@ export class AutomationRulesService {
 
   private async executeDelayAction(
     action: ActionDefinition,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     _context: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const { delay } = action.config as { delay?: number };

@@ -13,7 +13,7 @@ import {
 import { ProjectMembersService } from './project-members.service';
 import { ProjectRole } from '../enums/project-role.enum';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from 'src/auth/guards/permissions.guard';
+import { PermissionsGuard } from 'src/core/auth/guards/permissions.guard';
 import { RequirePermission } from 'src/auth/decorators/require-permission.decorator';
 import { IsString, IsIn } from 'class-validator';
 

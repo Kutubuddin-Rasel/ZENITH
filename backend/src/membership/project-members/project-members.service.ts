@@ -76,6 +76,19 @@ export class ProjectMembersService {
     return pm ? pm.roleName : null;
   }
 
+  /**
+   * Get both roleId and roleName for a project member
+   * Used by PermissionsGuard for database-backed RBAC
+   */
+  async getMemberRoleDetails(
+    projectId: string,
+    userId: string,
+  ): Promise<{ roleId: string | null; roleName: ProjectRole } | null> {
+    const pm = await this.pmRepo.findOneBy({ projectId, userId });
+    if (!pm) return null;
+    return { roleId: pm.roleId, roleName: pm.roleName };
+  }
+
   /** Update a member's role in a project */
   async updateMemberRole(
     projectId: string,

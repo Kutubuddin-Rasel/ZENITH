@@ -4,6 +4,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { AuditLogsService } from '../audit/audit-logs.service';
 import { ClsService } from 'nestjs-cls';
+import { SessionsService } from '../auth/sessions.service';
+import { PasswordBreachService } from '../auth/services/password-breach.service';
 import {
   NotFoundException,
   BadRequestException,
@@ -23,6 +25,8 @@ describe('UsersService', () => {
   let userRepo: any;
   let mockAuditLogsService: any;
   let mockClsService: any;
+  let mockSessionsService: any;
+  let mockPasswordBreachService: any;
 
   // Test fixtures
   const mockUser: Partial<User> = {
@@ -65,11 +69,29 @@ describe('UsersService', () => {
       get: jest.fn().mockReturnValue('request-123'),
     };
 
+    mockSessionsService = {
+      revokeAllExceptCurrent: jest.fn().mockResolvedValue(2),
+      revokeAllSessions: jest.fn().mockResolvedValue(3),
+    };
+
+    mockPasswordBreachService = {
+      checkPassword: jest.fn().mockResolvedValue({
+        isBreached: false,
+        breachCount: 0,
+        cached: false,
+      }),
+      getBreachMessage: jest.fn().mockReturnValue('Password has been breached'),
+    };
+
     const mockQueryBuilder = createMockQueryBuilder();
 
     userRepo = {
       create: jest.fn().mockImplementation((dto) => dto),
-      save: jest.fn().mockImplementation((user) => Promise.resolve({ id: 'new-user-123', ...user })),
+      save: jest
+        .fn()
+        .mockImplementation((user) =>
+          Promise.resolve({ id: 'new-user-123', ...user }),
+        ),
       find: jest.fn(),
       findOne: jest.fn(),
       findOneBy: jest.fn(),
@@ -82,6 +104,8 @@ describe('UsersService', () => {
         { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: AuditLogsService, useValue: mockAuditLogsService },
         { provide: ClsService, useValue: mockClsService },
+        { provide: SessionsService, useValue: mockSessionsService },
+        { provide: PasswordBreachService, useValue: mockPasswordBreachService },
       ],
     }).compile();
 
@@ -197,7 +221,9 @@ describe('UsersService', () => {
       const result = await service.findOneByEmail('test@example.com');
 
       expect(result).toEqual(mockUser);
-      expect(userRepo.findOneBy).toHaveBeenCalledWith({ email: 'test@example.com' });
+      expect(userRepo.findOneBy).toHaveBeenCalledWith({
+        email: 'test@example.com',
+      });
     });
 
     it('should return null when user not found', async () => {
@@ -213,7 +239,9 @@ describe('UsersService', () => {
 
       await service.findOneByEmail('TEST@EXAMPLE.COM');
 
-      expect(userRepo.findOneBy).toHaveBeenCalledWith({ email: 'test@example.com' });
+      expect(userRepo.findOneBy).toHaveBeenCalledWith({
+        email: 'test@example.com',
+      });
     });
   });
 
@@ -296,7 +324,11 @@ describe('UsersService', () => {
     it('should search users by name or email', async () => {
       const mockQb = createMockQueryBuilder();
       mockQb.getRawMany.mockResolvedValue([
-        { user_id: 'user-1', user_name: 'Test', user_email: 'test@example.com' },
+        {
+          user_id: 'user-1',
+          user_name: 'Test',
+          user_email: 'test@example.com',
+        },
       ]);
       userRepo.createQueryBuilder.mockReturnValue(mockQb);
 
@@ -413,7 +445,11 @@ describe('UsersService', () => {
       await expect(
         service.changePassword(
           'user-123',
-          { ...changePasswordDto, newPassword: '12345', confirmNewPassword: '12345' },
+          {
+            ...changePasswordDto,
+            newPassword: '12345',
+            confirmNewPassword: '12345',
+          },
           false,
         ),
       ).rejects.toThrow(BadRequestException);
@@ -431,15 +467,43 @@ describe('UsersService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should update passwordVersion to 3 (Argon2id)', async () => {
+    it('should increment passwordVersion on password change', async () => {
       (argon2.verify as jest.Mock).mockResolvedValue(true);
+      // mockUser has passwordVersion: 3
+      userRepo.findOneBy.mockResolvedValue({ ...mockUser, passwordVersion: 3 });
 
       await service.changePassword('user-123', changePasswordDto, false);
 
       expect(userRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({
-          passwordVersion: 3,
+          passwordVersion: 4, // Incremented from 3 to 4
         }),
+      );
+    });
+
+    it('should revoke all sessions when no currentSessionId provided', async () => {
+      (argon2.verify as jest.Mock).mockResolvedValue(true);
+
+      await service.changePassword('user-123', changePasswordDto, false);
+
+      expect(mockSessionsService.revokeAllSessions).toHaveBeenCalledWith(
+        'user-123',
+      );
+    });
+
+    it('should revoke other sessions except current when currentSessionId provided', async () => {
+      (argon2.verify as jest.Mock).mockResolvedValue(true);
+
+      await service.changePassword(
+        'user-123',
+        changePasswordDto,
+        false,
+        'current-session-id',
+      );
+
+      expect(mockSessionsService.revokeAllExceptCurrent).toHaveBeenCalledWith(
+        'user-123',
+        'current-session-id',
       );
     });
   });
@@ -500,7 +564,9 @@ describe('UsersService', () => {
   describe('findUnassigned', () => {
     it('should return users not assigned to any project', async () => {
       const mockQb = createMockQueryBuilder();
-      mockQb.getMany.mockResolvedValue([{ id: 'user-1', name: 'Unassigned User' }]);
+      mockQb.getMany.mockResolvedValue([
+        { id: 'user-1', name: 'Unassigned User' },
+      ]);
       userRepo.createQueryBuilder.mockReturnValue(mockQb);
 
       const result = await service.findUnassigned();

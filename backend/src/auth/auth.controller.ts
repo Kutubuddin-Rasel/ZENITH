@@ -6,6 +6,7 @@ import {
   Res,
   Body,
   Get,
+  Param,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -20,6 +21,7 @@ import { CsrfGuard } from './guards/csrf.guard';
 import { Public } from './decorators/public.decorator';
 import { VerifyLogin2FADto } from './dto/two-factor-auth.dto';
 import { Response } from 'express';
+import { SuperAdminGuard } from './guards/super-admin.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -27,7 +29,7 @@ export class AuthController {
     private authService: AuthService,
     private twoFactorAuthService: TwoFactorAuthService,
     private cookieService: CookieService,
-  ) { }
+  ) {}
 
   // POST /auth/login
   // Rate limit: 5 attempts per minute to prevent brute force
@@ -57,10 +59,11 @@ export class AuthController {
     if (has2FA) {
       // SECURITY: Return a signed session token instead of raw userId
       // This prevents attackers from substituting their own userId in the 2FA step
-      const twoFactorSessionToken = await this.authService.generate2FASessionToken(
-        req.user.id,
-        req.user.email,
-      );
+      const twoFactorSessionToken =
+        await this.authService.generate2FASessionToken(
+          req.user.id,
+          req.user.email,
+        );
 
       return {
         requires2FA: true,
@@ -69,17 +72,12 @@ export class AuthController {
       };
     }
 
-    // Set HttpOnly Cookies using CookieService
-    this.cookieService.setAuthCookies(
-      res,
-      result.access_token,
-      result.refresh_token,
-    );
+    // Set refresh token cookie (access token returned in body only)
+    this.cookieService.setRefreshTokenCookie(res, result.refresh_token);
 
-    // Also return tokens in body for backward compatibility with old clients
+    // Return access token in body (frontend stores in memory)
     return {
       access_token: result.access_token,
-      refresh_token: result.refresh_token,
       user: result.user,
       message: 'Login successful',
     };
@@ -113,16 +111,11 @@ export class AuthController {
     const user = await this.authService.findUserById(userId);
     const result = await this.authService.login(user);
 
-    // Set HttpOnly Cookies after successful 2FA
-    this.cookieService.setAuthCookies(
-      res,
-      result.access_token,
-      result.refresh_token,
-    );
+    // Set refresh token cookie after successful 2FA
+    this.cookieService.setRefreshTokenCookie(res, result.refresh_token);
 
     return {
       access_token: result.access_token,
-      refresh_token: result.refresh_token,
       user: result.user,
       success: true,
     };
@@ -145,14 +138,13 @@ export class AuthController {
   ) {
     const result = await this.authService.redeemInvite(dto);
 
-    // Set HttpOnly Cookies for invite redemption
-    this.cookieService.setAuthCookies(
-      res,
-      result.access_token,
-      result.refresh_token,
-    );
+    // Set refresh token cookie for invite redemption
+    this.cookieService.setRefreshTokenCookie(res, result.refresh_token);
 
-    return result;
+    return {
+      access_token: result.access_token,
+      user: result.user,
+    };
   }
 
   @UseGuards(JwtAuthGuard)
@@ -217,15 +209,27 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   async logout(
-    @Request() req: { user: { userId: string } },
+    @Request() req: { user: { userId: string; jti?: string; exp?: number } },
     @Res({ passthrough: true }) res: Response,
   ) {
-    const userId = req.user['userId'];
-    await this.authService.logout(userId);
+    const { userId, jti, exp } = req.user;
+
+    // Logout with token blacklisting (if JTI available)
+    await this.authService.logout(userId, jti, exp);
 
     // Clear HttpOnly Cookies on logout
     this.cookieService.clearAuthCookies(res);
 
     return { message: 'Logged out successfully' };
+  }
+
+  @UseGuards(JwtAuthGuard, SuperAdminGuard)
+  @Post('admin/unlock-account/:userId')
+  async unlockAccount(
+    @Param('userId') userId: string,
+    @Request() req: { user: { userId: string } },
+  ) {
+    await this.authService.unlockAccount(userId, req.user.userId);
+    return { message: 'Account unlocked successfully' };
   }
 }

@@ -2,48 +2,32 @@ import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
 import { Public } from './auth/decorators/public.decorator';
 import { DataSource } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
+import { CacheService } from './cache/cache.service';
 
 @Controller()
 export class AppController {
-  private redis: Redis;
-
   constructor(
     private readonly appService: AppService,
     private readonly dataSource: DataSource,
-    private readonly configService: ConfigService,
-  ) {
-    // Create Redis client for health check
-    this.redis = new Redis({
-      host: this.configService.get('REDIS_HOST', 'localhost'),
-      port: this.configService.get('REDIS_PORT', 6379),
-      password: this.configService.get('REDIS_PASSWORD'),
-      lazyConnect: true,
-      maxRetriesPerRequest: 1,
-      connectTimeout: 2000,
-    });
-  }
+    private readonly cacheService: CacheService,
+  ) {}
 
   @Get()
   getHello(): string {
     return this.appService.getHello();
   }
 
-  @Public()
-  @Get('test-public')
-  testPublic(): string {
-    return 'This is a public endpoint';
-  }
-
-  @Get('test-simple')
-  testSimple(): string {
-    return 'This is a simple endpoint without guards';
-  }
+  // REMOVED: test-public and test-simple endpoints (Phase 3 - Security Remediation)
+  // These were trivial debug endpoints exposing unnecessary attack surface.
+  // If local testing is needed, use the /health endpoint or create a DevController.
 
   /**
    * Health check endpoint for container orchestration (Kubernetes, Docker)
    * Returns 200 if database and Redis are connected, 503 otherwise
+   *
+   * REFACTORED (Phase 4): Now uses CacheService singleton instead of creating
+   * a new Redis connection per health check. This prevents connection leaks
+   * under high load (e.g., 1000 health checks/sec = 0 new sockets now).
    */
   @Public()
   @Get('health')
@@ -65,9 +49,9 @@ export class AppController {
       dbStatus = 'error';
     }
 
-    // Check Redis
+    // Check Redis using shared connection pool (CacheService)
     try {
-      await this.redis.ping();
+      await this.cacheService.ping();
       redisStatus = 'connected';
     } catch {
       redisStatus = 'error';

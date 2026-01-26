@@ -10,6 +10,9 @@ import { ConfigService } from '@nestjs/config';
 import { PasswordService } from './services/password.service';
 import { AuditLogsService } from '../audit/audit-logs.service';
 import { ClsService } from 'nestjs-cls';
+import { CacheService } from '../cache/cache.service';
+import { PasswordBreachService } from './services/password-breach.service';
+import { TokenBlacklistService } from './services/token-blacklist.service';
 import {
   UnauthorizedException,
   ConflictException,
@@ -34,7 +37,10 @@ describe('AuthService', () => {
   let mockPasswordService: any;
   let mockAuditLogsService: any;
   let mockClsService: any;
+  let mockCacheService: any;
   let mockConfigService: any;
+  let mockPasswordBreachService: any;
+  let mockTokenBlacklistService: any;
 
   // Test fixtures
   const mockUser = {
@@ -105,12 +111,51 @@ describe('AuthService', () => {
       get: jest.fn().mockReturnValue('request-123'),
     };
 
+    mockCacheService = {
+      get: jest.fn().mockResolvedValue(null),
+      incr: jest.fn().mockResolvedValue(1),
+      del: jest.fn().mockResolvedValue(true),
+    };
+
     mockConfigService = {
       get: jest.fn((key: string) => {
         if (key === 'JWT_SECRET') return 'test-jwt-secret';
         if (key === 'JWT_REFRESH_SECRET') return 'test-refresh-secret';
+        if (key === 'auth')
+          return {
+            jwt: {
+              accessTokenExpiry: '15m',
+              refreshTokenExpiry: '7d',
+              twoFactorSessionExpiry: '5m',
+            },
+            lockout: {
+              maxAttempts: 5,
+              initialLockoutSeconds: 900,
+              backoffMultiplier: 2,
+              maxLockoutSeconds: 3600,
+            },
+          };
         return null;
       }),
+      getOrThrow: jest.fn((key: string) => {
+        if (key === 'JWT_SECRET') return 'test-jwt-secret';
+        throw new Error(`Config key ${key} not found`);
+      }),
+    };
+
+    mockPasswordBreachService = {
+      checkPassword: jest.fn().mockResolvedValue({
+        isBreached: false,
+        breachCount: 0,
+        cached: false,
+      }),
+      getBreachMessage: jest.fn().mockReturnValue('Password has been breached'),
+    };
+
+    mockTokenBlacklistService = {
+      blacklistToken: jest.fn().mockResolvedValue(true),
+      isBlacklisted: jest.fn().mockResolvedValue(false),
+      blacklistMultiple: jest.fn().mockResolvedValue(1),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -126,6 +171,9 @@ describe('AuthService', () => {
         { provide: PasswordService, useValue: mockPasswordService },
         { provide: AuditLogsService, useValue: mockAuditLogsService },
         { provide: ClsService, useValue: mockClsService },
+        { provide: CacheService, useValue: mockCacheService },
+        { provide: PasswordBreachService, useValue: mockPasswordBreachService },
+        { provide: TokenBlacklistService, useValue: mockTokenBlacklistService },
       ],
     }).compile();
 
@@ -152,10 +200,70 @@ describe('AuthService', () => {
       expect(result).not.toHaveProperty('hashedRefreshToken');
     });
 
+    it('should return null and log LOGIN_LOCKED if account is locked', async () => {
+      mockUsersService.findOneByEmail.mockResolvedValue(mockUser);
+      mockCacheService.get.mockResolvedValue(5); // 5 attempts = locked
+
+      const result = await service.validateUser('test@example.com', 'password');
+
+      expect(result).toBeNull();
+      // SECURITY: Must NOT verify password if locked (Timing Attack Prevention)
+      expect(mockPasswordService.verify).not.toHaveBeenCalled();
+
+      expect(mockAuditLogsService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'LOGIN_LOCKED',
+          metadata: expect.objectContaining({
+            reason: 'Account locked due to too many failed attempts',
+          }),
+        }),
+      );
+    });
+
+    it('should increment failed attempts and lock if threshold reached', async () => {
+      mockUsersService.findOneByEmail.mockResolvedValue(mockUser);
+      mockPasswordService.verify.mockResolvedValue(false);
+      mockCacheService.incr.mockResolvedValue(5); // Reached threshold
+
+      const result = await service.validateUser(
+        'test@example.com',
+        'wrongpassword',
+      );
+
+      expect(result).toBeNull();
+      expect(mockCacheService.incr).toHaveBeenCalledWith(
+        'lockout:user-123',
+        expect.objectContaining({ ttl: 900 }),
+      );
+      expect(mockAuditLogsService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'LOGIN_LOCKED',
+          metadata: expect.objectContaining({
+            attempts: 5,
+          }),
+        }),
+      );
+    });
+
+    it('should clear lockout on successful login', async () => {
+      mockUsersService.findOneByEmail.mockResolvedValue(mockUser);
+      mockPasswordService.verify.mockResolvedValue(true);
+
+      await service.validateUser('test@example.com', 'password');
+
+      expect(mockCacheService.del).toHaveBeenCalledWith(
+        'lockout:user-123',
+        expect.objectContaining({ namespace: 'auth' }),
+      );
+    });
+
     it('should return null if user not found', async () => {
       mockUsersService.findOneByEmail.mockResolvedValue(null);
 
-      const result = await service.validateUser('nonexistent@example.com', 'password');
+      const result = await service.validateUser(
+        'nonexistent@example.com',
+        'password',
+      );
 
       expect(result).toBeNull();
       expect(mockAuditLogsService.log).toHaveBeenCalledWith(
@@ -182,7 +290,10 @@ describe('AuthService', () => {
       mockUsersService.findOneByEmail.mockResolvedValue(mockUser);
       mockPasswordService.verify.mockResolvedValue(false);
 
-      const result = await service.validateUser('test@example.com', 'wrongpassword');
+      const result = await service.validateUser(
+        'test@example.com',
+        'wrongpassword',
+      );
 
       expect(result).toBeNull();
       expect(mockAuditLogsService.log).toHaveBeenCalledWith(
@@ -257,14 +368,15 @@ describe('AuthService', () => {
   describe('register', () => {
     beforeEach(() => {
       mockUsersService.findOneByEmail.mockResolvedValue(null);
-      mockUsersService.create.mockImplementation((email, hash, name, isAdmin, orgId) =>
-        Promise.resolve({
-          id: 'new-user-123',
-          email,
-          name,
-          isSuperAdmin: isAdmin,
-          organizationId: orgId,
-        }),
+      mockUsersService.create.mockImplementation(
+        (email, hash, name, isAdmin, orgId) =>
+          Promise.resolve({
+            id: 'new-user-123',
+            email,
+            name,
+            isSuperAdmin: isAdmin,
+            organizationId: orgId,
+          }),
       );
       mockOnboardingService.initializeOnboarding.mockResolvedValue(undefined);
     });
@@ -335,7 +447,9 @@ describe('AuthService', () => {
         name: 'New User',
       });
 
-      expect(mockOnboardingService.initializeOnboarding).toHaveBeenCalledWith('new-user-123');
+      expect(mockOnboardingService.initializeOnboarding).toHaveBeenCalledWith(
+        'new-user-123',
+      );
     });
 
     it('should lowercase email before storing', async () => {
@@ -345,7 +459,9 @@ describe('AuthService', () => {
         name: 'Test User',
       });
 
-      expect(mockUsersService.findOneByEmail).toHaveBeenCalledWith('test@example.com');
+      expect(mockUsersService.findOneByEmail).toHaveBeenCalledWith(
+        'test@example.com',
+      );
       expect(mockUsersService.create).toHaveBeenCalledWith(
         'test@example.com', // lowercased email
         expect.any(String), // hashed password
@@ -381,7 +497,10 @@ describe('AuthService', () => {
     });
 
     it('should redeem valid invite and return tokens', async () => {
-      const result = await service.redeemInvite({ token: 'valid-token', password: 'password123' });
+      const result = await service.redeemInvite({
+        token: 'valid-token',
+        password: 'password123',
+      });
 
       expect(result).toHaveProperty('access_token');
       expect(result).toHaveProperty('refresh_token');
@@ -396,7 +515,10 @@ describe('AuthService', () => {
       mockInvitesService.findOneByToken.mockResolvedValue(null);
 
       await expect(
-        service.redeemInvite({ token: 'invalid-token', password: 'password123' }),
+        service.redeemInvite({
+          token: 'invalid-token',
+          password: 'password123',
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -484,7 +606,10 @@ describe('AuthService', () => {
     it('should return new tokens on valid refresh', async () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
-      const result = await service.refreshTokens('user-123', 'valid-refresh-token');
+      const result = await service.refreshTokens(
+        'user-123',
+        'valid-refresh-token',
+      );
 
       expect(result).toHaveProperty('access_token', 'new-access-token');
       expect(result).toHaveProperty('refresh_token', 'new-refresh-token');
@@ -596,15 +721,27 @@ describe('AuthService', () => {
     });
 
     it('should use correct secrets for access and refresh tokens', async () => {
-      await service.getTokens('user-123', 'test@example.com', false, 'org-123', 'User');
+      await service.getTokens(
+        'user-123',
+        'test@example.com',
+        false,
+        'org-123',
+        'User',
+      );
 
       expect(mockJwtService.signAsync).toHaveBeenCalledWith(
         expect.any(Object),
-        expect.objectContaining({ secret: 'test-jwt-secret', expiresIn: '15m' }),
+        expect.objectContaining({
+          secret: 'test-jwt-secret',
+          expiresIn: '15m',
+        }),
       );
       expect(mockJwtService.signAsync).toHaveBeenCalledWith(
         expect.any(Object),
-        expect.objectContaining({ secret: 'test-refresh-secret', expiresIn: '7d' }),
+        expect.objectContaining({
+          secret: 'test-refresh-secret',
+          expiresIn: '7d',
+        }),
       );
     });
   });

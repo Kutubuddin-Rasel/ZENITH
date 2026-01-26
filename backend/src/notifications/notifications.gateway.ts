@@ -4,23 +4,53 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { AppConfig } from '../config/app.config';
 
+/**
+ * Notifications WebSocket Gateway
+ *
+ * Enterprise Features:
+ * - CORS origins configured via RedisIoAdapter (centralized)
+ * - Redis adapter support for horizontal scaling
+ * - User-based room management for targeted notifications
+ *
+ * Note: CORS configuration is handled by RedisIoAdapter in main.ts
+ * The decorator CORS is a fallback for non-Redis environments.
+ */
 @WebSocketGateway({
   namespace: '/notifications',
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    origin: true, // Fallback - actual CORS configured in RedisIoAdapter
     credentials: true,
   },
 })
 export class NotificationsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
   private readonly logger = new Logger(NotificationsGateway.name);
 
   @WebSocketServer() server: Server;
+
+  constructor(private readonly configService: ConfigService) {}
+
+  /**
+   * Log gateway initialization with configured origins
+   */
+  afterInit() {
+    const appConfig = this.configService.get<AppConfig>('app');
+    const frontendUrl = appConfig?.frontendUrl || 'http://localhost:3001';
+    const additionalOrigins = appConfig?.cors?.additionalOrigins || [];
+    const origins = [frontendUrl, ...additionalOrigins];
+
+    this.logger.log(
+      `Notifications gateway initialized. CORS origins: ${origins.join(', ')}`,
+    );
+  }
 
   // NOTE: We no longer use an in-memory Map!
   // Socket.io rooms + Redis adapter handle user->socket mapping
@@ -52,6 +82,7 @@ export class NotificationsGateway
   }
 
   /** Send a notification to a user (works across all instances via Redis) */
+
   sendToUser(userId: string, payload: any) {
     // Emit to the room - Redis adapter broadcasts to all instances
     this.server.to(`user:${userId}`).emit('notification', payload);
@@ -65,11 +96,13 @@ export class NotificationsGateway
   }
 
   /** Send update event to a user */
+
   sendUpdateToUser(userId: string, payload: any) {
     this.server.to(`user:${userId}`).emit('notification_updated', payload);
   }
 
   /** Broadcast to all connected users (e.g., maintenance notice) */
+
   broadcastToAll(event: string, payload: any) {
     this.server.emit(event, payload);
   }

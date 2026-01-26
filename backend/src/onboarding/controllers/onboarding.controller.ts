@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { OnboardingService } from '../services/onboarding.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
 import { OnboardingStepStatus } from '../entities/onboarding-progress.entity';
 import { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
 

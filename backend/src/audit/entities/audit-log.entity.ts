@@ -101,6 +101,30 @@ export enum AuditEventType {
   UNAUTHORIZED_ACCESS = 'unauthorized_access',
   DATA_EXPORT = 'data_export',
   DATA_IMPORT = 'data_import',
+
+  // API Key Lifecycle Events (PCI-DSS Requirement 10)
+  API_KEY_CREATED = 'api_key_created',
+  API_KEY_REVOKED = 'api_key_revoked',
+  API_KEY_UPDATED = 'api_key_updated',
+  API_KEY_ROTATED = 'api_key_rotated',
+  API_KEY_VALIDATED = 'api_key_validated',
+  API_KEY_VALIDATION_FAILED = 'api_key_validation_failed',
+  API_KEY_EXPIRED = 'api_key_expired',
+  API_KEY_IP_DENIED = 'api_key_ip_denied', // Blocked due to IP restriction
+  CLEANUP_JOB_COMPLETED = 'cleanup_job_completed', // Background cleanup job
+  CSRF_VALIDATION_FAILED = 'csrf_validation_failed', // CSRF attack or client bug
+
+  // RBAC Events
+  ROLE_CREATED = 'role_created',
+  ROLE_UPDATED = 'role_updated',
+  ROLE_DELETED = 'role_deleted',
+
+  // Encryption Events (NIST SP 800-57 Key Management Logging)
+  DATA_ENCRYPTED = 'data_encrypted', // Low severity, high-value operations only
+  DATA_DECRYPTED = 'data_decrypted', // Low severity, high-value operations only
+  KEY_ROTATION_INITIATED = 'key_rotation_initiated', // High severity
+  ENCRYPTION_FAILURE = 'encryption_failure', // High severity
+  DECRYPTION_FAILURE = 'decryption_failure', // High severity
 }
 
 export enum AuditSeverity {

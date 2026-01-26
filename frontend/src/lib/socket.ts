@@ -8,6 +8,8 @@ interface ClientSocket {
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
+import { wsEndpoint } from './config';
+
 // Define strict type for options
 interface SocketConfig {
   auth?: Record<string, unknown>;
@@ -27,7 +29,7 @@ export async function connectSocket(token: string | null, userId?: string) {
   // but we need withCredentials: true.
   // Although, if the cookie is HttpOnly, we CANNOT read it to pass it here.
   // Socket.IO should automatically send cookies if on same domain or withCredentials.
-  socket = io(`http://localhost:3000/notifications`, {
+  socket = io(wsEndpoint('/notifications'), {
     auth: {
       // token: token // Removed
     },

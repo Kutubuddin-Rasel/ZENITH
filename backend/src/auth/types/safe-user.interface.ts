@@ -6,4 +6,5 @@ export interface SafeUser {
   isActive: boolean;
   organizationId?: string; // Added for workspace context
   avatarUrl?: string; // Profile picture URL
+  passwordVersion?: number; // Added for session invalidation on password change
 }

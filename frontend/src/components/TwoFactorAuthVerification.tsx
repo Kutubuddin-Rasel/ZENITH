@@ -9,6 +9,7 @@ import {
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 import { setAccessToken } from '@/lib/auth-tokens';
+import { config } from '@/lib/config';
 
 interface TwoFactorAuthVerificationProps {
   /**
@@ -69,9 +70,7 @@ export default function TwoFactorAuthVerification({
       setIsLoading(true);
       setError(null);
 
-      const API_URL =
-        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-      const response = await fetch(`${API_URL}/auth/verify-2fa-login`, {
+      const response = await fetch(`${config.apiUrl}/auth/verify-2fa-login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WatchersController } from './watchers.controller';
 import { WatchersService } from './watchers.service';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 
 describe('WatchersController', () => {
   let controller: WatchersController;

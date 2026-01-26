@@ -22,6 +22,7 @@ import {
   SelectQueryBuilder,
   FindOptionsWhere,
   DeepPartial,
+  EntityManager,
 } from 'typeorm';
 import { TenantContext } from './tenant-context.service';
 import { Logger, ForbiddenException } from '@nestjs/common';
@@ -285,16 +286,92 @@ export class TenantRepository<T extends TenantAwareEntity> {
   }
 
   /**
-   * Remove entity - PASSTHROUGH
-   * Note: Entity should have been loaded with tenant filter
+   * Remove entity - WITH TENANT VALIDATION (Phase 3)
+   *
+   * ZERO TRUST STRATEGY:
+   * Even though entities should be loaded with tenant filter, we MUST validate
+   * on remove because:
+   * 1. Entity could be loaded in bypass mode and passed to non-bypass context
+   * 2. Entity could be cached/stored and reused across different contexts
+   * 3. Defense in depth prevents bugs from becoming security vulnerabilities
+   *
+   * Validates organizationId matches current context before deletion.
+   * Throws ForbiddenException if mismatch detected.
    */
   async remove(entity: T): Promise<T>;
   async remove(entities: T[]): Promise<T[]>;
   async remove(entityOrEntities: T | T[]): Promise<T | T[]> {
     if (Array.isArray(entityOrEntities)) {
+      // Validate EACH entity before ANY deletion (prevent partial deletes)
+      for (const entity of entityOrEntities) {
+        this.validateTenantOwnership(entity);
+      }
       return this.repository.remove(entityOrEntities);
     }
+
+    // Validate single entity
+    this.validateTenantOwnership(entityOrEntities);
     return this.repository.remove(entityOrEntities);
+  }
+
+  /**
+   * Validate entity ownership before destructive operations (Phase 3)
+   *
+   * JIT (Just-In-Time) Validation:
+   * Called immediately before remove/delete operations to ensure the entity
+   * belongs to the current tenant context.
+   *
+   * BYPASS INTEGRATION:
+   * If tenantContext.isBypassEnabled() is true, validation is skipped.
+   * The operator has already been audited (Phase 1) and we trust them.
+   *
+   * @param entity - The entity to validate
+   * @throws ForbiddenException if entity.organizationId !== current tenant
+   */
+  private validateTenantOwnership(entity: T): void {
+    const currentTenantId = this.tenantContext.getTenantId();
+
+    // Skip validation if bypass is enabled (operator already audited in Phase 1)
+    if (this.tenantContext.isBypassEnabled()) {
+      this.logger.debug(
+        `Bypass enabled - skipping tenant ownership validation for remove`,
+      );
+      return;
+    }
+
+    // Skip if no tenant context (public/system operation)
+    if (!currentTenantId) {
+      this.logger.debug(
+        `No tenant context - skipping ownership validation for remove`,
+      );
+      return;
+    }
+
+    // Get entity's organizationId (uses TenantAwareEntity constraint)
+    const entityOrgId = (entity as TenantAwareEntity).organizationId;
+
+    // Skip if entity doesn't have organizationId (non-tenant entity)
+    if (entityOrgId === undefined) {
+      this.logger.debug(
+        `Entity has no organizationId - skipping ownership validation`,
+      );
+      return;
+    }
+
+    // SECURITY: Reject if attempting to delete entity from different tenant
+    if (entityOrgId !== currentTenantId) {
+      this.logger.error(
+        `🚨 IDOR ATTACK BLOCKED: Attempted to delete entity ` +
+          `(org: ${entityOrgId}) from context (tenant: ${currentTenantId})`,
+      );
+      throw new ForbiddenException(
+        'Cannot delete entity belonging to different organization',
+      );
+    }
+
+    this.logger.debug(
+      `Tenant ownership validated for remove: ${currentTenantId}`,
+    );
   }
 
   /**
@@ -310,10 +387,53 @@ export class TenantRepository<T extends TenantAwareEntity> {
   }
 
   /**
-   * Get the underlying repository for advanced operations
-   * WARNING: Use with caution - bypasses tenant filtering!
+   * Get the underlying EntityManager for advanced operations (Phase 4)
+   *
+   * ⚠️ SECURITY WARNING: BYPASSES ALL TENANT ISOLATION ⚠️
+   *
+   * This method provides direct access to TypeORM's EntityManager, which:
+   * - Bypasses all tenant filtering (RLS, query filters)
+   * - Bypasses soft-delete filters
+   * - Has NO audit trail for the bypass
+   * - Can read/write data from ANY tenant
+   *
+   * USE ONLY WHEN ABSOLUTELY NECESSARY:
+   * - Batch operations that span tenants (with proper authorization)
+   * - Database migrations
+   * - System-level maintenance scripts
+   *
+   * FRICTION-BASED SECURITY:
+   * The old `manager` getter has been intentionally removed and replaced
+   * with this method that requires a written justification. This forces
+   * developers to:
+   * 1. Acknowledge the security implications
+   * 2. Document WHY bypass is needed
+   * 3. Leave an audit trail in the codebase
+   *
+   * @param reason - Written justification for bypassing tenant isolation
+   *                 (e.g., "Batch cleanup of orphaned records across tenants")
+   * @returns TypeORM EntityManager with FULL database access
+   *
+   * @example
+   * // ❌ OLD (no longer works - compile error)
+   * this.repo.manager.save(entities);
+   *
+   * // ✅ NEW (requires justification)
+   * this.repo.getUnsafeManager('Batch import from CSV').save(entities);
    */
-  get manager() {
+  getUnsafeManager(reason: string): import('typeorm').EntityManager {
+    // Validate reason is provided and non-empty
+    if (!reason || reason.trim().length === 0) {
+      throw new Error(
+        'getUnsafeManager requires a non-empty reason explaining why tenant bypass is needed',
+      );
+    }
+
+    // Log warning for every access (audit trail in logs)
+    this.logger.warn(
+      `⚠️ UNSAFE EntityManager accessed - TENANT ISOLATION BYPASSED. Reason: "${reason}"`,
+    );
+
     return this.repository.manager;
   }
 
@@ -322,5 +442,76 @@ export class TenantRepository<T extends TenantAwareEntity> {
    */
   get metadata() {
     return this.repository.metadata;
+  }
+
+  // ===========================================================================
+  // PHASE 5: POSTGRESQL ROW-LEVEL SECURITY (RLS) INTEGRATION
+  // ===========================================================================
+
+  /**
+   * Set the database session variable for Row-Level Security (Phase 5)
+   *
+   * This method sets the PostgreSQL session variable `app.current_tenant`
+   * which is used by RLS policies to filter rows at the database level.
+   *
+   * CRITICAL: RLS POLICY LOGIC
+   * - When app.current_tenant IS NULL → bypass (returns all rows)
+   * - When app.current_tenant is set → only matching organization_id rows
+   *
+   * CONNECTION POOL SAFETY:
+   * Uses SET LOCAL which scopes the variable to the CURRENT TRANSACTION only.
+   * This prevents cross-request leakage in pooled connections.
+   * Caller MUST be within a transaction for this to work correctly.
+   *
+   * BYPASS INTEGRATION:
+   * When tenantContext.isBypassEnabled() is true, this method does nothing.
+   * RLS policy will see NULL and return all rows.
+   *
+   * USAGE:
+   * ```typescript
+   * await manager.transaction(async (txManager) => {
+   *   await repo.setDbSession(txManager);
+   *   // All queries now filtered by RLS
+   *   const data = await txManager.find(Entity);
+   * });
+   * ```
+   *
+   * @param manager - The EntityManager to set the session on (usually transaction manager)
+   */
+  async setDbSession(manager: EntityManager): Promise<void> {
+    // Skip if bypass is enabled (RLS policy allows NULL = all rows)
+    if (this.tenantContext.isBypassEnabled()) {
+      this.logger.debug('Bypass enabled - skipping RLS session variable');
+      return;
+    }
+
+    const tenantId = this.tenantContext.getTenantId();
+
+    // Skip if no tenant context (public/system operation)
+    if (!tenantId) {
+      this.logger.debug('No tenant context - skipping RLS session variable');
+      return;
+    }
+
+    // Set the session variable for RLS policies
+    // SET LOCAL scopes to current transaction (connection pool safe)
+    await manager.query('SET LOCAL app.current_tenant = $1', [tenantId]);
+
+    this.logger.debug(
+      `RLS session variable set: app.current_tenant = ${tenantId}`,
+    );
+  }
+
+  /**
+   * Reset the database session variable (optional cleanup)
+   *
+   * While SET LOCAL automatically clears at transaction end,
+   * this method can be used for explicit cleanup if needed.
+   *
+   * @param manager - The EntityManager to reset the session on
+   */
+  async resetDbSession(manager: EntityManager): Promise<void> {
+    await manager.query('RESET app.current_tenant');
+    this.logger.debug('RLS session variable reset');
   }
 }

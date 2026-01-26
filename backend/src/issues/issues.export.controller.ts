@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { IssuesService } from './issues.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { AuthenticatedRequest } from '../common/types/authenticated-request.interface';
 import { Transform } from 'stream';

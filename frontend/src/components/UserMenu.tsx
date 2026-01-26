@@ -6,6 +6,7 @@ import { Menu } from '@headlessui/react';
 import { ChevronDownIcon, ArrowRightOnRectangleIcon, Cog6ToothIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { assetUrl } from '@/lib/config';
 
 const UserMenu = () => {
   const { user, logout } = useAuth();
@@ -47,7 +48,7 @@ const UserMenu = () => {
         <div className="w-8 h-8 rounded-full bg-neutral-300 text-neutral-900 dark:bg-neutral-700 flex items-center justify-center font-bold text-sm overflow-hidden relative">
           {user?.avatarUrl ? (
             <Image
-              src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `http://localhost:3000${user.avatarUrl}`}
+              src={assetUrl(user.avatarUrl)}
               alt={user.name || 'Avatar'}
               fill
               className="object-cover"
@@ -73,7 +74,7 @@ const UserMenu = () => {
             <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center font-bold text-sm overflow-hidden flex-shrink-0 relative">
               {user?.avatarUrl ? (
                 <Image
-                  src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `http://localhost:3000${user.avatarUrl}`}
+                  src={assetUrl(user.avatarUrl)}
                   alt={user.name || 'Avatar'}
                   fill
                   className="object-cover"
@@ -118,4 +119,4 @@ const UserMenu = () => {
   );
 };
 
-export default UserMenu; 
+export default UserMenu;

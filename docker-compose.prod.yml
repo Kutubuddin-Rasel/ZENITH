@@ -55,7 +55,7 @@ services:
     env_file:
       - ./backend/.env
     expose:
-      - "3000"
+      - "4000"
     networks:
       - zenith-network
     depends_on:

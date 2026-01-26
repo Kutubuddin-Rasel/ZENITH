@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReleasesController } from './releases.controller';
 import { ReleasesService } from './releases.service';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 
 describe('ReleasesController', () => {
   let controller: ReleasesController;

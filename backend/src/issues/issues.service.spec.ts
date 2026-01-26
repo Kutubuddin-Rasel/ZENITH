@@ -316,7 +316,9 @@ describe('IssuesService', () => {
 
     it('should throw BadRequestException if parent issue not found in project', async () => {
       // Add extra permissions for reporter check if needed
-      mockProjectMembersService.getUserRole.mockResolvedValue(ProjectRole.PROJECT_LEAD);
+      mockProjectMembersService.getUserRole.mockResolvedValue(
+        ProjectRole.PROJECT_LEAD,
+      );
 
       issueRepo.findOne.mockResolvedValueOnce(null); // Last issue for number
       issueRepo.findOne.mockResolvedValueOnce(null); // Parent not found
@@ -329,7 +331,9 @@ describe('IssuesService', () => {
     });
 
     it('should validate status belongs to project', async () => {
-      mockProjectMembersService.getUserRole.mockResolvedValue(ProjectRole.PROJECT_LEAD);
+      mockProjectMembersService.getUserRole.mockResolvedValue(
+        ProjectRole.PROJECT_LEAD,
+      );
 
       mockWorkflowStatusesService.findById.mockResolvedValueOnce({
         id: 'status-other',
@@ -556,7 +560,9 @@ describe('IssuesService', () => {
     beforeEach(() => {
       mockCacheService.get.mockResolvedValue(null);
       // Use copies to avoid pollution
-      issueRepo.findOne.mockImplementation(() => Promise.resolve({ ...mockIssue } as Issue));
+      issueRepo.findOne.mockImplementation(() =>
+        Promise.resolve({ ...mockIssue } as Issue),
+      );
       issueRepo.save.mockImplementation((issue) =>
         Promise.resolve(issue as Issue),
       );
@@ -584,7 +590,9 @@ describe('IssuesService', () => {
     });
 
     it('should throw ConflictException on version mismatch (optimistic locking)', async () => {
-      mockProjectMembersService.getUserRole.mockResolvedValue(ProjectRole.PROJECT_LEAD);
+      mockProjectMembersService.getUserRole.mockResolvedValue(
+        ProjectRole.PROJECT_LEAD,
+      );
       const updateDto = {
         title: 'Updated Title',
         expectedVersion: 5, // Different from mockIssue.version (1)
@@ -596,7 +604,9 @@ describe('IssuesService', () => {
     });
 
     it('should allow update when version matches', async () => {
-      mockProjectMembersService.getUserRole.mockResolvedValue(ProjectRole.PROJECT_LEAD);
+      mockProjectMembersService.getUserRole.mockResolvedValue(
+        ProjectRole.PROJECT_LEAD,
+      );
       const updateDto = {
         title: 'Updated Title',
         expectedVersion: 1, // Matches mockIssue.version
@@ -708,7 +718,9 @@ describe('IssuesService', () => {
     beforeEach(() => {
       mockCacheService.get.mockResolvedValue(null);
       // Return copy
-      issueRepo.findOne.mockImplementation(() => Promise.resolve({ ...mockIssue } as Issue));
+      issueRepo.findOne.mockImplementation(() =>
+        Promise.resolve({ ...mockIssue } as Issue),
+      );
       issueRepo.save.mockImplementation((issue) =>
         Promise.resolve(issue as Issue),
       );
@@ -750,7 +762,9 @@ describe('IssuesService', () => {
       const archivedIssue = { ...mockIssue, isArchived: true };
       issueRepo.findOne.mockResolvedValueOnce(archivedIssue as Issue);
       // Need read permission to find it first
-      mockProjectMembersService.getUserRole.mockResolvedValue(ProjectRole.PROJECT_LEAD);
+      mockProjectMembersService.getUserRole.mockResolvedValue(
+        ProjectRole.PROJECT_LEAD,
+      );
 
       await expect(
         service.archive('project-123', 'issue-123', 'user-123'),
@@ -763,7 +777,9 @@ describe('IssuesService', () => {
       // Return fresh unarchived copy
       issueRepo.findOne.mockResolvedValue({ ...mockIssue } as Issue);
 
-      mockProjectMembersService.getUserRole.mockResolvedValue(ProjectRole.PROJECT_LEAD);
+      mockProjectMembersService.getUserRole.mockResolvedValue(
+        ProjectRole.PROJECT_LEAD,
+      );
 
       await service.archive('project-123', 'issue-123', 'user-123');
 
@@ -790,14 +806,18 @@ describe('IssuesService', () => {
 
     beforeEach(() => {
       // Return copy
-      issueRepo.findOne.mockImplementation(() => Promise.resolve({ ...archivedIssue } as Issue));
+      issueRepo.findOne.mockImplementation(() =>
+        Promise.resolve({ ...archivedIssue } as Issue),
+      );
       issueRepo.save.mockImplementation((issue) =>
         Promise.resolve(issue as Issue),
       );
     });
 
     it('should unarchive an issue', async () => {
-      mockProjectMembersService.getUserRole.mockResolvedValue(ProjectRole.PROJECT_LEAD);
+      mockProjectMembersService.getUserRole.mockResolvedValue(
+        ProjectRole.PROJECT_LEAD,
+      );
       const result = await service.unarchive(
         'project-123',
         'issue-123',
@@ -813,7 +833,9 @@ describe('IssuesService', () => {
       // Reset and set non-archived issue
       issueRepo.findOne.mockReset();
       issueRepo.findOne.mockResolvedValueOnce({ ...mockIssue } as Issue); // Not archived
-      mockProjectMembersService.getUserRole.mockResolvedValue(ProjectRole.PROJECT_LEAD);
+      mockProjectMembersService.getUserRole.mockResolvedValue(
+        ProjectRole.PROJECT_LEAD,
+      );
 
       await expect(
         service.unarchive('project-123', 'issue-123', 'user-123'),

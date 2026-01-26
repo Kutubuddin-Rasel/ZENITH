@@ -5,7 +5,7 @@ import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 import helmet from 'helmet';
-import shrinkRay from 'shrink-ray-current';
+import * as compression from 'compression';
 import * as cookieParser from 'cookie-parser';
 import { HTTPSConfigService } from './encryption/config/https.config';
 import { ConfigService } from '@nestjs/config';
@@ -13,6 +13,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import * as https from 'https';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { TimingInterceptor } from './common/interceptors/timing.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import * as bodyParser from 'body-parser';
 import { join } from 'path';
@@ -60,26 +61,66 @@ async function bootstrap() {
           baseUri: ["'none'"], // Prevent base hijacking
         },
       },
+      // =========================================================================
+      // HSTS (HTTP Strict Transport Security) - Phase 5 Security Remediation
+      // Prevents SSL stripping attacks by forcing HTTPS for all future requests.
+      //
+      // WARNING: includeSubDomains affects ALL subdomains. Ensure all subdomains
+      // (marketing.zenith.com, blog.zenith.com, etc.) support HTTPS before enabling.
+      //
+      // WARNING: preload=true is a commitment to be hardcoded into browsers.
+      // Removal from the preload list takes months. Only enable in production-ready state.
+      // Submit to: https://hstspreload.org after deployment is stable.
+      // =========================================================================
+      strictTransportSecurity: {
+        maxAge: 31536000, // 1 year in seconds (365 * 24 * 60 * 60)
+        includeSubDomains: true, // Apply to all subdomains
+        preload: true, // Request browser preload list inclusion
+      },
       crossOriginEmbedderPolicy: false, // Allow CORS
       crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow frontend access
     }),
   );
 
-  // Brotli + Gzip Compression
-  // shrink-ray-current provides Brotli (15-20% smaller than Gzip) with Gzip fallback
-  // for clients that don't support Brotli. This significantly reduces API response sizes.
-  app.use(shrinkRay() as Parameters<typeof app.use>[0]);
+  // Gzip Compression (Brotli handled by CDN/Load Balancer in production)
+  // Note: shrink-ray-current was removed due to deprecated native bindings (iltorb, node-zopfli-es)
+  // that break on Node 22+. Modern CDNs (Cloudflare, AWS CloudFront) handle Brotli compression
+  // at the edge, which is more efficient than application-level compression.
+  // Type assertion: compression() returns Express RequestHandler
+  // Note: @types/compression should be installed for proper typing
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- compression package lacks types, install @types/compression
+  app.use(compression());
 
   // Cookie Parser
   app.use(cookieParser());
 
-  // CORS configuration
+  // CORS configuration - Enterprise-ready with multiple origins support
+  interface AppCorsConfig {
+    frontendUrl?: string;
+    cors?: {
+      additionalOrigins?: (string | RegExp)[];
+      maxAge?: number;
+    };
+  }
+  const appConfig = configService.get<AppCorsConfig>('app');
+  const additionalOrigins: (string | RegExp)[] =
+    appConfig?.cors?.additionalOrigins ?? [];
+  const corsOrigins: (string | RegExp)[] = [
+    appConfig?.frontendUrl || 'http://localhost:3001',
+    ...additionalOrigins,
+  ];
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
     credentials: true,
-    allowedHeaders: ['Authorization', 'Content-Type', 'X-Request-ID'],
+    allowedHeaders: [
+      'Authorization',
+      'Content-Type',
+      'X-Request-ID',
+      'X-CSRF-Token', // Required for CSRF protection on auth endpoints
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    maxAge: 86400, // 24 hours
+    maxAge: appConfig?.cors?.maxAge || 86400, // 24 hours default
   });
 
   // IMPORTANT: Order matters! Webhook-specific parsers MUST come FIRST
@@ -87,6 +128,7 @@ async function bootstrap() {
   app.use(
     '/api/integrations/github-app/webhook',
     bodyParser.json({
+      limit: '1mb', // Webhook payloads should be small
       verify: (
         req: Request & { rawBody?: Buffer },
         _res: Response,
@@ -100,6 +142,7 @@ async function bootstrap() {
   app.use(
     '/api/integrations/github/webhook',
     bodyParser.json({
+      limit: '1mb', // Webhook payloads should be small
       verify: (
         req: Request & { rawBody?: Buffer },
         _res: Response,
@@ -113,6 +156,7 @@ async function bootstrap() {
   app.use(
     '/api/integrations/slack/webhook',
     bodyParser.json({
+      limit: '1mb', // Webhook payloads should be small
       verify: (
         req: Request & { rawBody?: Buffer },
         _res: Response,
@@ -123,12 +167,22 @@ async function bootstrap() {
     }),
   );
 
-  app.use('/billing/webhook', bodyParser.raw({ type: 'application/json' }));
+  app.use(
+    '/billing/webhook',
+    bodyParser.raw({ type: 'application/json', limit: '1mb' }),
+  );
+
+  // ==========================================================================
+  // REQUEST SIZE LIMITS (DoS Prevention)
+  // JSON: 10MB (allows large payloads for bulk operations)
+  // URL-encoded: 10MB (form data)
+  // Per OWASP guidelines and enterprise standards (Stripe: 5MB, AWS: 10MB)
+  // ==========================================================================
 
   // Global JSON body parser for all OTHER routes (after webhook-specific ones)
   // Express middleware chain: first matching path wins
-  app.use(bodyParser.json());
-  app.use(bodyParser.urlencoded({ extended: true }));
+  app.use(bodyParser.json({ limit: '10mb' }));
+  app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
   // Global validation pipe
 
@@ -141,7 +195,9 @@ async function bootstrap() {
   );
 
   // Global serialization interceptor
+  // TimingInterceptor MUST be first to capture full request duration
   app.useGlobalInterceptors(
+    app.get(TimingInterceptor), // Phase 4: Request timing with Prometheus metrics
     new ClassSerializerInterceptor(app.get(Reflector)),
     new TransformInterceptor(),
   );

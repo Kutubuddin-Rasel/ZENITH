@@ -68,12 +68,15 @@ export class ProjectRoleGuard implements CanActivate {
       throw new ForbiddenException('Project ID not found in request');
     }
 
-    const cacheKey = `project_role:${projectId}:${userId}`;
+    // Narrow projectId to string (handle potential array from Express params)
+    const projectIdStr = Array.isArray(projectId) ? projectId[0] : projectId;
+
+    const cacheKey = `project_role:${projectIdStr}:${userId}`;
     let userRole = await this.cacheService.get<ProjectRole>(cacheKey);
 
     if (!userRole) {
       userRole = (await this.projectMembersService.getUserRole(
-        projectId,
+        projectIdStr,
         userId,
       )) as ProjectRole;
 

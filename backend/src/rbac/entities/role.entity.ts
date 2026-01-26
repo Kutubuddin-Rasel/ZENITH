@@ -3,7 +3,10 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToMany,
+  ManyToOne,
+  OneToMany,
   JoinTable,
+  JoinColumn,
   Index,
   CreateDateColumn,
   UpdateDateColumn,
@@ -16,6 +19,12 @@ import { Permission } from './permission.entity';
  * Defines roles that can be assigned to project members.
  * Supports both system-wide roles and organization-specific custom roles.
  *
+ * PERMISSION INHERITANCE (Phase 4):
+ * - Roles can have a parentRole, from which they inherit all permissions
+ * - Inheritance is recursive: Role A → Parent B → Grandparent C
+ * - Final permissions = own permissions + all ancestor permissions
+ * - Max inheritance depth: 10 levels (cycle detection enforced)
+ *
  * BACKWARD COMPATIBILITY:
  * - System roles have `legacyEnumValue` that maps to the old ProjectRole enum
  * - This allows seamless migration from hardcoded enums to database-backed roles
@@ -23,6 +32,7 @@ import { Permission } from './permission.entity';
 @Entity({ name: 'roles' })
 @Index('idx_roles_org_name', ['organizationId', 'name'], { unique: true })
 @Index('idx_roles_legacy_enum', ['legacyEnumValue'])
+@Index('idx_roles_parent', ['parentRoleId'])
 export class Role {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -74,8 +84,46 @@ export class Role {
   @Column({ type: 'int', default: 0 })
   sortOrder: number;
 
+  // ===========================================================================
+  // PERMISSION INHERITANCE (Phase 4)
+  // ===========================================================================
+
   /**
-   * Permissions assigned to this role
+   * Parent role ID for permission inheritance
+   * NULL = no parent (top-level role)
+   *
+   * Example hierarchy:
+   * - SuperAdmin (no parent) → has all permissions
+   * - Admin (parent: SuperAdmin) → inherits SuperAdmin permissions
+   * - Developer (parent: Admin) → inherits Admin + SuperAdmin permissions
+   */
+  @Column({ type: 'uuid', nullable: true })
+  parentRoleId: string | null;
+
+  /**
+   * Parent role relationship
+   * Used for recursive permission inheritance
+   */
+  @ManyToOne(() => Role, (role) => role.childRoles, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'parentRoleId' })
+  parentRole: Role | null;
+
+  /**
+   * Child roles that inherit from this role
+   * Inverse side of parentRole relationship
+   */
+  @OneToMany(() => Role, (role) => role.parentRole)
+  childRoles: Role[];
+
+  // ===========================================================================
+  // PERMISSIONS
+  // ===========================================================================
+
+  /**
+   * Permissions assigned directly to this role (not inherited)
    * Uses ManyToMany relationship with automatic join table
    */
   @ManyToMany(() => Permission, { eager: true })
@@ -92,8 +140,12 @@ export class Role {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  // ===========================================================================
+  // HELPER METHODS
+  // ===========================================================================
+
   /**
-   * Check if this role has a specific permission
+   * Check if this role has a specific permission (direct only, not inherited)
    */
   hasPermission(resource: string, action: string): boolean {
     return (
@@ -104,9 +156,16 @@ export class Role {
   }
 
   /**
-   * Get all permission strings for this role
+   * Get all direct permission strings for this role (not inherited)
    */
   getPermissionStrings(): string[] {
     return this.permissions?.map((p) => p.permissionString) ?? [];
+  }
+
+  /**
+   * Check if this role has a parent (is part of a hierarchy)
+   */
+  hasParent(): boolean {
+    return this.parentRoleId !== null;
   }
 }

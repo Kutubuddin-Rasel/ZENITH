@@ -6,11 +6,13 @@ import {
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { SessionService } from '../session.service';
 import { SessionStatus, Session } from '../entities/session.entity';
 import { Request } from 'express';
+import { IS_PUBLIC_KEY } from '../../auth/decorators/public.decorator';
 
 interface SessionRequest extends Omit<Request, 'session' | 'sessionID'> {
   session?: Session;
@@ -19,11 +21,32 @@ interface SessionRequest extends Omit<Request, 'session' | 'sessionID'> {
   cookies: { sessionId?: string };
 }
 
+/**
+ * Session Interceptor
+ *
+ * Validates and manages user sessions for protected routes.
+ *
+ * PUBLIC ROUTE DECLARATION:
+ * Use the @Public() decorator to skip session validation for specific endpoints.
+ *
+ * Example:
+ *   @Public()
+ *   @Get('health')
+ *   healthCheck() { return { status: 'ok' }; }
+ *
+ * ARCHITECTURE:
+ * - Uses NestJS Reflector to read @Public() metadata
+ * - Checks both handler (method) and class level decorators
+ * - Follows Open/Closed Principle - no hardcoded route lists
+ */
 @Injectable()
 export class SessionInterceptor implements NestInterceptor {
   private readonly logger = new Logger(SessionInterceptor.name);
 
-  constructor(private sessionService: SessionService) {}
+  constructor(
+    private sessionService: SessionService,
+    private reflector: Reflector,
+  ) {}
 
   async intercept(
     context: ExecutionContext,
@@ -31,8 +54,19 @@ export class SessionInterceptor implements NestInterceptor {
   ): Promise<Observable<unknown>> {
     const request = context.switchToHttp().getRequest<SessionRequest>();
 
-    // Skip session validation for public routes
-    if (this.isPublicRoute(request.url)) {
+    // =========================================================================
+    // PUBLIC ROUTE CHECK (Declarative via @Public() decorator)
+    // =========================================================================
+    // Checks both handler-level and class-level decorators
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(), // Check method decorator first
+      context.getClass(), // Then check class decorator
+    ]);
+
+    if (isPublic) {
+      this.logger.debug(
+        `Skipping session check: Public route [${request.url}]`,
+      );
       return next.handle();
     }
 
@@ -95,17 +129,5 @@ export class SessionInterceptor implements NestInterceptor {
       (request.query.sessionId as string) ||
       null
     );
-  }
-
-  private isPublicRoute(url: string): boolean {
-    const publicRoutes = [
-      '/auth/login',
-      '/auth/register',
-      '/auth/saml',
-      '/health',
-      '/metrics',
-    ];
-
-    return publicRoutes.some((route) => url.startsWith(route));
   }
 }

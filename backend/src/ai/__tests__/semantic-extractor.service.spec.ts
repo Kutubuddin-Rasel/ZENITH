@@ -91,7 +91,9 @@ describe('SemanticExtractorService', () => {
           createEmptyCriteria(),
         );
 
-        expect(result.criteria.projectType).toBe(ProjectCategory.PRODUCT_LAUNCH);
+        expect(result.criteria.projectType).toBe(
+          ProjectCategory.PRODUCT_LAUNCH,
+        );
       });
     });
 

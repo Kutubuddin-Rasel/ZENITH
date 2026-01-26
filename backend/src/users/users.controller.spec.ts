@@ -36,7 +36,10 @@ describe('UsersController', () => {
       controllers: [UsersController],
       providers: [
         { provide: UsersService, useValue: mockUsersService },
-        { provide: UserSecuritySettingsService, useValue: mockSecuritySettingsService },
+        {
+          provide: UserSecuritySettingsService,
+          useValue: mockSecuritySettingsService,
+        },
         { provide: ProjectMembersService, useValue: mockProjectMembersService },
       ],
     })

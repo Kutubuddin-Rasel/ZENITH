@@ -6,6 +6,7 @@ import Card from '@/components/Card';
 import Button from '@/components/Button';
 import Typography from '@/components/Typography';
 import { LinkIcon, ArrowPathIcon, CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
+import { apiClient } from '@/lib/api-client';
 
 interface Repository {
     full_name: string;
@@ -33,6 +34,18 @@ interface ProjectLinkResponse {
     link: ProjectLink | null;
 }
 
+interface GitHubSetupResponse {
+    installUrl: string;
+    appId: string;
+    configured: boolean;
+}
+
+/**
+ * Project Integrations Settings Page
+ *
+ * Manages GitHub and other third-party integrations for a project.
+ * Uses centralized apiClient for all API calls.
+ */
 export default function ProjectIntegrationsPage() {
     const params = useParams();
     const projectId = params.id as string;
@@ -52,26 +65,13 @@ export default function ProjectIntegrationsPage() {
         async function fetchData() {
             try {
                 setLoading(true);
-
+                setError(null);
 
                 // Fetch repos and current link in parallel
-                // Fetch repos and current link in parallel with credentials for cookie-based auth
-                const [reposRes, linkRes] = await Promise.all([
-                    fetch('http://localhost:3000/api/integrations/github/repos', {
-                        credentials: 'include' as RequestCredentials,
-                    }),
-                    fetch(`http://localhost:3000/api/integrations/projects/${projectId}/github/link`, {
-                        credentials: 'include' as RequestCredentials,
-                    }),
+                const [reposData, linkData] = await Promise.all([
+                    apiClient.get<GitHubReposResponse>('/api/integrations/github/repos'),
+                    apiClient.get<ProjectLinkResponse>(`/api/integrations/projects/${projectId}/github/link`),
                 ]);
-
-                const reposResponse = await reposRes.json();
-                const linkResponse = await linkRes.json();
-
-                // Backend wraps responses in { success, data, ... } format via TransformInterceptor
-                // So actual data is in .data property
-                const reposData: GitHubReposResponse = reposResponse.data || reposResponse;
-                const linkData: ProjectLinkResponse = linkResponse.data || linkResponse;
 
                 console.log('GitHub repos response:', reposData);
 
@@ -97,24 +97,8 @@ export default function ProjectIntegrationsPage() {
 
     const handleConnectGitHub = async () => {
         try {
-            // Use the new GitHub App setup endpoint
-            const response = await fetch('http://localhost:3000/api/integrations/github-app/setup', {
-                credentials: 'include' as RequestCredentials,
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                if (response.status === 400) {
-                    setError('GitHub App is not configured. Please contact your administrator.');
-                } else {
-                    setError(errorData.message || 'Failed to initiate GitHub connection');
-                }
-                return;
-            }
-
-            const responseData = await response.json();
-            // Response is wrapped: { success, data: { installUrl, appId, configured } }
-            const data = responseData.data || responseData;
+            setError(null);
+            const data = await apiClient.get<GitHubSetupResponse>('/api/integrations/github-app/setup');
 
             // Redirect to GitHub App installation page
             if (data.installUrl) {
@@ -133,16 +117,7 @@ export default function ProjectIntegrationsPage() {
             setSaving(true);
             setError(null);
 
-            const response = await fetch('http://localhost:3000/api/integrations/github/disable', {
-                method: 'POST',
-                credentials: 'include' as RequestCredentials,
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const data = errorData.data || errorData;
-                throw new Error(data.message || 'Failed to disable GitHub');
-            }
+            await apiClient.post('/api/integrations/github/disable', {});
 
             // Mark as disabled (not fully disconnected)
             setGitHubConnected(false);
@@ -161,27 +136,14 @@ export default function ProjectIntegrationsPage() {
             setSaving(true);
             setError(null);
 
-            const response = await fetch('http://localhost:3000/api/integrations/github/enable', {
-                method: 'POST',
-                credentials: 'include' as RequestCredentials,
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const data = errorData.data || errorData;
-                throw new Error(data.message || 'Failed to enable GitHub');
-            }
+            await apiClient.post('/api/integrations/github/enable', {});
 
             // Re-enable and refresh repos
             setGitHubConnected(true);
             setHasDisabledIntegration(false);
 
             // Refresh repos after enabling
-            const reposRes = await fetch('http://localhost:3000/api/integrations/github/repos', {
-                credentials: 'include' as RequestCredentials,
-            });
-            const reposResponse = await reposRes.json();
-            const reposData = reposResponse.data || reposResponse;
+            const reposData = await apiClient.get<GitHubReposResponse>('/api/integrations/github/repos');
             setRepos(reposData.repositories || []);
 
             console.log('GitHub enabled successfully');
@@ -202,16 +164,7 @@ export default function ProjectIntegrationsPage() {
             setSaving(true);
             setError(null);
 
-            const response = await fetch('http://localhost:3000/api/integrations/github/remove', {
-                method: 'DELETE',
-                credentials: 'include' as RequestCredentials,
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const data = errorData.data || errorData;
-                throw new Error(data.message || 'Failed to remove GitHub');
-            }
+            await apiClient.delete('/api/integrations/github/remove');
 
             // Fully reset state
             setGitHubConnected(false);
@@ -239,28 +192,15 @@ export default function ProjectIntegrationsPage() {
         try {
             setSaving(true);
             setError(null);
-            const response = await fetch(
-                `http://localhost:3000/api/integrations/projects/${projectId}/github/link`,
+
+            const data = await apiClient.post<{ link: ProjectLink }>(
+                `/api/integrations/projects/${projectId}/github/link`,
                 {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include' as RequestCredentials,
-                    body: JSON.stringify({
-                        repositoryFullName: selectedRepo,
-                        projectKey: projectKey.toUpperCase(),
-                    }),
+                    repositoryFullName: selectedRepo,
+                    projectKey: projectKey.toUpperCase(),
                 }
             );
 
-            if (!response.ok) {
-                throw new Error('Failed to link repository');
-            }
-
-            const responseData = await response.json();
-            // Backend wraps responses in { success, data, ... } format via TransformInterceptor
-            const data = responseData.data || responseData;
             setCurrentLink(data.link);
         } catch (err) {
             console.error('Failed to link repository:', err);
@@ -274,17 +214,8 @@ export default function ProjectIntegrationsPage() {
         try {
             setSaving(true);
             setError(null);
-            const response = await fetch(
-                `http://localhost:3000/api/integrations/projects/${projectId}/github/link`,
-                {
-                    method: 'DELETE',
-                    credentials: 'include' as RequestCredentials,
-                }
-            );
 
-            if (!response.ok) {
-                throw new Error('Failed to unlink repository');
-            }
+            await apiClient.delete(`/api/integrations/projects/${projectId}/github/link`);
 
             setCurrentLink(null);
             setSelectedRepo('');

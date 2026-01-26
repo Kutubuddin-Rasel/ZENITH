@@ -33,7 +33,7 @@ import { UpdateUserSecuritySettingsDto } from './dto/user-security-settings.dto'
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import { AuthenticatedRequest } from 'src/common/types/authenticated-request.interface';
-import { RequireCsrf } from 'src/security/csrf/csrf.guard';
+import { CsrfGuard, RequireCsrf } from 'src/security/csrf/csrf.guard';
 
 @Injectable()
 export class SuperAdminGuard implements CanActivate {
@@ -182,8 +182,14 @@ export class UsersController {
     return this.usersService.update(id, dto);
   }
 
-  // PATCH /users/:id/password
-  @UseGuards(JwtAuthGuard)
+  /**
+   * PATCH /users/:id/password
+   *
+   * Change password for a user. Only the user themselves or Super Admin can change.
+   *
+   * CSRF REQUIRED: Critical security operation
+   */
+  @UseGuards(JwtAuthGuard, CsrfGuard)
   @Patch(':id/password')
   @RequireCsrf()
   async changePassword(
@@ -205,8 +211,14 @@ export class UsersController {
     return this.usersService.findOneById(id);
   }
 
-  // DELETE /users/:id - User can delete their own account, or SuperAdmin can delete any
-  @UseGuards(JwtAuthGuard)
+  /**
+   * DELETE /users/:id
+   *
+   * Delete user account. Only the user themselves or Super Admin can delete.
+   *
+   * CSRF REQUIRED: Destructive operation
+   */
+  @UseGuards(JwtAuthGuard, CsrfGuard)
   @Delete(':id')
   @RequireCsrf()
   async deleteAccount(

@@ -2,22 +2,23 @@ import { Module, Global } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { CsrfService } from './csrf.service';
 import { CsrfController } from './csrf.controller';
-import { CsrfGuard } from './csrf.guard';
+import { StatefulCsrfGuard } from './csrf.guard';
 import { CacheModule } from '../../cache/cache.module';
+import { AuditModule } from '../../audit/audit.module';
 
 @Global()
 @Module({
-  imports: [CacheModule],
+  imports: [CacheModule, AuditModule],
   providers: [
     CsrfService,
-    CsrfGuard,
+    StatefulCsrfGuard,
     // Register CSRF Guard globally (only activates with @RequireCsrf decorator)
     {
       provide: APP_GUARD,
-      useClass: CsrfGuard,
+      useClass: StatefulCsrfGuard,
     },
   ],
   controllers: [CsrfController],
-  exports: [CsrfService, CsrfGuard],
+  exports: [CsrfService, StatefulCsrfGuard],
 })
 export class CsrfModule {}

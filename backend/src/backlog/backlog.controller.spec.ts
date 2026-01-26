@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BacklogController } from './backlog.controller';
 import { BacklogService } from './backlog.service';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 
 describe('BacklogController', () => {
   let controller: BacklogController;

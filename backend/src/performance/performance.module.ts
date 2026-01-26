@@ -19,5 +19,4 @@ import { ApiOptimizerService } from './api-optimizer.service';
   providers: [ApiOptimizerService],
   exports: [ApiOptimizerService],
 })
-export class PerformanceModule { }
-
+export class PerformanceModule {}

@@ -40,9 +40,21 @@ export enum IPType {
 @Index('IDX_ip_access_rule_user_id', ['userId'])
 @Index('IDX_ip_access_rule_priority', ['priority'])
 @Index('IDX_ip_access_rule_is_active', ['isActive'])
+@Index('IDX_ip_access_rule_organization_id', ['organizationId']) // Critical for multi-tenant queries
 export class IPAccessRule {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /**
+   * Organization ID for multi-tenant isolation.
+   *
+   * - null: Global rule (applies to ALL organizations) - Super Admin only
+   * - UUID: Tenant-scoped rule (applies to specific organization)
+   *
+   * SECURITY: All queries MUST filter by organizationId to prevent cross-tenant data leaks.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  organizationId: string | null;
 
   @Column({
     type: 'enum',

@@ -29,7 +29,7 @@ export class RegisterDto {
     message: 'Password must be less than 128 characters',
   })
   @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/,
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?])/,
     {
       message:
         'Password must include at least one uppercase letter, one lowercase letter, one number, and one special character',
@@ -44,6 +44,8 @@ export class RegisterDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(100, { message: 'Workspace name must be less than 100 characters' })
+  @MaxLength(100, {
+    message: 'Workspace name must be less than 100 characters',
+  })
   workspaceName?: string; // If provided, creates organization
 }

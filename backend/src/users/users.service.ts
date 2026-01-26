@@ -3,6 +3,8 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -13,6 +15,8 @@ import { ChangePasswordDto } from './dto/create-user.dto';
 import { AuditLogsService } from '../audit/audit-logs.service';
 import { ClsService } from 'nestjs-cls';
 import { v4 as uuidv4 } from 'uuid';
+import { SessionsService } from '../auth/sessions.service';
+import { PasswordBreachService } from '../auth/services/password-breach.service';
 
 interface RawUserRow {
   user_id: string;
@@ -36,6 +40,10 @@ export class UsersService {
     private readonly userRepo: Repository<User>,
     private readonly auditLogsService: AuditLogsService,
     private readonly cls: ClsService,
+    @Inject(forwardRef(() => SessionsService))
+    private readonly sessionsService: SessionsService,
+    @Inject(forwardRef(() => PasswordBreachService))
+    private readonly passwordBreachService: PasswordBreachService,
   ) {}
 
   /** Create a new user */
@@ -247,7 +255,8 @@ export class UsersService {
     id: string,
     dto: ChangePasswordDto,
     isSuperAdmin: boolean,
-  ): Promise<{ success: boolean }> {
+    currentSessionId?: string, // Session to preserve (optional)
+  ): Promise<{ success: boolean; revokedSessions?: number }> {
     const user = await this.findOneById(id);
     // If not super admin, verify current password
     if (!isSuperAdmin) {
@@ -266,6 +275,17 @@ export class UsersService {
         'New password and confirmation do not match',
       );
     }
+
+    // Check password against known breaches (HIBP API - k-anonymity)
+    const breachCheck = await this.passwordBreachService.checkPassword(
+      dto.newPassword,
+    );
+    if (breachCheck.isBreached) {
+      throw new BadRequestException(
+        this.passwordBreachService.getBreachMessage(breachCheck.breachCount),
+      );
+    }
+
     // Use Argon2id for new password hash
     user.passwordHash = await argon2.hash(dto.newPassword, {
       type: argon2.argon2id,
@@ -273,8 +293,22 @@ export class UsersService {
       timeCost: 3,
       parallelism: 4,
     });
-    user.passwordVersion = 3; // Argon2id version
+
+    // INCREMENT passwordVersion (for JWT invalidation)
+    user.passwordVersion = (user.passwordVersion || 1) + 1;
     await this.userRepo.save(user);
+
+    // REVOKE all sessions except current (Phase 2 - Session Invalidation)
+    let revokedSessions = 0;
+    if (currentSessionId) {
+      revokedSessions = await this.sessionsService.revokeAllExceptCurrent(
+        id,
+        currentSessionId,
+      );
+    } else {
+      // If no session ID provided, revoke ALL sessions
+      revokedSessions = await this.sessionsService.revokeAllSessions(id);
+    }
 
     // Audit: PASSWORD_CHANGE (Severity: HIGH)
     await this.auditLogsService.log({
@@ -288,11 +322,14 @@ export class UsersService {
       action: 'PASSWORD_CHANGE',
       metadata: {
         severity: 'HIGH',
-        requestId: this.cls.get('requestId'),
+        newPasswordVersion: user.passwordVersion,
+        revokedSessions,
+        preservedCurrentSession: !!currentSessionId,
+        requestId: this.cls.get<string>('requestId'),
       },
     });
 
-    return { success: true };
+    return { success: true, revokedSessions };
   }
 
   /** Delete a user's account (soft-delete: deactivate and anonymize) */
@@ -325,7 +362,7 @@ export class UsersService {
         severity: 'CRITICAL',
         originalEmail,
         originalName,
-        requestId: this.cls.get('requestId'),
+        requestId: this.cls.get<string>('requestId'),
       },
     });
 

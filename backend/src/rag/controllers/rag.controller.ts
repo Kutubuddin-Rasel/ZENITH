@@ -13,7 +13,7 @@ import { IngestionService } from '../services/ingestion.service';
 import { RetrievalService } from '../services/retrieval.service';
 import { OpenAiService } from '../../ai/services/openai.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
 
 @Controller('projects/:projectId/rag')
 @UseGuards(JwtAuthGuard, PermissionsGuard)

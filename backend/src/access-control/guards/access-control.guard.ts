@@ -7,14 +7,26 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AccessControlService } from '../access-control.service';
+import { IpResolutionService } from '../services/ip-resolution.service';
 import { Request, Response } from 'express';
 
+/**
+ * Access Control Guard
+ *
+ * Enforces IP-based access control rules on protected routes.
+ *
+ * SECURITY:
+ * - Uses IpResolutionService for secure client IP resolution
+ * - Only trusts X-Forwarded-For from configured trusted proxies
+ * - Prevents header spoofing attacks
+ */
 @Injectable()
 export class AccessControlGuard implements CanActivate {
   private readonly logger = new Logger(AccessControlGuard.name);
 
   constructor(
     private accessControlService: AccessControlService,
+    private ipResolutionService: IpResolutionService,
     private reflector: Reflector,
   ) {}
 
@@ -31,8 +43,9 @@ export class AccessControlGuard implements CanActivate {
       return true;
     }
 
-    // Get client IP address
-    const ipAddress = this.getClientIP(request);
+    // Get client IP address using secure resolution
+    // This handles trusted proxy validation and X-Forwarded-For parsing
+    const ipAddress = this.ipResolutionService.getClientIp(request);
 
     // Get user information from request
     const user = (request as unknown as Record<string, unknown>).user as
@@ -42,11 +55,16 @@ export class AccessControlGuard implements CanActivate {
     const userRoles = (user?.roles as string[]) || [];
 
     // Get project ID from request parameters or headers
-    const projectId =
+    const projectIdParam =
       request.params?.id ||
       (Array.isArray(request.headers['x-project-id'])
         ? request.headers['x-project-id'][0]
         : request.headers['x-project-id']);
+
+    // Narrow projectId to string (handle potential array from Express params)
+    const projectId = Array.isArray(projectIdParam)
+      ? projectIdParam[0]
+      : projectIdParam;
 
     try {
       // Check access control
@@ -61,7 +79,7 @@ export class AccessControlGuard implements CanActivate {
       if (!result.allowed) {
         this.logger.warn(`Access denied for IP ${ipAddress}: ${result.reason}`);
 
-        // Set response headers for debugging
+        // Set response headers for debugging (non-sensitive info only)
         response.setHeader('X-Access-Denied-Reason', result.reason);
         response.setHeader('X-Access-Rule-Id', result.ruleId || 'none');
 
@@ -76,6 +94,7 @@ export class AccessControlGuard implements CanActivate {
         requiresApproval: result.requiresApproval,
         expiresAt: result.expiresAt,
         metadata: result.metadata,
+        clientIp: ipAddress, // Include resolved IP for audit
       };
 
       this.logger.debug(`Access granted for IP ${ipAddress} to user ${userId}`);
@@ -90,36 +109,5 @@ export class AccessControlGuard implements CanActivate {
       // On error, deny access by default for security
       throw new ForbiddenException('Access control error');
     }
-  }
-
-  /**
-   * Get client IP address from request
-   */
-  private getClientIP(request: Request): string {
-    // Check for forwarded IP (from load balancer/proxy)
-    const forwardedFor = request.headers['x-forwarded-for'];
-    if (forwardedFor) {
-      const ips = forwardedFor.toString().split(',');
-      return ips[0].trim();
-    }
-
-    // Check for real IP header
-    const realIP = request.headers['x-real-ip'];
-    if (realIP) {
-      return realIP.toString();
-    }
-
-    // Check for client IP header
-    const clientIP = request.headers['x-client-ip'];
-    if (clientIP) {
-      return clientIP.toString();
-    }
-
-    // Fallback to connection remote address
-    return (
-      request.connection?.remoteAddress ||
-      request.socket?.remoteAddress ||
-      '127.0.0.1'
-    );
   }
 }

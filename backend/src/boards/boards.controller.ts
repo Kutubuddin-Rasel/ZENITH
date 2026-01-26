@@ -19,7 +19,7 @@ import { UpdateBoardDto } from './dto/update-board.dto';
 import { CreateColumnDto } from './dto/create-column.dto';
 import { UpdateColumnDto } from './dto/update-column.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 
@@ -29,7 +29,7 @@ export class BoardsController {
   constructor(
     private svc: BoardsService,
     private readonly usersService: UsersService,
-  ) { }
+  ) {}
 
   /**
    * Helper: Get user's organization ID

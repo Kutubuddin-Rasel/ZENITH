@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Issue } from './useProjectIssues';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import { wsEndpoint } from '@/lib/config';
 
 /**
  * Payload for issue movement events (matches backend DTO)
@@ -75,9 +76,8 @@ async function connectBoardSocket(): Promise<BoardSocket | null> {
 
     try {
         const { default: io } = await import('socket.io-client');
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-        boardSocket = io(`${apiUrl}/boards`, {
+        boardSocket = io(wsEndpoint('/boards'), {
             withCredentials: true,
             transports: ['websocket'],
         }) as unknown as BoardSocket;

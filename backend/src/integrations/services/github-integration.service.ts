@@ -951,8 +951,8 @@ export class GitHubIntegrationService extends BaseIntegrationService {
     } else {
       this.logger.warn(
         `Repository ${repoFullName} has no project mapping. ` +
-        `#123 style magic words will be IGNORED for security. ` +
-        `Only PROJ-123 style references will be processed.`,
+          `#123 style magic words will be IGNORED for security. ` +
+          `Only PROJ-123 style references will be processed.`,
       );
     }
 

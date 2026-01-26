@@ -113,10 +113,11 @@ export class ResourceAllocationController {
   async getAllocationDashboard(@Request() req: { user: { userId: string } }) {
     const userId = req.user.userId;
 
-    const [conflicts, suggestions] = await Promise.all([
-      this.resourceAllocationService.detectAllocationConflicts([userId]),
-      this.resourceAllocationService.suggestResourceAssignment(),
-    ]);
+    // detectAllocationConflicts is async, suggestResourceAssignment is sync
+    const conflicts =
+      await this.resourceAllocationService.detectAllocationConflicts([userId]);
+    const suggestions =
+      this.resourceAllocationService.suggestResourceAssignment();
 
     return {
       success: true,

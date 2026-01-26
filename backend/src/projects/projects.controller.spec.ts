@@ -3,7 +3,7 @@ import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
 import { UsersService } from '../users/users.service';
 import { WorkflowStatusesService } from '../workflows/services/workflow-statuses.service';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { ProjectRoleGuard } from '../auth/guards/project-role.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Reflector } from '@nestjs/core';
