@@ -62,7 +62,7 @@ export class IssuesService implements OnModuleInit {
     private readonly boardGateway: BoardGateway,
     @InjectRepository(Board)
     private readonly boardRepo: Repository<Board>,
-  ) {}
+  ) { }
 
   /**
    * OnModuleInit: Create tenant-aware repository wrappers
@@ -1088,6 +1088,15 @@ export class IssuesService implements OnModuleInit {
       throw new BadRequestException('CSV file is empty');
     }
 
+    // DoS Protection: Limit row count to prevent CPU exhaustion
+    const MAX_IMPORT_ROWS = 10_000;
+    if (rows.length > MAX_IMPORT_ROWS + 1) {
+      // +1 for header row
+      throw new BadRequestException(
+        `CSV exceeds maximum row limit of ${MAX_IMPORT_ROWS}. Please split into smaller files.`,
+      );
+    }
+
     const headers = rows[0].map((h) => h.toLowerCase().trim());
     const dataRows = rows.slice(1);
 
@@ -1233,7 +1242,7 @@ export class WorkLogsService {
     @InjectRepository(Issue)
     private issueRepo: Repository<Issue>,
     private membersService: ProjectMembersService,
-  ) {}
+  ) { }
 
   async listWorkLogs(projectId: string, issueId: string) {
     return this.workLogRepo.find({

@@ -33,3 +33,10 @@ junit.xml
 # Build Artifacts
 dist/
 dist-*/
+
+.agent/
+.agents/
+.cursor/
+.gemini/
+.github/
+.docs/

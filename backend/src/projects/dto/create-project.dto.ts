@@ -7,6 +7,7 @@ import {
   Matches,
   IsUUID,
 } from 'class-validator';
+import { SanitizeHtml } from '../../common/decorators/safe-transform.decorators';
 
 export class CreateProjectDto {
   @IsString()
@@ -23,16 +24,17 @@ export class CreateProjectDto {
   })
   key: string;
 
+  @SanitizeHtml()
   @IsString()
   @IsOptional()
   description?: string;
 
-  @IsString()
+  @IsUUID('4', { message: 'Project Lead ID must be a valid UUID' })
   @IsOptional()
   projectLeadId?: string; // ID of the user who will be Project Lead (optional, defaults to creator)
 
   // NEW: Optional template ID for pre-configured project setup
-  @IsUUID()
+  @IsUUID('4', { message: 'Template ID must be a valid UUID' })
   @IsOptional()
   templateId?: string;
 }

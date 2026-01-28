@@ -6,7 +6,9 @@ import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { ProjectRoleGuard } from '../auth/guards/project-role.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PoliciesGuard } from '../auth/casl/policies.guard';
+import { StatefulCsrfGuard } from '../security/csrf/csrf.guard';
 import { Reflector } from '@nestjs/core';
+
 
 describe('IssuesController', () => {
   let controller: IssuesController;
@@ -57,6 +59,8 @@ describe('IssuesController', () => {
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(PoliciesGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(StatefulCsrfGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

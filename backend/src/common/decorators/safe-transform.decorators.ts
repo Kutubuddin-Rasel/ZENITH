@@ -1,4 +1,5 @@
 import { Transform, TransformFnParams } from 'class-transformer';
+import sanitizeHtml from 'sanitize-html';
 
 /**
  * =============================================================================
@@ -233,3 +234,79 @@ export function getIPType(obj: unknown): string | undefined {
   }
   return undefined;
 }
+
+// =============================================================================
+// HTML SANITIZATION DECORATORS (Phase 5 - XSS Prevention)
+// =============================================================================
+
+/**
+ * Configuration options for HTML sanitization.
+ * Allows customization of allowed tags and attributes.
+ */
+export interface SanitizeHtmlOptions {
+  /** HTML tags to allow (default: safe Markdown-compatible set) */
+  allowedTags?: string[];
+  /** Attributes to allow per tag (default: href on anchor only) */
+  allowedAttributes?: Record<string, string[]>;
+}
+
+/**
+ * Default sanitization policy for rich text fields.
+ * Allows Markdown-compatible formatting while blocking XSS vectors.
+ *
+ * ALLOWED: b, i, em, strong, a, p, br, ul, ol, li, code, pre
+ * BLOCKED: script, iframe, object, style, on* events
+ */
+const DEFAULT_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'code', 'pre'],
+  allowedAttributes: {
+    a: ['href'],
+  },
+  // Explicitly disallow common XSS vectors
+  disallowedTagsMode: 'discard',
+};
+
+/**
+ * Sanitizes HTML content to prevent XSS attacks.
+ * Uses sanitize-html library with a strict allowlist policy.
+ *
+ * SECURITY: This decorator strips dangerous HTML tags (script, iframe, etc.)
+ * and event handlers (onclick, onerror, etc.) from string inputs.
+ *
+ * @param options - Optional custom sanitization configuration
+ *
+ * @example
+ * class CreateProjectDto {
+ *   @SanitizeHtml()
+ *   @IsString()
+ *   @IsOptional()
+ *   description?: string;
+ * }
+ *
+ * // Input: "<script>alert('xss')</script><p>Hello</p>"
+ * // Output: "<p>Hello</p>"
+ */
+export function SanitizeHtml(options?: SanitizeHtmlOptions): PropertyDecorator {
+  const sanitizeOptions: sanitizeHtml.IOptions = {
+    ...DEFAULT_SANITIZE_OPTIONS,
+    ...(options?.allowedTags && { allowedTags: options.allowedTags }),
+    ...(options?.allowedAttributes && { allowedAttributes: options.allowedAttributes }),
+  };
+
+  return createSafeTransform<unknown>((params) => {
+    const { value } = params;
+
+    // Handle null/undefined gracefully
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    // Only sanitize strings
+    if (typeof value === 'string') {
+      return sanitizeHtml(value, sanitizeOptions);
+    }
+
+    return value;
+  });
+}
+

@@ -19,6 +19,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { UsersService } from '../users/users.service';
+import {
+  StatefulCsrfGuard,
+  RequireCsrf,
+} from '../security/csrf/csrf.guard';
 
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 import { ProjectRole } from '../membership/enums/project-role.enum';
@@ -26,7 +30,7 @@ import { ProjectRoleGuard } from '../auth/guards/project-role.guard';
 import { RequireProjectRole } from '../auth/decorators/require-project-role.decorator';
 
 @Controller('projects')
-@UseGuards(JwtAuthGuard, PermissionsGuard, ProjectRoleGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, ProjectRoleGuard, StatefulCsrfGuard)
 export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
@@ -39,6 +43,7 @@ export class ProjectsController {
    */
   @RequirePermission('projects:create')
   @Post()
+  @RequireCsrf()
   async create(
     @Body() dto: CreateProjectDto,
     @Request() req: { user: JwtRequestUser },
@@ -80,6 +85,7 @@ export class ProjectsController {
   @RequirePermission('projects:edit')
   @RequireProjectRole(ProjectRole.PROJECT_LEAD)
   @Patch(':id')
+  @RequireCsrf()
   async update(@Param('id') id: string, @Body() dto: UpdateProjectDto) {
     return this.projectsService.update(id, dto);
   }
@@ -90,6 +96,7 @@ export class ProjectsController {
   @RequirePermission('projects:delete')
   @RequireProjectRole(ProjectRole.PROJECT_LEAD)
   @Patch(':id/archive')
+  @RequireCsrf()
   async archive(@Param('id') id: string) {
     return this.projectsService.archive(id);
   }
@@ -100,6 +107,7 @@ export class ProjectsController {
   @RequirePermission('projects:delete')
   @RequireProjectRole(ProjectRole.PROJECT_LEAD)
   @Delete(':id')
+  @RequireCsrf()
   async remove(@Param('id') id: string) {
     await this.projectsService.remove(id);
     return { message: 'Project deleted successfully' };
@@ -147,6 +155,7 @@ export class ProjectsController {
   @Patch(':id/access-settings')
   @RequirePermission('projects:edit')
   @RequireProjectRole(ProjectRole.PROJECT_LEAD)
+  @RequireCsrf()
   async updateAccessSettings(
     @Param('id') id: string,
     @Body() dto: UpdateProjectAccessSettingsDto,

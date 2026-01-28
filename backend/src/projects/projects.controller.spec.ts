@@ -6,6 +6,7 @@ import { WorkflowStatusesService } from '../workflows/services/workflow-statuses
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { ProjectRoleGuard } from '../auth/guards/project-role.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { StatefulCsrfGuard } from '../security/csrf/csrf.guard';
 import { Reflector } from '@nestjs/core';
 
 describe('ProjectsController', () => {
@@ -56,6 +57,8 @@ describe('ProjectsController', () => {
       .overrideGuard(ProjectRoleGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(StatefulCsrfGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

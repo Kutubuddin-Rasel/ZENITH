@@ -37,15 +37,16 @@ import { UpdateWorkLogDto } from './dto/update-work-log.dto';
 import { PoliciesGuard, CheckPolicies } from '../auth/casl/policies.guard';
 import { Action } from '../auth/casl/casl-ability.factory';
 import { Issue } from './entities/issue.entity';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
 
 @Controller('projects/:projectId/issues')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class IssuesController {
   constructor(
     private readonly issuesService: IssuesService,
     private readonly workLogsService: WorkLogsService,
     private readonly usersService: UsersService,
-  ) {}
+  ) { }
 
   /**
    * Helper: Get user's organization ID
@@ -59,6 +60,7 @@ export class IssuesController {
 
   @CheckPolicies((ability) => ability.can(Action.Create, Issue))
   @UseGuards(JwtAuthGuard, PoliciesGuard)
+  @RequireCsrf()
   @Post()
   async create(
     @Param('projectId') projectId: string,
@@ -182,6 +184,7 @@ export class IssuesController {
 
   @Post('import')
   @RequirePermission('issues:create')
+  @RequireCsrf()
   @UseInterceptors(FileInterceptor('file'))
   async importIssues(
     @Param('projectId') projectId: string,
@@ -189,6 +192,9 @@ export class IssuesController {
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
           fileType: 'csv',
+        })
+        .addMaxSizeValidator({
+          maxSize: 5 * 1024 * 1024, // 5MB limit to prevent heap exhaustion
         })
         .build({
           errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -215,6 +221,7 @@ export class IssuesController {
   }
 
   @RequirePermission('issues:update')
+  @RequireCsrf()
   @Patch(':id/status')
   async updateStatus(
     @Param('projectId') projectId: string,
@@ -235,6 +242,7 @@ export class IssuesController {
    * Handles sprint assignment, status changes, and position updates atomically.
    */
   @RequirePermission('issues:update')
+  @RequireCsrf()
   @Post(':id/move')
   async moveIssue(
     @Param('projectId') projectId: string,
@@ -245,6 +253,7 @@ export class IssuesController {
     return this.issuesService.moveIssue(projectId, id, req.user.userId, dto);
   }
 
+  @RequireCsrf()
   @Patch(':issueId')
   @UseGuards(JwtAuthGuard, ProjectRoleGuard)
   @RequireProjectRole(ProjectRole.MEMBER, ProjectRole.PROJECT_LEAD)
@@ -262,6 +271,7 @@ export class IssuesController {
     );
   }
 
+  @RequireCsrf()
   @Delete(':issueId')
   @UseGuards(JwtAuthGuard, ProjectRoleGuard)
   @RequireProjectRole(ProjectRole.PROJECT_LEAD)
@@ -274,6 +284,7 @@ export class IssuesController {
   }
 
   @RequirePermission('issues:delete')
+  @RequireCsrf()
   @Post(':id/archive')
   async archive(
     @Param('projectId') projectId: string,
@@ -284,6 +295,7 @@ export class IssuesController {
   }
 
   @RequirePermission('issues:delete')
+  @RequireCsrf()
   @Post(':id/unarchive')
   async unarchive(
     @Param('projectId') projectId: string,
@@ -304,6 +316,7 @@ export class IssuesController {
   }
 
   @RequirePermission('issues:update')
+  @RequireCsrf()
   @Post(':id/links')
   async addLink(
     @Param('projectId') projectId: string,
@@ -321,6 +334,7 @@ export class IssuesController {
   }
 
   @RequirePermission('issues:update')
+  @RequireCsrf()
   @Delete(':id/links/:linkId')
   async removeLink(
     @Param('projectId') projectId: string,
@@ -333,6 +347,7 @@ export class IssuesController {
   }
 
   @RequirePermission('issues:update')
+  @RequireCsrf()
   @Patch(':id/labels')
   async updateLabels(
     @Param('projectId') projectId: string,
@@ -358,6 +373,7 @@ export class IssuesController {
   }
 
   @RequirePermission('issues:update')
+  @RequireCsrf()
   @Post(':issueId/worklogs')
   async addWorkLog(
     @Param('projectId') projectId: string,
@@ -375,6 +391,7 @@ export class IssuesController {
   }
 
   @RequirePermission('issues:update')
+  @RequireCsrf()
   @Delete(':issueId/worklogs/:workLogId')
   async deleteWorkLog(
     @Param('projectId') projectId: string,
@@ -391,6 +408,7 @@ export class IssuesController {
   }
 
   @RequirePermission('issues:update')
+  @RequireCsrf()
   @Patch(':issueId/worklogs/:workLogId')
   async updateWorkLog(
     @Param('projectId') projectId: string,
@@ -409,3 +427,4 @@ export class IssuesController {
     );
   }
 }
+

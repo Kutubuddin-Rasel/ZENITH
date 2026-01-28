@@ -65,7 +65,7 @@ export class ProjectsService implements OnModuleInit {
     private readonly tenantRepoFactory?: TenantRepositoryFactory,
     private readonly tenantContext?: TenantContext,
     private readonly cls?: ClsService,
-  ) {}
+  ) { }
 
   /**
    * OnModuleInit: Create tenant-aware repository wrappers
@@ -143,6 +143,27 @@ export class ProjectsService implements OnModuleInit {
         }
       }
     }
+
+    // Audit: PROJECT_CREATED (Severity: MEDIUM)
+    await this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: organizationId || 'unknown',
+      actor_id: userId,
+      projectId: saved.id,
+      resource_type: 'Project',
+      resource_id: saved.id,
+      action_type: 'CREATE',
+      action: 'PROJECT_CREATED',
+      metadata: {
+        severity: 'MEDIUM',
+        projectName: saved.name,
+        projectKey: saved.key,
+        templateId: dto.templateId,
+        projectLeadId: projectLeadId,
+        requestId: this.cls?.get<string>('requestId'),
+      },
+    });
 
     return saved;
   }
@@ -328,6 +349,27 @@ export class ProjectsService implements OnModuleInit {
       const saved = await this.projectRepo.save(project);
       // Invalidate cache
       await this.cacheService.invalidateProjectCache(projectId);
+
+      // Audit: PROJECT_UPDATED (Severity: LOW)
+      const fieldsChanged = Object.keys(dto);
+      await this.auditLogsService.log({
+        event_uuid: uuidv4(),
+        timestamp: new Date(),
+        tenant_id: saved.organizationId || 'unknown',
+        actor_id: this.cls?.get<string>('userId') || 'system',
+        projectId,
+        resource_type: 'Project',
+        resource_id: projectId,
+        action_type: 'UPDATE',
+        action: 'PROJECT_UPDATED',
+        metadata: {
+          severity: 'LOW',
+          projectName: saved.name,
+          fieldsChanged,
+          requestId: this.cls?.get<string>('requestId'),
+        },
+      });
+
       return saved;
     } catch {
       throw new BadRequestException(
@@ -515,15 +557,34 @@ export class ProjectsService implements OnModuleInit {
     // Get existing settings (or create defaults)
     const settings = await this.getAccessSettings(projectId);
 
+    // Capture organization context before update
+    const project = await this.findOneById(projectId);
+
     // Apply updates
     Object.assign(settings, dto);
 
     const saved = await this.accessSettingsRepo.save(settings);
 
-    // Log the update for audit
-    this.logger.log(
-      `Access settings updated for project ${projectId}: ${JSON.stringify(dto)}`,
-    );
+    // Audit: ACCESS_SETTINGS_UPDATED (Severity: HIGH)
+    const changedSettings = Object.keys(dto);
+    await this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: project.organizationId || 'unknown',
+      actor_id: this.cls?.get<string>('userId') || 'system',
+      projectId,
+      resource_type: 'ProjectAccessSettings',
+      resource_id: saved.id,
+      action_type: 'UPDATE',
+      action: 'ACCESS_SETTINGS_UPDATED',
+      metadata: {
+        severity: 'HIGH',
+        projectName: project.name,
+        changedSettings,
+        newValues: dto as Record<string, unknown>,
+        requestId: this.cls?.get<string>('requestId'),
+      },
+    });
 
     return saved;
   }
