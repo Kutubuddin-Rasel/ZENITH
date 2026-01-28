@@ -43,7 +43,7 @@ export class BoardsService {
     private eventEmitter: EventEmitter2,
     private boardsGateway: BoardsGateway,
     private cacheService: CacheService,
-  ) {}
+  ) { }
 
   /** Create a new board (and seed default columns) */
   async create(
@@ -485,8 +485,13 @@ export class BoardsService {
   }
 
   /**
-   * OPTIMIZED: Bulk reorder columns in single request
-   * Frontend currently makes N API calls to update column order - this reduces to 1
+   * OPTIMIZED + SECURE: Bulk reorder columns in single parameterized query
+   * 
+   * Uses VALUES pattern instead of CASE with string interpolation:
+   * UPDATE ... SET "order" = v."order" FROM (VALUES ($1::uuid, $2::int), ...) AS v(id, "order")
+   * 
+   * SECURITY: All IDs are parameterized, preventing SQL injection.
+   * OWNERSHIP: boardId in WHERE clause ensures tenant isolation.
    */
   async reorderColumns(
     projectId: string,
@@ -504,19 +509,36 @@ export class BoardsService {
 
     if (orderedColumnIds.length === 0) return;
 
-    // Single bulk update with CASE statement
-    const caseStatements = orderedColumnIds
-      .map((id, idx) => `WHEN '${id}' THEN ${idx} `)
-      .join(' ');
+    // Safety check: PostgreSQL parameter limit ~65535, we use 2 per item
+    if (orderedColumnIds.length > 5000) {
+      throw new ForbiddenException('Cannot reorder more than 5000 columns at once');
+    }
 
-    // @RAW_QUERY_AUDIT: Tenant isolation verified via findOne() + boardId scope
-    // Column IDs are validated against board which is project-scoped
+    // SECURE: Parameter flattening for VALUES clause
+    // Result: [id1, 0, id2, 1, id3, 2, ...]
+    const params: (string | number)[] = [];
+    const placeholders: string[] = [];
+
+    orderedColumnIds.forEach((id, idx) => {
+      params.push(id, idx);
+      const n = params.length;
+      // Cast: uuid for ID, int for order
+      placeholders.push(`($${n - 1}::uuid, $${n}::int)`);
+    });
+
+    // Append boardId as the last parameter for ownership verification
+    const boardIdParamIndex = params.length + 1;
+    params.push(boardId);
+
+    // @RAW_QUERY_AUDIT: Fully parameterized - no string interpolation
+    // Tenant isolation: boardId in WHERE ensures only columns belonging to this board are updated
     await this.colRepo.query(
-      `UPDATE board_columns 
-       SET "order" = CASE id ${caseStatements} END
-       WHERE id = ANY($1) 
-       AND "boardId" = $2`,
-      [orderedColumnIds, boardId],
+      `UPDATE board_columns AS c
+       SET "order" = v."order"
+       FROM (VALUES ${placeholders.join(', ')}) AS v(id, "order")
+       WHERE c.id = v.id
+       AND c."boardId" = $${boardIdParamIndex}`,
+      params,
     );
 
     // Emit real-time event
@@ -587,8 +609,13 @@ export class BoardsService {
   }
 
   /**
-   * OPTIMIZED: Reorder issues within a column using single bulk UPDATE
-   * Uses CASE statement to update all issues in one query instead of N queries
+   * OPTIMIZED + SECURE: Reorder issues within a column using single parameterized query
+   * 
+   * Uses VALUES pattern instead of CASE with string interpolation:
+   * UPDATE ... SET "backlogOrder" = v."order" FROM (VALUES ($1::uuid, $2::int), ...) AS v(id, "order")
+   * 
+   * SECURITY: All IDs are parameterized, preventing SQL injection.
+   * OWNERSHIP: projectId in WHERE clause ensures tenant isolation.
    */
   async reorderIssues(
     projectId: string,
@@ -602,21 +629,38 @@ export class BoardsService {
 
     if (orderedIssueIds.length === 0) return;
 
-    // OPTIMIZED: Single bulk update with CASE statement
-    // This replaces N update queries with 1 query
-    const caseStatements = orderedIssueIds
-      .map((id, idx) => `WHEN '${id}' THEN ${idx} `)
-      .join(' ');
+    // Safety check: PostgreSQL parameter limit ~65535, we use 2 per item
+    if (orderedIssueIds.length > 5000) {
+      throw new ForbiddenException('Cannot reorder more than 5000 issues at once');
+    }
 
-    // @RAW_QUERY_AUDIT: Tenant isolation verified via findOne() + projectId filter
-    // Issues are scoped by projectId which is checked at method entry
+    // SECURE: Parameter flattening for VALUES clause
+    // Result: [id1, 0, id2, 1, id3, 2, ...]
+    const params: (string | number)[] = [];
+    const placeholders: string[] = [];
+
+    orderedIssueIds.forEach((id, idx) => {
+      params.push(id, idx);
+      const n = params.length;
+      // Cast: uuid for ID, int for order
+      placeholders.push(`($${n - 1}::uuid, $${n}::int)`);
+    });
+
+    // Append projectId and columnId as the last parameters for ownership verification
+    const projectIdParamIndex = params.length + 1;
+    const columnIdParamIndex = params.length + 2;
+    params.push(projectId, columnId);
+
+    // @RAW_QUERY_AUDIT: Fully parameterized - no string interpolation
+    // Tenant isolation: projectId in WHERE ensures only issues belonging to this project are updated
     await this.dataSource.query(
-      `UPDATE issues 
-       SET "backlogOrder" = CASE id ${caseStatements} END
-       WHERE id = ANY($1) 
-       AND "projectId" = $2 
-       AND status = $3`,
-      [orderedIssueIds, projectId, columnId],
+      `UPDATE issues AS i
+       SET "backlogOrder" = v."order"
+       FROM (VALUES ${placeholders.join(', ')}) AS v(id, "order")
+       WHERE i.id = v.id
+       AND i."projectId" = $${projectIdParamIndex}
+       AND i.status = $${columnIdParamIndex}`,
+      params,
     );
 
     // Emit real-time event

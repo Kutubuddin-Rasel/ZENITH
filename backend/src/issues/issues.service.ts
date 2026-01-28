@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
   ConflictException,
+  HttpException,
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -35,6 +36,8 @@ import { TenantRepositoryFactory, TenantRepository } from '../core/tenant';
 import { BoardGateway } from '../gateways/board.gateway';
 import { Board } from '../boards/entities/board.entity';
 import { EventFactory } from '../common/events/event.factory';
+import { AuditLogsService } from '../audit/audit-logs.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class IssuesService implements OnModuleInit {
@@ -62,6 +65,7 @@ export class IssuesService implements OnModuleInit {
     private readonly boardGateway: BoardGateway,
     @InjectRepository(Board)
     private readonly boardRepo: Repository<Board>,
+    private readonly auditLogsService: AuditLogsService,
   ) { }
 
   /**
@@ -218,6 +222,26 @@ export class IssuesService implements OnModuleInit {
       actorId: reporterId,
     });
     this.eventEmitter.emit(type, payload);
+
+    // Audit: ISSUE_CREATED (Severity: MEDIUM)
+    await this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: project.organizationId || 'unknown',
+      actor_id: reporterId,
+      projectId,
+      resource_type: 'Issue',
+      resource_id: saved.id,
+      action_type: 'CREATE',
+      action: 'ISSUE_CREATED',
+      metadata: {
+        severity: 'MEDIUM',
+        issueTitle: saved.title,
+        issueKey: `${project.key}-${nextNumber}`,
+        issueType: saved.type,
+        priority: saved.priority,
+      },
+    });
 
     // Return with computed friendly key (e.g., "ZEN-42")
     const enriched = await this.enrichWithKey(saved, project.key);
@@ -590,6 +614,24 @@ export class IssuesService implements OnModuleInit {
       issue: this.toSlimIssue(updatedIssue),
     });
 
+    // Audit: ISSUE_UPDATED (Severity: LOW)
+    await this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: updatedIssue.project?.organizationId || 'unknown',
+      actor_id: userId,
+      projectId,
+      resource_type: 'Issue',
+      resource_id: issueId,
+      action_type: 'UPDATE',
+      action: 'ISSUE_UPDATED',
+      metadata: {
+        severity: 'LOW',
+        issueTitle: updatedIssue.title,
+        issueNumber: updatedIssue.number,
+      },
+    });
+
     // Return the issue with relations loaded
     return updatedIssue; // findOne was called above
   }
@@ -731,6 +773,29 @@ export class IssuesService implements OnModuleInit {
       actorId: userId,
     });
 
+    // Audit: ISSUE_DELETED (Severity: HIGH - irreversible operation)
+    try {
+      await this.auditLogsService.log({
+        event_uuid: uuidv4(),
+        timestamp: new Date(),
+        tenant_id: issue.project?.organizationId || 'unknown',
+        actor_id: userId,
+        projectId,
+        resource_type: 'Issue',
+        resource_id: issueId,
+        action_type: 'DELETE',
+        action: 'ISSUE_DELETED',
+        metadata: {
+          severity: 'HIGH',
+          issueTitle: issue.title,
+          issueNumber: issue.number,
+        },
+      });
+    } catch (auditError) {
+      // Fail open for audit but log the error
+      console.error('Audit log failed for ISSUE_DELETED:', auditError);
+    }
+
     // REAL-TIME: Broadcast deletion
     void this.broadcastToBoards(projectId, 'issue.deleted', { issueId });
   }
@@ -868,6 +933,25 @@ export class IssuesService implements OnModuleInit {
       newColumnId: result.status,
       newIndex: result.backlogOrder,
       updatedIssueSlim: this.toSlimIssue(result),
+    });
+
+    // Audit: ISSUE_MOVED (Severity: LOW)
+    await this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: 'unknown', // Would need project lookup for full context
+      actor_id: userId,
+      projectId,
+      resource_type: 'Issue',
+      resource_id: result.id,
+      action_type: 'UPDATE',
+      action: 'ISSUE_MOVED',
+      metadata: {
+        severity: 'LOW',
+        targetStatusId: dto.targetStatusId,
+        targetPosition: dto.targetPosition,
+        newStatus: result.status,
+      },
     });
 
     return result;
@@ -1081,6 +1165,21 @@ export class IssuesService implements OnModuleInit {
       throw new ForbiddenException('You are not a member of this project');
     }
 
+    // Project-level rate limit: 20 imports per hour (protects against coordinated team abuse)
+    const PROJECT_IMPORT_LIMIT = 20;
+    const PROJECT_IMPORT_TTL = 3600; // 1 hour in seconds
+    const rateLimitKey = `rate_limit:project:${projectId}:import`;
+    const currentCount = await this.cacheService.incr(rateLimitKey, {
+      ttl: PROJECT_IMPORT_TTL,
+    });
+
+    if (currentCount > PROJECT_IMPORT_LIMIT) {
+      throw new HttpException(
+        `Project import limit exceeded (${PROJECT_IMPORT_LIMIT}/hour). Please try again later.`,
+        429, // Too Many Requests
+      );
+    }
+
     const csvContent = fileBuffer.toString('utf-8');
     const rows = this.parseCSV(csvContent);
 
@@ -1186,6 +1285,31 @@ export class IssuesService implements OnModuleInit {
         failed++;
         errors.push(`Row ${index + 2}: ${(err as Error).message} `);
       }
+    }
+
+    // Audit: ISSUE_IMPORTED - Single summary event (HIGH severity for bulk operations)
+    // DO NOT log individual ISSUE_CREATED for each row - this prevents log flooding
+    try {
+      await this.auditLogsService.log({
+        event_uuid: uuidv4(),
+        timestamp: new Date(),
+        tenant_id: 'unknown', // Would need project lookup for full context
+        actor_id: userId,
+        projectId,
+        resource_type: 'Issue',
+        resource_id: projectId, // Resource is the project for bulk import
+        action_type: 'CREATE',
+        action: 'ISSUE_IMPORTED',
+        metadata: {
+          severity: 'HIGH',
+          importedCount: created,
+          failedCount: failed,
+          totalRows: dataRows.length,
+        },
+      });
+    } catch (auditError) {
+      // Fail open for audit but log the error
+      console.error('Audit log failed for ISSUE_IMPORTED:', auditError);
     }
 
     return { created, failed, errors };

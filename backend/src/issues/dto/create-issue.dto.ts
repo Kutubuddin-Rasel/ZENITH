@@ -5,8 +5,11 @@ import {
   IsEnum,
   IsUUID,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { IssuePriority, IssueType } from '../entities/issue.entity';
+import { IssueMetadataDto } from './issue-metadata.dto';
 
 export class CreateIssueDto {
   @IsString()
@@ -50,5 +53,7 @@ export class CreateIssueDto {
   estimatedHours?: number;
 
   @IsOptional()
-  metadata?: Record<string, any>;
+  @ValidateNested()
+  @Type(() => IssueMetadataDto)
+  metadata?: IssueMetadataDto;
 }

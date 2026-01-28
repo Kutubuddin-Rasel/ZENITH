@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { User } from '../../users/entities/user.entity';
+import { IssueMetadata } from '../dto/issue-metadata.dto';
 
 // Legacy enum - kept for reference but status is now a flexible string
 export enum IssueStatus {
@@ -177,7 +178,7 @@ export class Issue {
   dueDate: Date | null;
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata: Record<string, any>;
+  metadata: IssueMetadata;
 
   @Column({ type: 'simple-array', nullable: true })
   labels: string[];

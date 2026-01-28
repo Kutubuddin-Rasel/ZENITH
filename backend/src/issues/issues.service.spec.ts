@@ -28,6 +28,7 @@ import { WorkflowStatusesService } from '../workflows/services/workflow-statuses
 import { TenantRepositoryFactory } from '../core/tenant';
 import { BoardGateway } from '../gateways/board.gateway';
 import { ProjectRole } from '../membership/enums/project-role.enum';
+import { AuditLogsService } from '../audit/audit-logs.service';
 
 // Helper types for strict mocking
 type MockRepository<T = any> = {
@@ -63,6 +64,7 @@ describe('IssuesService', () => {
     set: jest.Mock;
     del: jest.Mock;
     invalidateByTags: jest.Mock;
+    incr: jest.Mock;
   };
   let mockTransitionsService: {
     isTransitionAllowed: jest.Mock;
@@ -77,6 +79,9 @@ describe('IssuesService', () => {
   };
   let mockTenantRepoFactory: {
     create: jest.Mock;
+  };
+  let mockAuditLogsService: {
+    log: jest.Mock;
   };
 
   // Test fixtures
@@ -169,6 +174,7 @@ describe('IssuesService', () => {
       set: jest.fn().mockResolvedValue(true),
       del: jest.fn().mockResolvedValue(true),
       invalidateByTags: jest.fn().mockResolvedValue(true),
+      incr: jest.fn().mockResolvedValue(1),
     };
 
     mockTransitionsService = {
@@ -193,6 +199,10 @@ describe('IssuesService', () => {
         findOne: jest.fn().mockResolvedValue(mockProject),
         find: jest.fn().mockResolvedValue([mockProject]),
       }),
+    };
+
+    mockAuditLogsService = {
+      log: jest.fn().mockResolvedValue(undefined),
     };
 
     const mockBoardGateway = {
@@ -239,6 +249,7 @@ describe('IssuesService', () => {
         { provide: TenantRepositoryFactory, useValue: mockTenantRepoFactory },
         { provide: BoardGateway, useValue: mockBoardGateway },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: AuditLogsService, useValue: mockAuditLogsService },
       ],
     }).compile();
 

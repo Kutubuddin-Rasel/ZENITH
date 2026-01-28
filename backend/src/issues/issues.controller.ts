@@ -38,6 +38,7 @@ import { PoliciesGuard, CheckPolicies } from '../auth/casl/policies.guard';
 import { Action } from '../auth/casl/casl-ability.factory';
 import { Issue } from './entities/issue.entity';
 import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
 @Controller('projects/:projectId/issues')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
@@ -185,6 +186,8 @@ export class IssuesController {
   @Post('import')
   @RequirePermission('issues:create')
   @RequireCsrf()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 imports/min/user
   @UseInterceptors(FileInterceptor('file'))
   async importIssues(
     @Param('projectId') projectId: string,

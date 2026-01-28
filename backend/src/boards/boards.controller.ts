@@ -22,14 +22,15 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
 
 @Controller('projects/:projectId/boards')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class BoardsController {
   constructor(
     private svc: BoardsService,
     private readonly usersService: UsersService,
-  ) {}
+  ) { }
 
   /**
    * Helper: Get user's organization ID
@@ -42,6 +43,7 @@ export class BoardsController {
   }
 
   @RequirePermission('boards:create')
+  @RequireCsrf()
   @Post()
   async create(
     @Param('projectId') projectId: string,
@@ -113,6 +115,7 @@ export class BoardsController {
   }
 
   @RequirePermission('boards:update')
+  @RequireCsrf()
   @Patch(':boardId')
   async update(
     @Param('projectId') projectId: string,
@@ -125,6 +128,7 @@ export class BoardsController {
   }
 
   @RequirePermission('boards:delete')
+  @RequireCsrf()
   @Delete(':boardId')
   async remove(
     @Param('projectId') projectId: string,
@@ -139,6 +143,7 @@ export class BoardsController {
   // Columns
 
   @RequirePermission('columns:create')
+  @RequireCsrf()
   @Post(':boardId/columns')
   async addColumn(
     @Param('projectId') projectId: string,
@@ -151,6 +156,7 @@ export class BoardsController {
   }
 
   @RequirePermission('columns:update')
+  @RequireCsrf()
   @Patch(':boardId/columns/:columnId')
   async updateColumn(
     @Param('projectId') projectId: string,
@@ -171,6 +177,7 @@ export class BoardsController {
   }
 
   @RequirePermission('columns:delete')
+  @RequireCsrf()
   @Delete(':boardId/columns/:columnId')
   async removeColumn(
     @Param('projectId') projectId: string,
@@ -194,6 +201,7 @@ export class BoardsController {
    * RELATIONAL STATUS: Now accepts statusId (UUID) instead of column name strings.
    */
   @RequirePermission('boards:update')
+  @RequireCsrf()
   @Patch(':boardId/move-issue')
   async moveIssue(
     @Param('projectId') projectId: string,
@@ -221,6 +229,7 @@ export class BoardsController {
 
   /** Reorder issues within a column (drag-and-drop) */
   @RequirePermission('boards:update')
+  @RequireCsrf()
   @Patch(':boardId/reorder-issues')
   async reorderIssues(
     @Param('projectId') projectId: string,
@@ -242,6 +251,7 @@ export class BoardsController {
 
   /** OPTIMIZED: Bulk reorder columns (replaces N individual calls) */
   @RequirePermission('columns:update')
+  @RequireCsrf()
   @Patch(':boardId/reorder-columns')
   async reorderColumns(
     @Param('projectId') projectId: string,
