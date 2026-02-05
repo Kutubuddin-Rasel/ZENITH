@@ -69,7 +69,7 @@ export class RedisIoAdapter extends IoAdapter {
       appConfig?.cors?.additionalOrigins ?? [];
     const origins = [frontendUrl, ...additionalOrigins];
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
     const server = super.createIOServer(port, {
       ...options,
       cors: {
@@ -90,7 +90,7 @@ export class RedisIoAdapter extends IoAdapter {
     });
 
     if (this.adapterConstructor) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+
       server.adapter(this.adapterConstructor);
     } else {
       this.logger.warn(

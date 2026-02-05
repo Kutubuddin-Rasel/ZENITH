@@ -16,7 +16,7 @@ export class WebhooksService {
     @InjectRepository(WebhookLog)
     private logRepo: Repository<WebhookLog>,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   /**
    * Create a new webhook subscription
@@ -230,19 +230,19 @@ export class WebhooksService {
    */
   @OnEvent('issue.**')
   handleIssueEvent(event: { projectId: string; action: string; data: any }) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
     void this.trigger(event.projectId, `issue.${event.action}`, event.data);
   }
 
   @OnEvent('sprint.**')
   handleSprintEvent(event: { projectId: string; action: string; data: any }) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
     void this.trigger(event.projectId, `sprint.${event.action}`, event.data);
   }
 
   @OnEvent('project.**')
   handleProjectEvent(event: { projectId: string; action: string; data: any }) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
     void this.trigger(event.projectId, `project.${event.action}`, event.data);
   }
 }

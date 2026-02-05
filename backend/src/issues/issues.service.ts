@@ -981,7 +981,7 @@ export class IssuesService implements OnModuleInit {
    */
   private toSlimIssue(issue: Issue): Partial<Issue> {
     // Basic slim version matching 'findOneWithIssues' optimized query style
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     const { description, project, ...rest } = issue;
     return rest;
   }

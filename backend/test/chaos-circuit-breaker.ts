@@ -8,7 +8,7 @@
  * 2. Call 6+ should use FALLBACK instantly (circuit OPEN)
  */
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 import CircuitBreaker = require('opossum');
 
 // Simulate the gateway configuration (same as integration.gateway.ts)
@@ -22,7 +22,7 @@ const defaultOptions = {
 };
 
 // Simulated AI call that ALWAYS fails (chaos mode)
-// eslint-disable-next-line @typescript-eslint/require-await
+
 async function failingAICall(): Promise<string> {
   throw new Error('Simulated network outage');
 }

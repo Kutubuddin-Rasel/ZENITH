@@ -30,6 +30,19 @@ import { SmartDefaultsService } from '../user-preferences/services/smart-default
 // TENANT ISOLATION: Import tenant repository factory
 import { TenantRepositoryFactory, TenantRepository } from '../core/tenant';
 import { EventFactory } from '../common/events/event.factory';
+import {
+  BurndownResponseDto,
+  BurndownSnapshotDto,
+  BurnupResponseDto,
+  BurnupSnapshotDto,
+  VelocityResponseDto,
+  VelocityPointDto,
+  SprintSummaryDto,
+} from './dto/sprint-metrics.dto';
+import { CacheService } from '../cache/cache.service';
+
+// Cache TTL for metrics (5 minutes - snapshots are daily, staleness is acceptable)
+const CACHE_TTL_SECONDS = 300;
 
 @Injectable()
 export class SprintsService implements OnModuleInit {
@@ -52,7 +65,9 @@ export class SprintsService implements OnModuleInit {
     private smartDefaultsService: SmartDefaultsService,
     // TENANT ISOLATION: Inject factory
     private readonly tenantRepoFactory: TenantRepositoryFactory,
-  ) {}
+    // REDIS CACHING: Inject cache service
+    private readonly cacheService: CacheService,
+  ) { }
 
   /**
    * OnModuleInit: Create tenant-aware repository wrappers
@@ -132,8 +147,19 @@ export class SprintsService implements OnModuleInit {
     return this.sprintRepo.find({ where });
   }
 
-  /** System-wide finder for Cron jobs */
-  async findAllActiveSystemWide(): Promise<Sprint[]> {
+  /**
+   * @internal
+   * @security DANGER: Bypasses Tenant Isolation - Returns ALL sprints across ALL tenants
+   * @usage Intended ONLY for:
+   *   - Cron Jobs (daily snapshot generation)
+   *   - System-level background tasks (analytics aggregation)
+   * @warning DO NOT use in Controllers or user-facing endpoints
+   *   - This method does NOT filter by organizationId
+   *   - Calling this from a user endpoint WILL leak cross-tenant data
+   *   - For user-facing queries, use findAll() with proper tenantProjectRepo
+   * @audit When auditing, use 'SYSTEM_CRON' as userId for background job actions
+   */
+  async findAllActiveSystemWide_UNSAFE(): Promise<Sprint[]> {
     return this.sprintRepo.find({
       where: {
         status: SprintStatus.ACTIVE,
@@ -285,6 +311,16 @@ export class SprintsService implements OnModuleInit {
       },
       timestamp: new Date(),
     });
+
+    // CACHE INVALIDATION: Clear sprint + velocity caches
+    try {
+      await this.cacheService.invalidateByTags([
+        `sprint:${sprintId}`,
+        `project:${projectId}`,
+      ]);
+    } catch {
+      // Fire and forget - don't fail archive for cache issues
+    }
 
     return archived;
   }
@@ -530,6 +566,13 @@ export class SprintsService implements OnModuleInit {
     snapshot.completedIssues = completedIssues;
 
     await this.snapshotRepo.save(snapshot);
+
+    // CACHE INVALIDATION: Clear burndown/burnup cache after new snapshot
+    try {
+      await this.cacheService.invalidateByTags([`sprint:${sprintId}`]);
+    } catch {
+      // Fire and forget - don't fail snapshot for cache issues
+    }
   }
 
   async getSprintSnapshots(sprintId: string): Promise<SprintSnapshot[]> {
@@ -540,13 +583,20 @@ export class SprintsService implements OnModuleInit {
   }
 
   /**
-   * BURNDOWN DATA
+   * BURNDOWN DATA - Tracks remaining work vs ideal slope
+   * CACHED: 5-minute TTL (snapshots are daily, staleness acceptable)
    */
   async getBurndown(
     projectId: string,
     sprintId: string,
     userId: string,
-  ): Promise<any> {
+  ): Promise<BurndownResponseDto> {
+    // CACHE: Check cache first
+    const cacheKey = `sprint:${sprintId}:burndown`;
+    const cached = await this.cacheService.get<BurndownResponseDto>(cacheKey);
+    if (cached) return cached;
+
+    // CACHE MISS: Compute data
     const sprint = await this.findOne(projectId, sprintId, userId);
 
     const snapshots = await this.snapshotRepo.find({
@@ -563,23 +613,58 @@ export class SprintsService implements OnModuleInit {
 
     // Get initial scope from first snapshot or current state
     const initialScope = snapshots.length > 0 ? snapshots[0].totalPoints : 0;
-    const idealBurnRate = initialScope / totalDays;
+    // PRECISION: Round to 2 decimal places
+    const idealBurnRate = parseFloat((initialScope / (totalDays || 1)).toFixed(2));
 
-    return {
-      sprint,
-      snapshots,
+    // Transform sprint to summary DTO
+    const sprintSummary: SprintSummaryDto = {
+      id: sprint.id,
+      name: sprint.name,
+      startDate: sprint.startDate,
+      endDate: sprint.endDate,
+      status: sprint.status,
+    };
+
+    // Transform snapshots to typed DTOs
+    const burndownSnapshots: BurndownSnapshotDto[] = snapshots.map((s) => ({
+      date: s.date,
+      totalPoints: s.totalPoints,
+      completedPoints: s.completedPoints,
+      remainingPoints: s.remainingPoints,
+      totalIssues: s.totalIssues,
+      completedIssues: s.completedIssues,
+    }));
+
+    const result: BurndownResponseDto = {
+      sprint: sprintSummary,
+      snapshots: burndownSnapshots,
       idealBurnRate,
       initialScope,
+      totalDays,
     };
+
+    // CACHE: Store with TTL and tag for invalidation
+    await this.cacheService.set(cacheKey, result, {
+      ttl: CACHE_TTL_SECONDS,
+      tags: [`sprint:${sprintId}`],
+    });
+
+    return result;
   }
 
   /**
    * OPTIMIZED: VELOCITY DATA (Last 5 sprints)
    * Uses single query with DISTINCT ON instead of N+1 loop
+   * CACHED: 5-minute TTL (invalidated when sprint is completed)
    */
-  async getVelocity(projectId: string, _userId: string): Promise<any> {
-    // Check permission - validate project exists
-    const project = await this.projectRepo.findOne({
+  async getVelocity(projectId: string, _userId: string): Promise<VelocityResponseDto> {
+    // CACHE: Check cache first
+    const cacheKey = `project:${projectId}:velocity`;
+    const cached = await this.cacheService.get<VelocityResponseDto>(cacheKey);
+    if (cached) return cached;
+
+    // TENANT ISOLATION: Use tenant-aware repo to prevent cross-tenant access
+    const project = await this.tenantProjectRepo.findOne({
       where: { id: projectId },
     });
     if (!project) throw new NotFoundException('Project not found');
@@ -590,14 +675,18 @@ export class SprintsService implements OnModuleInit {
       take: 5,
     });
 
+    // NO HISTORY: Return empty state with neutral trend (don't cache empty)
     if (sprints.length === 0) {
-      return [];
+      return {
+        history: [],
+        average: 0,
+        trend: 'stable',
+      };
     }
 
     const sprintIds = sprints.map((s) => s.id);
 
     // OPTIMIZED: Fetch all latest snapshots in single query using subquery
-    // This replaces N queries with 1 query
     const latestSnapshots = await this.snapshotRepo
       .createQueryBuilder('snapshot')
       .where((qb) => {
@@ -616,7 +705,7 @@ export class SprintsService implements OnModuleInit {
     const snapshotMap = new Map(latestSnapshots.map((s) => [s.sprintId, s]));
 
     // Build result with sprint metadata + snapshot data (oldest first)
-    const velocityData = sprints.reverse().map((sprint) => {
+    const history: VelocityPointDto[] = sprints.reverse().map((sprint) => {
       const snapshot = snapshotMap.get(sprint.id);
       return {
         sprintId: sprint.id,
@@ -626,31 +715,67 @@ export class SprintsService implements OnModuleInit {
       };
     });
 
-    return velocityData;
+    // Calculate average velocity (rounded to 2 decimals)
+    const totalCompleted = history.reduce((sum, h) => sum + h.completedPoints, 0);
+    const average = parseFloat((totalCompleted / history.length).toFixed(2));
+
+    // Calculate trend based on first half vs second half
+    const trend = this.calculateVelocityTrend(history);
+
+    const result: VelocityResponseDto = {
+      history,
+      average,
+      trend,
+    };
+
+    // CACHE: Store with TTL and tag for invalidation
+    await this.cacheService.set(cacheKey, result, {
+      ttl: CACHE_TTL_SECONDS,
+      tags: [`project:${projectId}`],
+    });
+
+    return result;
   }
 
   /**
-   * BURNUP DATA
-   * Shows both completed work and total scope over time
+   * Helper: Calculate velocity trend from history
+   */
+  private calculateVelocityTrend(
+    history: VelocityPointDto[],
+  ): 'stable' | 'increasing' | 'decreasing' {
+    if (history.length < 2) return 'stable';
+
+    const mid = Math.floor(history.length / 2);
+    const firstHalf = history.slice(0, mid);
+    const secondHalf = history.slice(mid);
+
+    const firstAvg = firstHalf.reduce((s, h) => s + h.completedPoints, 0) / firstHalf.length;
+    const secondAvg = secondHalf.reduce((s, h) => s + h.completedPoints, 0) / secondHalf.length;
+
+    const threshold = 0.1; // 10% difference threshold
+    const percentChange = (secondAvg - firstAvg) / (firstAvg || 1);
+
+    if (percentChange > threshold) return 'increasing';
+    if (percentChange < -threshold) return 'decreasing';
+    return 'stable';
+  }
+
+  /**
+   * BURNUP DATA - Shows completed work vs total scope over time
    * Useful for visualizing scope creep
+   * CACHED: 5-minute TTL (invalidated when snapshot is created)
    */
   async getBurnup(
     projectId: string,
     sprintId: string,
     userId: string,
-  ): Promise<{
-    sprint: Sprint;
-    snapshots: Array<{
-      date: string;
-      completedPoints: number;
-      totalScope: number;
-      remainingPoints: number;
-    }>;
-    initialScope: number;
-    currentScope: number;
-    scopeCreep: number;
-    scopeCreepPercentage: number;
-  }> {
+  ): Promise<BurnupResponseDto> {
+    // CACHE: Check cache first
+    const cacheKey = `sprint:${sprintId}:burnup`;
+    const cached = await this.cacheService.get<BurnupResponseDto>(cacheKey);
+    if (cached) return cached;
+
+    // CACHE MISS: Compute data
     const sprint = await this.findOne(projectId, sprintId, userId);
 
     const snapshots = await this.snapshotRepo.find({
@@ -668,21 +793,38 @@ export class SprintsService implements OnModuleInit {
         ? parseFloat(((scopeCreep / initialScope) * 100).toFixed(2))
         : 0;
 
-    // Transform snapshots for burnup chart
-    const burnupSnapshots = snapshots.map((s) => ({
+    // Transform sprint to summary DTO
+    const sprintSummary: SprintSummaryDto = {
+      id: sprint.id,
+      name: sprint.name,
+      startDate: sprint.startDate,
+      endDate: sprint.endDate,
+      status: sprint.status,
+    };
+
+    // Transform snapshots to typed DTOs
+    const burnupSnapshots: BurnupSnapshotDto[] = snapshots.map((s) => ({
       date: s.date,
       completedPoints: s.completedPoints,
       totalScope: s.totalPoints,
       remainingPoints: s.remainingPoints,
     }));
 
-    return {
-      sprint,
+    const result: BurnupResponseDto = {
+      sprint: sprintSummary,
       snapshots: burnupSnapshots,
       initialScope,
       currentScope,
       scopeCreep,
       scopeCreepPercentage,
     };
+
+    // CACHE: Store with TTL and tag for invalidation
+    await this.cacheService.set(cacheKey, result, {
+      ttl: CACHE_TTL_SECONDS,
+      tags: [`sprint:${sprintId}`],
+    });
+
+    return result;
   }
 }

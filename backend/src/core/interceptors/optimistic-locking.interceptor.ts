@@ -54,7 +54,7 @@ export class OptimisticLockingInterceptor implements NestInterceptor {
           );
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
         return throwError(() => error);
       }),
     );

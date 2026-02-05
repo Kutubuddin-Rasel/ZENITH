@@ -19,7 +19,7 @@ export class WorkflowEngineService {
     private workflowRepo: Repository<Workflow>,
     @InjectRepository(WorkflowExecution)
     private executionRepo: Repository<WorkflowExecution>,
-  ) {}
+  ) { }
 
   async executeWorkflow(
     workflowId: string,
@@ -347,7 +347,7 @@ export class WorkflowEngineService {
   ): boolean {
     try {
       // Simple condition evaluation - in production, use a proper expression evaluator
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call
+
       return new Function('context', `return ${condition}`)(context) as boolean;
     } catch (error) {
       this.logger.log(`Evaluating condition for node`);

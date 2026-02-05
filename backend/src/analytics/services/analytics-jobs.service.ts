@@ -24,7 +24,7 @@ export class AnalyticsJobsService {
     private readonly notificationsService: NotificationsService,
     private readonly sprintsService: SprintsService,
     private readonly sprintRiskService: SprintRiskService,
-  ) {}
+  ) { }
 
   /**
    * STALL RATE DETECTION
@@ -109,7 +109,7 @@ export class AnalyticsJobsService {
     this.logger.log('Running daily risk calculation...');
 
     try {
-      const activeSprints = await this.sprintsService.findAllActiveSystemWide();
+      const activeSprints = await this.sprintsService.findAllActiveSystemWide_UNSAFE();
 
       if (activeSprints.length === 0) {
         this.logger.log('No active sprints found');

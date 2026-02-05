@@ -85,7 +85,7 @@ export class ProjectWizardService {
     @Optional() private templateScorer?: TemplateScorerService,
     // NEW: Unified template application service
     @Optional() private templateApplicationService?: TemplateApplicationService,
-  ) {}
+  ) { }
 
   /**
    * Get wizard questions based on user's experience and preferences
@@ -543,7 +543,7 @@ export class ProjectWizardService {
       await manager.update(Project, projectId, {
         // Changed ProjectTemplate to Project
         templateId: template.id,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
         templateConfig: config as any,
       });
 
@@ -570,7 +570,7 @@ export class ProjectWizardService {
               `Creating board "${boardConfig.name}" with columns: ${columns.map((c) => c.name).join(', ')}`,
             );
 
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
             await this.boardsService.create(projectId, userId, {
               name: boardConfig.name,
               type: boardConfig.type as 'kanban' | 'scrum',

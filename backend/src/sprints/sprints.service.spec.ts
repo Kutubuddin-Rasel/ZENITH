@@ -1091,11 +1091,11 @@ describe('SprintsService', () => {
   // ===========================================
   // FIND ALL ACTIVE SYSTEM WIDE TESTS
   // ===========================================
-  describe('findAllActiveSystemWide', () => {
+  describe('findAllActiveSystemWide_UNSAFE', () => {
     it('should return all active sprints across all projects', async () => {
       sprintRepo.find.mockResolvedValue([mockActiveSprint as Sprint]);
 
-      const result = await service.findAllActiveSystemWide();
+      const result = await service.findAllActiveSystemWide_UNSAFE();
 
       expect(result).toHaveLength(1);
       expect(sprintRepo.find).toHaveBeenCalledWith({

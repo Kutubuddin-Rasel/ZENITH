@@ -32,7 +32,7 @@ export class DashboardService {
     private readonly notificationsService: NotificationsService,
     private readonly projectsService: ProjectsService,
     private readonly usersService: UsersService,
-  ) {}
+  ) { }
 
   /**
    * Get dashboard data with micro-caching (5-second TTL)
@@ -85,7 +85,9 @@ export class DashboardService {
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
 
-    const activeSprints = await this.sprintsService.findAllActiveSystemWide();
+    // TODO: Performance concern - fetches ALL sprints, filters client-side
+    // Consider adding findActiveSprintsForProjects() method for efficiency
+    const activeSprints = await this.sprintsService.findAllActiveSystemWide_UNSAFE();
     const myActiveSprints = activeSprints.filter((s) =>
       projects.some((p) => p.id === s.projectId),
     );

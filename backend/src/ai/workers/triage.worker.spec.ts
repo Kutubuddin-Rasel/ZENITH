@@ -85,7 +85,7 @@ describe('TriageWorker', () => {
       `${issue.title}\n${issue.description}`,
     );
     expect(issueRepo.save).toHaveBeenCalled();
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
     const savedIssue = issueRepo.save.mock.calls[0][0] as Issue;
     expect(savedIssue.embedding).toEqual([0.1, 0.2]);
     expect(savedIssue.priority).toBe('High');

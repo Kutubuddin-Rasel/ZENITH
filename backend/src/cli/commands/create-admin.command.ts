@@ -45,9 +45,9 @@ export class CreateAdminCommand extends CommandRunner {
       });
 
       // Create admin user directly via repository (bypassing service validation)
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+
       const userRepository = (this.usersService as any)['userRepository'];
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
+
       const admin = userRepository.create({
         email: email.toLowerCase(),
         passwordHash,
@@ -58,7 +58,7 @@ export class CreateAdminCommand extends CommandRunner {
         passwordVersion: 3, // Argon2id
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
+
       await userRepository.save(admin);
 
       console.log('\n========================================');

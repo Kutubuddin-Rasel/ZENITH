@@ -35,7 +35,7 @@ export class ProjectRoleGuard implements CanActivate {
     private reflector: Reflector,
     private projectMembersService: ProjectMembersService,
     private cacheService: CacheService,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Get required roles from decorator
@@ -52,9 +52,9 @@ export class ProjectRoleGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
 
     // Extract user and project from request
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+
     const userId = (request.user as any)?.userId;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
     const projectId =
       request.params?.id ||
       request.params?.projectId ||

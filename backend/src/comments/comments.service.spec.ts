@@ -5,6 +5,7 @@ import { Comment } from './entities/comment.entity';
 import { IssuesService } from '../issues/issues.service';
 import { ProjectMembersService } from '../membership/project-members/project-members.service';
 import { WatchersService } from '../watchers/watchers.service';
+import { AuditLogsService } from '../audit/audit-logs.service';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 
@@ -45,6 +46,10 @@ describe('CommentsService', () => {
       notifyWatchersOnEvent: jest.fn(),
     };
 
+    const mockAuditLogsService = {
+      log: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CommentsService,
@@ -55,6 +60,7 @@ describe('CommentsService', () => {
         { provide: IssuesService, useValue: mockIssuesService },
         { provide: ProjectMembersService, useValue: mockMembersService },
         { provide: WatchersService, useValue: mockWatchersService },
+        { provide: AuditLogsService, useValue: mockAuditLogsService },
       ],
     }).compile();
 
@@ -110,21 +116,26 @@ describe('CommentsService', () => {
   });
 
   describe('findAll', () => {
-    it('should return comments for an issue', async () => {
+    it('should return paginated comments for an issue', async () => {
       issuesService.findOne.mockResolvedValue({ id: 'issue-123' });
-      commentRepo.find.mockResolvedValue([mockComment]);
+      commentRepo.findAndCount = jest.fn().mockResolvedValue([[mockComment], 1]);
 
       const result = await service.findAll(
         'project-123',
         'issue-123',
         'user-123',
+        { page: 1, limit: 20 },
       );
 
-      expect(result).toEqual([mockComment]);
-      expect(commentRepo.find).toHaveBeenCalledWith({
+      expect(result.data).toEqual([mockComment]);
+      expect(result.meta.total).toBe(1);
+      expect(result.meta.page).toBe(1);
+      expect(commentRepo.findAndCount).toHaveBeenCalledWith({
         where: { issueId: 'issue-123' },
         relations: ['author'],
         order: { createdAt: 'ASC' },
+        skip: 0,
+        take: 20,
       });
     });
   });

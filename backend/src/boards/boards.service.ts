@@ -45,6 +45,25 @@ export class BoardsService {
     private cacheService: CacheService,
   ) { }
 
+  /**
+   * Invalidate board cache after mutations.
+   * 
+   * ROBUSTNESS: Fire-and-forget with try-catch.
+   * If Redis is down, user's DB operation should NOT fail.
+   * 
+   * TIMING: Called AFTER DB commit to avoid race conditions.
+   */
+  private async invalidateBoardCache(boardId: string, projectId: string): Promise<void> {
+    try {
+      await this.cacheService.invalidateByTags([`board:${boardId}`]);
+      this.logger.debug(`Cache invalidated for board:${boardId}`);
+    } catch (error: unknown) {
+      // Fire and forget - don't fail user operation if Redis is down
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.warn(`Cache invalidation failed for board:${boardId}: ${message}`);
+    }
+  }
+
   /** Create a new board (and seed default columns) */
   async create(
     projectId: string,
@@ -109,6 +128,9 @@ export class BoardsService {
       boardId: saved.id,
     });
     this.eventEmitter.emit('board.event', boardPayload);
+
+    // Invalidate cache for project-level board lists
+    await this.invalidateBoardCache(saved.id, projectId);
 
     return saved;
   }
@@ -352,6 +374,9 @@ export class BoardsService {
       boardName: updated.name,
     });
 
+    // Invalidate cache after DB commit
+    await this.invalidateBoardCache(boardId, projectId);
+
     return updated;
   }
 
@@ -381,6 +406,9 @@ export class BoardsService {
       actorId: userId,
       boardName: board.name,
     });
+
+    // Invalidate cache after DB commit
+    await this.invalidateBoardCache(boardId, projectId);
   }
 
   /** Add a column */
@@ -412,6 +440,9 @@ export class BoardsService {
       boardName: board.name,
       columnName: saved.name,
     });
+
+    // Invalidate cache after DB commit
+    await this.invalidateBoardCache(boardId, projectId);
 
     return saved;
   }
@@ -449,6 +480,9 @@ export class BoardsService {
       columnName: updated.name,
     });
 
+    // Invalidate cache after DB commit
+    await this.invalidateBoardCache(boardId, projectId);
+
     return updated;
   }
 
@@ -482,6 +516,9 @@ export class BoardsService {
       boardName: board.name,
       columnName: col.name,
     });
+
+    // Invalidate cache after DB commit
+    await this.invalidateBoardCache(boardId, projectId);
   }
 
   /**
@@ -547,6 +584,9 @@ export class BoardsService {
       boardId,
       orderedColumnIds,
     });
+
+    // Invalidate cache after DB commit
+    await this.invalidateBoardCache(boardId, projectId);
   }
 
   /**
@@ -606,6 +646,9 @@ export class BoardsService {
       toColumn: workflowStatus.name, // Legacy compat
       newOrder,
     });
+
+    // Invalidate cache after DB commit
+    await this.invalidateBoardCache(boardId, projectId);
   }
 
   /**
@@ -670,5 +713,8 @@ export class BoardsService {
       columnId,
       issues: orderedIssueIds,
     });
+
+    // Invalidate cache after DB commit
+    await this.invalidateBoardCache(boardId, projectId);
   }
 }

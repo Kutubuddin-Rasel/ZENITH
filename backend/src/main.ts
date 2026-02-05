@@ -88,7 +88,7 @@ async function bootstrap() {
   // at the edge, which is more efficient than application-level compression.
   // Type assertion: compression() returns Express RequestHandler
   // Note: @types/compression should be installed for proper typing
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- compression package lacks types, install @types/compression
+
   app.use(compression());
 
   // Cookie Parser

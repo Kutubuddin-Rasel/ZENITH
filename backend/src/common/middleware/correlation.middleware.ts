@@ -25,7 +25,7 @@ export class CorrelationMiddleware implements NestMiddleware {
   // - Prevents: Log Injection, DoS via huge strings
   private readonly VALID_REQUEST_ID_REGEX = /^[a-zA-Z0-9-]{1,64}$/;
 
-  constructor(private readonly cls: ClsService) {}
+  constructor(private readonly cls: ClsService) { }
 
   use(req: Request, res: Response, next: NextFunction) {
     // Extract incoming request ID (handle string[] edge case)
@@ -92,9 +92,9 @@ export class CorrelationMiddleware implements NestMiddleware {
     // =======================================================================
     this.logger.warn(
       `Invalid X-Request-ID format received. ` +
-        `Length: ${incomingId.length}, ` +
-        `Contains special chars: ${this.hasSpecialChars(incomingId)}. ` +
-        `Generated replacement UUID.`,
+      `Length: ${incomingId.length}, ` +
+      `Contains special chars: ${this.hasSpecialChars(incomingId)}. ` +
+      `Generated replacement UUID.`,
     );
 
     return randomUUID();
@@ -106,7 +106,7 @@ export class CorrelationMiddleware implements NestMiddleware {
   private hasSpecialChars(value: string): boolean {
     // Check for newlines, control chars, or non-alphanumeric (except hyphen)
     // Using Unicode escape for control character range to satisfy ESLint
-    // eslint-disable-next-line no-control-regex -- intentionally detecting control chars for security
+
     return /[\n\r\x00-\x1f<>{}|\\^`]/.test(value);
   }
 }

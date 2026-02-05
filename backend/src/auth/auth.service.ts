@@ -45,7 +45,7 @@ export class AuthService {
     private cacheService: CacheService,
     private passwordBreachService: PasswordBreachService,
     private tokenBlacklistService: TokenBlacklistService,
-  ) {}
+  ) { }
 
   // Validate credentials for LocalStrategy
   async validateUser(
@@ -134,7 +134,7 @@ export class AuthService {
     await this.clearLockout(user.id);
 
     // strip passwordHash before returning
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     const { passwordHash, hashedRefreshToken, ...result } = user;
     return result as SafeUser;
   }
@@ -262,7 +262,7 @@ export class AuthService {
 
     await this.invitesService.respondToInvite(invite.id, user.id, true);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     const { passwordHash, hashedRefreshToken, ...safeUser } = user;
     return this.login(safeUser as SafeUser);
   }
@@ -276,7 +276,7 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     const { passwordHash, hashedRefreshToken, ...safeUser } = user;
     return safeUser as SafeUser;
   }

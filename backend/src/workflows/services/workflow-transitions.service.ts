@@ -30,7 +30,7 @@ export class WorkflowTransitionsService {
     @InjectRepository(WorkflowTransition)
     private readonly repo: Repository<WorkflowTransition>,
     private readonly statusesService: WorkflowStatusesService,
-  ) {}
+  ) { }
 
   /**
    * Check if a status transition is allowed for a given issue and user role.
@@ -128,7 +128,7 @@ export class WorkflowTransitionsService {
       if (transition.conditions.requiredFields?.length) {
         const fields = transition.conditions.requiredFields;
         for (const field of fields) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
           const value = issue[field as keyof Issue];
           if (value === undefined || value === null || value === '') {
             return {

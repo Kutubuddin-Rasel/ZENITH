@@ -26,7 +26,7 @@ export interface SprintRiskResult {
 export class SprintRiskService {
   private readonly logger = new Logger(SprintRiskService.name);
 
-  constructor(private readonly sprintsService: SprintsService) {}
+  constructor(private readonly sprintsService: SprintsService) { }
 
   // Unused method kept for interface compatibility if needed, but erroring out
   async calculateSprintRisk(
@@ -43,9 +43,7 @@ export class SprintRiskService {
           sprintId,
           userId,
         ) as Promise<{ initialScope: number; snapshots: Snapshot[] }>,
-        this.sprintsService.getVelocity(projectId, userId) as Promise<
-          VelocityPoint[]
-        >,
+        this.sprintsService.getVelocity(projectId, userId),
       ]);
 
       // 2. Scope Creep Risk
@@ -63,12 +61,13 @@ export class SprintRiskService {
         description: scopeCreep > 10 ? 'High scope expansion' : 'Stable scope',
       };
 
-      // 3. Velocity Risk
+      // 3. Velocity Risk - use velocityData.history from new DTO structure
+      const velocityHistory = velocityData.history;
       const avgVelocity =
-        velocityData.reduce(
+        velocityHistory.reduce(
           (acc: number, v: VelocityPoint) => acc + Number(v.completedPoints),
           0,
-        ) / (velocityData.length || 1);
+        ) / (velocityHistory.length || 1);
       const velocityRiskScore =
         avgVelocity > 0 ? currentPoints / avgVelocity : 1.0;
 
@@ -106,8 +105,8 @@ export class SprintRiskService {
 
       const finalScore = Math.round(
         scopeRiskRef.score * 0.3 +
-          velocityRiskRef.score * 0.3 +
-          timeRiskRef.score * 0.4,
+        velocityRiskRef.score * 0.3 +
+        timeRiskRef.score * 0.4,
       );
 
       return {

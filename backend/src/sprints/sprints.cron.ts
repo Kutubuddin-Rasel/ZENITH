@@ -6,7 +6,7 @@ import { SprintsService } from './sprints.service';
 export class SprintsCron {
   private readonly logger = new Logger(SprintsCron.name);
 
-  constructor(private sprintsService: SprintsService) {}
+  constructor(private sprintsService: SprintsService) { }
 
   // Run every day at midnight
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
@@ -25,7 +25,7 @@ export class SprintsCron {
     // Let's assume we add a system-level method to SprintsService.
 
     // For this step, I will implement a loop in SprintsService to get all active sprints.
-    const activeSprints = await this.sprintsService.findAllActiveSystemWide();
+    const activeSprints = await this.sprintsService.findAllActiveSystemWide_UNSAFE();
 
     for (const sprint of activeSprints) {
       try {

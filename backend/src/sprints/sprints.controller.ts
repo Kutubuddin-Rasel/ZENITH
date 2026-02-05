@@ -24,14 +24,21 @@ import { RequireProjectRole } from '../auth/decorators/require-project-role.deco
 import { Query } from '@nestjs/common';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 import { ProjectRoleGuard } from '../auth/guards/project-role.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
 
+/**
+ * SprintsController - Manages sprint lifecycle.
+ * 
+ * CSRF Protection: Mutations require x-csrf-token header.
+ * GET endpoints (burndown, velocity, etc.) are exempt.
+ */
 @Controller('projects/:projectId/sprints')
-@UseGuards(JwtAuthGuard, PermissionsGuard, ProjectRoleGuard)
+@UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard, ProjectRoleGuard)
 export class SprintsController {
   constructor(
     private readonly sprintsService: SprintsService,
     private readonly usersService: UsersService,
-  ) {}
+  ) { }
 
   /**
    * Helper: Get user's organization ID
@@ -45,6 +52,7 @@ export class SprintsController {
 
   @RequirePermission('sprints:create')
   @RequireProjectRole(ProjectRole.PROJECT_LEAD)
+  @RequireCsrf()
   @Post()
   async create(
     @Param('projectId') projectId: string,
@@ -80,6 +88,7 @@ export class SprintsController {
 
   @RequirePermission('sprints:update')
   @RequireProjectRole(ProjectRole.PROJECT_LEAD)
+  @RequireCsrf()
   @Patch(':sprintId')
   async update(
     @Param('projectId') projectId: string,
@@ -97,6 +106,7 @@ export class SprintsController {
 
   @RequirePermission('sprints:update')
   @RequireProjectRole(ProjectRole.PROJECT_LEAD)
+  @RequireCsrf()
   @Patch(':sprintId/archive')
   async archive(
     @Param('projectId') projectId: string,
@@ -114,6 +124,7 @@ export class SprintsController {
 
   @RequirePermission('sprints:delete')
   @RequireProjectRole(ProjectRole.PROJECT_LEAD)
+  @RequireCsrf()
   @Delete(':sprintId')
   async remove(
     @Param('projectId') projectId: string,
@@ -126,6 +137,7 @@ export class SprintsController {
 
   @RequirePermission('sprints:update')
   @RequireProjectRole(ProjectRole.MEMBER, ProjectRole.PROJECT_LEAD)
+  @RequireCsrf()
   @Post(':sprintId/issues')
   async addIssue(
     @Param('projectId') projectId: string,
@@ -143,6 +155,7 @@ export class SprintsController {
 
   @RequirePermission('sprints:update')
   @RequireProjectRole(ProjectRole.MEMBER, ProjectRole.PROJECT_LEAD)
+  @RequireCsrf()
   @Delete(':sprintId/issues')
   async removeIssue(
     @Param('projectId') projectId: string,
@@ -175,6 +188,7 @@ export class SprintsController {
 
   @RequirePermission('sprints:update')
   @RequireProjectRole(ProjectRole.PROJECT_LEAD)
+  @RequireCsrf()
   @Patch(':sprintId/start')
   async startSprint(
     @Param('projectId') projectId: string,
@@ -195,7 +209,7 @@ export class SprintsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
     return this.sprintsService.getBurndown(
       projectId,
       sprintId,
@@ -209,7 +223,7 @@ export class SprintsController {
     @Param('projectId') projectId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
     return this.sprintsService.getVelocity(projectId, req.user.userId);
   }
 

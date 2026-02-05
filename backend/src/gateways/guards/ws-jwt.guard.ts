@@ -15,7 +15,7 @@ export class WsJwtGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   canActivate(context: ExecutionContext): boolean {
     if (context.getType() !== 'ws') {
@@ -32,11 +32,11 @@ export class WsJwtGuard implements CanActivate {
 
     try {
       const secret = this.configService.get<string>('JWT_SECRET');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       const payload = this.jwtService.verify(token, { secret });
 
       // Attach user to client object
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+
       client.data.user = payload;
       return true;
     } catch (err: unknown) {
@@ -50,7 +50,7 @@ export class WsJwtGuard implements CanActivate {
     // 1. Check handshake auth object (standard socket.io)
 
     if (client.handshake.auth?.token) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
       return client.handshake.auth.token;
     }
 

@@ -254,13 +254,17 @@ export interface SanitizeHtmlOptions {
  * Default sanitization policy for rich text fields.
  * Allows Markdown-compatible formatting while blocking XSS vectors.
  *
- * ALLOWED: b, i, em, strong, a, p, br, ul, ol, li, code, pre
- * BLOCKED: script, iframe, object, style, on* events
+ * ALLOWED: b, i, em, strong, a, p, br, ul, ol, li, code, pre, blockquote
+ * BLOCKED: script, iframe, object, style, on* events, javascript: URLs
  */
 const DEFAULT_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
-  allowedTags: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'code', 'pre'],
+  allowedTags: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'code', 'pre', 'blockquote'],
   allowedAttributes: {
-    a: ['href'],
+    a: ['href', 'target'],
+  },
+  // SECURITY: Restrict URL schemes to prevent javascript: XSS
+  allowedSchemesByTag: {
+    a: ['http', 'https', 'mailto'],
   },
   // Explicitly disallow common XSS vectors
   disallowedTagsMode: 'discard',

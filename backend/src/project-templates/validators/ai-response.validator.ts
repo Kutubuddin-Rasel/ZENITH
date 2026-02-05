@@ -144,7 +144,7 @@ export class AIResponseValidator {
 
     return (
       value
-        // eslint-disable-next-line no-control-regex
+
         .replace(/[\u0000-\u001F\u007F]/g, '')
         .trim()
         .slice(0, 1000)

@@ -636,7 +636,7 @@ export class WorkflowDesignerService {
   ): boolean {
     try {
       // Simple condition evaluation for simulation
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call
+
       return new Function('context', `return ${condition}`)(context) as boolean;
     } catch (error) {
       this.logger.warn(`Failed to evaluate condition: ${condition}`, error);
