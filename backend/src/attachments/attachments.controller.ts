@@ -16,33 +16,43 @@ import { diskStorage } from 'multer';
 import { Express } from 'express';
 import { Response } from 'express';
 import { AttachmentsService } from './attachments.service';
+import { VirusScanningService } from './services/virus-scanning.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
+import { attachmentFileFilter } from './config/file-filter.config';
+import { safeFilenameCallback } from './config/filename-sanitizer.config';
+import { validateFileMagicNumber } from './config/magic-number-validator.config';
 import * as fs from 'fs';
 import * as path from 'path';
 
+/**
+ * AttachmentsController - Multi-target file uploads
+ * 
+ * CSRF Protection: Uploads and deletes require x-csrf-token header.
+ * MIME Filtering: Only allowed file types accepted.
+ */
 @Controller()
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class AttachmentsController {
-  constructor(private svc: AttachmentsService) {}
+  constructor(
+    private svc: AttachmentsService,
+    private virusScanner: VirusScanningService,
+  ) { }
 
   // Project-level attachments (general project files)
+  @RequireCsrf()
   @RequirePermission('attachments:create')
   @Post('projects/:projectId/attachments')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
         destination: './uploads',
-        filename: (req, file, cb) => {
-          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${unique}-${file.originalname}`);
-        },
+        filename: safeFilenameCallback,
       }),
-      fileFilter: (req, file, cb) => {
-        cb(null, true);
-      },
+      fileFilter: attachmentFileFilter,
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
@@ -51,12 +61,19 @@ export class AttachmentsController {
     @UploadedFile() file: Express.Multer.File,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const { filename, path } = file;
+    const { filename, path: filepath } = file;
+
+    // SECURITY: Validate magic number matches claimed MIME type
+    await validateFileMagicNumber(filepath, file.mimetype);
+
+    // SECURITY: Scan file for viruses/malware
+    await this.virusScanner.scanFile(filepath, req.user.userId);
+
     return this.svc.createForProject(
       projectId,
       req.user.userId,
       filename,
-      path,
+      filepath,
       file.originalname,
       file.size,
       file.mimetype,
@@ -81,6 +98,7 @@ export class AttachmentsController {
     return this.svc.getHistory(projectId, req.user.userId);
   }
 
+  @RequireCsrf()
   @RequirePermission('attachments:delete')
   @Delete('projects/:projectId/attachments/:attachmentId')
   async removeProject(
@@ -92,20 +110,16 @@ export class AttachmentsController {
     return { message: 'Attachment deleted' };
   }
 
+  @RequireCsrf()
   @RequirePermission('attachments:create')
   @Post('projects/:projectId/issues/:issueId/attachments')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
         destination: './uploads',
-        filename: (req, file, cb) => {
-          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${unique}-${file.originalname}`);
-        },
+        filename: safeFilenameCallback,
       }),
-      fileFilter: (req, file, cb) => {
-        cb(null, true);
-      },
+      fileFilter: attachmentFileFilter,
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
@@ -115,13 +129,20 @@ export class AttachmentsController {
     @UploadedFile() file: Express.Multer.File,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const { filename, path } = file;
+    const { filename, path: filepath } = file;
+
+    // SECURITY: Validate magic number matches claimed MIME type
+    await validateFileMagicNumber(filepath, file.mimetype);
+
+    // SECURITY: Scan file for viruses/malware
+    await this.virusScanner.scanFile(filepath, req.user.userId);
+
     return this.svc.createForIssue(
       projectId,
       issueId,
       req.user.userId,
       filename,
-      path,
+      filepath,
     );
   }
 
@@ -135,6 +156,7 @@ export class AttachmentsController {
     return this.svc.findAllForIssue(projectId, issueId, req.user.userId);
   }
 
+  @RequireCsrf()
   @RequirePermission('attachments:delete')
   @Delete('projects/:projectId/issues/:issueId/attachments/:attachmentId')
   async removeIssue(
@@ -152,20 +174,16 @@ export class AttachmentsController {
     return { message: 'Attachment deleted' };
   }
 
+  @RequireCsrf()
   @RequirePermission('attachments:create')
   @Post('projects/:projectId/releases/:releaseId/attachments')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
         destination: './uploads',
-        filename: (req, file, cb) => {
-          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${unique}-${file.originalname}`);
-        },
+        filename: safeFilenameCallback,
       }),
-      fileFilter: (req, file, cb) => {
-        cb(null, true);
-      },
+      fileFilter: attachmentFileFilter,
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
@@ -175,13 +193,20 @@ export class AttachmentsController {
     @UploadedFile() file: Express.Multer.File,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const { filename, path } = file;
+    const { filename, path: filepath } = file;
+
+    // SECURITY: Validate magic number matches claimed MIME type
+    await validateFileMagicNumber(filepath, file.mimetype);
+
+    // SECURITY: Scan file for viruses/malware
+    await this.virusScanner.scanFile(filepath, req.user.userId);
+
     return this.svc.createForRelease(
       projectId,
       releaseId,
       req.user.userId,
       filename,
-      path,
+      filepath,
     );
   }
 
@@ -195,6 +220,7 @@ export class AttachmentsController {
     return this.svc.findAllForRelease(projectId, releaseId, req.user.userId);
   }
 
+  @RequireCsrf()
   @RequirePermission('attachments:delete')
   @Delete('projects/:projectId/releases/:releaseId/attachments/:attachmentId')
   async removeRelease(
@@ -213,21 +239,16 @@ export class AttachmentsController {
   }
 
   // Sprint attachments
-
+  @RequireCsrf()
   @RequirePermission('attachments:create')
   @Post('projects/:projectId/sprints/:sprintId/attachments')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
         destination: './uploads',
-        filename: (req, file, cb) => {
-          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${unique}-${file.originalname}`);
-        },
+        filename: safeFilenameCallback,
       }),
-      fileFilter: (req, file, cb) => {
-        cb(null, true);
-      },
+      fileFilter: attachmentFileFilter,
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
@@ -237,13 +258,20 @@ export class AttachmentsController {
     @UploadedFile() file: Express.Multer.File,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const { filename, path } = file;
+    const { filename, path: filepath } = file;
+
+    // SECURITY: Validate magic number matches claimed MIME type
+    await validateFileMagicNumber(filepath, file.mimetype);
+
+    // SECURITY: Scan file for viruses/malware
+    await this.virusScanner.scanFile(filepath, req.user.userId);
+
     return this.svc.createForSprint(
       projectId,
       sprintId,
       req.user.userId,
       filename,
-      path,
+      filepath,
     );
   }
 
@@ -257,6 +285,7 @@ export class AttachmentsController {
     return this.svc.findAllForSprint(projectId, sprintId, req.user.userId);
   }
 
+  @RequireCsrf()
   @RequirePermission('attachments:delete')
   @Delete('projects/:projectId/sprints/:sprintId/attachments/:attachmentId')
   async removeSprint(
@@ -275,20 +304,16 @@ export class AttachmentsController {
   }
 
   // Comment attachments
+  @RequireCsrf()
   @RequirePermission('attachments:create')
   @Post('projects/:projectId/issues/:issueId/comments/:commentId/attachments')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
         destination: './uploads',
-        filename: (req, file, cb) => {
-          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${unique}-${file.originalname}`);
-        },
+        filename: safeFilenameCallback,
       }),
-      fileFilter: (req, file, cb) => {
-        cb(null, true);
-      },
+      fileFilter: attachmentFileFilter,
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
@@ -299,14 +324,21 @@ export class AttachmentsController {
     @UploadedFile() file: Express.Multer.File,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const { filename, path } = file;
+    const { filename, path: filepath } = file;
+
+    // SECURITY: Validate magic number matches claimed MIME type
+    await validateFileMagicNumber(filepath, file.mimetype);
+
+    // SECURITY: Scan file for viruses/malware
+    await this.virusScanner.scanFile(filepath, req.user.userId);
+
     return this.svc.createForComment(
       projectId,
       issueId,
       commentId,
       req.user.userId,
       filename,
-      path,
+      filepath,
     );
   }
 
@@ -326,6 +358,7 @@ export class AttachmentsController {
     );
   }
 
+  @RequireCsrf()
   @RequirePermission('attachments:delete')
   @Delete(
     'projects/:projectId/issues/:issueId/comments/:commentId/attachments/:attachmentId',
@@ -363,7 +396,10 @@ export class AttachmentsController {
     // Verify user is a member of the project
     await this.svc['membersService'].getUserRole(projectId, req.user.userId);
 
-    const filePath = path.join(process.cwd(), 'uploads', attachment.filename);
+    // SECURITY: Use jail-checked path resolution (Path Traversal Defense)
+    const { resolveSafeFilePath } = await import('./config/path-security.config');
+    const filePath = resolveSafeFilePath(attachment.filename);
+
     if (!fs.existsSync(filePath)) {
       return res.status(404).send('File not found');
     }

@@ -14,8 +14,6 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { ReleasesService } from './releases.service';
 import { CreateReleaseDto } from './dto/create-release.dto';
 import { UpdateReleaseDto } from './dto/update-release.dto';
@@ -25,12 +23,25 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
+import {
+  releaseFileFilter,
+  releaseFilenameCallback,
+  RELEASE_MAX_FILE_SIZE,
+} from './config/release-file-filter.config';
 
+/**
+ * ReleasesController - Manages SDLC release lifecycle
+ * 
+ * CSRF Protection: All mutations require x-csrf-token header.
+ * Critical endpoints (triggerDeploy, createRollback) have highest security impact.
+ */
 @Controller('projects/:projectId/releases')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class ReleasesController {
-  constructor(private svc: ReleasesService) {}
+  constructor(private svc: ReleasesService) { }
 
+  @RequireCsrf()
   @RequirePermission('releases:create')
   @Post()
   async create(
@@ -60,6 +71,7 @@ export class ReleasesController {
     return this.svc.findOne(projectId, releaseId, req.user.userId);
   }
 
+  @RequireCsrf()
   @RequirePermission('releases:update')
   @Patch(':releaseId')
   async update(
@@ -71,6 +83,7 @@ export class ReleasesController {
     return this.svc.update(projectId, releaseId, req.user.userId, dto);
   }
 
+  @RequireCsrf()
   @RequirePermission('releases:delete')
   @Delete(':releaseId')
   async remove(
@@ -84,6 +97,7 @@ export class ReleasesController {
 
   // ==================== Archive ====================
 
+  @RequireCsrf()
   @RequirePermission('releases:update')
   @Post(':releaseId/archive')
   async archive(
@@ -106,6 +120,7 @@ export class ReleasesController {
     return this.svc.getIssues(projectId, releaseId, req.user.userId);
   }
 
+  @RequireCsrf()
   @RequirePermission('releases:update')
   @Post(':releaseId/issues')
   async assignIssue(
@@ -117,6 +132,7 @@ export class ReleasesController {
     return this.svc.assignIssue(projectId, releaseId, req.user.userId, dto);
   }
 
+  @RequireCsrf()
   @RequirePermission('releases:update')
   @Post(':releaseId/issues/unassign')
   async unassignIssuePost(
@@ -129,6 +145,7 @@ export class ReleasesController {
     return { message: 'Issue unassigned from release' };
   }
 
+  @RequireCsrf()
   @RequirePermission('releases:update')
   @Delete(':releaseId/issues')
   async unassignIssue(
@@ -153,17 +170,17 @@ export class ReleasesController {
     return this.svc.getAttachments(projectId, releaseId, req.user.userId);
   }
 
+  @RequireCsrf()
   @RequirePermission('releases:update')
   @Post(':releaseId/attachments')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
         destination: './uploads/releases',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = uuidv4();
-          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
-        },
+        filename: releaseFilenameCallback,
       }),
+      fileFilter: releaseFileFilter,
+      limits: { fileSize: RELEASE_MAX_FILE_SIZE },
     }),
   )
   async uploadAttachment(
@@ -180,6 +197,7 @@ export class ReleasesController {
     });
   }
 
+  @RequireCsrf()
   @RequirePermission('releases:update')
   @Delete(':releaseId/attachments/:attachmentId')
   async deleteAttachment(
@@ -209,6 +227,7 @@ export class ReleasesController {
     return this.svc.generateReleaseNotes(projectId, releaseId, req.user.userId);
   }
 
+  @RequireCsrf()
   @RequirePermission('releases:update')
   @Post(':releaseId/generate-notes')
   async generateAndSaveNotes(
@@ -257,6 +276,7 @@ export class ReleasesController {
     return this.svc.getGitInfo(projectId, releaseId, req.user.userId);
   }
 
+  @RequireCsrf()
   @RequirePermission('releases:update')
   @Post(':releaseId/git')
   async linkGit(
@@ -277,6 +297,7 @@ export class ReleasesController {
 
   // ==================== Deployments ====================
 
+  @RequireCsrf()
   @RequirePermission('releases:update')
   @Post(':releaseId/deploy')
   async triggerDeploy(
@@ -311,6 +332,7 @@ export class ReleasesController {
     );
   }
 
+  @RequireCsrf()
   @RequirePermission('releases:create')
   @Post(':releaseId/rollback')
   async createRollback(
@@ -327,3 +349,4 @@ export class ReleasesController {
     );
   }
 }
+

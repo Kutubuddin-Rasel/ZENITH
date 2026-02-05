@@ -5,6 +5,7 @@ import { Attachment } from './entities/attachment.entity';
 import { AttachmentHistory } from './entities/attachment-history.entity';
 import { AttachmentsService } from './attachments.service';
 import { AttachmentsController } from './attachments.controller';
+import { VirusScanningService } from './services/virus-scanning.service';
 import { IssuesModule } from '../issues/issues.module';
 // REMOVED: MembershipModule - using ProjectCoreModule (global) for ProjectMembersService
 import { SprintsModule } from '../sprints/sprints.module';
@@ -20,8 +21,9 @@ import { ReleasesModule } from '../releases/releases.module';
     CommentsModule,
     ReleasesModule,
   ],
-  providers: [AttachmentsService],
+  providers: [AttachmentsService, VirusScanningService],
   controllers: [AttachmentsController],
   exports: [AttachmentsService],
 })
-export class AttachmentsModule {}
+export class AttachmentsModule { }
+
