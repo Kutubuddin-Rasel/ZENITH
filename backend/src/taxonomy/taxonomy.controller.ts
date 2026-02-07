@@ -7,6 +7,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -20,14 +21,18 @@ import { UnassignComponentDto } from './dto/unassign-component.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
+import { StatefulCsrfGuard } from '../security/csrf/csrf.guard';
 import { UpdateComponentDto } from './dto/update-component.dto';
 import { CreateComponentDto } from './dto/create-component.dto';
+import { PaginationQueryDto, PaginatedResult } from './dto/pagination-query.dto';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
+import { Label } from './entities/label.entity';
+import { Component } from './entities/component.entity';
 
 @Controller('projects/:projectId')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class TaxonomyController {
-  constructor(private svc: TaxonomyService) {}
+  constructor(private svc: TaxonomyService) { }
 
   // — Labels —
 
@@ -45,9 +50,10 @@ export class TaxonomyController {
   @Get('labels')
   async listLabels(
     @Param('projectId') projectId: string,
+    @Query() query: PaginationQueryDto,
     @Request() req: { user: JwtRequestUser },
-  ) {
-    return this.svc.listLabels(projectId, req.user.userId);
+  ): Promise<PaginatedResult<Label>> {
+    return this.svc.listLabels(projectId, req.user.userId, query.page, query.limit, query.search);
   }
 
   @RequirePermission('labels:update')
@@ -111,9 +117,10 @@ export class TaxonomyController {
   @Get('components')
   async listComponents(
     @Param('projectId') projectId: string,
+    @Query() query: PaginationQueryDto,
     @Request() req: { user: JwtRequestUser },
-  ) {
-    return this.svc.listComponents(projectId, req.user.userId);
+  ): Promise<PaginatedResult<Component>> {
+    return this.svc.listComponents(projectId, req.user.userId, query.page, query.limit, query.search);
   }
 
   @RequirePermission('components:update')

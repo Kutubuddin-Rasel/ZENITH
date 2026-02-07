@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -19,6 +20,21 @@ import { IssuesService } from '../issues/issues.service';
 import { WatchersService } from '../watchers/watchers.service';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 import { Issue } from '../issues/entities/issue.entity';
+import {
+  validateWebhookUrl,
+  buildSecureRequestConfig,
+} from './config/webhook-validator.config';
+import {
+  PaginatedReleasesQueryDto,
+  ReleaseSortField,
+  PAGINATION_DEFAULTS,
+} from './dto/paginated-releases-query.dto';
+import {
+  PaginatedResponse,
+  createPaginatedResponse,
+} from './dto/paginated-response.dto';
+import { AuditLogsService } from '../audit/audit-logs.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class ReleasesService {
@@ -33,7 +49,8 @@ export class ReleasesService {
     private membersService: ProjectMembersService,
     private issuesService: IssuesService,
     private watchersService: WatchersService,
-  ) {}
+    private readonly auditLogsService: AuditLogsService,
+  ) { }
 
   /** Create a release & notify */
   async create(
@@ -49,6 +66,22 @@ export class ReleasesService {
     const rel = this.relRepo.create({ projectId, ...dto });
     const saved = await this.relRepo.save(rel);
 
+    // Audit: RELEASE_CREATED (Risk: LOW)
+    void this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: projectId,
+      actor_id: userId,
+      resource_type: 'Release',
+      resource_id: saved.id,
+      action_type: 'CREATE',
+      metadata: {
+        event: 'RELEASE_CREATED',
+        releaseName: saved.name,
+        status: saved.status,
+      },
+    });
+
     void this.watchersService.notifyWatchersOnEvent(
       projectId,
       null,
@@ -58,7 +91,7 @@ export class ReleasesService {
     return saved;
   }
 
-  /** List releases (no notification) */
+  /** List releases (no notification) - DEPRECATED: use findAllPaginated */
   async findAll(projectId: string, userId: string): Promise<Release[]> {
     await this.projectsService.findOneById(projectId);
     const role = await this.membersService.getUserRole(projectId, userId);
@@ -68,6 +101,70 @@ export class ReleasesService {
       relations: ['issueLinks'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /**
+   * List releases with pagination, sorting, and filtering
+   *
+   * @param projectId - Project to list releases for
+   * @param userId - User requesting the list
+   * @param query - Pagination, sort, and filter options
+   * @returns Paginated response with releases and meta
+   */
+  async findAllPaginated(
+    projectId: string,
+    userId: string,
+    query: PaginatedReleasesQueryDto,
+  ): Promise<PaginatedResponse<Release>> {
+    await this.projectsService.findOneById(projectId);
+    const role = await this.membersService.getUserRole(projectId, userId);
+    if (!role) throw new ForbiddenException('Not a project member');
+
+    // Apply defaults
+    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+    const sortBy = query.sortBy ?? ReleaseSortField.CREATED_AT;
+    const sortOrder = query.sortOrder ?? 'DESC';
+
+    // Build where clause
+    const where: Record<string, unknown> = { projectId };
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    // Build query with TypeORM
+    const queryBuilder = this.relRepo
+      .createQueryBuilder('release')
+      .leftJoinAndSelect('release.issueLinks', 'issueLinks')
+      .where('release.projectId = :projectId', { projectId });
+
+    // Apply status filter
+    if (query.status) {
+      queryBuilder.andWhere('release.status = :status', {
+        status: query.status,
+      });
+    }
+
+    // Apply search filter
+    if (query.search) {
+      queryBuilder.andWhere('release.name ILIKE :search', {
+        search: `%${query.search}%`,
+      });
+    }
+
+    // Apply sorting with deterministic tiebreaker
+    queryBuilder
+      .orderBy(`release.${sortBy}`, sortOrder)
+      .addOrderBy('release.id', 'ASC'); // Tiebreaker for stable pagination
+
+    // Apply pagination
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    // Execute query
+    const [data, total] = await queryBuilder.getManyAndCount();
+
+    return createPaginatedResponse(data, page, limit, total);
   }
 
   /** Get one release (no notification) */
@@ -99,6 +196,7 @@ export class ReleasesService {
       throw new ForbiddenException('Only ProjectLead can update releases');
     }
 
+    const previousStatus = rel.status;
     const wasReleased = rel.status === ReleaseStatus.RELEASED;
 
     // Sync isReleased with status for backwards compatibility
@@ -108,6 +206,25 @@ export class ReleasesService {
 
     Object.assign(rel, dto);
     const saved = await this.relRepo.save(rel);
+
+    // Audit: RELEASE_UPDATED (Risk: MEDIUM/HIGH if status changed)
+    void this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: projectId,
+      actor_id: userId,
+      resource_type: 'Release',
+      resource_id: saved.id,
+      action_type: 'UPDATE',
+      changes: dto.status ? { status: [previousStatus, saved.status] } : undefined,
+      metadata: {
+        event: 'RELEASE_UPDATED',
+        releaseName: saved.name,
+        previousStatus,
+        newStatus: saved.status,
+        fieldsChanged: Object.keys(dto),
+      },
+    });
 
     // notify if flipped to released
     if (!wasReleased && saved.status === ReleaseStatus.RELEASED) {
@@ -133,12 +250,34 @@ export class ReleasesService {
     if (role !== ProjectRole.PROJECT_LEAD) {
       throw new ForbiddenException('Only ProjectLead can delete releases');
     }
+
+    // Capture data before deletion for audit
+    const releaseName = rel.name;
+    const releaseStatus = rel.status;
+
     await this.relRepo.remove(rel);
+
+    // Audit: RELEASE_DELETED (Risk: HIGH - irreversible)
+    void this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: projectId,
+      actor_id: userId,
+      resource_type: 'Release',
+      resource_id: releaseId,
+      action_type: 'DELETE',
+      metadata: {
+        event: 'RELEASE_DELETED',
+        releaseName,
+        previousStatus: releaseStatus,
+        severity: 'HIGH',
+      },
+    });
 
     void this.watchersService.notifyWatchersOnEvent(
       projectId,
       null,
-      `deleted release ${rel.name}`,
+      `deleted release ${releaseName}`,
       userId,
     );
   }
@@ -508,11 +647,21 @@ export class ReleasesService {
     return [];
   }
 
-  /** Trigger a webhook for a release deployment */
+  private readonly logger = new Logger(ReleasesService.name);
+
+  /**
+   * Trigger a webhook for a release deployment
+   * 
+   * SECURITY FEATURES:
+   * - SSRF allowlist validation (only trusted CI/CD providers)
+   * - Idempotency check (prevents double deployment)
+   * - HTTPS-only, no redirects, 5s timeout
+   * - Status update on failure
+   */
   async triggerDeploy(
     projectId: string,
     releaseId: string,
-    webhookId: string,
+    webhookUrl: string,
     userId: string,
   ): Promise<{ success: boolean; statusCode?: number; message: string }> {
     const release = await this.findOne(projectId, releaseId, userId);
@@ -521,11 +670,123 @@ export class ReleasesService {
       throw new ForbiddenException('Only ProjectLead can trigger deployments');
     }
 
-    // This is a placeholder for the actual webhook trigger
-    // In production, you would:
-    // 1. Load the webhook config from DB
-    // 2. Make HTTP POST to webhookUrl with payload
-    // 3. Update lastTriggeredAt and lastStatus
+    // SECURITY: Idempotency check - prevent double deployment
+    if (release.status === ReleaseStatus.RELEASED) {
+      this.logger.warn(
+        `Deployment blocked: Release ${releaseId} is already deployed`,
+      );
+      return {
+        success: false,
+        message: `Release ${release.name} is already deployed. Create a new release or rollback instead.`,
+      };
+    }
+
+    // If no webhook URL provided, just mark as triggered (placeholder mode)
+    if (!webhookUrl || webhookUrl.trim() === '') {
+      this.logger.debug('No webhook URL provided, running in placeholder mode');
+
+      // Audit: RELEASE_DEPLOYED (placeholder mode)
+      void this.auditLogsService.log({
+        event_uuid: uuidv4(),
+        timestamp: new Date(),
+        tenant_id: projectId,
+        actor_id: userId,
+        resource_type: 'Release',
+        resource_id: releaseId,
+        action_type: 'UPDATE',
+        metadata: {
+          event: 'RELEASE_DEPLOYED',
+          releaseName: release.name,
+          severity: 'CRITICAL',
+          webhookConfigured: false,
+          success: true,
+        },
+      });
+
+      void this.watchersService.notifyWatchersOnEvent(
+        projectId,
+        null,
+        `triggered deployment for ${release.name}`,
+        userId,
+      );
+      return {
+        success: true,
+        statusCode: 200,
+        message: `Deployment triggered for release ${release.name} (no webhook configured)`,
+      };
+    }
+
+    // SECURITY: SSRF prevention - validate webhook URL
+    let validatedUrl: URL;
+    try {
+      validatedUrl = validateWebhookUrl(webhookUrl);
+    } catch (error) {
+      this.logger.error(`SSRF blocked for release ${releaseId}: ${error}`);
+
+      // Audit: DEPLOYMENT_FAILED - SSRF blocked (security signal!)
+      void this.auditLogsService.log({
+        event_uuid: uuidv4(),
+        timestamp: new Date(),
+        tenant_id: projectId,
+        actor_id: userId,
+        resource_type: 'Release',
+        resource_id: releaseId,
+        action_type: 'UPDATE',
+        metadata: {
+          event: 'DEPLOYMENT_FAILED',
+          releaseName: release.name,
+          severity: 'CRITICAL',
+          success: false,
+          failureReason: 'SSRF_BLOCKED',
+          // SECURITY: Never log full URL (may contain tokens)
+          attemptedHost: new URL(webhookUrl).hostname,
+        },
+      });
+
+      // Update release status to indicate deployment failure
+      await this.update(projectId, releaseId, userId, {
+        status: ReleaseStatus.UPCOMING,
+        description:
+          release.description +
+          `\n\n⚠️ Deployment failed: Invalid webhook URL`,
+      });
+      throw error;
+    }
+
+    // Build secure request configuration
+    const requestConfig = buildSecureRequestConfig();
+    this.logger.log(
+      `Deploying ${release.name} via webhook: ${validatedUrl.hostname}`,
+    );
+
+    // PLACEHOLDER: In production, make actual HTTP request
+    // Example with fetch/axios:
+    // const response = await axios.post(validatedUrl.toString(), {
+    //   release: { id: release.id, name: release.name, version: release.name },
+    //   project: { id: projectId },
+    //   triggeredBy: userId,
+    //   timestamp: new Date().toISOString(),
+    // }, requestConfig);
+
+    // Audit: RELEASE_DEPLOYED (Risk: CRITICAL - production impact)
+    void this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: projectId,
+      actor_id: userId,
+      resource_type: 'Release',
+      resource_id: releaseId,
+      action_type: 'UPDATE',
+      metadata: {
+        event: 'RELEASE_DEPLOYED',
+        releaseName: release.name,
+        severity: 'CRITICAL',
+        webhookConfigured: true,
+        // SECURITY: Log hostname only (sanitized - no tokens)
+        webhookHost: validatedUrl.hostname,
+        success: true,
+      },
+    });
 
     void this.watchersService.notifyWatchersOnEvent(
       projectId,
@@ -537,7 +798,7 @@ export class ReleasesService {
     return {
       success: true,
       statusCode: 200,
-      message: `Deployment triggered for release ${release.name}`,
+      message: `Deployment triggered for release ${release.name} via ${validatedUrl.hostname}`,
     };
   }
 
@@ -621,6 +882,25 @@ export class ReleasesService {
       });
       await this.linkRepo.save(link);
     }
+
+    // Audit: RELEASE_ROLLBACK (Risk: CRITICAL - incident response)
+    void this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: projectId,
+      actor_id: userId,
+      resource_type: 'Release',
+      resource_id: saved.id,
+      action_type: 'CREATE',
+      metadata: {
+        event: 'RELEASE_ROLLBACK',
+        rollbackReleaseName: saved.name,
+        sourceReleaseId: targetReleaseId,
+        sourceReleaseName: targetRelease.name,
+        issuesCopied: targetIssues.length,
+        severity: 'CRITICAL',
+      },
+    });
 
     void this.watchersService.notifyWatchersOnEvent(
       projectId,

@@ -7,8 +7,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 import { CustomFieldValue } from './custom-field-value.entity';
 
 export enum CustomFieldType {
@@ -19,10 +21,29 @@ export enum CustomFieldType {
   MULTI_SELECT = 'multi_select',
 }
 
+/**
+ * CustomFieldDefinition - Schema definition for custom fields
+ *
+ * SECURITY: Multi-tenancy enforced via organizationId
+ * All queries MUST filter by organizationId for tenant isolation.
+ */
 @Entity('custom_field_definitions')
+@Index(['organizationId', 'projectId']) // Compound index for tenant-scoped queries
 export class CustomFieldDefinition {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /**
+   * Organization ID for strict tenant isolation
+   * SECURITY: This field MUST be included in all queries
+   */
+  @Column()
+  @Index()
+  organizationId: string;
+
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @Column()
   projectId: string;

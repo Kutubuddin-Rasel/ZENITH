@@ -1,9 +1,12 @@
 // src/backlog/backlog.service.ts
 import {
   Injectable,
+  Inject,
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Issue } from '../issues/entities/issue.entity';
@@ -16,29 +19,104 @@ import {
   generateRankAfter,
   generateDefaultRank,
 } from '../common/utils/lexorank';
+import {
+  BacklogQueryDto,
+  BACKLOG_PAGINATION,
+  PaginatedBacklogResponse,
+  createBacklogPaginatedResponse,
+} from './dto/backlog-query.dto';
 
 @Injectable()
 export class BacklogService {
+  /** Cache TTL in milliseconds (60 seconds) */
+  private readonly CACHE_TTL = 60000;
+
   constructor(
     @InjectRepository(Issue)
     private issueRepo: Repository<Issue>,
     private membersService: ProjectMembersService,
-  ) {}
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+  ) { }
 
-  /** List the backlog (all issues not in any sprint?), ordered by backlogOrder */
-  async getBacklog(projectId: string, userId: string): Promise<Issue[]> {
+  /**
+   * Generate cache key for backlog page
+   * Pattern: backlog:{projectId}:p{page}:l{limit}
+   */
+  private getCacheKey(projectId: string, page: number, limit: number): string {
+    return `backlog:${projectId}:p${page}:l${limit}`;
+  }
+
+  /**
+   * Invalidate all cached backlog pages for a project
+   * Called on any mutation (move, reorder)
+   */
+  private async invalidateBacklogCache(projectId: string): Promise<void> {
+    // Get Redis client to use SCAN for pattern matching
+    const store = (this.cache as any).stores?.[0] ?? (this.cache as any).store;
+    if (store.keys) {
+      const keys = await store.keys(`backlog:${projectId}:*`);
+      if (keys.length > 0) {
+        await Promise.all(keys.map((key: string) => this.cache.del(key)));
+      }
+    } else {
+      // Fallback: clear known pages (first 10 pages with common limits)
+      const limits = [50, 100, 200];
+      for (let page = 1; page <= 10; page++) {
+        for (const limit of limits) {
+          await this.cache.del(this.getCacheKey(projectId, page, limit));
+        }
+      }
+    }
+  }
+
+  /**
+   * List the backlog with pagination and caching
+   * Returns issues NOT in any sprint, ordered by backlogOrder
+   */
+  async getBacklog(
+    projectId: string,
+    userId: string,
+    query?: BacklogQueryDto,
+  ): Promise<PaginatedBacklogResponse<Issue>> {
     // Ensure user is a project member:
     await this.membersService.getUserRole(projectId, userId);
-    // Return all issues for project that are NOT in any sprint, ordered by backlogOrder
-    return this.issueRepo
+
+    // Apply pagination defaults
+    const page = query?.page ?? 1;
+    const limit = query?.limit ?? BACKLOG_PAGINATION.DEFAULT_LIMIT;
+    const skip = (page - 1) * limit;
+
+    // Check cache first
+    const cacheKey = this.getCacheKey(projectId, page, limit);
+    const cached = await this.cache.get<PaginatedBacklogResponse<Issue>>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    // Build query with deterministic sorting
+    const queryBuilder = this.issueRepo
       .createQueryBuilder('issue')
       .leftJoin('sprint_issues', 'si', 'si.issueId = issue.id')
       .where('issue.projectId = :projectId', { projectId })
       .andWhere('si.issueId IS NULL')
       .andWhere('issue.isArchived = :isArchived', { isArchived: false })
+      // Deterministic sorting: primary + tiebreakers
       .orderBy('issue.backlogOrder', 'ASC')
       .addOrderBy('issue.createdAt', 'ASC')
-      .getMany();
+      .addOrderBy('issue.id', 'ASC'); // Final tiebreaker for stable pagination
+
+    // Get total count and paginated data
+    const [data, total] = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
+
+    const response = createBacklogPaginatedResponse(data, page, limit, total);
+
+    // Cache the result with TTL
+    await this.cache.set(cacheKey, response, this.CACHE_TTL);
+
+    return response;
   }
 
   /** Move one issue to a new position, shifting others as needed */
@@ -76,6 +154,10 @@ export class BacklogService {
     }
     // Save all in bulk
     await this.issueRepo.save(all);
+
+    // Invalidate cache after mutation
+    await this.invalidateBacklogCache(projectId);
+
     return all;
   }
 
@@ -88,10 +170,12 @@ export class BacklogService {
     userId: string,
     issueIds: string[],
   ): Promise<void> {
-    // Permission check
+    // Permission check - only PROJECT_LEAD or MEMBER can reorder
     const role = await this.membersService.getUserRole(projectId, userId);
     if (role !== ProjectRole.PROJECT_LEAD && role !== ProjectRole.MEMBER) {
-      // Allowing Members to reorder for smoother UX
+      throw new ForbiddenException(
+        'You do not have permission to reorder the backlog',
+      );
     }
 
     if (issueIds.length === 0) return;
@@ -111,6 +195,9 @@ export class BacklogService {
        AND "projectId" = $2`,
       [issueIds, projectId],
     );
+
+    // Invalidate cache after mutation
+    await this.invalidateBacklogCache(projectId);
   }
 
   /**
@@ -159,6 +246,9 @@ export class BacklogService {
 
     // O(1) UPDATE - only one row updated!
     await this.issueRepo.update({ id: issueId }, { lexorank: newLexorank });
+
+    // Invalidate cache after mutation
+    await this.invalidateBacklogCache(projectId);
   }
 
   /**

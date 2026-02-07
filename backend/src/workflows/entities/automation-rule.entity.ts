@@ -10,22 +10,23 @@ import {
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { User } from '../../users/entities/user.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 
 export interface TriggerDefinition {
   type:
-    | 'field_change'
-    | 'time_based'
-    | 'user_action'
-    | 'external_event'
-    | 'scheduled';
+  | 'field_change'
+  | 'time_based'
+  | 'user_action'
+  | 'external_event'
+  | 'scheduled';
   config: {
     field?: string;
     operator?:
-      | 'equals'
-      | 'not_equals'
-      | 'contains'
-      | 'greater_than'
-      | 'less_than';
+    | 'equals'
+    | 'not_equals'
+    | 'contains'
+    | 'greater_than'
+    | 'less_than';
     value?: any;
     schedule?: string; // cron expression
     webhookUrl?: string;
@@ -37,13 +38,13 @@ export interface ConditionDefinition {
   id: string;
   field: string;
   operator:
-    | 'equals'
-    | 'not_equals'
-    | 'contains'
-    | 'greater_than'
-    | 'less_than'
-    | 'is_empty'
-    | 'is_not_empty';
+  | 'equals'
+  | 'not_equals'
+  | 'contains'
+  | 'greater_than'
+  | 'less_than'
+  | 'is_empty'
+  | 'is_not_empty';
   value: any;
   logicalOperator?: 'AND' | 'OR';
 }
@@ -51,14 +52,14 @@ export interface ConditionDefinition {
 export interface ActionDefinition {
   id: string;
   type:
-    | 'update_field'
-    | 'send_notification'
-    | 'assign_user'
-    | 'create_issue'
-    | 'update_status'
-    | 'send_email'
-    | 'webhook_call'
-    | 'delay';
+  | 'update_field'
+  | 'send_notification'
+  | 'assign_user'
+  | 'create_issue'
+  | 'update_status'
+  | 'send_email'
+  | 'webhook_call'
+  | 'delay';
   config: {
     field?: string;
     value?: any;
@@ -79,12 +80,25 @@ export enum AutomationRuleStatus {
 }
 
 @Entity({ name: 'automation_rules' })
+@Index(['organizationId', 'projectId']) // Tenant-scoped queries
 @Index(['projectId', 'isActive'])
 @Index(['triggerType', 'isActive'])
 @Index(['createdBy', 'status'])
 export class AutomationRule {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /**
+   * Organization ID for strict tenant isolation
+   * SECURITY: This field MUST be included in all queries
+   */
+  @Column()
+  @Index()
+  organizationId: string;
+
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @Column()
   projectId: string;

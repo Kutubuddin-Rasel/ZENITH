@@ -17,15 +17,18 @@ import { WorkflowDesignerService } from '../services/workflow-designer.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../../auth/decorators/require-permission.decorator';
+import { StatefulCsrfGuard, RequireCsrf } from '../../security/csrf/csrf.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Workflow } from '../entities/workflow.entity';
 import { WorkflowExecution } from '../entities/workflow-execution.entity';
 import { WorkflowDefinition } from '../entities/workflow.entity';
 import { ExecutionContext } from '../entities/workflow-execution.entity';
+import { CreateWorkflowDto, UpdateWorkflowDto } from '../dto';
+import { UserThrottlerGuard, WorkflowThrottle } from '../guards/user-throttler.guard';
 
 @Controller('api/workflows')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard, UserThrottlerGuard)
 export class WorkflowsController {
   constructor(
     private workflowEngineService: WorkflowEngineService,
@@ -34,34 +37,24 @@ export class WorkflowsController {
     private workflowRepo: Repository<Workflow>,
     @InjectRepository(WorkflowExecution)
     private executionRepo: Repository<WorkflowExecution>,
-  ) {}
+  ) { }
 
   @Post()
   @RequirePermission('projects:edit')
   async createWorkflow(
     @Request() req: { user: { id: string } },
-    @Body()
-    body: {
-      projectId: string;
-      name: string;
-      description?: string;
-      definition: WorkflowDefinition;
-      tags?: string[];
-      category?: string;
-      icon?: string;
-      color?: string;
-    },
+    @Body() dto: CreateWorkflowDto,
   ) {
     const workflow = this.workflowRepo.create({
-      projectId: body.projectId,
+      projectId: dto.projectId,
       createdBy: req.user.id,
-      name: body.name,
-      description: body.description,
-      definition: body.definition,
-      tags: body.tags,
-      category: body.category,
-      icon: body.icon,
-      color: body.color,
+      name: dto.name,
+      description: dto.description,
+      definition: dto.definition as unknown as WorkflowDefinition,
+      tags: dto.tags,
+      category: dto.category,
+      icon: dto.icon,
+      color: dto.color,
     });
 
     const savedWorkflow = await this.workflowRepo.save(workflow);
@@ -137,17 +130,7 @@ export class WorkflowsController {
   async updateWorkflow(
     @Param('id') id: string,
     @Request() req: { user: { id: string } },
-    @Body()
-    body: {
-      name?: string;
-      description?: string;
-      definition?: WorkflowDefinition;
-      tags?: string[];
-      category?: string;
-      icon?: string;
-      color?: string;
-      isActive?: boolean;
-    },
+    @Body() dto: UpdateWorkflowDto,
   ) {
     const workflow = await this.workflowRepo.findOne({
       where: { id, createdBy: req.user.id },
@@ -160,7 +143,16 @@ export class WorkflowsController {
       };
     }
 
-    Object.assign(workflow, body);
+    // Apply validated DTO fields
+    if (dto.name !== undefined) workflow.name = dto.name;
+    if (dto.description !== undefined) workflow.description = dto.description;
+    if (dto.definition !== undefined) workflow.definition = dto.definition as unknown as WorkflowDefinition;
+    if (dto.tags !== undefined) workflow.tags = dto.tags;
+    if (dto.category !== undefined) workflow.category = dto.category;
+    if (dto.icon !== undefined) workflow.icon = dto.icon;
+    if (dto.color !== undefined) workflow.color = dto.color;
+    if (dto.isActive !== undefined) workflow.isActive = dto.isActive;
+
     const updatedWorkflow = await this.workflowRepo.save(workflow);
 
     return {
@@ -197,6 +189,7 @@ export class WorkflowsController {
   @Post(':id/execute')
   @HttpCode(HttpStatus.OK)
   @RequirePermission('projects:edit')
+  @WorkflowThrottle({ limit: 10, ttl: 60 }) // 10 executions per minute
   async executeWorkflow(
     @Param('id') id: string,
     @Body()
@@ -280,6 +273,7 @@ export class WorkflowsController {
 
   @Post('executions/:executionId/retry')
   @RequirePermission('projects:edit')
+  @WorkflowThrottle({ limit: 5, ttl: 60 }) // 5 retries per minute
   async retryExecution(@Param('executionId') executionId: string) {
     try {
       const execution =

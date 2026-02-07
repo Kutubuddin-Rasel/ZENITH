@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, ILike } from 'typeorm';
 import { Label } from './entities/label.entity';
 import { Component } from './entities/component.entity';
 import { IssueLabel } from './entities/issue-label.entity';
@@ -22,6 +22,8 @@ import { IssuesService } from '../issues/issues.service';
 import { UpdateComponentDto } from './dto/update-component.dto';
 import { CreateComponentDto } from './dto/create-component.dto';
 import { ProjectRole } from '../membership/enums/project-role.enum';
+import { AuditLogsService } from '../audit/audit-logs.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class TaxonomyService {
@@ -34,7 +36,8 @@ export class TaxonomyService {
     private projectsService: ProjectsService,
     private membersService: ProjectMembersService,
     private issuesService: IssuesService,
-  ) {}
+    private auditLogsService: AuditLogsService,
+  ) { }
 
   // — Labels CRUD —
 
@@ -47,13 +50,47 @@ export class TaxonomyService {
     const role = await this.membersService.getUserRole(projectId, userId);
     if (role !== ProjectRole.PROJECT_LEAD) throw new ForbiddenException();
     const lbl = this.labelRepo.create({ projectId, name: dto.name });
-    return this.labelRepo.save(lbl);
+    const saved = await this.labelRepo.save(lbl);
+
+    // AUDIT: Log label creation (Phase 5)
+    this.auditLogsService.log({
+      event_uuid: randomUUID(),
+      timestamp: new Date(),
+      tenant_id: projectId,
+      actor_id: userId,
+      resource_type: 'Label',
+      resource_id: saved.id,
+      action_type: 'CREATE',
+      metadata: { name: saved.name, severity: 'LOW' },
+    }).catch(() => { }); // Non-blocking
+
+    return saved;
   }
 
-  async listLabels(projectId: string, userId: string): Promise<Label[]> {
+  async listLabels(
+    projectId: string,
+    userId: string,
+    page: number = 1,
+    limit: number = 50,
+    search?: string,
+  ): Promise<{ data: Label[]; total: number; page: number; limit: number }> {
     await this.projectsService.findOneById(projectId);
     await this.membersService.getUserRole(projectId, userId);
-    return this.labelRepo.find({ where: { projectId } });
+
+    // Build where clause with optional search filter
+    const where: Record<string, unknown> = { projectId };
+    if (search) {
+      where.name = ILike(`%${search}%`);
+    }
+
+    const [data, total] = await this.labelRepo.findAndCount({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      order: { name: 'ASC' },
+    });
+
+    return { data, total, page, limit };
   }
 
   async updateLabel(
@@ -79,7 +116,22 @@ export class TaxonomyService {
     if (!lbl) throw new NotFoundException();
     const role = await this.membersService.getUserRole(projectId, userId);
     if (role !== ProjectRole.PROJECT_LEAD) throw new ForbiddenException();
+
+    // Capture snapshot before deletion
+    const snapshot = { name: lbl.name };
     await this.labelRepo.remove(lbl);
+
+    // AUDIT: Log label deletion (Phase 5 - MEDIUM severity)
+    this.auditLogsService.log({
+      event_uuid: randomUUID(),
+      timestamp: new Date(),
+      tenant_id: projectId,
+      actor_id: userId,
+      resource_type: 'Label',
+      resource_id: labelId,
+      action_type: 'DELETE',
+      metadata: { ...snapshot, severity: 'MEDIUM' },
+    }).catch(() => { }); // Non-blocking
   }
 
   // — Label ↔ Issue assignments —
@@ -123,16 +175,47 @@ export class TaxonomyService {
     const role = await this.membersService.getUserRole(projectId, userId);
     if (role !== ProjectRole.PROJECT_LEAD) throw new ForbiddenException();
     const cmp = this.compRepo.create({ projectId, name: dto.name });
-    return this.compRepo.save(cmp);
+    const saved = await this.compRepo.save(cmp);
+
+    // AUDIT: Log component creation (Phase 5)
+    this.auditLogsService.log({
+      event_uuid: randomUUID(),
+      timestamp: new Date(),
+      tenant_id: projectId,
+      actor_id: userId,
+      resource_type: 'Component',
+      resource_id: saved.id,
+      action_type: 'CREATE',
+      metadata: { name: saved.name, severity: 'LOW' },
+    }).catch(() => { }); // Non-blocking
+
+    return saved;
   }
 
   async listComponents(
     projectId: string,
     userId: string,
-  ): Promise<Component[]> {
+    page: number = 1,
+    limit: number = 50,
+    search?: string,
+  ): Promise<{ data: Component[]; total: number; page: number; limit: number }> {
     await this.projectsService.findOneById(projectId);
     await this.membersService.getUserRole(projectId, userId);
-    return this.compRepo.find({ where: { projectId } });
+
+    // Build where clause with optional search filter
+    const where: Record<string, unknown> = { projectId };
+    if (search) {
+      where.name = ILike(`%${search}%`);
+    }
+
+    const [data, total] = await this.compRepo.findAndCount({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      order: { name: 'ASC' },
+    });
+
+    return { data, total, page, limit };
   }
 
   async updateComponent(
@@ -158,7 +241,22 @@ export class TaxonomyService {
     if (!cmp) throw new NotFoundException();
     const role = await this.membersService.getUserRole(projectId, userId);
     if (role !== ProjectRole.PROJECT_LEAD) throw new ForbiddenException();
+
+    // Capture snapshot before deletion
+    const snapshot = { name: cmp.name };
     await this.compRepo.remove(cmp);
+
+    // AUDIT: Log component deletion (Phase 5 - MEDIUM severity)
+    this.auditLogsService.log({
+      event_uuid: randomUUID(),
+      timestamp: new Date(),
+      tenant_id: projectId,
+      actor_id: userId,
+      resource_type: 'Component',
+      resource_id: componentId,
+      action_type: 'DELETE',
+      metadata: { ...snapshot, severity: 'MEDIUM' },
+    }).catch(() => { }); // Non-blocking
   }
 
   // — Component ↔ Issue assignments —

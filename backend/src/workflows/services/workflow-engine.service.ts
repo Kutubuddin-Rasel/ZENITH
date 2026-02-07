@@ -1,7 +1,10 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Workflow } from '../entities/workflow.entity';
+import { Worker } from 'worker_threads';
+import * as path from 'path';
+import * as jsonLogic from 'json-logic-js';
+import { Workflow, WorkflowDefinition } from '../entities/workflow.entity';
 import {
   WorkflowExecution,
   ExecutionStatus,
@@ -10,16 +13,96 @@ import {
 } from '../entities/workflow-execution.entity';
 import { WorkflowNode, WorkflowConnection } from '../entities/workflow.entity';
 
+/**
+ * JsonLogicRule - Type-safe representation of a JSON Logic rule
+ *
+ * SECURITY: This replaces arbitrary JavaScript string evaluation
+ * with a safe, declarative logic engine that cannot execute code.
+ */
+export type JsonLogicRule = Record<string, unknown> | boolean;
+
+/**
+ * Worker output interface
+ */
+interface WorkerOutput {
+  success: boolean;
+  result?: Record<string, unknown>;
+  logs?: ExecutionLog[];
+  error?: string;
+}
+
+/**
+ * Workflow execution timeout exception
+ */
+export class WorkflowTimeoutException extends Error {
+  constructor(workflowId: string, timeoutMs: number) {
+    super(`Workflow ${workflowId} execution timed out after ${timeoutMs}ms`);
+    this.name = 'WorkflowTimeoutException';
+  }
+}
+
+/**
+ * Default execution timeout in milliseconds
+ * SECURITY: Prevents runaway workflows from blocking resources
+ */
+const DEFAULT_EXECUTION_TIMEOUT_MS = 5000;
+
 @Injectable()
 export class WorkflowEngineService {
   private readonly logger = new Logger(WorkflowEngineService.name);
+  private readonly workerPath: string;
 
   constructor(
     @InjectRepository(Workflow)
     private workflowRepo: Repository<Workflow>,
     @InjectRepository(WorkflowExecution)
     private executionRepo: Repository<WorkflowExecution>,
-  ) { }
+  ) {
+    // Resolve worker path relative to this file
+    this.workerPath = path.join(__dirname, '..', 'workers', 'workflow.worker.js');
+  }
+
+  /**
+   * Execute workflow in isolated Worker Thread
+   *
+   * SECURITY (Phase 6): Offloads CPU-intensive work to prevent Event Loop blocking
+   * SAFETY: Worker can be forcefully terminated on timeout
+   */
+  private executeInWorker(
+    definition: WorkflowDefinition,
+    context: ExecutionContext,
+    timeoutMs: number = DEFAULT_EXECUTION_TIMEOUT_MS,
+  ): Promise<WorkerOutput> {
+    return new Promise((resolve, reject) => {
+      const worker = new Worker(this.workerPath, {
+        workerData: { definition, context },
+      });
+
+      // Kill switch: terminate worker on timeout
+      const timeout = setTimeout(() => {
+        worker.terminate();
+        reject(new WorkflowTimeoutException('unknown', timeoutMs));
+      }, timeoutMs);
+
+      worker.on('message', (output: WorkerOutput) => {
+        clearTimeout(timeout);
+        resolve(output);
+      });
+
+      worker.on('error', (error) => {
+        clearTimeout(timeout);
+        this.logger.error(`Worker error: ${error.message}`, error.stack);
+        reject(error);
+      });
+
+      worker.on('exit', (code) => {
+        clearTimeout(timeout);
+        if (code !== 0) {
+          reject(new Error(`Worker stopped with exit code ${code}`));
+        }
+      });
+    });
+  }
 
   async executeWorkflow(
     workflowId: string,
@@ -87,6 +170,45 @@ export class WorkflowEngineService {
   }
 
   private async runWorkflow(
+    workflow: Workflow,
+    context: ExecutionContext,
+    executionId: string,
+  ): Promise<Record<string, unknown>> {
+    // Get timeout from workflow settings or use default
+    const timeoutMs = workflow.definition.settings?.maxExecutionTime
+      ? workflow.definition.settings.maxExecutionTime * 1000
+      : DEFAULT_EXECUTION_TIMEOUT_MS;
+
+    this.logger.log(
+      `Executing workflow ${workflow.id} in Worker Thread (timeout: ${timeoutMs}ms)`,
+    );
+
+    // Execute in isolated worker thread
+    const output = await this.executeInWorker(
+      workflow.definition,
+      context,
+      timeoutMs,
+    );
+
+    // Update execution log
+    if (output.logs) {
+      await this.executionRepo.update(executionId, {
+        executionLog: output.logs as unknown as Record<string, unknown>[],
+      });
+    }
+
+    if (!output.success) {
+      throw new Error(output.error || 'Workflow execution failed');
+    }
+
+    return output.result || {};
+  }
+
+  /**
+   * Legacy direct execution (kept for fallback/testing)
+   * @deprecated Use runWorkflow with Worker Thread instead
+   */
+  private async runWorkflowDirect(
     workflow: Workflow,
     context: ExecutionContext,
     executionId: string,
@@ -341,17 +463,51 @@ export class WorkflowEngineService {
     result.mergedData = node.config.mergeStrategy || 'all';
   }
 
+  /**
+   * Evaluate a workflow condition using JSON Logic
+   *
+   * SECURITY FIX (Phase 1): Replaced new Function() RCE vulnerability
+   * with safe declarative json-logic-js evaluation.
+   *
+   * JSON Logic cannot:
+   * - Execute arbitrary JavaScript
+   * - Access Node.js APIs (process, require, fs)
+   * - Perform system calls
+   *
+   * @param condition - JsonLogicRule object (NOT a JavaScript string)
+   * @param context - Execution context data
+   * @returns boolean result of condition evaluation
+   */
   private evaluateCondition(
-    condition: string,
+    condition: JsonLogicRule | string,
     context: ExecutionContext,
   ): boolean {
     try {
-      // Simple condition evaluation - in production, use a proper expression evaluator
+      // SECURITY: Handle legacy string conditions by rejecting them
+      if (typeof condition === 'string') {
+        this.logger.warn(
+          `Legacy string condition detected. Rejecting for security: ${condition.substring(0, 50)}...`,
+        );
+        // For backward compatibility during migration, attempt to parse as JSON
+        try {
+          condition = JSON.parse(condition) as JsonLogicRule;
+        } catch {
+          // Cannot parse as JSON, reject the condition
+          this.logger.error('String condition cannot be parsed as JSON Logic. Returning false.');
+          return false;
+        }
+      }
 
-      return new Function('context', `return ${condition}`)(context) as boolean;
+      // SECURITY: Use json-logic-js for safe evaluation
+      const result = jsonLogic.apply(condition, context as unknown as Record<string, unknown>);
+
+      // Ensure boolean return
+      return Boolean(result);
     } catch (error) {
-      this.logger.log(`Evaluating condition for node`);
-      this.logger.warn(`Failed to evaluate condition: ${condition}`, error);
+      this.logger.warn(
+        `Failed to evaluate JSON Logic condition: ${JSON.stringify(condition)}`,
+        error,
+      );
       return false;
     }
   }

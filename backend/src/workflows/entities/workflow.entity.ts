@@ -11,20 +11,21 @@ import {
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { User } from '../../users/entities/user.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 import { WorkflowExecution } from './workflow-execution.entity';
 // Forward reference to avoid circular dependency
 
 export interface WorkflowNode {
   id: string;
   type:
-    | 'start'
-    | 'end'
-    | 'status'
-    | 'decision'
-    | 'action'
-    | 'approval'
-    | 'parallel'
-    | 'merge';
+  | 'start'
+  | 'end'
+  | 'status'
+  | 'decision'
+  | 'action'
+  | 'approval'
+  | 'parallel'
+  | 'merge';
   name: string;
   description?: string;
   position: { x: number; y: number };
@@ -73,11 +74,24 @@ export enum WorkflowStatus {
 }
 
 @Entity({ name: 'workflows' })
+@Index(['organizationId', 'projectId']) // Tenant-scoped queries
 @Index(['projectId', 'isActive'])
 @Index(['createdBy', 'status'])
 export class Workflow {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /**
+   * Organization ID for strict tenant isolation
+   * SECURITY: This field MUST be included in all queries
+   */
+  @Column()
+  @Index()
+  organizationId: string;
+
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @Column()
   projectId: string;

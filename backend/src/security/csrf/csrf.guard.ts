@@ -98,7 +98,7 @@ export class StatefulCsrfGuard implements CanActivate {
     private readonly csrfService: CsrfService,
     private readonly auditService: AuditService,
     private readonly cacheService: CacheService,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Check if CSRF validation is required for this handler
@@ -113,6 +113,19 @@ export class StatefulCsrfGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<Request>();
     const clientIp = this.extractClientIp(request);
+
+    // =========================================================================
+    // STEP 0: BEARER TOKEN BYPASS (CI/CD Support)
+    // =========================================================================
+    // If request is authenticated via Bearer token (API key), skip CSRF.
+    // Rationale: CSRF attacks exploit browser cookies. Bearer tokens are
+    // intentionally included in requests, so machine-to-machine calls
+    // (CI/CD pipelines) don't need CSRF protection.
+    const authHeader = request.headers['authorization'] as string;
+    if (authHeader?.startsWith('Bearer ')) {
+      this.logger.debug('CSRF bypassed: Bearer token authentication detected');
+      return true;
+    }
 
     // =========================================================================
     // STEP 1: CHECK BAN (Before any validation - save CPU)

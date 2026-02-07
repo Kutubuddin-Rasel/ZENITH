@@ -7,6 +7,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   Request,
   UseInterceptors,
@@ -29,6 +30,7 @@ import {
   releaseFilenameCallback,
   RELEASE_MAX_FILE_SIZE,
 } from './config/release-file-filter.config';
+import { PaginatedReleasesQueryDto } from './dto/paginated-releases-query.dto';
 
 /**
  * ReleasesController - Manages SDLC release lifecycle
@@ -56,9 +58,10 @@ export class ReleasesController {
   @Get()
   async findAll(
     @Param('projectId') projectId: string,
+    @Query() query: PaginatedReleasesQueryDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.findAll(projectId, req.user.userId);
+    return this.svc.findAllPaginated(projectId, req.user.userId, query);
   }
 
   @RequirePermission('releases:view')
@@ -183,6 +186,10 @@ export class ReleasesController {
       limits: { fileSize: RELEASE_MAX_FILE_SIZE },
     }),
   )
+  // TODO: SECURITY - Phase 5: Add magic number (file-type) validation
+  // Current MIME type check can be spoofed. Real content validation
+  // requires reading file bytes to detect actual file type.
+  // Reference: https://www.npmjs.com/package/file-type
   async uploadAttachment(
     @Param('projectId') projectId: string,
     @Param('releaseId') releaseId: string,

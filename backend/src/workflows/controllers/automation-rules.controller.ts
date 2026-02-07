@@ -16,11 +16,12 @@ import { AutomationRulesService } from '../services/automation-rules.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../../auth/decorators/require-permission.decorator';
+import { StatefulCsrfGuard, RequireCsrf } from '../../security/csrf/csrf.guard';
 
 @Controller('api/automation-rules')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class AutomationRulesController {
-  constructor(private automationRulesService: AutomationRulesService) {}
+  constructor(private automationRulesService: AutomationRulesService) { }
 
   @Post()
   @RequirePermission('projects:edit')

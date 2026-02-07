@@ -9,6 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 
 export interface WorkflowTemplateDefinition {
   nodes: Array<{
@@ -50,12 +51,26 @@ export enum WorkflowTemplateStatus {
 }
 
 @Entity({ name: 'workflow_templates' })
+@Index(['organizationId', 'category']) // Tenant-scoped queries
 @Index(['category', 'isPublic'])
 @Index(['status', 'usageCount'])
 @Index(['createdBy', 'status'])
 export class WorkflowTemplate {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /**
+   * Organization ID for strict tenant isolation
+   * SECURITY: This field MUST be included in all queries
+   * Note: Public templates may be shared across orgs but creation is scoped
+   */
+  @Column()
+  @Index()
+  organizationId: string;
+
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @Column()
   name: string;

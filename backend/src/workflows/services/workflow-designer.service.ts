@@ -1,9 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as jsonLogic from 'json-logic-js';
 import {
   WorkflowNode,
   WorkflowConnection,
   WorkflowDefinition,
 } from '../entities/workflow.entity';
+
+/**
+ * JsonLogicRule - Type-safe representation of a JSON Logic rule
+ */
+type JsonLogicRule = Record<string, unknown> | boolean;
 
 export interface NodeType {
   id: string;
@@ -630,16 +636,38 @@ export class WorkflowDesignerService {
     }
   }
 
+  /**
+   * Evaluate a workflow condition using JSON Logic
+   *
+   * SECURITY FIX: Replaced new Function() RCE vulnerability
+   * with safe declarative json-logic-js evaluation.
+   */
   private evaluateCondition(
-    condition: string,
+    condition: JsonLogicRule | string,
     context: Record<string, unknown>,
   ): boolean {
     try {
-      // Simple condition evaluation for simulation
+      // SECURITY: Handle legacy string conditions
+      if (typeof condition === 'string') {
+        this.logger.warn(
+          `Legacy string condition detected. Rejecting for security.`,
+        );
+        try {
+          condition = JSON.parse(condition) as JsonLogicRule;
+        } catch {
+          this.logger.error('String condition cannot be parsed as JSON Logic.');
+          return false;
+        }
+      }
 
-      return new Function('context', `return ${condition}`)(context) as boolean;
+      // SECURITY: Use json-logic-js for safe evaluation
+      const result = jsonLogic.apply(condition, context);
+      return Boolean(result);
     } catch (error) {
-      this.logger.warn(`Failed to evaluate condition: ${condition}`, error);
+      this.logger.warn(
+        `Failed to evaluate JSON Logic condition: ${JSON.stringify(condition)}`,
+        error,
+      );
       return false;
     }
   }
