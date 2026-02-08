@@ -9,6 +9,11 @@ import {
 } from './entities/notification.entity';
 import { NotificationsGateway } from './notifications.gateway';
 import { SmartDigestService } from './services/smart-digest.service';
+import {
+  CursorPaginatedResult,
+  decodeCursor,
+  encodeCursor,
+} from './dto/cursor-pagination.dto';
 
 @Injectable()
 export class NotificationsService {
@@ -18,7 +23,7 @@ export class NotificationsService {
     private gateway: NotificationsGateway,
     @Inject(forwardRef(() => SmartDigestService))
     private smartDigestService: SmartDigestService,
-  ) {}
+  ) { }
 
   /** Create a notification for multiple users */
   async createMany(
@@ -56,18 +61,89 @@ export class NotificationsService {
     return saved;
   }
 
-  /** List unread notifications for one user */
+  /**
+   * List notifications for one user (legacy - unbounded)
+   *
+   * SECURITY (Phase 6): Optional organizationId for tenant scoping
+   */
   async listForUser(
     userId: string,
     status: NotificationStatus = NotificationStatus.UNREAD,
+    organizationId?: string,
   ): Promise<Notification[]> {
+    const where: any = { userId, status };
+    if (organizationId) {
+      where.organizationId = organizationId;
+    }
+
     const notifications = await this.repo.find({
-      where: { userId, status },
+      where,
       order: { createdAt: 'DESC' },
     });
 
     if (!Array.isArray(notifications)) return [];
     return notifications;
+  }
+
+  /**
+   * SECURITY (Phase 4 + Phase 6): Cursor-based pagination with tenant scoping
+   *
+   * Uses composite keyset (createdAt, id) for:
+   * - O(1) performance regardless of history size
+   * - No duplicate items in live feeds (stable anchor)
+   * - Same-millisecond collision handling
+   * - Optional organizationId for multi-tenant isolation
+   */
+  async listForUserWithCursor(
+    userId: string,
+    status: NotificationStatus = NotificationStatus.UNREAD,
+    cursor?: string,
+    limit: number = 20,
+    organizationId?: string,
+  ): Promise<CursorPaginatedResult<Notification>> {
+    const safeLimit = Math.min(Math.max(limit, 1), 50);
+
+    const qb = this.repo
+      .createQueryBuilder('n')
+      .where('n.userId = :userId', { userId })
+      .andWhere('n.status = :status', { status })
+      .orderBy('n.createdAt', 'DESC')
+      .addOrderBy('n.id', 'DESC')
+      .take(safeLimit + 1); // Fetch one extra to check for next page
+
+    // SECURITY (Phase 6): Apply tenant scoping if organizationId provided
+    if (organizationId) {
+      qb.andWhere('n.organizationId = :organizationId', { organizationId });
+    }
+
+    // Apply cursor-based filtering (keyset pagination)
+    if (cursor) {
+      const decoded = decodeCursor(cursor);
+      if (decoded) {
+        // Composite key comparison: (createdAt, id) < (lastCreatedAt, lastId)
+        qb.andWhere(
+          '(n.createdAt < :lastCreatedAt OR (n.createdAt = :lastCreatedAt AND n.id < :lastId))',
+          {
+            lastCreatedAt: new Date(decoded.createdAt),
+            lastId: decoded.id,
+          },
+        );
+      }
+    }
+
+    const results = await qb.getMany();
+
+    // Check if there's a next page
+    const hasNextPage = results.length > safeLimit;
+    const data = hasNextPage ? results.slice(0, safeLimit) : results;
+
+    // Generate next cursor from last item
+    const nextCursor =
+      hasNextPage && data.length > 0
+        ? encodeCursor(data[data.length - 1].createdAt, data[data.length - 1].id)
+        : null;
+
+    return { data, nextCursor };
   }
 
   /** List all notifications for one user (both read and unread) */

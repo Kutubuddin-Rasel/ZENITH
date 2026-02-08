@@ -9,25 +9,31 @@ import {
   Query,
   Body,
   Post,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
+import { StatefulCsrfGuard } from '../security/csrf/csrf.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 import {
   NotificationType,
   NotificationStatus,
 } from './entities/notification.entity';
+import { UpdateNotificationStatusDto } from './dto/update-notification-status.dto';
+import { CursorPaginationDto } from './dto/cursor-pagination.dto';
 
+/**
+ * SECURITY (Phase 2): CSRF Protection
+ * Prevents alert suppression attacks where attackers hide security notifications
+ */
 @Controller('notifications')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class NotificationsController {
-  constructor(private svc: NotificationsService) {}
+  constructor(private svc: NotificationsService) { }
 
-  /** Get current user's unread notifications */
-  @RequirePermission('notifications:view')
-  /** Get current user's unread notifications */
+  /** Get current user's unread notifications (legacy) */
   @RequirePermission('notifications:view')
   @Get()
   async list(
@@ -35,6 +41,26 @@ export class NotificationsController {
     @Query('status') status?: NotificationStatus,
   ) {
     return this.svc.listForUser(req.user.userId, status);
+  }
+
+  /**
+   * SECURITY (Phase 4): Cursor-based pagination for notification feed
+   * - Scalable O(1) performance
+   * - No duplicate items in live feeds
+   */
+  @RequirePermission('notifications:view')
+  @Get('feed')
+  async listWithCursor(
+    @Request() req: { user: JwtRequestUser },
+    @Query() query: CursorPaginationDto,
+    @Query('status') status?: NotificationStatus,
+  ) {
+    return this.svc.listForUserWithCursor(
+      req.user.userId,
+      status || NotificationStatus.UNREAD,
+      query.cursor,
+      query.limit,
+    );
   }
 
   /** Get current user's all notifications (both read and unread) */
@@ -48,7 +74,7 @@ export class NotificationsController {
   @RequirePermission('notifications:update')
   @Patch(':id/read')
   async markRead(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Request() req: { user: JwtRequestUser },
   ) {
     await this.svc.markStatus(req.user.userId, id, NotificationStatus.DONE);
@@ -59,12 +85,12 @@ export class NotificationsController {
   @RequirePermission('notifications:update')
   @Patch(':id/status')
   async updateStatus(
-    @Param('id') id: string,
-    @Body('status') status: NotificationStatus,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateNotificationStatusDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.markStatus(req.user.userId, id, status);
-    return { message: `Status updated to ${status}` };
+    await this.svc.markStatus(req.user.userId, id, dto.status);
+    return { message: `Status updated to ${dto.status}` };
   }
 
   /** Mark all as read (Legacy) */
@@ -128,7 +154,7 @@ export class NotificationsController {
   @RequirePermission('notifications:update')
   @Post(':id/snooze')
   async snooze(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('hours') hours: number,
     @Request() req: { user: JwtRequestUser },
   ) {
@@ -151,7 +177,7 @@ export class NotificationsController {
   @RequirePermission('notifications:update')
   @Post(':id/archive')
   async archive(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Request() req: { user: JwtRequestUser },
   ) {
     await this.svc.archive(req.user.userId, id);
