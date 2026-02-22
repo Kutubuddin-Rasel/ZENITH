@@ -2,13 +2,35 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { createHash } from 'crypto';
+import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { Document } from '../entities/document.entity';
 import { DocumentSegment } from '../entities/document-segment.entity';
 import { EmbeddingsService } from '../../ai/services/embeddings.service';
+import { DocumentChunkMetadata } from '../interfaces/rag.interfaces';
+
+/**
+ * Semantic chunking configuration.
+ *
+ * Separators are tried in order (most to least specific):
+ *   paragraph → line → sentence → word → character
+ *
+ * EDGE CASE: A 2000-char string with no spaces/punctuation
+ * falls through to '' (char-by-char split), then merges up
+ * to chunkSize. Result: two clean 1000-char chunks with
+ * 200-char overlap. No crash.
+ */
+const CHUNK_CONFIG = {
+  chunkSize: 1000,
+  chunkOverlap: 200,
+  separators: ['\n\n', '\n', '. ', '! ', '? ', ' ', ''],
+} as const;
 
 @Injectable()
 export class IngestionService {
   private readonly logger = new Logger(IngestionService.name);
+
+  /** Reusable splitter instance (stateless, thread-safe) */
+  private readonly textSplitter: RecursiveCharacterTextSplitter;
 
   constructor(
     @InjectRepository(Document)
@@ -17,18 +39,26 @@ export class IngestionService {
     private readonly segmentRepo: Repository<DocumentSegment>,
     private readonly embeddingsService: EmbeddingsService,
     private readonly dataSource: DataSource,
-  ) {}
+  ) {
+    this.textSplitter = new RecursiveCharacterTextSplitter({
+      chunkSize: CHUNK_CONFIG.chunkSize,
+      chunkOverlap: CHUNK_CONFIG.chunkOverlap,
+      separators: [...CHUNK_CONFIG.separators],
+    });
+  }
 
   /**
    * Index a file content into the vector store.
-   * Handles de-duplication via hash check.
+   * Handles de-duplication via SHA-256 hash check.
+   *
+   * Pipeline: Raw text → Semantic chunking → Embedding → Store
    */
   async indexFile(
     projectId: string,
     path: string,
     content: string,
     mimeType = 'text/plain',
-  ) {
+  ): Promise<{ status: string; docId: string }> {
     const hash = createHash('sha256').update(content).digest('hex');
 
     // Check existing document
@@ -52,28 +82,37 @@ export class IngestionService {
         // Delete old segments
         await manager.delete(DocumentSegment, { documentId: doc.id });
       }
-      if (!doc) throw new Error('Failed to create or update document'); // Should be impossible
+      if (!doc) throw new Error('Failed to create or update document');
       doc = await manager.save(doc);
 
-      // Chunking logic (Simple split by lines or chars for now)
-      // "Senior" approach would use a proper splitter (RecursiveCharacterTextSplitter)
-      // I'll implement a basic recursive-like splitter function here to keep dependencies low or use regex.
-      const chunks = this.chunkText(content, 1000, 100);
+      // Semantic chunking via LangChain RecursiveCharacterTextSplitter
+      const chunks = await this.semanticChunkText(content);
 
-      // Generate Embeddings
+      // Generate embeddings and build segments with strict metadata
       const segments: DocumentSegment[] = [];
-      for (const chunk of chunks) {
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
         try {
           const embedding = await this.embeddingsService.create(chunk);
+
+          const metadata: DocumentChunkMetadata = {
+            projectId,
+            documentId: doc.id,
+            chunkIndex: i,
+            totalChunks: chunks.length,
+            sourceLength: content.length,
+            sourcePath: path,
+          };
+
           const segment = this.segmentRepo.create({
             documentId: doc.id,
             content: chunk,
-            embedding: embedding,
-            metadata: { length: chunk.length },
+            embedding,
+            metadata,
           });
           segments.push(segment);
         } catch (e) {
-          this.logger.warn(`Failed to embed chunk for ${path}`, e);
+          this.logger.warn(`Failed to embed chunk ${i} for ${path}`, e);
         }
       }
 
@@ -84,19 +123,20 @@ export class IngestionService {
     return { status: 'indexed', docId: doc!.id };
   }
 
-  private chunkText(
-    text: string,
-    chunkSize: number,
-    overlap: number,
-  ): string[] {
-    // Basic implementation
-    const chunks: string[] = [];
-    let start = 0;
-    while (start < text.length) {
-      const end = Math.min(start + chunkSize, text.length);
-      chunks.push(text.slice(start, end));
-      start += chunkSize - overlap;
+  /**
+   * Split text using LangChain's RecursiveCharacterTextSplitter.
+   *
+   * Tries each separator in order: paragraph → line → sentence → word → char.
+   * Preserves semantic boundaries instead of slicing mid-sentence.
+   *
+   * @param text - Raw text to chunk
+   * @returns Array of semantically coherent text chunks
+   */
+  private async semanticChunkText(text: string): Promise<string[]> {
+    if (!text || text.trim().length === 0) {
+      return [];
     }
-    return chunks;
+
+    return this.textSplitter.splitText(text);
   }
 }

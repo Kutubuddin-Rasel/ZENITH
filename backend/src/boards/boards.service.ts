@@ -18,7 +18,7 @@ import { Project } from '../projects/entities/project.entity';
 import { Issue } from '../issues/entities/issue.entity';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import { ProjectRole } from '../membership/enums/project-role.enum';
-import { BoardsGateway } from './boards.gateway';
+import { BoardGateway } from '../gateways/board.gateway';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CacheService } from '../cache/cache.service';
 import { WorkflowStatus } from '../workflows/entities/workflow-status.entity';
@@ -41,26 +41,31 @@ export class BoardsService {
     private membersService: ProjectMembersService,
     private dataSource: DataSource,
     private eventEmitter: EventEmitter2,
-    private boardsGateway: BoardsGateway,
+    private boardGateway: BoardGateway,
     private cacheService: CacheService,
-  ) { }
+  ) {}
 
   /**
    * Invalidate board cache after mutations.
-   * 
+   *
    * ROBUSTNESS: Fire-and-forget with try-catch.
    * If Redis is down, user's DB operation should NOT fail.
-   * 
+   *
    * TIMING: Called AFTER DB commit to avoid race conditions.
    */
-  private async invalidateBoardCache(boardId: string, projectId: string): Promise<void> {
+  private async invalidateBoardCache(
+    boardId: string,
+    projectId: string,
+  ): Promise<void> {
     try {
       await this.cacheService.invalidateByTags([`board:${boardId}`]);
       this.logger.debug(`Cache invalidated for board:${boardId}`);
     } catch (error: unknown) {
       // Fire and forget - don't fail user operation if Redis is down
       const message = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.warn(`Cache invalidation failed for board:${boardId}: ${message}`);
+      this.logger.warn(
+        `Cache invalidation failed for board:${boardId}: ${message}`,
+      );
     }
   }
 
@@ -523,10 +528,10 @@ export class BoardsService {
 
   /**
    * OPTIMIZED + SECURE: Bulk reorder columns in single parameterized query
-   * 
+   *
    * Uses VALUES pattern instead of CASE with string interpolation:
    * UPDATE ... SET "order" = v."order" FROM (VALUES ($1::uuid, $2::int), ...) AS v(id, "order")
-   * 
+   *
    * SECURITY: All IDs are parameterized, preventing SQL injection.
    * OWNERSHIP: boardId in WHERE clause ensures tenant isolation.
    */
@@ -548,7 +553,9 @@ export class BoardsService {
 
     // Safety check: PostgreSQL parameter limit ~65535, we use 2 per item
     if (orderedColumnIds.length > 5000) {
-      throw new ForbiddenException('Cannot reorder more than 5000 columns at once');
+      throw new ForbiddenException(
+        'Cannot reorder more than 5000 columns at once',
+      );
     }
 
     // SECURE: Parameter flattening for VALUES clause
@@ -579,7 +586,7 @@ export class BoardsService {
     );
 
     // Emit real-time event
-    this.boardsGateway.emitColumnsReordered({
+    this.boardGateway.emitColumnsReordered(boardId, {
       projectId,
       boardId,
       orderedColumnIds,
@@ -636,15 +643,28 @@ export class BoardsService {
     await issueRepo.save(issue);
 
     // Emit real-time event with both old and new identifiers
-    this.boardsGateway.emitIssueMoved({
-      projectId,
-      boardId,
+    this.boardGateway.emitIssueMoved(boardId, {
+      userId,
+      userName: '', // Caller may augment; service doesn't have user's display name
+      timestamp: new Date().toISOString(),
       issueId,
-      fromStatusId: prevStatusId,
-      toStatusId,
-      fromColumn: prevStatus, // Legacy compat
-      toColumn: workflowStatus.name, // Legacy compat
-      newOrder,
+      issue: {
+        id: issue.id,
+        title: issue.title,
+        number: issue.number ?? null,
+        status: issue.status,
+        statusId: issue.statusId ?? '',
+        priority: String(issue.priority),
+        type: String(issue.type),
+        assigneeId: issue.assigneeId ?? null,
+        lexorank: '',
+        storyPoints: issue.storyPoints,
+      },
+      fromColumnId: prevStatusId ?? '',
+      toColumnId: toStatusId,
+      newIndex: newOrder,
+      boardId,
+      projectId,
     });
 
     // Invalidate cache after DB commit
@@ -653,10 +673,10 @@ export class BoardsService {
 
   /**
    * OPTIMIZED + SECURE: Reorder issues within a column using single parameterized query
-   * 
+   *
    * Uses VALUES pattern instead of CASE with string interpolation:
    * UPDATE ... SET "backlogOrder" = v."order" FROM (VALUES ($1::uuid, $2::int), ...) AS v(id, "order")
-   * 
+   *
    * SECURITY: All IDs are parameterized, preventing SQL injection.
    * OWNERSHIP: projectId in WHERE clause ensures tenant isolation.
    */
@@ -674,7 +694,9 @@ export class BoardsService {
 
     // Safety check: PostgreSQL parameter limit ~65535, we use 2 per item
     if (orderedIssueIds.length > 5000) {
-      throw new ForbiddenException('Cannot reorder more than 5000 issues at once');
+      throw new ForbiddenException(
+        'Cannot reorder more than 5000 issues at once',
+      );
     }
 
     // SECURE: Parameter flattening for VALUES clause
@@ -707,7 +729,7 @@ export class BoardsService {
     );
 
     // Emit real-time event
-    this.boardsGateway.emitIssueReordered({
+    this.boardGateway.emitIssueReordered(boardId, {
       projectId,
       boardId,
       columnId,

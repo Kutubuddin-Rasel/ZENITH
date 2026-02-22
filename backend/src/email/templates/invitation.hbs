@@ -1,0 +1,18 @@
+<h2 style="margin: 0 0 16px; font-size: 22px; color: #111827;">You've been invited!</h2>
+
+<p style="margin: 0 0 24px; font-size: 16px; color: #374151;">
+    <strong>{{inviterName}}</strong> has invited you to join <strong>{{orgName}}</strong> on Zenith.
+</p>
+
+<p style="margin: 0 0 24px; font-size: 16px; color: #374151;">
+    Click the button below to accept the invitation and get started:
+</p>
+
+<div style="text-align: center; margin: 32px 0;">
+    {{> button url=inviteLink label="Accept Invitation"}}
+</div>
+
+<p style="margin: 24px 0 0; font-size: 13px; color: #6b7280;">
+    Or copy and paste this link into your browser:<br>
+    <a href="{{{inviteLink}}}" style="color: #2563eb; word-break: break-all;">{{inviteLinkDisplay}}</a>
+</p>

@@ -7,19 +7,21 @@ import { BoardColumn } from './entities/board-column.entity';
 import { Issue } from '../issues/entities/issue.entity';
 import { BoardsService } from './boards.service';
 import { BoardsController } from './boards.controller';
-import { BoardsGateway } from './boards.gateway';
 
 /**
  * Boards Module
  *
  * Provides Kanban board functionality with:
- * - Real-time updates via WebSocket (BoardsGateway)
+ * - Real-time updates via WebSocket (BoardGateway from global GatewaysModule)
  * - 5-second micro-cache on read endpoints to prevent "refresh storms"
  *
  * Cache Strategy:
  * - GET endpoints use CacheInterceptor with 5s TTL
  * - POST/PATCH/DELETE endpoints bypass cache
  * - No manual invalidation needed (TTL is short enough)
+ *
+ * NOTE: BoardGateway is injected via the @Global() GatewaysModule.
+ * No explicit import needed here (arch-module-sharing pattern).
  */
 @Module({
   imports: [
@@ -29,7 +31,7 @@ import { BoardsGateway } from './boards.gateway';
       max: 100, // Max cached items per endpoint
     }),
   ],
-  providers: [BoardsService, BoardsGateway],
+  providers: [BoardsService],
   controllers: [BoardsController],
   exports: [BoardsService],
 })

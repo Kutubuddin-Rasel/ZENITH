@@ -12,6 +12,8 @@ import {
 } from './semantic-search.service';
 import { AIProviderService } from './ai-provider.service';
 import { TenantContext } from '../../core/tenant/tenant-context.service';
+import { CacheService } from '../../cache/cache.service';
+import { RagConversationMessage } from '../../rag/interfaces/rag.interfaces';
 
 /**
  * RAG context containing retrieved issues
@@ -41,19 +43,17 @@ export interface ProjectChatResponse {
 }
 
 /**
- * Stored conversation for multi-turn chat
- */
-interface ConversationMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
-
-/**
  * ProjectRAGService
  *
  * Provides "Ask Your Project" functionality using Retrieval-Augmented Generation.
  * Flow: User Question → Semantic Search → Context Building → LLM → Answer
+ *
+ * CONVERSATION MEMORY: Stateless Redis-backed storage via CacheService.
+ * Uses RPUSH for atomic appends (race-condition safe) and LRANGE for retrieval.
+ * TTL: 1 hour (3600s) — enforced by Redis, no manual cleanup needed.
+ *
+ * GRACEFUL DEGRADATION: If Redis is down, conversations proceed without
+ * multi-turn context. The LLM answers the single query in isolation.
  *
  * SECURITY: All data retrieval is strictly scoped to the user's organization
  * via TenantContext to ensure complete tenant isolation.
@@ -66,14 +66,19 @@ export class ProjectRAGService {
   private readonly MAX_CONTEXT_TOKENS = 3500;
   private readonly MAX_CONTEXT_ISSUES = 10;
 
-  // In-memory conversation store (in production, use Redis)
-  private conversations = new Map<string, ConversationMessage[]>();
+  /** Redis key namespace for conversation history */
+  private readonly CONV_NAMESPACE = 'rag';
+  /** TTL for conversation keys: 1 hour */
+  private readonly CONV_TTL_SECONDS = 3600;
+  /** Maximum messages retained per conversation */
+  private readonly MAX_MESSAGES = 10;
 
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly semanticSearch: SemanticSearchService,
     private readonly aiProvider: AIProviderService,
     private readonly tenantContext: TenantContext,
+    private readonly cacheService: CacheService,
   ) {}
 
   /**
@@ -133,7 +138,8 @@ export class ProjectRAGService {
     const context = this.buildContext(relevantIssues);
 
     // Step 3: Get conversation history (if multi-turn)
-    const history = this.conversations.get(convId) || [];
+    // GRACEFUL DEGRADATION: If Redis is down, history is empty
+    const history = await this.getConversationHistory(convId);
 
     // Step 4: Generate answer using LLM
     const { answer, confidence } = await this.generateAnswer(
@@ -143,8 +149,9 @@ export class ProjectRAGService {
       projectAccess.projectName,
     );
 
-    // Step 5: Store conversation for future turns
-    this.storeConversation(convId, question, answer);
+    // Step 5: Store conversation for future turns (atomic RPUSH)
+    await this.appendToConversation(convId, 'user', question);
+    await this.appendToConversation(convId, 'assistant', answer);
 
     // Step 6: Return answer with sources
     return {
@@ -219,7 +226,7 @@ export class ProjectRAGService {
   private async generateAnswer(
     question: string,
     context: RAGContext,
-    history: ConversationMessage[],
+    history: RagConversationMessage[],
     projectName: string,
   ): Promise<{ answer: string; confidence: 'high' | 'medium' | 'low' }> {
     // Build system prompt
@@ -285,44 +292,86 @@ Provide a helpful answer based on the context above. Be specific and reference r
     return { answer, confidence };
   }
 
+  // ============================================================
+  // REDIS-BACKED CONVERSATION MEMORY
+  // ============================================================
+
   /**
-   * Store conversation message for multi-turn context
+   * Retrieve conversation history from Redis.
+   *
+   * Uses LRANGE for atomic list retrieval.
+   * Returns empty array if Redis is down (graceful degradation).
+   *
+   * @param conversationId - Unique conversation identifier
+   * @returns Array of conversation messages (last MAX_MESSAGES)
    */
-  private storeConversation(
+  private async getConversationHistory(
     conversationId: string,
-    question: string,
-    answer: string,
-  ): void {
-    const messages = this.conversations.get(conversationId) || [];
+  ): Promise<RagConversationMessage[]> {
+    const key = `rag:conv:${conversationId}`;
 
-    messages.push(
-      { role: 'user', content: question, timestamp: new Date() },
-      { role: 'assistant', content: answer, timestamp: new Date() },
-    );
+    try {
+      const messages = await this.cacheService.lrange<RagConversationMessage>(
+        key,
+        -this.MAX_MESSAGES, // Get last N messages
+        -1,
+        { namespace: this.CONV_NAMESPACE },
+      );
 
-    // Keep only last 10 messages
-    if (messages.length > 10) {
-      messages.splice(0, messages.length - 10);
+      return messages;
+    } catch (err: unknown) {
+      // GRACEFUL DEGRADATION: Return empty history, LLM answers without context
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.warn(
+        `Redis conversation retrieval failed for ${conversationId}: ${message}`,
+      );
+      return [];
     }
-
-    this.conversations.set(conversationId, messages);
-
-    // Clean up old conversations (older than 1 hour)
-    this.cleanupOldConversations();
   }
 
   /**
-   * Remove conversations older than 1 hour
+   * Append a message to conversation history in Redis.
+   *
+   * Uses RPUSH for atomic append — two concurrent calls are
+   * linearized by Redis's single-threaded execution model.
+   * No read-modify-write race condition.
+   *
+   * @param conversationId - Unique conversation identifier
+   * @param role - Message role ('user' | 'assistant')
+   * @param content - Message content
    */
-  private cleanupOldConversations(): void {
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  private async appendToConversation(
+    conversationId: string,
+    role: RagConversationMessage['role'],
+    content: string,
+  ): Promise<void> {
+    const key = `rag:conv:${conversationId}`;
+    const message: RagConversationMessage = {
+      role,
+      content,
+      timestamp: new Date().toISOString(),
+    };
 
-    for (const [convId, messages] of this.conversations.entries()) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage && lastMessage.timestamp < oneHourAgo) {
-        this.conversations.delete(convId);
-      }
+    try {
+      await this.cacheService.rpush(key, message, {
+        ttl: this.CONV_TTL_SECONDS,
+        namespace: this.CONV_NAMESPACE,
+      });
+    } catch (err: unknown) {
+      // Non-critical: conversation continues without persistence
+      const errMessage = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.warn(
+        `Redis conversation append failed for ${conversationId}: ${errMessage}`,
+      );
     }
+  }
+
+  /**
+   * Clear a conversation's history from Redis.
+   */
+  clearConversation(conversationId: string): void {
+    const key = `rag:conv:${conversationId}`;
+    void this.cacheService.del(key, { namespace: this.CONV_NAMESPACE });
   }
 
   /**
@@ -344,13 +393,6 @@ This could mean:
 - The relevant issues haven't been indexed for semantic search yet
 
 Try asking about specific features, bugs, or tasks that have been logged as issues in this project.`;
-  }
-
-  /**
-   * Clear a conversation's history
-   */
-  clearConversation(conversationId: string): void {
-    this.conversations.delete(conversationId);
   }
 
   /**

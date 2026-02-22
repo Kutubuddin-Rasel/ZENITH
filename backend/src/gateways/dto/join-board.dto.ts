@@ -5,14 +5,14 @@ import { IsUUID } from 'class-validator';
  * Validates that boardId is a valid UUID to prevent injection.
  */
 export class JoinBoardDto {
-    @IsUUID('4', { message: 'boardId must be a valid UUID' })
-    boardId: string;
+  @IsUUID('4', { message: 'boardId must be a valid UUID' })
+  boardId: string;
 }
 
 /**
  * DTO for leave-board WebSocket message.
  */
 export class LeaveBoardDto {
-    @IsUUID('4', { message: 'boardId must be a valid UUID' })
-    boardId: string;
+  @IsUUID('4', { message: 'boardId must be a valid UUID' })
+  boardId: string;
 }

@@ -10,7 +10,7 @@ import { BoardColumn } from './entities/board-column.entity';
 import { Project } from '../projects/entities/project.entity';
 import { Issue } from '../issues/entities/issue.entity';
 import { ProjectMembersService } from '../membership/project-members/project-members.service';
-import { BoardsGateway } from './boards.gateway';
+import { BoardGateway } from '../gateways/board.gateway';
 import { CacheService } from '../cache/cache.service';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 
@@ -42,7 +42,7 @@ describe('BoardsService', () => {
     set: jest.Mock;
     del: jest.Mock;
   };
-  let mockBoardsGateway: {
+  let mockBoardGateway: {
     emitColumnsReordered: jest.Mock;
     emitIssueMoved: jest.Mock;
     emitIssueReordered: jest.Mock;
@@ -124,7 +124,7 @@ describe('BoardsService', () => {
       del: jest.fn().mockResolvedValue(true),
     };
 
-    mockBoardsGateway = {
+    mockBoardGateway = {
       emitColumnsReordered: jest.fn(),
       emitIssueMoved: jest.fn(),
       emitIssueReordered: jest.fn(),
@@ -168,7 +168,7 @@ describe('BoardsService', () => {
         { provide: ProjectMembersService, useValue: mockMembersService },
         { provide: DataSource, useValue: mockDataSource },
         { provide: EventEmitter2, useValue: mockEventEmitter },
-        { provide: BoardsGateway, useValue: mockBoardsGateway },
+        { provide: BoardGateway, useValue: mockBoardGateway },
         { provide: CacheService, useValue: mockCacheService },
       ],
     }).compile();
@@ -719,11 +719,14 @@ describe('BoardsService', () => {
         'user-123',
       );
 
-      expect(mockBoardsGateway.emitColumnsReordered).toHaveBeenCalledWith({
-        projectId: 'project-123',
-        boardId: 'board-123',
-        orderedColumnIds: orderedIds,
-      });
+      expect(mockBoardGateway.emitColumnsReordered).toHaveBeenCalledWith(
+        'board-123',
+        {
+          projectId: 'project-123',
+          boardId: 'board-123',
+          orderedColumnIds: orderedIds,
+        },
+      );
     });
 
     it('should do nothing if ordered list is empty', async () => {
@@ -784,11 +787,12 @@ describe('BoardsService', () => {
         'user-123',
       );
 
-      expect(mockBoardsGateway.emitIssueMoved).toHaveBeenCalledWith(
+      expect(mockBoardGateway.emitIssueMoved).toHaveBeenCalledWith(
+        'board-123',
         expect.objectContaining({
           issueId: 'issue-123',
-          toStatusId: 'status-456',
-          newOrder: 5,
+          toColumnId: 'status-456',
+          newIndex: 5,
         }),
       );
     });
@@ -871,12 +875,15 @@ describe('BoardsService', () => {
         'user-123',
       );
 
-      expect(mockBoardsGateway.emitIssueReordered).toHaveBeenCalledWith({
-        projectId: 'project-123',
-        boardId: 'board-123',
-        columnId: 'To Do',
-        issues: orderedIds,
-      });
+      expect(mockBoardGateway.emitIssueReordered).toHaveBeenCalledWith(
+        'board-123',
+        {
+          projectId: 'project-123',
+          boardId: 'board-123',
+          columnId: 'To Do',
+          issues: orderedIds,
+        },
+      );
     });
 
     it('should do nothing if ordered list is empty', async () => {

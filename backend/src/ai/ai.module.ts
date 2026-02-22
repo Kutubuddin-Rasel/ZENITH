@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
+import { HttpModule } from '@nestjs/axios';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Issue } from '../issues/entities/issue.entity';
 import { OpenAiService } from './services/openai.service';
@@ -32,6 +33,17 @@ import { SuggestionsService } from './services/suggestions.service';
 import { PredictionAnalyticsService } from './services/prediction-analytics.service';
 import { SuggestionsController } from './controllers/suggestions.controller';
 import { ProjectChatController } from './controllers/project-chat.controller';
+// Track 2: Issue Intelligence (Duplicate Detection + Contextual Search)
+import { DuplicateDetectionService } from './services/duplicate-detection.service';
+import { ContextualSearchService } from './services/contextual-search.service';
+import { IssueIntelligenceController } from './controllers/issue-intelligence.controller';
+// Gap 1: Real-Time Vector Synchronization
+import { VECTOR_SYNC_QUEUE } from './interfaces/vector-sync-job.interface';
+import { VectorSyncListener } from './listeners/vector-sync.listener';
+import { VectorSyncWorker } from './workers/vector-sync.worker';
+// Gap 3: Cross-Encoder Reranking
+import { RerankerService } from './interfaces/reranker.interface';
+import { CohereRerankerService } from './services/cohere-reranker.service';
 
 @Module({
   imports: [
@@ -47,9 +59,17 @@ import { ProjectChatController } from './controllers/project-chat.controller';
     BullModule.registerQueue({
       name: 'ai-triage',
     }),
+    BullModule.registerQueue({
+      name: VECTOR_SYNC_QUEUE,
+    }),
     CacheModule,
+    HttpModule,
   ],
-  controllers: [SuggestionsController, ProjectChatController],
+  controllers: [
+    SuggestionsController,
+    ProjectChatController,
+    IssueIntelligenceController,
+  ],
   providers: [
     OpenAiService,
     EmbeddingsService,
@@ -72,6 +92,17 @@ import { ProjectChatController } from './controllers/project-chat.controller';
     // Confidence Scoring Framework
     SuggestionsService,
     PredictionAnalyticsService,
+    // Track 2: Issue Intelligence
+    DuplicateDetectionService,
+    ContextualSearchService,
+    // Gap 1: Vector Synchronization
+    VectorSyncListener,
+    VectorSyncWorker,
+    // Gap 3: Cross-Encoder Reranking
+    {
+      provide: RerankerService,
+      useClass: CohereRerankerService,
+    },
   ],
   exports: [
     OpenAiService,

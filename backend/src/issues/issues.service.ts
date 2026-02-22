@@ -574,6 +574,9 @@ export class IssuesService implements OnModuleInit {
         issue.parentId = dto.parentId;
       }
     }
+    // VECTOR SYNC: Capture old text values BEFORE mutation for diff check
+    const oldTitle = issue.title;
+    const oldDescription = issue.description;
 
     if (dto.title !== undefined) issue.title = dto.title;
     if (dto.description !== undefined) issue.description = dto.description;
@@ -613,6 +616,18 @@ export class IssuesService implements OnModuleInit {
     void this.broadcastToBoards(projectId, 'issue.updated', {
       issue: this.toSlimIssue(updatedIssue),
     });
+
+    // VECTOR SYNC: Emit event ONLY if text content actually changed
+    // Placed AFTER save succeeds to guarantee the entity is committed.
+    const titleChanged = dto.title !== undefined && dto.title !== oldTitle;
+    const descChanged =
+      dto.description !== undefined && dto.description !== oldDescription;
+    if (titleChanged || descChanged) {
+      this.eventEmitter.emit('issue.text-changed', {
+        issueId: issue.id,
+        projectId,
+      });
+    }
 
     // Audit: ISSUE_UPDATED (Severity: LOW)
     await this.auditLogsService.log({

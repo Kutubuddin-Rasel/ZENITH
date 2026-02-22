@@ -1,33 +1,126 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
 import { Webhook } from './entities/webhook.entity';
 import { WebhookLog } from './entities/webhook-log.entity';
 import { CreateWebhookDto } from './dto/create-webhook.dto';
-import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
-import * as crypto from 'crypto'; // Keep for HMAC signing
+import { OnEvent } from '@nestjs/event-emitter';
 import { generateHexToken } from '../common/utils/token.util';
+import { ProjectMembersService } from '../membership/project-members/project-members.service';
+import { ProjectRole } from '../membership/enums/project-role.enum';
+import { EncryptionService } from '../common/services/encryption.service';
+import {
+  WEBHOOK_DELIVERY_QUEUE,
+  WEBHOOK_DELIVERY_JOB,
+  WebhookDeliveryJobData,
+} from './webhook-delivery.interfaces';
+
+// ============================================================================
+// WEBHOOKS SERVICE
+//
+// ARCHITECTURE:
+//   Producer — enqueues webhook delivery jobs to BullMQ.
+//   Consumer — WebhookDeliveryProcessor handles HTTP delivery separately.
+//
+// SECURITY:
+//   Two authorization layers protect webhook operations:
+//
+//   1. PROJECT-SCOPED routes (create, findAll):
+//      → ProjectRoleGuard in the controller validates project membership
+//
+//   2. ENTITY-SCOPED routes (update, remove, test, findOne, getLogs):
+//      → Service resolves webhook.projectId → checks user's role via
+//        ProjectMembersService.getUserRole()
+// ============================================================================
+
+/** Roles that are allowed to manage (create/update/delete) webhooks */
+const WEBHOOK_ADMIN_ROLES: ProjectRole[] = [ProjectRole.PROJECT_LEAD];
+
+/** Roles that are allowed to view webhooks and logs */
+const WEBHOOK_VIEW_ROLES: ProjectRole[] = [
+  ProjectRole.PROJECT_LEAD,
+  ProjectRole.MEMBER,
+  ProjectRole.DEVELOPER,
+  ProjectRole.QA,
+  ProjectRole.DESIGNER,
+];
 
 @Injectable()
 export class WebhooksService {
+  private readonly logger = new Logger(WebhooksService.name);
+
   constructor(
     @InjectRepository(Webhook)
     private webhookRepo: Repository<Webhook>,
     @InjectRepository(WebhookLog)
     private logRepo: Repository<WebhookLog>,
-    private eventEmitter: EventEmitter2,
-  ) { }
+    @InjectQueue(WEBHOOK_DELIVERY_QUEUE)
+    private readonly deliveryQueue: Queue<WebhookDeliveryJobData>,
+    private readonly projectMembersService: ProjectMembersService,
+    private readonly encryptionService: EncryptionService,
+  ) {}
+
+  // ==========================================================================
+  // AUTHORIZATION HELPER
+  // ==========================================================================
 
   /**
-   * Create a new webhook subscription
+   * Authorizes a user's access to a webhook by resolving its projectId
+   * and checking the user's role in that project.
+   *
+   * @param webhook - The webhook entity (must have projectId)
+   * @param userId - The requesting user's ID
+   * @param allowedRoles - Roles that are permitted for this operation
+   * @throws ForbiddenException if user lacks required project role
+   */
+  private async authorizeWebhookAccess(
+    webhook: Webhook,
+    userId: string,
+    allowedRoles: ProjectRole[],
+  ): Promise<void> {
+    const userRole = await this.projectMembersService.getUserRole(
+      webhook.projectId,
+      userId,
+    );
+
+    if (!userRole) {
+      throw new ForbiddenException(
+        'You are not a member of the project this webhook belongs to',
+      );
+    }
+
+    if (!allowedRoles.includes(userRole)) {
+      throw new ForbiddenException(
+        `Access denied. Required roles: ${allowedRoles.join(', ')}. Your role: ${userRole}`,
+      );
+    }
+  }
+
+  // ==========================================================================
+  // CRUD OPERATIONS
+  // ==========================================================================
+
+  /**
+   * Create a new webhook subscription.
+   * Authorization: ProjectRoleGuard validates projectId in controller.
+   *
+   * SECURITY: The HMAC secret is encrypted before persisting to DB.
+   * Only the ciphertext (iv:authTag:encrypted) is stored.
    */
   async create(projectId: string, dto: CreateWebhookDto): Promise<Webhook> {
-    // Generate a random secret for HMAC signing using centralized utility
-    const secret = generateHexToken(64);
+    const plainSecret = generateHexToken(64);
+    const encryptedSecret = this.encryptionService.encrypt(plainSecret);
 
     const webhook = this.webhookRepo.create({
       url: dto.url,
-      secret,
+      secret: encryptedSecret,
       events: dto.events,
       projectId,
       isActive: true,
@@ -38,7 +131,8 @@ export class WebhooksService {
   }
 
   /**
-   * Get all webhooks for a project
+   * Get all webhooks for a project.
+   * Authorization: ProjectRoleGuard validates projectId in controller.
    */
   async findAll(projectId: string): Promise<Webhook[]> {
     return this.webhookRepo.find({
@@ -48,166 +142,124 @@ export class WebhooksService {
   }
 
   /**
-   * Get a single webhook
+   * Get a single webhook.
+   * Authorization: Service-level — resolves webhook.projectId → role check.
    */
-  async findOne(id: string): Promise<Webhook> {
+  async findOne(id: string, userId?: string): Promise<Webhook> {
     const webhook = await this.webhookRepo.findOne({ where: { id } });
     if (!webhook) {
       throw new NotFoundException('Webhook not found');
     }
+
+    if (userId) {
+      await this.authorizeWebhookAccess(webhook, userId, WEBHOOK_VIEW_ROLES);
+    }
+
     return webhook;
   }
 
   /**
-   * Update webhook
+   * Update webhook.
+   * Authorization: Service-level — only PROJECT_LEAD can modify.
    */
   async update(
     id: string,
     updates: { url?: string; events?: string[]; isActive?: boolean },
+    userId?: string,
   ): Promise<Webhook> {
-    const webhook = await this.findOne(id);
+    const webhook = await this.webhookRepo.findOne({ where: { id } });
+    if (!webhook) {
+      throw new NotFoundException('Webhook not found');
+    }
+
+    if (userId) {
+      await this.authorizeWebhookAccess(webhook, userId, WEBHOOK_ADMIN_ROLES);
+    }
+
     Object.assign(webhook, updates);
     return this.webhookRepo.save(webhook);
   }
 
   /**
-   * Delete webhook
+   * Delete webhook.
+   * Authorization: Service-level — only PROJECT_LEAD can delete.
    */
-  async remove(id: string): Promise<void> {
-    const webhook = await this.findOne(id);
+  async remove(id: string, userId?: string): Promise<void> {
+    const webhook = await this.webhookRepo.findOne({ where: { id } });
+    if (!webhook) {
+      throw new NotFoundException('Webhook not found');
+    }
+
+    if (userId) {
+      await this.authorizeWebhookAccess(webhook, userId, WEBHOOK_ADMIN_ROLES);
+    }
+
     await this.webhookRepo.remove(webhook);
   }
 
+  // ==========================================================================
+  // WEBHOOK TRIGGERING (enqueue to BullMQ)
+  // ==========================================================================
+
   /**
-   * Trigger webhooks for an event
+   * Find matching webhooks and enqueue a delivery job for each.
+   *
+   * This is the PRODUCER side — jobs are persisted in Redis and
+   * processed by WebhookDeliveryProcessor (the CONSUMER).
+   * Survives server restarts.
    */
   async trigger(
     projectId: string,
     event: string,
     payload: object,
   ): Promise<void> {
-    // Find all active webhooks for this project that subscribe to this event
     const webhooks = await this.webhookRepo.find({
       where: { projectId, isActive: true },
     });
 
     const matchingWebhooks = webhooks.filter((wh) => wh.events.includes(event));
 
-    // Deliver to each webhook asynchronously
-    const deliveryPromises = matchingWebhooks.map((webhook) =>
-      this.deliver(webhook, event, payload),
+    if (matchingWebhooks.length === 0) return;
+
+    const jobs = matchingWebhooks.map((webhook) => ({
+      name: WEBHOOK_DELIVERY_JOB,
+      data: {
+        webhookId: webhook.id,
+        event,
+        payload,
+      } satisfies WebhookDeliveryJobData,
+    }));
+
+    await this.deliveryQueue.addBulk(jobs);
+
+    this.logger.debug(
+      `Enqueued ${jobs.length} webhook delivery job(s) for event '${event}' in project ${projectId}`,
     );
-
-    await Promise.allSettled(deliveryPromises);
   }
 
+  // ==========================================================================
+  // LOGS & TESTING
+  // ==========================================================================
+
   /**
-   * Deliver webhook with retries
+   * Get webhook delivery logs.
+   * Authorization: Service-level — view roles can see logs.
    */
-  private async deliver(
-    webhook: Webhook,
-    event: string,
-    payload: object,
-    attempt = 1,
-  ): Promise<void> {
-    const startTime = Date.now();
-    const webhookPayload = {
-      event,
-      timestamp: new Date().toISOString(),
-      data: payload,
-    };
-
-    // Generate HMAC signature
-    const signature = crypto
-      .createHmac('sha256', webhook.secret)
-      .update(JSON.stringify(webhookPayload))
-      .digest('hex');
-
-    try {
-      const response = await fetch(webhook.url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Webhook-Signature': signature,
-          'X-Webhook-Event': event,
-        },
-        body: JSON.stringify(webhookPayload),
-        signal: AbortSignal.timeout(5000), // 5-second timeout
+  async getLogs(
+    webhookId: string,
+    limit = 50,
+    userId?: string,
+  ): Promise<WebhookLog[]> {
+    if (userId) {
+      const webhook = await this.webhookRepo.findOne({
+        where: { id: webhookId },
       });
-
-      const responseBody = await response.text();
-      const deliveryDuration = Date.now() - startTime;
-
-      // Log the delivery
-      await this.logRepo.save({
-        webhookId: webhook.id,
-        event,
-        payload: webhookPayload,
-        responseStatus: response.status,
-        responseBody: responseBody.substring(0, 1000), // Limit size
-        deliveryDuration,
-        success: response.ok,
-      });
-
-      // Update webhook stats
-      await this.webhookRepo.update(webhook.id, {
-        lastTriggeredAt: new Date(),
-        failureCount: response.ok ? 0 : webhook.failureCount + 1,
-      });
-
-      // Disable webhook after 10 consecutive failures
-      if (!response.ok && webhook.failureCount + 1 >= 10) {
-        await this.webhookRepo.update(webhook.id, { isActive: false });
+      if (!webhook) {
+        throw new NotFoundException('Webhook not found');
       }
-
-      // Retry on failure (max 3 attempts)
-      if (!response.ok && attempt < 3) {
-        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
-        setTimeout(
-          () => void this.deliver(webhook, event, payload, attempt + 1),
-          delay,
-        );
-      }
-    } catch (error) {
-      const deliveryDuration = Date.now() - startTime;
-
-      // Log the failure
-      await this.logRepo.save({
-        webhookId: webhook.id,
-        event,
-        payload: webhookPayload,
-        responseStatus: 0,
-        responseBody: (error as Error).message,
-        deliveryDuration,
-        success: false,
-      });
-
-      // Update failure count
-      await this.webhookRepo.update(webhook.id, {
-        lastTriggeredAt: new Date(),
-        failureCount: webhook.failureCount + 1,
-      });
-
-      // Disable after 10 failures
-      if (webhook.failureCount + 1 >= 10) {
-        await this.webhookRepo.update(webhook.id, { isActive: false });
-      }
-
-      // Retry
-      if (attempt < 3) {
-        const delay = Math.pow(2, attempt) * 1000;
-        setTimeout(
-          () => void this.deliver(webhook, event, payload, attempt + 1),
-          delay,
-        );
-      }
+      await this.authorizeWebhookAccess(webhook, userId, WEBHOOK_VIEW_ROLES);
     }
-  }
 
-  /**
-   * Get webhook delivery logs
-   */
-  async getLogs(webhookId: string, limit = 50): Promise<WebhookLog[]> {
     return this.logRepo.find({
       where: { webhookId },
       order: { createdAt: 'DESC' },
@@ -216,33 +268,44 @@ export class WebhooksService {
   }
 
   /**
-   * Test webhook by sending a test event
+   * Test webhook by enqueuing a test delivery job.
+   * Authorization: Service-level — only PROJECT_LEAD can test.
    */
-  async test(webhookId: string): Promise<void> {
-    const webhook = await this.findOne(webhookId);
-    await this.deliver(webhook, 'webhook.test', {
-      message: 'This is a test webhook delivery',
+  async test(webhookId: string, userId?: string): Promise<void> {
+    const webhook = await this.webhookRepo.findOne({
+      where: { id: webhookId },
+    });
+    if (!webhook) {
+      throw new NotFoundException('Webhook not found');
+    }
+
+    if (userId) {
+      await this.authorizeWebhookAccess(webhook, userId, WEBHOOK_ADMIN_ROLES);
+    }
+
+    await this.deliveryQueue.add(WEBHOOK_DELIVERY_JOB, {
+      webhookId: webhook.id,
+      event: 'webhook.test',
+      payload: { message: 'This is a test webhook delivery' },
     });
   }
 
-  /**
-   * Listen to application events and trigger webhooks
-   */
+  // ==========================================================================
+  // EVENT LISTENERS (internal system events — no user auth)
+  // ==========================================================================
+
   @OnEvent('issue.**')
   handleIssueEvent(event: { projectId: string; action: string; data: any }) {
-
     void this.trigger(event.projectId, `issue.${event.action}`, event.data);
   }
 
   @OnEvent('sprint.**')
   handleSprintEvent(event: { projectId: string; action: string; data: any }) {
-
     void this.trigger(event.projectId, `sprint.${event.action}`, event.data);
   }
 
   @OnEvent('project.**')
   handleProjectEvent(event: { projectId: string; action: string; data: any }) {
-
     void this.trigger(event.projectId, `project.${event.action}`, event.data);
   }
 }

@@ -30,7 +30,7 @@ export class BoardsController {
   constructor(
     private svc: BoardsService,
     private readonly usersService: UsersService,
-  ) { }
+  ) {}
 
   /**
    * Helper: Get user's organization ID

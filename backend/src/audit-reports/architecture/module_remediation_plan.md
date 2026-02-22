@@ -46,11 +46,11 @@
 - [] notifications (7.8/10) 
 - [] email (4.5/10) 
 - [] webhooks (7.5/10) 
-- [] gateways (5.5/10) 
+- [x] gateways (5.5/10) — All 6 phases complete
 
 ### Tier 6: AI & Intelligence
 - [] ai (8.7/10) 
-- [] rag (6.8/10) 
+- [x] rag (6.8/10) — Phases 1-2 complete (Redis conversation memory + semantic chunking)
 
 ### Tier 7: Analytics & Monitoring
 - [] analytics (7.8/10) 

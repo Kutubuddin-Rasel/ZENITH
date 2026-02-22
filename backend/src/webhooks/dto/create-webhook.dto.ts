@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsArray, IsUrl } from 'class-validator';
+import { IsNotEmpty, IsArray, IsUrl, IsEnum } from 'class-validator';
+import { WebhookEventType } from '../enums/webhook-event-type.enum';
 
 export class CreateWebhookDto {
   @IsUrl()
@@ -6,6 +7,9 @@ export class CreateWebhookDto {
   url: string;
 
   @IsArray()
-  @IsString({ each: true })
-  events: string[];
+  @IsEnum(WebhookEventType, {
+    each: true,
+    message: `Each event must be a valid WebhookEventType`,
+  })
+  events: WebhookEventType[];
 }

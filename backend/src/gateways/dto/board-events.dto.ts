@@ -91,3 +91,27 @@ export interface IssueDeletedPayload {
   boardId: string;
   projectId: string;
 }
+
+/**
+ * Payload for issue reorder events within a column
+ *
+ * Sent when issues are drag-reordered within the same column.
+ * Contains the new ordering so clients can update without refetch.
+ */
+export interface IssueReorderedPayload {
+  projectId: string;
+  boardId: string;
+  columnId: string;
+  issues: string[]; // array of issueIds in new order
+}
+
+/**
+ * Payload for column reorder events on a board
+ *
+ * Sent when board columns are reordered via drag-and-drop.
+ */
+export interface ColumnsReorderedPayload {
+  projectId: string;
+  boardId: string;
+  orderedColumnIds: string[];
+}
