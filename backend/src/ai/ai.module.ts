@@ -44,6 +44,9 @@ import { VectorSyncWorker } from './workers/vector-sync.worker';
 // Gap 3: Cross-Encoder Reranking
 import { RerankerService } from './interfaces/reranker.interface';
 import { CohereRerankerService } from './services/cohere-reranker.service';
+// Gap 4: Observability & Feedback Loop
+import { AIFeedback } from './entities/ai-feedback.entity';
+import { AITelemetryService } from './services/ai-telemetry.service';
 
 @Module({
   imports: [
@@ -55,6 +58,7 @@ import { CohereRerankerService } from './services/cohere-reranker.service';
       UserPreferences,
       AISuggestion,
       AIPredictionLog,
+      AIFeedback,
     ]),
     BullModule.registerQueue({
       name: 'ai-triage',
@@ -103,6 +107,8 @@ import { CohereRerankerService } from './services/cohere-reranker.service';
       provide: RerankerService,
       useClass: CohereRerankerService,
     },
+    // Gap 4: Observability & Feedback Loop
+    AITelemetryService,
   ],
   exports: [
     OpenAiService,

@@ -4,6 +4,7 @@
  * AI-powered endpoints for issue management:
  *   - POST /ai/issues/detect-duplicates — Synchronous duplicate detection
  *   - POST /ai/issues/contextual-search — SSE streaming search
+ *   - POST /ai/issues/feedback — Rate RAG response quality (👍/👎)
  *
  * SECURITY:
  *   - JwtAuthGuard: JWT authentication
@@ -20,6 +21,7 @@ import {
   Post,
   Body,
   Sse,
+  Res,
   UseGuards,
   Request,
   ForbiddenException,
@@ -27,6 +29,7 @@ import {
   HttpStatus,
   MessageEvent,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { Observable } from 'rxjs';
 import { Throttle } from '@nestjs/throttler';
 
@@ -37,8 +40,13 @@ import {
   DuplicateDetectionResponse,
 } from '../dto/detect-duplicates.dto';
 import { ContextualSearchDto } from '../dto/contextual-search.dto';
+import {
+  SubmitAIFeedbackDto,
+  AIFeedbackResponse,
+} from '../dto/submit-ai-feedback.dto';
 import { DuplicateDetectionService } from '../services/duplicate-detection.service';
 import { ContextualSearchService } from '../services/contextual-search.service';
+import { AITelemetryService } from '../services/ai-telemetry.service';
 
 @Controller('ai/issues')
 @UseGuards(JwtAuthGuard)
@@ -46,6 +54,7 @@ export class IssueIntelligenceController {
   constructor(
     private readonly duplicateDetection: DuplicateDetectionService,
     private readonly contextualSearchService: ContextualSearchService,
+    private readonly telemetryService: AITelemetryService,
   ) {}
 
   /**
@@ -120,5 +129,46 @@ export class IssueIntelligenceController {
     }
 
     return this.contextualSearchService.search(dto, organizationId);
+  }
+
+  /**
+   * Submit feedback on a contextual search response (👍 or 👎).
+   *
+   * IDEMPOTENCY: UNIQUE(conversationId, messageId) ensures one rating per
+   * message. Re-submissions update the existing record (wasUpdated: true).
+   *
+   * SECURITY:
+   *   @Throttle(10/60s) — HTTP-level rate limiting.
+   *   tenantId + userId extracted from JWT, never from user input.
+   *
+   * STATUS CODES:
+   *   201 Created — new feedback recorded
+   *   200 OK — existing feedback updated (UPSERT)
+   */
+  @Post('feedback')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 feedback/min/user
+  async submitFeedback(
+    @Body() dto: SubmitAIFeedbackDto,
+    @Request() req: { user: JwtRequestUser },
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AIFeedbackResponse> {
+    const { organizationId, userId } = req.user;
+
+    if (!organizationId) {
+      throw new ForbiddenException(
+        'User must belong to an organization to submit feedback',
+      );
+    }
+
+    const result = await this.telemetryService.recordFeedback(
+      dto,
+      organizationId,
+      userId,
+    );
+
+    // 201 for new feedback, 200 for upsert
+    res.status(result.wasUpdated ? HttpStatus.OK : HttpStatus.CREATED);
+
+    return result;
   }
 }

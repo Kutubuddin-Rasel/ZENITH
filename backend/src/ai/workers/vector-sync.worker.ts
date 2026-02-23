@@ -39,7 +39,9 @@ interface IssueFetchRow {
   isArchived: boolean;
 }
 
-@Processor(VECTOR_SYNC_QUEUE)
+@Processor(VECTOR_SYNC_QUEUE, {
+  concurrency: 3, // V1 Fix: Cap at 3 parallel jobs (reserves 17/20 DB pool for HTTP)
+})
 export class VectorSyncWorker extends WorkerHost {
   private readonly logger = new Logger(VectorSyncWorker.name);
 
