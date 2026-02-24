@@ -40,6 +40,8 @@ import {
   RerankerService,
   RerankDocument,
 } from '../interfaces/reranker.interface';
+import { AICostGuardService } from './ai-cost-guard.service';
+import { PIISanitizerService } from './pii-sanitizer.service';
 import { ContextualSearchDto } from '../dto/contextual-search.dto';
 
 // ─── Configuration Constants ───────────────────────────────────
@@ -135,6 +137,8 @@ export class ContextualSearchService {
     private readonly openAiService: OpenAiService,
     private readonly cacheService: CacheService,
     private readonly rerankerService: RerankerService,
+    private readonly costGuard: AICostGuardService,
+    private readonly piiSanitizer: PIISanitizerService,
   ) {}
 
   /**
@@ -213,6 +217,16 @@ export class ContextualSearchService {
         type: 'session-init',
         conversationId,
       });
+    }
+
+    // ─── STEP A.5: Tenant Quota Check (Redis Atomic INCR) ──────
+    const quota = await this.costGuard.checkAndIncrement(tenantId);
+    if (!quota.allowed) {
+      subscriber.next({
+        data: { type: 'error', content: 'Daily AI limit reached.' },
+      });
+      subscriber.complete();
+      return;
     }
 
     // ─── STEP B: History Retrieval (already done in Step A) ─
@@ -507,18 +521,36 @@ export class ContextualSearchService {
 
   /**
    * Build truncated context block from hybrid search results.
+   *
+   * PII SCOPE: Sanitizes title/description BEFORE system prompt injection.
+   * Hybrid search upstream uses raw text — intentionally NOT sanitized.
    */
   private buildContextBlock(results: HybridSearchResult[]): string {
-    return results
+    let totalRedacted = 0;
+
+    const block = results
       .map((r) => {
         const key = `${r.projectKey}-${r.issueNumber}`;
-        const desc = r.description
+        const rawDesc = r.description
           ? r.description.substring(0, MAX_DESCRIPTION_LENGTH) +
             (r.description.length > MAX_DESCRIPTION_LENGTH ? '...' : '')
           : 'No description';
-        return `[${key}] ${r.title} (Status: ${r.status})\n${desc}`;
+
+        const titleResult = this.piiSanitizer.sanitize(r.title);
+        const descResult = this.piiSanitizer.sanitize(rawDesc);
+        totalRedacted += titleResult.redactedCount + descResult.redactedCount;
+
+        return `[${key}] ${titleResult.sanitized} (Status: ${r.status})\n${descResult.sanitized}`;
       })
       .join('\n\n---\n\n');
+
+    if (totalRedacted > 0) {
+      this.logger.log(
+        `[PII Audit] Redacted ${totalRedacted} entities before external AI call in context block`,
+      );
+    }
+
+    return block;
   }
 
   /**

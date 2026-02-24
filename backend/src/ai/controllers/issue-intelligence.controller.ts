@@ -34,6 +34,7 @@ import { Observable } from 'rxjs';
 import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { AIConsentGuard } from '../guards/ai-consent.guard';
 import { JwtRequestUser } from '../../auth/types/jwt-request-user.interface';
 import {
   DetectDuplicatesDto,
@@ -49,7 +50,7 @@ import { ContextualSearchService } from '../services/contextual-search.service';
 import { AITelemetryService } from '../services/ai-telemetry.service';
 
 @Controller('ai/issues')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, AIConsentGuard)
 export class IssueIntelligenceController {
   constructor(
     private readonly duplicateDetection: DuplicateDetectionService,

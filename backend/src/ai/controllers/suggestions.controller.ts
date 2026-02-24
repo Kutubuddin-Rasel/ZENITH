@@ -7,7 +7,9 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { CsrfGuard } from '../../auth/guards/csrf.guard';
 import { SuggestionsService } from '../services/suggestions.service';
 import { PredictionAnalyticsService } from '../services/prediction-analytics.service';
 
@@ -17,6 +19,7 @@ import { PredictionAnalyticsService } from '../services/prediction-analytics.ser
  */
 @Controller('ai/suggestions')
 @UseGuards(JwtAuthGuard)
+@Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 req/min — read-heavy, low LLM cost
 export class SuggestionsController {
   constructor(
     private readonly suggestionsService: SuggestionsService,
@@ -44,6 +47,7 @@ export class SuggestionsController {
    * Accept a suggestion and apply changes to the issue
    */
   @Post(':id/accept')
+  @UseGuards(CsrfGuard)
   async acceptSuggestion(
     @Param('id') id: string,
     @Request() req: { user: { userId: string } },
@@ -55,6 +59,7 @@ export class SuggestionsController {
    * Reject a suggestion
    */
   @Post(':id/reject')
+  @UseGuards(CsrfGuard)
   async rejectSuggestion(
     @Param('id') id: string,
     @Request() req: { user: { userId: string } },

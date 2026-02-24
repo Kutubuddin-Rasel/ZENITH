@@ -47,6 +47,13 @@ import { CohereRerankerService } from './services/cohere-reranker.service';
 // Gap 4: Observability & Feedback Loop
 import { AIFeedback } from './entities/ai-feedback.entity';
 import { AITelemetryService } from './services/ai-telemetry.service';
+// Remediation: Wallet Drain Defense
+import { AICostGuardService } from './services/ai-cost-guard.service';
+// Remediation: PII Compliance
+import { PIISanitizerService } from './services/pii-sanitizer.service';
+// Remediation: AI Consent Management
+import { AIConsentGuard } from './guards/ai-consent.guard';
+import { Organization } from '../organizations/entities/organization.entity';
 
 @Module({
   imports: [
@@ -59,6 +66,7 @@ import { AITelemetryService } from './services/ai-telemetry.service';
       AISuggestion,
       AIPredictionLog,
       AIFeedback,
+      Organization,
     ]),
     BullModule.registerQueue({
       name: 'ai-triage',
@@ -109,6 +117,12 @@ import { AITelemetryService } from './services/ai-telemetry.service';
     },
     // Gap 4: Observability & Feedback Loop
     AITelemetryService,
+    // Remediation: Wallet Drain Defense
+    AICostGuardService,
+    // Remediation: PII Compliance
+    PIISanitizerService,
+    // Remediation: AI Consent Management
+    AIConsentGuard,
   ],
   exports: [
     OpenAiService,

@@ -7,6 +7,7 @@ import { Issue, IssuePriority } from '../../issues/entities/issue.entity';
 import { OpenAiService } from '../services/openai.service';
 import { EmbeddingsService } from '../services/embeddings.service';
 import { SuggestionsService } from '../services/suggestions.service';
+import { PIISanitizerService } from '../services/pii-sanitizer.service';
 import {
   AIPrediction,
   TriageAnalysisResponse,
@@ -35,6 +36,7 @@ export class TriageWorker extends WorkerHost {
     private openAiService: OpenAiService,
     private embeddingsService: EmbeddingsService,
     private suggestionsService: SuggestionsService,
+    private piiSanitizer: PIISanitizerService,
   ) {
     super();
   }
@@ -115,11 +117,25 @@ export class TriageWorker extends WorkerHost {
   }
 
   /**
-   * Classify issue with LLM and extract confidence score
+   * Classify issue with LLM and extract confidence score.
+   *
+   * PII SCOPE: Sanitizes title/description BEFORE injecting into LLM prompt.
+   * The embedding at line 64 uses raw text — intentionally NOT sanitized.
    */
   private async classifyWithConfidence(
     issue: Issue,
   ): Promise<AIPrediction | null> {
+    // PII sanitization — ONLY for LLM prompt, NOT for embeddings (line 64)
+    const titleResult = this.piiSanitizer.sanitize(issue.title);
+    const descResult = this.piiSanitizer.sanitize(issue.description || '');
+    const totalRedacted = titleResult.redactedCount + descResult.redactedCount;
+
+    if (totalRedacted > 0) {
+      this.logger.log(
+        `[PII Audit] Redacted ${totalRedacted} entities before external AI call for issue ${issue.id}`,
+      );
+    }
+
     const prompt = `You are a project management AI assistant.
 Analyze the following issue and predict:
 1. Priority (Highest, High, Medium, Low, Lowest)
@@ -127,8 +143,8 @@ Analyze the following issue and predict:
 3. Confidence (0.0-1.0) - how confident you are in this prediction
 4. Reasoning - brief explanation for your prediction
 
-Issue Title: ${issue.title}
-Issue Description: ${issue.description || 'No description'}
+Issue Title: ${titleResult.sanitized}
+Issue Description: ${descResult.sanitized || 'No description'}
 
 IMPORTANT: Return ONLY valid JSON in this exact format:
 {

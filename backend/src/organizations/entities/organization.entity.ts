@@ -32,6 +32,10 @@ export class Organization {
   @Column({ nullable: true })
   currentPeriodEnd: Date;
 
+  /** Whether AI features are enabled for this organization. Default: true. */
+  @Column({ default: true })
+  aiEnabled: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -18,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ProjectRoleGuard } from '../../auth/guards/project-role.guard';
+import { AIConsentGuard } from '../guards/ai-consent.guard';
 import { RequireProjectRole } from '../../auth/decorators/require-project-role.decorator';
 import { ProjectRole } from '../../membership/enums/project-role.enum';
 import {
@@ -52,7 +54,7 @@ class AskProjectDto {
 @ApiTags('AI - Project Intelligence')
 @ApiBearerAuth()
 @Controller('projects/:projectId/chat')
-@UseGuards(JwtAuthGuard, ProjectRoleGuard)
+@UseGuards(JwtAuthGuard, ProjectRoleGuard, AIConsentGuard)
 export class ProjectChatController {
   constructor(private readonly ragService: ProjectRAGService) {}
 
@@ -64,6 +66,7 @@ export class ProjectChatController {
    */
   @Post('ask')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 req/min — each triggers LLM + embedding
   @ApiOperation({
     summary: 'Ask a question about the project',
     description:
