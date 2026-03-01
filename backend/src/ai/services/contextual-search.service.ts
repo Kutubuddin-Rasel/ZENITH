@@ -222,8 +222,9 @@ export class ContextualSearchService {
     // ─── STEP A.5: Tenant Quota Check (Redis Atomic INCR) ──────
     const quota = await this.costGuard.checkAndIncrement(tenantId);
     if (!quota.allowed) {
-      subscriber.next({
-        data: { type: 'error', content: 'Daily AI limit reached.' },
+      this.emitEvent(subscriber, {
+        type: 'error',
+        message: 'Daily AI limit reached.',
       });
       subscriber.complete();
       return;
