@@ -10,6 +10,7 @@ import {
   EmailJobResult,
   SendInvitationJobData,
   SendPasswordResetJobData,
+  SendReportJobData,
 } from './email.interfaces';
 
 // ============================================================================
@@ -40,7 +41,7 @@ export class EmailService {
     @InjectQueue(EMAIL_QUEUE_NAME)
     private readonly emailQueue: Queue<EmailJobData, EmailJobResult>,
     private readonly rateLimitService: EmailRateLimitService,
-  ) {}
+  ) { }
 
   // ==========================================================================
   // PUBLIC METHODS (PRODUCERS)
@@ -48,11 +49,6 @@ export class EmailService {
 
   /**
    * Enqueues an organization invitation email for async delivery.
-   *
-   * @param to - Recipient email address
-   * @param inviteLink - The invitation acceptance URL
-   * @param inviterName - Name of the person sending the invite
-   * @param orgName - Organization name
    */
   async sendInvitationEmail(
     to: string,
@@ -60,13 +56,9 @@ export class EmailService {
     inviterName: string,
     orgName: string,
   ): Promise<void> {
-    // LAYER 1: Validate email format (fail fast → 400)
     this.validateEmailAddress(to);
-
-    // LAYER 2: Per-recipient rate limiting (fail fast → 429)
     await this.rateLimitService.checkRateLimit(to);
 
-    // LAYER 3: Enqueue for async processing
     const jobData: SendInvitationJobData = {
       to,
       inviteLink,
@@ -86,11 +78,6 @@ export class EmailService {
 
   /**
    * Enqueues a password reset email for async delivery.
-   *
-   * @param to - Recipient email address
-   * @param resetLink - Password reset URL
-   * @param userName - User's display name (optional)
-   * @param expiresIn - Human-readable expiry, e.g. "1 hour"
    */
   async sendPasswordResetEmail(
     to: string,
@@ -98,13 +85,9 @@ export class EmailService {
     userName?: string,
     expiresIn: string = '1 hour',
   ): Promise<void> {
-    // LAYER 1: Validate email format (fail fast → 400)
     this.validateEmailAddress(to);
-
-    // LAYER 2: Per-recipient rate limiting (fail fast → 429)
     await this.rateLimitService.checkRateLimit(to);
 
-    // LAYER 3: Enqueue for async processing
     const jobData: SendPasswordResetJobData = {
       to,
       resetLink,
@@ -122,8 +105,50 @@ export class EmailService {
     );
   }
 
+  /**
+   * Enqueues a scheduled report distribution email for async delivery.
+   *
+   * ARCHITECTURE:
+   * The presigned URL is NOT generated here (producer). It is generated
+   * at consume time in EmailProcessor to ensure the freshest possible TTL.
+   * We pass the S3 object key instead.
+   *
+   * @param to - Project Lead email address
+   * @param projectName - Project name for email branding
+   * @param reportType - Human-readable report type
+   * @param s3ObjectKey - MinIO/S3 object key for the report
+   * @param expiresInHours - URL expiry in hours (default: 48)
+   */
+  async sendReportEmail(
+    to: string,
+    projectName: string,
+    reportType: string,
+    s3ObjectKey: string,
+    expiresInHours: number = 48,
+  ): Promise<void> {
+    this.validateEmailAddress(to);
+    await this.rateLimitService.checkRateLimit(to);
+
+    const jobData: SendReportJobData = {
+      to,
+      projectName,
+      reportType,
+      s3ObjectKey,
+      expiresInHours,
+    };
+
+    const job = await this.emailQueue.add(
+      EMAIL_JOB_NAMES.SEND_REPORT,
+      jobData,
+    );
+
+    this.logger.log(
+      `Report email queued for ${to} (${projectName} / ${reportType}) — Job ID: ${job.id ?? 'unknown'}`,
+    );
+  }
+
   // ==========================================================================
-  // VALIDATION (Phase 4)
+  // VALIDATION
   // ==========================================================================
 
   /**

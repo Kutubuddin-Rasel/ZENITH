@@ -1,0 +1,44 @@
+<div style="max-width: 600px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <h2 style="color: #1A56DB; margin-bottom: 8px;">📊 Your Weekly Report is Ready</h2>
+
+  <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+    Hi there,
+  </p>
+
+  <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+    Your scheduled <strong>{{reportType}}</strong> report for
+    <strong>{{projectName}}</strong> has been generated and is ready for download.
+  </p>
+
+  <div style="background-color: #F3F4F6; border-radius: 8px; padding: 20px; margin: 24px 0;">
+    <table style="width: 100%; font-size: 14px; color: #374151;">
+      <tr>
+        <td style="padding: 4px 0; font-weight: 600;">Project:</td>
+        <td style="padding: 4px 0;">{{projectName}}</td>
+      </tr>
+      <tr>
+        <td style="padding: 4px 0; font-weight: 600;">Report:</td>
+        <td style="padding: 4px 0;">{{reportType}}</td>
+      </tr>
+      <tr>
+        <td style="padding: 4px 0; font-weight: 600;">Generated:</td>
+        <td style="padding: 4px 0;">{{generatedAt}}</td>
+      </tr>
+    </table>
+  </div>
+
+  {{> button url=downloadUrl text="Download Report" }}
+
+  <div style="background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 12px 16px; margin: 24px 0; border-radius: 4px;">
+    <p style="color: #92400E; font-size: 13px; margin: 0;">
+      <strong>⏳ Security Notice:</strong> This download link expires in
+      <strong>{{expiresInHours}} hours</strong> for security purposes.
+      After expiration, you can generate a new report from the Zenith dashboard.
+    </p>
+  </div>
+
+  <p style="color: #6B7280; font-size: 13px; line-height: 1.5;">
+    This is an automated report from Zenith Project Management.
+    You're receiving this because you are the Project Lead for {{projectName}}.
+  </p>
+</div>

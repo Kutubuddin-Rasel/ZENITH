@@ -13,6 +13,7 @@
 export const EMAIL_JOB_NAMES = {
   SEND_INVITATION: 'send-invitation',
   SEND_PASSWORD_RESET: 'send-password-reset',
+  SEND_REPORT: 'send-report',
 } as const;
 
 export type EmailJobName =
@@ -58,10 +59,29 @@ export interface SendPasswordResetJobData {
 }
 
 /**
+ * Payload for scheduled report distribution emails.
+ */
+export interface SendReportJobData {
+  /** Recipient email address */
+  to: string;
+  /** Project name for email subject/body */
+  projectName: string;
+  /** Report type description (e.g., "Velocity", "Issue Breakdown") */
+  reportType: string;
+  /** MinIO/S3 object key — presigned URL generated at send time */
+  s3ObjectKey: string;
+  /** Presigned URL TTL in hours (default: 48) */
+  expiresInHours: number;
+}
+
+/**
  * Union type for all email job data.
  * Expand this union as new email types are added.
  */
-export type EmailJobData = SendInvitationJobData | SendPasswordResetJobData;
+export type EmailJobData =
+  | SendInvitationJobData
+  | SendPasswordResetJobData
+  | SendReportJobData;
 
 /**
  * Result returned by the email processor after successful send.

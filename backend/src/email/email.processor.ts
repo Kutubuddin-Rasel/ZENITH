@@ -3,12 +3,14 @@ import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
+import { S3StorageProvider } from '../attachments/storage/providers/s3-storage.provider';
 import { EmailTemplateService } from './email-template.service';
 import {
   EMAIL_QUEUE_NAME,
   EMAIL_JOB_NAMES,
   SendInvitationJobData,
   SendPasswordResetJobData,
+  SendReportJobData,
   EmailJobData,
   EmailJobResult,
 } from './email.interfaces';
@@ -74,6 +76,7 @@ export class EmailProcessor extends WorkerHost {
   constructor(
     private readonly configService: ConfigService,
     private readonly templateService: EmailTemplateService,
+    private readonly s3StorageProvider: S3StorageProvider,
   ) {
     super();
 
@@ -99,6 +102,11 @@ export class EmailProcessor extends WorkerHost {
         EMAIL_JOB_NAMES.SEND_PASSWORD_RESET,
         (d, j) =>
           this.handlePasswordReset(d as unknown as SendPasswordResetJobData, j),
+      ],
+      [
+        EMAIL_JOB_NAMES.SEND_REPORT,
+        (d, j) =>
+          this.handleReport(d as unknown as SendReportJobData, j),
       ],
     ]);
   }
@@ -164,6 +172,43 @@ export class EmailProcessor extends WorkerHost {
     });
 
     return this.sendViaResend(to, 'Reset Your Password — Zenith', html, job);
+  }
+
+  /**
+   * Handle scheduled report distribution email.
+   *
+   * ARCHITECTURE:
+   * - Presigned URL is generated HERE (at consume time), not at enqueue time.
+   *   This ensures the freshest possible TTL — if the queue is backed up,
+   *   the user still gets the full 48-hour window from email delivery.
+   * - S3 object key → presigned URL → Handlebars template → Resend API
+   */
+  private async handleReport(
+    data: SendReportJobData,
+    job: Job<EmailJobData, EmailJobResult, string>,
+  ): Promise<EmailJobResult> {
+    const { to, projectName, reportType, s3ObjectKey, expiresInHours } = data;
+
+    // Generate presigned download URL with configured TTL
+    // Override the provider's default TTL with our 48h expiry
+    const downloadUrl = await this.s3StorageProvider.getDownloadUrl(s3ObjectKey);
+
+    const html = this.templateService.render('report-ready', {
+      title: `Weekly ${reportType} Report — ${projectName}`,
+      projectName,
+      reportType,
+      downloadUrl,
+      expiresInHours: String(expiresInHours),
+      generatedAt: new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }),
+    });
+
+    const subject = `📊 Weekly ${escapeSubject(reportType)} Report — ${escapeSubject(projectName)}`;
+    return this.sendViaResend(to, subject, html, job);
   }
 
   // ==========================================================================

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -9,8 +9,13 @@ import {
 import { Sprint, SprintStatus } from 'src/sprints/entities/sprint.entity';
 import { SprintIssue } from 'src/sprints/entities/sprint-issue.entity';
 import { SprintsService } from 'src/sprints/sprints.service';
+import { CacheService } from 'src/cache/cache.service';
+import { TenantContext } from '../core/tenant/tenant-context.service';
 
-// Type interfaces for raw query results
+// ---------------------------------------------------------------------------
+// Strict Interfaces (ZERO `any`)
+// ---------------------------------------------------------------------------
+
 interface VelocityAggregationRow {
   sprintId: string;
   committedPoints: string | number;
@@ -42,30 +47,98 @@ interface BreakdownRow {
   count: string | number;
 }
 
-import { CacheService } from 'src/cache/cache.service';
+/** Exported velocity data point shape */
+export interface VelocityDataPoint {
+  sprintId: string;
+  sprintName: string;
+  completedPoints: number;
+  committedPoints: number;
+  sprintStart: Date | string;
+  sprintEnd: Date | string;
+}
+
+/** Exported burndown data point shape */
+export interface BurndownDataPoint {
+  date: Date | string;
+  remainingPoints: number;
+  completedPoints: number;
+  totalPoints: number;
+}
+
+/** Exported epic progress data shape */
+export interface EpicProgressDataPoint {
+  epicId: string;
+  epicTitle: string;
+  epicStatus: string;
+  totalStories: number;
+  completedStories: number;
+  totalStoryPoints: number;
+  completedStoryPoints: number;
+  completionPercentage: number;
+  storyPointsCompletionPercentage: number;
+  dueDate: Date | null;
+}
+
+/** Exported issue breakdown shape */
+export interface IssueBreakdownResult {
+  typeBreakdown: Record<string, number>;
+  priorityBreakdown: Record<string, number>;
+  statusBreakdown: Record<string, number>;
+  assigneeBreakdown: Record<string, number>;
+  totalIssues: number;
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
 
 @Injectable()
 export class ReportsService {
+  private readonly logger = new Logger(ReportsService.name);
+
   constructor(
-    private sprintsService: SprintsService,
+    private readonly sprintsService: SprintsService,
     @InjectRepository(Issue)
-    private issueRepo: Repository<Issue>,
+    private readonly issueRepo: Repository<Issue>,
     @InjectRepository(SprintIssue)
-    private sprintIssueRepo: Repository<SprintIssue>,
-    private cacheService: CacheService,
-  ) {}
+    private readonly sprintIssueRepo: Repository<SprintIssue>,
+    private readonly cacheService: CacheService,
+    private readonly tenantContext: TenantContext,
+  ) { }
 
   /**
-   * OPTIMIZED: Get velocity data for all completed sprints
-   * Uses single aggregation query instead of N+1 queries
+   * Helper: Get tenant ID with strict enforcement.
+   * Throws if no tenant context — prevents accidental cross-tenant queries.
    */
-  async getVelocity(projectId: string, _userId: string) {
+  private getTenantIdOrThrow(): string {
+    const tenantId = this.tenantContext.getTenantId();
+    if (!tenantId) {
+      throw new Error(
+        'TenantContext is empty — refusing to execute report query without tenant scope.',
+      );
+    }
+    return tenantId;
+  }
+
+  /**
+   * OPTIMIZED: Get velocity data for all completed sprints.
+   *
+   * DEFENSE-IN-DEPTH:
+   * issue.organizationId filter ensures tenant isolation at DB level,
+   * independent of application-layer guards.
+   */
+  async getVelocity(
+    projectId: string,
+    _userId: string,
+  ): Promise<VelocityDataPoint[]> {
     const cacheKey = `reports:velocity:${projectId}`;
-    const cached = await this.cacheService.get(cacheKey);
+    const cached = await this.cacheService.get<VelocityDataPoint[]>(cacheKey);
 
     if (cached) return cached;
 
-    // Get all completed sprints in single query
+    const tenantId = this.getTenantIdOrThrow();
+
+    // Get all completed sprints
     const sprints = await this.sprintsService.findAll(projectId, _userId);
     const completedSprints = sprints.filter(
       (sprint) => sprint.status === SprintStatus.COMPLETED,
@@ -78,6 +151,7 @@ export class ReportsService {
     const sprintIds = completedSprints.map((s) => s.id);
 
     // OPTIMIZED: Single aggregation query for all sprints
+    // DEFENSE-IN-DEPTH: issue.organizationId filter
     const velocityAggregation = await this.sprintIssueRepo
       .createQueryBuilder('si')
       .leftJoin('si.issue', 'issue')
@@ -88,6 +162,7 @@ export class ReportsService {
         'completedPoints',
       )
       .where('si.sprintId IN (:...sprintIds)', { sprintIds })
+      .andWhere('issue.organizationId = :tenantId', { tenantId })
       .setParameter('doneStatus', IssueStatus.DONE)
       .groupBy('si.sprintId')
       .getRawMany<VelocityAggregationRow>();
@@ -103,21 +178,22 @@ export class ReportsService {
       ]),
     );
 
-    // Build result with sprint metadata + aggregated data
-    const velocityData = completedSprints.map((sprint) => {
-      const agg = aggregationMap.get(sprint.id) || {
-        committedPoints: 0,
-        completedPoints: 0,
-      };
-      return {
-        sprintId: sprint.id,
-        sprintName: sprint.name,
-        completedPoints: agg.completedPoints,
-        committedPoints: agg.committedPoints,
-        sprintStart: sprint.startDate,
-        sprintEnd: sprint.endDate,
-      };
-    });
+    const velocityData: VelocityDataPoint[] = completedSprints.map(
+      (sprint) => {
+        const agg = aggregationMap.get(sprint.id) || {
+          committedPoints: 0,
+          completedPoints: 0,
+        };
+        return {
+          sprintId: sprint.id,
+          sprintName: sprint.name,
+          completedPoints: agg.completedPoints,
+          committedPoints: agg.committedPoints,
+          sprintStart: sprint.startDate,
+          sprintEnd: sprint.endDate,
+        };
+      },
+    );
 
     const sortedVelocityData = velocityData.sort(
       (a, b) =>
@@ -128,12 +204,15 @@ export class ReportsService {
     return sortedVelocityData;
   }
 
-  async getBurndown(projectId: string, userId: string, sprintId?: string) {
+  async getBurndown(
+    projectId: string,
+    userId: string,
+    sprintId?: string,
+  ): Promise<BurndownDataPoint[]> {
     let sprint: Sprint;
     let actualSprintId = sprintId;
 
     if (!actualSprintId) {
-      // Default to first active
       const allSprints = await this.sprintsService.findAll(projectId, userId);
       const activeSprint = allSprints.find(
         (s) => s.status === SprintStatus.ACTIVE,
@@ -153,52 +232,47 @@ export class ReportsService {
       return [];
     }
 
-    // Query historical snapshots
-    // Note: We need access to snapshotRepo.
-    // Ideally ReportsService should have its own repo or access via SprintsService.
-    // For now, let's assume we can inject snapshotRepo into ReportsService or add a method in SprintsService.
-    // Let's add `getSnapshots(sprintId)` to SprintsService to keep it clean.
-
-    // Changing approach: Call SprintsService to get history
+    // Burndown delegates to SprintsService which handles its own tenant isolation
     const snapshots = await this.sprintsService.getSprintSnapshots(sprint.id);
 
-    // Map snapshots to chart format
-    // If no snapshots exist (e.g. freshly created), we might want to return at least one point (today).
-
-    const result = snapshots.map((snap) => ({
+    return snapshots.map((snap) => ({
       date: snap.date,
       remainingPoints: snap.remainingPoints,
       completedPoints: snap.completedPoints,
       totalPoints: snap.totalPoints,
     }));
-
-    // Add "Today" calculation as the last point if standard snapshots run at midnight
-    // real-time check for "now"
-    // (Implementation of real-time check omitted for brevity, relying on snapshots for trend)
-
-    return result;
   }
 
   /**
-   * OPTIMIZED: Cumulative flow using database aggregation
+   * OPTIMIZED: Cumulative flow using database aggregation.
+   *
+   * DEFENSE-IN-DEPTH:
+   * issue.organizationId filter enforced at DB level.
    */
-  async getCumulativeFlow(projectId: string, _userId: string, days = 30) {
+  async getCumulativeFlow(
+    projectId: string,
+    _userId: string,
+    days = 30,
+  ) {
     const cacheKey = `reports:cfd:${projectId}:${days}`;
     const cached = await this.cacheService.get(cacheKey);
 
     if (cached) return cached;
 
+    const tenantId = this.getTenantIdOrThrow();
+
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    // OPTIMIZED: Database-level aggregation by date and status
+    // DEFENSE-IN-DEPTH: issue.organizationId filter
     const aggregation = await this.issueRepo
       .createQueryBuilder('issue')
       .select('DATE(issue.updatedAt)', 'date')
       .addSelect('issue.status', 'status')
       .addSelect('COUNT(*)', 'count')
       .where('issue.projectId = :projectId', { projectId })
+      .andWhere('issue.organizationId = :tenantId', { tenantId })
       .andWhere('issue.updatedAt BETWEEN :startDate AND :endDate', {
         startDate,
         endDate,
@@ -221,10 +295,12 @@ export class ReportsService {
       if (!dateMap.has(dateStr)) {
         dateMap.set(dateStr, {});
       }
-      dateMap.get(dateStr)![row.status] = Number(row.count) || 0;
+      const dateEntry = dateMap.get(dateStr);
+      if (dateEntry) {
+        dateEntry[row.status] = Number(row.count) || 0;
+      }
     }
 
-    // Initialize all statuses to 0 for consistency
     const allStatuses = Object.values(IssueStatus);
     const result = Array.from(dateMap.entries()).map(([date, statusCounts]) => {
       const dataPoint: Record<string, number | string> = { date };
@@ -239,16 +315,24 @@ export class ReportsService {
   }
 
   /**
-   * OPTIMIZED: Epic progress using single query with child aggregation
+   * OPTIMIZED: Epic progress using single query with child aggregation.
+   *
+   * DEFENSE-IN-DEPTH:
+   * epic.organizationId filter enforced at DB level.
    */
-  async getEpicProgress(projectId: string, _userId: string) {
+  async getEpicProgress(
+    projectId: string,
+    _userId: string,
+  ): Promise<EpicProgressDataPoint[]> {
     const cacheKey = `reports:epic-progress:${projectId}`;
-    const cached = await this.cacheService.get(cacheKey);
+    const cached =
+      await this.cacheService.get<EpicProgressDataPoint[]>(cacheKey);
 
     if (cached) return cached;
 
-    void _userId; // userId reserved for future permission checks
-    // Get epics with aggregated child data in single query
+    const tenantId = this.getTenantIdOrThrow();
+
+    // DEFENSE-IN-DEPTH: epic.organizationId filter
     const epicsWithProgress = await this.issueRepo
       .createQueryBuilder('epic')
       .leftJoin('epic.children', 'child')
@@ -267,6 +351,7 @@ export class ReportsService {
         'completedStoryPoints',
       )
       .where('epic.projectId = :projectId', { projectId })
+      .andWhere('epic.organizationId = :tenantId', { tenantId })
       .andWhere('epic.type = :epicType', { epicType: IssueType.EPIC })
       .andWhere('epic.isArchived = :isArchived', { isArchived: false })
       .setParameter('doneStatus', IssueStatus.DONE)
@@ -276,8 +361,7 @@ export class ReportsService {
       .addGroupBy('epic.dueDate')
       .getRawMany<EpicProgressRow>();
 
-    // Transform to response format
-    return epicsWithProgress.map((row) => {
+    const result: EpicProgressDataPoint[] = epicsWithProgress.map((row) => {
       const totalStories = Number(row.totalStories) || 0;
       const completedStories = Number(row.completedStories) || 0;
       const totalStoryPoints = Number(row.totalStoryPoints) || 0;
@@ -300,19 +384,30 @@ export class ReportsService {
         dueDate: row.dueDate,
       };
     });
+
+    await this.cacheService.set(cacheKey, result, { ttl: 300 });
+    return result;
   }
 
   /**
-   * OPTIMIZED: Issue breakdown using parallel aggregation queries
+   * OPTIMIZED: Issue breakdown using parallel aggregation queries.
+   *
+   * DEFENSE-IN-DEPTH:
+   * issue.organizationId filter on ALL 5 parallel QueryBuilders.
    */
-  async getIssueBreakdown(projectId: string, _userId: string) {
+  async getIssueBreakdown(
+    projectId: string,
+    _userId: string,
+  ): Promise<IssueBreakdownResult> {
     const cacheKey = `reports:breakdown:${projectId}`;
-    const cached = await this.cacheService.get(cacheKey);
+    const cached = await this.cacheService.get<IssueBreakdownResult>(cacheKey);
 
     if (cached) return cached;
 
-    void _userId; // userId reserved for future permission checks
+    const tenantId = this.getTenantIdOrThrow();
+
     // Run all aggregation queries in parallel for maximum performance
+    // DEFENSE-IN-DEPTH: every QB includes .andWhere('issue.organizationId = :tenantId')
     const [
       typeResult,
       priorityResult,
@@ -326,6 +421,7 @@ export class ReportsService {
         .select('issue.type', 'type')
         .addSelect('COUNT(*)', 'count')
         .where('issue.projectId = :projectId', { projectId })
+        .andWhere('issue.organizationId = :tenantId', { tenantId })
         .andWhere('issue.isArchived = :isArchived', { isArchived: false })
         .groupBy('issue.type')
         .getRawMany<BreakdownRow>(),
@@ -336,6 +432,7 @@ export class ReportsService {
         .select('issue.priority', 'priority')
         .addSelect('COUNT(*)', 'count')
         .where('issue.projectId = :projectId', { projectId })
+        .andWhere('issue.organizationId = :tenantId', { tenantId })
         .andWhere('issue.isArchived = :isArchived', { isArchived: false })
         .groupBy('issue.priority')
         .getRawMany<BreakdownRow>(),
@@ -346,6 +443,7 @@ export class ReportsService {
         .select('issue.status', 'status')
         .addSelect('COUNT(*)', 'count')
         .where('issue.projectId = :projectId', { projectId })
+        .andWhere('issue.organizationId = :tenantId', { tenantId })
         .andWhere('issue.isArchived = :isArchived', { isArchived: false })
         .groupBy('issue.status')
         .getRawMany<BreakdownRow>(),
@@ -357,36 +455,39 @@ export class ReportsService {
         .select("COALESCE(assignee.name, 'Unassigned')", 'assigneeName')
         .addSelect('COUNT(*)', 'count')
         .where('issue.projectId = :projectId', { projectId })
+        .andWhere('issue.organizationId = :tenantId', { tenantId })
         .andWhere('issue.isArchived = :isArchived', { isArchived: false })
         .groupBy("COALESCE(assignee.name, 'Unassigned')")
         .getRawMany<BreakdownRow>(),
 
-      // Total count
-      this.issueRepo.count({
-        where: { projectId, isArchived: false },
-      }),
+      // Total count (uses organization filter via QB for consistency)
+      this.issueRepo
+        .createQueryBuilder('issue')
+        .where('issue.projectId = :projectId', { projectId })
+        .andWhere('issue.organizationId = :tenantId', { tenantId })
+        .andWhere('issue.isArchived = :isArchived', { isArchived: false })
+        .getCount(),
     ]);
 
-    // Transform to breakdown format
     const typeBreakdown: Record<string, number> = Object.fromEntries(
-      typeResult.map((r) => [r.type!, Number(r.count)]),
+      typeResult.map((r) => [r.type ?? 'Unknown', Number(r.count)]),
     );
     const priorityBreakdown: Record<string, number> = Object.fromEntries(
-      priorityResult.map((r) => [r.priority!, Number(r.count)]),
+      priorityResult.map((r) => [r.priority ?? 'Unknown', Number(r.count)]),
     );
     const statusBreakdown: Record<string, number> = Object.fromEntries(
-      statusResult.map((r) => [r.status!, Number(r.count)]),
+      statusResult.map((r) => [r.status ?? 'Unknown', Number(r.count)]),
     );
     const assigneeBreakdown: Record<string, number> = Object.fromEntries(
-      assigneeResult.map((r) => [r.assigneeName!, Number(r.count)]),
+      assigneeResult.map((r) => [r.assigneeName ?? 'Unknown', Number(r.count)]),
     );
 
-    const result = {
-      typeBreakdown, // FIX: Renamed from 'type' to match frontend interface
-      priorityBreakdown, // FIX: Renamed from 'priority'
-      statusBreakdown, // FIX: Renamed from 'status'
-      assigneeBreakdown, // FIX: Renamed from 'assignee'
-      totalIssues: totalCount, // FIX: Renamed from 'total'
+    const result: IssueBreakdownResult = {
+      typeBreakdown,
+      priorityBreakdown,
+      statusBreakdown,
+      assigneeBreakdown,
+      totalIssues: totalCount,
     };
 
     await this.cacheService.set(cacheKey, result, { ttl: 300 });

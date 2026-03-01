@@ -44,6 +44,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       { name: 'email' },
       { name: 'webhook-delivery' },
       { name: 'alerts-queue' },
+      { name: 'scheduled-reports-queue' },
     ),
   ],
   exports: [BullModule],
