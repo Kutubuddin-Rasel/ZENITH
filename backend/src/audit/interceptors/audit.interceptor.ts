@@ -14,6 +14,7 @@ import {
   AuditSeverity,
   AuditStatus,
 } from '../entities/audit-log.entity';
+import { SYSTEM_TENANT_ID } from '../audit.constants';
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
@@ -34,7 +35,7 @@ export class AuditInterceptor implements NestInterceptor {
     const requestId = this.generateRequestId();
     const user = (
       request as unknown as {
-        user?: { userId: string; email: string; name: string };
+        user?: { userId: string; email: string; name: string; organizationId?: string };
       }
     ).user;
 
@@ -81,7 +82,7 @@ export class AuditInterceptor implements NestInterceptor {
     data: any,
     duration: number,
     requestId: string,
-    user: any,
+    user: { userId: string; email: string; name: string; organizationId?: string } | undefined,
   ): Promise<void> {
     try {
       const eventType = this.determineEventType(
@@ -93,6 +94,7 @@ export class AuditInterceptor implements NestInterceptor {
 
       if (eventType) {
         const auditData: AuditLogData = {
+          organizationId: user?.organizationId || SYSTEM_TENANT_ID,
           eventType,
           severity: this.determineSeverity(
             eventType,
@@ -155,7 +157,7 @@ export class AuditInterceptor implements NestInterceptor {
     error: any,
     duration: number,
     requestId: string,
-    user: { userId: string; email: string; name: string } | undefined,
+    user: { userId: string; email: string; name: string; organizationId?: string } | undefined,
   ): Promise<void> {
     try {
       const eventType = this.determineErrorEventType(
@@ -168,6 +170,7 @@ export class AuditInterceptor implements NestInterceptor {
 
       if (eventType) {
         const auditData: AuditLogData = {
+          organizationId: user?.organizationId || SYSTEM_TENANT_ID,
           eventType,
           severity: AuditSeverity.HIGH,
           status: AuditStatus.FAILURE,

@@ -20,6 +20,7 @@ import {
   HistoryAction,
 } from './entities/access-rule-history.entity';
 import { AuditService } from '../audit/services/audit.service';
+import { SYSTEM_TENANT_ID } from '../audit/audit.constants';
 import {
   AuditEventType,
   AuditSeverity,
@@ -650,6 +651,7 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
       // Audit log (fire-and-forget)
       this.auditService
         .log({
+          organizationId: savedRule.organizationId || SYSTEM_TENANT_ID,
           eventType: AuditEventType.ACCESS_RULE_CREATED,
           severity: AuditSeverity.MEDIUM,
           description: `IP access rule created${savedRule.organizationId ? ` for org ${savedRule.organizationId}` : ' (global)'}`,
@@ -760,6 +762,7 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
       // Audit log
       this.auditService
         .log({
+          organizationId: updatedRule.organizationId || SYSTEM_TENANT_ID,
           eventType: AuditEventType.ACCESS_RULE_UPDATED,
           severity: AuditSeverity.MEDIUM,
           description: 'IP access rule updated',
@@ -854,6 +857,7 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
       // Audit log
       this.auditService
         .log({
+          organizationId: orgId || SYSTEM_TENANT_ID,
           eventType: AuditEventType.ACCESS_RULE_DELETED,
           severity: AuditSeverity.MEDIUM,
           description: 'IP access rule deleted',
@@ -1381,6 +1385,7 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
   private async logAccessAttempt(attempt: AccessAttempt): Promise<void> {
     try {
       await this.auditService.log({
+        organizationId: attempt.organizationId || SYSTEM_TENANT_ID,
         eventType: attempt.allowed
           ? AuditEventType.ACCESS_GRANTED
           : AuditEventType.ACCESS_DENIED,

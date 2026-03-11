@@ -16,6 +16,7 @@ import {
   AuditEventType,
   AuditSeverity,
 } from '../../audit/entities/audit-log.entity';
+import { SYSTEM_TENANT_ID } from '../../audit/audit.constants';
 import { CacheService } from '../../cache/cache.service';
 
 // ============================================================================
@@ -262,6 +263,7 @@ export class StatefulCsrfGuard implements CanActivate {
       );
 
       await this.auditService.log({
+        organizationId: SYSTEM_TENANT_ID,
         eventType: AuditEventType.CSRF_VALIDATION_FAILED,
         severity: AuditSeverity.HIGH,
         description: `CSRF rate limit ban triggered after ${failureCount} failures`,
@@ -294,6 +296,7 @@ export class StatefulCsrfGuard implements CanActivate {
 
     try {
       await this.auditService.log({
+        organizationId: SYSTEM_TENANT_ID,
         eventType: AuditEventType.CSRF_VALIDATION_FAILED,
         severity: AuditSeverity.HIGH,
         description: `Stateful CSRF validation failed: ${reason}`,

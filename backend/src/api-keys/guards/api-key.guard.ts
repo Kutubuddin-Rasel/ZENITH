@@ -18,6 +18,7 @@ import {
   AuditEventType,
   AuditSeverity,
 } from '../../audit/entities/audit-log.entity';
+import { SYSTEM_TENANT_ID } from '../../audit/audit.constants';
 import { ApiKey } from '../entities/api-key.entity';
 import { hasScope } from '../constants/api-scopes.constant';
 
@@ -203,6 +204,7 @@ export class ApiKeyGuard implements CanActivate {
 
       try {
         await this.auditService.log({
+          organizationId: (apiKey.user as { organizationId?: string })?.organizationId || SYSTEM_TENANT_ID,
           eventType: AuditEventType.API_KEY_IP_DENIED,
           severity: AuditSeverity.HIGH,
           description: `API key access blocked: IP ${clientIp} not in allowlist`,

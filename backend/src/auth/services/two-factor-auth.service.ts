@@ -18,6 +18,7 @@ import {
   AuditEventType,
   AuditSeverity,
 } from '../../audit/entities/audit-log.entity';
+import { SYSTEM_TENANT_ID } from '../../audit/audit.constants';
 import { AuthConfig } from '../../config/auth.config';
 
 @Injectable()
@@ -327,7 +328,10 @@ export class TwoFactorAuthService {
     await this.twoFactorRepo.remove(twoFactorAuth);
 
     // Log the admin action to audit trail
+    // Look up target user's org for tenant-scoped audit
+    const targetUser = await this.userRepo.findOne({ where: { id: targetUserId } });
     await this.auditService.logSecurityEvent(
+      targetUser?.organizationId || SYSTEM_TENANT_ID,
       AuditEventType.TWO_FA_DISABLED,
       `Admin reset 2FA for user`,
       targetUserId,
@@ -442,6 +446,7 @@ export class TwoFactorAuthService {
 
     // Log the security event to audit trail
     await this.auditService.logSecurityEvent(
+      user.organizationId || SYSTEM_TENANT_ID,
       AuditEventType.PASSWORD_RESET,
       `2FA recovery token generated`,
       user.id,
@@ -516,6 +521,7 @@ export class TwoFactorAuthService {
 
     // Log the security event to audit trail
     await this.auditService.logSecurityEvent(
+      user.organizationId || SYSTEM_TENANT_ID,
       AuditEventType.TWO_FA_DISABLED,
       `2FA disabled via recovery`,
       user.id,

@@ -76,6 +76,8 @@ import { GatewaysModule } from './gateways/gateways.module';
 import { RBACModule } from './rbac/rbac.module';
 import { ScheduledTasksModule } from './scheduled-tasks/scheduled-tasks.module';
 import { HealthModule } from './health/health.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { HttpMetricsMiddleware } from './metrics/http-metrics.middleware';
 import { CsrfModule } from './security/csrf/csrf.module';
 
 import {
@@ -136,6 +138,7 @@ import {
     CacheModule,
     PerformanceModule,
     HealthModule,
+    MetricsModule,
 
     // =========================================================================
     // LAYER 2: CORE DOMAIN MODULES (Global Providers)
@@ -250,6 +253,12 @@ export class AppModule implements OnApplicationShutdown, NestModule {
 
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(CorrelationMiddleware).forRoutes('*');
+
+    // HTTP telemetry — exclude self-scraping loops
+    consumer
+      .apply(HttpMetricsMiddleware)
+      .exclude('metrics', 'health/(.*)')
+      .forRoutes('*');
   }
 
   async onApplicationShutdown(_signal?: string) {

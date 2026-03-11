@@ -8,6 +8,7 @@ import {
   AuditEventType,
   AuditSeverity,
 } from '../../audit/entities/audit-log.entity';
+import { SYSTEM_TENANT_ID } from '../../audit/audit.constants';
 import { CacheService } from '../../cache/cache.service';
 
 // =============================================================================
@@ -88,6 +89,7 @@ export class ApiKeyCleanupService {
 
       // Summary audit log
       await this.auditService.log({
+        organizationId: SYSTEM_TENANT_ID,
         eventType: AuditEventType.CLEANUP_JOB_COMPLETED,
         severity: AuditSeverity.LOW,
         description: 'Daily API key cleanup completed',
@@ -107,6 +109,7 @@ export class ApiKeyCleanupService {
       this.logger.error('API Key Cleanup Job Failed', error);
 
       await this.auditService.log({
+        organizationId: SYSTEM_TENANT_ID,
         eventType: AuditEventType.CLEANUP_JOB_COMPLETED,
         severity: AuditSeverity.HIGH,
         description: 'Daily API key cleanup FAILED',
@@ -304,6 +307,7 @@ export class ApiKeyCleanupService {
 
           // Log security event
           await this.auditService.log({
+            organizationId: SYSTEM_TENANT_ID,
             eventType: AuditEventType.API_KEY_VALIDATION_FAILED,
             severity: AuditSeverity.HIGH,
             description: `Rate limit anomaly detected: ${violationCount} violations in 24h`,

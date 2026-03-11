@@ -13,6 +13,7 @@ import {
   AuditEventType,
   AuditSeverity,
 } from '../audit/entities/audit-log.entity';
+import { SYSTEM_TENANT_ID } from '../audit/audit.constants';
 import * as bcrypt from 'bcrypt';
 import { generateSecureToken, TokenPrefix } from '../common/utils/token.util';
 
@@ -22,6 +23,7 @@ import { generateSecureToken, TokenPrefix } from '../common/utils/token.util';
 
 export interface ActorContext {
   userId: string;
+  organizationId?: string;
   ipAddress?: string;
   userAgent?: string;
   sessionId?: string;
@@ -331,6 +333,7 @@ export class ApiKeysService {
         if (key.expiresAt && new Date() > key.expiresAt) {
           this.auditService
             .log({
+              organizationId: (key.user as { organizationId?: string })?.organizationId || SYSTEM_TENANT_ID,
               eventType: AuditEventType.API_KEY_EXPIRED,
               severity: AuditSeverity.MEDIUM,
               description: 'Attempted use of expired API key',
@@ -351,6 +354,7 @@ export class ApiKeysService {
         if (key.revokeAt && new Date() > key.revokeAt) {
           this.auditService
             .log({
+              organizationId: (key.user as { organizationId?: string })?.organizationId || SYSTEM_TENANT_ID,
               eventType: AuditEventType.API_KEY_EXPIRED,
               severity: AuditSeverity.MEDIUM,
               description: 'Attempted use of rotated API key past grace period',
@@ -380,6 +384,7 @@ export class ApiKeysService {
     if (requestContext) {
       this.auditService
         .log({
+          organizationId: SYSTEM_TENANT_ID,
           eventType: AuditEventType.API_KEY_VALIDATION_FAILED,
           severity: AuditSeverity.MEDIUM,
           description: 'API key validation failed',
@@ -422,6 +427,7 @@ export class ApiKeysService {
   ): Promise<void> {
     try {
       await this.auditService.log({
+        organizationId: actor.organizationId || SYSTEM_TENANT_ID,
         eventType,
         severity,
         description,

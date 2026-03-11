@@ -10,6 +10,7 @@ import { User } from '../users/entities/user.entity';
 // Sprint 2: Import processor and its dependencies
 import { AuditLogsWorker } from './audit-logs.worker';
 import { ClickHouseClient } from './clickhouse.client';
+import { SecurityAlertProcessor } from './security-alerts/security-alerts.processor';
 
 @Module({
   imports: [
@@ -25,6 +26,8 @@ import { ClickHouseClient } from './clickhouse.client';
     // Sprint 2: Add processor and its dependency
     AuditLogsWorker,
     ClickHouseClient,
+    // Sprint 3: Security alert processor (Slack + PagerDuty)
+    SecurityAlertProcessor,
   ],
   controllers: [AuditController],
   exports: [AuditService, ClickHouseClient],

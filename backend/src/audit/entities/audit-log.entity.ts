@@ -150,9 +150,20 @@ export enum AuditStatus {
 @Index('IDX_audit_log_resource_type', ['resourceType'])
 @Index('IDX_audit_log_resource_id', ['resourceId'])
 @Index('IDX_audit_log_recent', ['timestamp'])
+@Index('IDX_audit_log_org_id', ['organizationId'])
+@Index('IDX_audit_log_org_timestamp', ['organizationId', 'timestamp'])
+@Index('IDX_audit_log_org_event_type', ['organizationId', 'eventType'])
 export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /**
+   * Tenant isolation column.
+   * Every audit log MUST belong to an organization.
+   * All read queries MUST filter by this column.
+   */
+  @Column({ type: 'uuid' })
+  organizationId: string;
 
   @Column({ type: 'enum', enum: AuditEventType })
   eventType: AuditEventType;

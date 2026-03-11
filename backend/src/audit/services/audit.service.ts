@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
+import { Repository, LessThan, SelectQueryBuilder } from 'typeorm';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import {
   AuditLog,
   AuditEventType,
@@ -8,8 +10,16 @@ import {
   AuditStatus,
 } from '../entities/audit-log.entity';
 import { User } from '../../users/entities/user.entity';
+import {
+  SECURITY_ALERTS_QUEUE,
+  SECURITY_ALERT_JOB_OPTIONS,
+  ALERT_SEVERITY_THRESHOLD,
+  sanitizeForAlert,
+  SecurityAlertJobPayload,
+} from '../security-alerts/security-alerts.constants';
 
 export interface AuditLogData {
+  organizationId: string;
   eventType: AuditEventType;
   severity?: AuditSeverity;
   status?: AuditStatus;
@@ -35,6 +45,7 @@ export interface AuditLogData {
 }
 
 export interface AuditLogFilter {
+  organizationId: string;
   eventTypes?: AuditEventType[];
   severities?: AuditSeverity[];
   statuses?: AuditStatus[];
@@ -67,13 +78,38 @@ export interface AuditLogStats {
   suspiciousActivity: number;
 }
 
+// ---------------------------------------------------------------------------
+// Strict Result Interfaces for PostgreSQL Aggregation
+// ---------------------------------------------------------------------------
+
+/** Row returned by GROUP BY + COUNT(*) queries */
+interface AggregatedCountRow {
+  key: string;
+  count: string; // PostgreSQL COUNT returns string
+}
+
+/** Row for top-users aggregation (includes userName) */
+interface AggregatedUserRow {
+  userId: string;
+  userName: string;
+  count: string;
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
 @Injectable()
 export class AuditService {
+  private readonly logger = new Logger(AuditService.name);
+
   constructor(
     @InjectRepository(AuditLog)
     private auditLogRepo: Repository<AuditLog>,
     @InjectRepository(User)
     private userRepo: Repository<User>,
+    @InjectQueue(SECURITY_ALERTS_QUEUE)
+    private readonly securityAlertsQueue: Queue<SecurityAlertJobPayload>,
   ) {}
 
   /**
@@ -81,6 +117,7 @@ export class AuditService {
    */
   async log(data: AuditLogData): Promise<AuditLog> {
     const auditLog = new AuditLog();
+    auditLog.organizationId = data.organizationId;
     auditLog.eventType = data.eventType;
     auditLog.severity = data.severity || AuditSeverity.LOW;
     auditLog.status = data.status || AuditStatus.INFO;
@@ -107,13 +144,39 @@ export class AuditService {
     auditLog.isRetained = this.isRetentionRequired(data.eventType);
     auditLog.isEncrypted = this.isEncryptionRequired(data.eventType);
 
-    return this.auditLogRepo.save(auditLog);
+    const savedLog = await this.auditLogRepo.save(auditLog);
+
+    // Fire-and-forget: dispatch security alert for HIGH/CRITICAL events
+    // This MUST NOT block or fail the primary audit INSERT
+    const effectiveSeverity = data.severity || AuditSeverity.LOW;
+    if (ALERT_SEVERITY_THRESHOLD.includes(effectiveSeverity)) {
+      const alertPayload = sanitizeForAlert(
+        savedLog.id,
+        data.organizationId,
+        data.eventType,
+        effectiveSeverity,
+        data.description,
+        data.userId || null,
+        data.ipAddress || null,
+      );
+
+      this.securityAlertsQueue
+        .add('security-alert', alertPayload, SECURITY_ALERT_JOB_OPTIONS)
+        .catch((err: Error) => {
+          this.logger.warn(
+            `Failed to enqueue security alert for audit=${savedLog.id}: ${err.message}`,
+          );
+        });
+    }
+
+    return savedLog;
   }
 
   /**
    * Log authentication events
    */
   async logAuthEvent(
+    organizationId: string,
     eventType: AuditEventType,
     userId: string,
     userEmail: string,
@@ -125,6 +188,7 @@ export class AuditService {
     status: AuditStatus = AuditStatus.SUCCESS,
   ): Promise<AuditLog> {
     return this.log({
+      organizationId,
       eventType,
       severity: this.getSeverityForAuthEvent(eventType),
       status,
@@ -145,6 +209,7 @@ export class AuditService {
    * Log resource modification events
    */
   async logResourceEvent(
+    organizationId: string,
     eventType: AuditEventType,
     resourceType: string,
     resourceId: string,
@@ -157,6 +222,7 @@ export class AuditService {
     details?: Record<string, unknown>,
   ): Promise<AuditLog> {
     return this.log({
+      organizationId,
       eventType,
       severity: this.getSeverityForResourceEvent(eventType),
       status: AuditStatus.SUCCESS,
@@ -181,6 +247,7 @@ export class AuditService {
    * Log security events
    */
   async logSecurityEvent(
+    organizationId: string,
     eventType: AuditEventType,
     description: string,
     userId?: string,
@@ -192,6 +259,7 @@ export class AuditService {
     severity: AuditSeverity = AuditSeverity.HIGH,
   ): Promise<AuditLog> {
     return this.log({
+      organizationId,
       eventType,
       severity,
       status: AuditStatus.WARNING,
@@ -213,6 +281,9 @@ export class AuditService {
     filter: AuditLogFilter,
   ): Promise<{ logs: AuditLog[]; total: number }> {
     const query = this.auditLogRepo.createQueryBuilder('audit');
+
+    // MANDATORY: Database-level tenant isolation
+    this.applyTenantFilter(query, filter.organizationId);
 
     // Apply filters
     if (filter.eventTypes?.length) {
@@ -304,107 +375,127 @@ export class AuditService {
    * Get audit log statistics
    */
   async getAuditStats(
+    organizationId: string,
     startDate?: Date,
     endDate?: Date,
     projectId?: string,
   ): Promise<AuditLogStats> {
-    const query = this.auditLogRepo.createQueryBuilder('audit');
-
-    if (startDate) {
-      query.andWhere('audit.timestamp >= :startDate', { startDate });
-    }
-    if (endDate) {
-      query.andWhere('audit.timestamp <= :endDate', { endDate });
-    }
-    if (projectId) {
-      query.andWhere('audit.projectId = :projectId', { projectId });
-    }
-
-    const logs = await query.getMany();
-
-    const stats: AuditLogStats = {
-      totalEvents: logs.length,
-      eventsByType: {},
-      eventsBySeverity: {},
-      eventsByStatus: {},
-      eventsByUser: {},
-      eventsByProject: {},
-      eventsByDay: {},
-      topUsers: [],
-      topProjects: [],
-      securityEvents: 0,
-      failedLogins: 0,
-      suspiciousActivity: 0,
+    // MANDATORY: Database-level tenant isolation
+    // Build a base query factory that always includes the tenant filter.
+    // Each aggregation query gets its own QueryBuilder instance.
+    const baseQuery = (): SelectQueryBuilder<AuditLog> => {
+      const qb = this.auditLogRepo.createQueryBuilder('audit');
+      this.applyTenantFilter(qb, organizationId);
+      if (startDate) {
+        qb.andWhere('audit.timestamp >= :startDate', { startDate });
+      }
+      if (endDate) {
+        qb.andWhere('audit.timestamp <= :endDate', { endDate });
+      }
+      if (projectId) {
+        qb.andWhere('audit.projectId = :projectId', { projectId });
+      }
+      return qb;
     };
 
-    logs.forEach((log) => {
-      // Count by type
-      stats.eventsByType[log.eventType] =
-        (stats.eventsByType[log.eventType] || 0) + 1;
+    // AGGREGATION PUSHDOWN: All counting done in PostgreSQL, not JS.
+    // Memory: O(enum_cardinality) not O(total_logs).
 
-      // Count by severity
-      stats.eventsBySeverity[log.severity] =
-        (stats.eventsBySeverity[log.severity] || 0) + 1;
+    // 1. Total events — single COUNT(*)
+    const totalEvents = await baseQuery().getCount();
 
-      // Count by status
-      stats.eventsByStatus[log.status] =
-        (stats.eventsByStatus[log.status] || 0) + 1;
+    // 2. Events by type — GROUP BY eventType
+    const eventsByTypeRows: AggregatedCountRow[] = await baseQuery()
+      .select('audit.eventType', 'key')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('audit.eventType')
+      .getRawMany();
 
-      // Count by user
-      if (log.userId) {
-        stats.eventsByUser[log.userId] =
-          (stats.eventsByUser[log.userId] || 0) + 1;
-      }
+    // 3. Events by severity — GROUP BY severity
+    const eventsBySeverityRows: AggregatedCountRow[] = await baseQuery()
+      .select('audit.severity', 'key')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('audit.severity')
+      .getRawMany();
 
-      // Count by project
-      if (log.projectId) {
-        stats.eventsByProject[log.projectId] =
-          (stats.eventsByProject[log.projectId] || 0) + 1;
-      }
+    // 4. Events by status — GROUP BY status
+    const eventsByStatusRows: AggregatedCountRow[] = await baseQuery()
+      .select('audit.status', 'key')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('audit.status')
+      .getRawMany();
 
-      // Count by day
-      const day = log.timestamp.toISOString().split('T')[0];
-      stats.eventsByDay[day] = (stats.eventsByDay[day] || 0) + 1;
+    // 5. Events by day — GROUP BY DATE(timestamp)
+    const eventsByDayRows: AggregatedCountRow[] = await baseQuery()
+      .select('DATE(audit.timestamp)', 'key')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('DATE(audit.timestamp)')
+      .getRawMany();
 
-      // Security events
-      if (
-        log.severity === AuditSeverity.HIGH ||
-        log.severity === AuditSeverity.CRITICAL
-      ) {
-        stats.securityEvents++;
-      }
+    // 6. Top users — GROUP BY userId, userName (denormalized), ORDER BY count DESC, LIMIT 10
+    const topUsersRows: AggregatedUserRow[] = await baseQuery()
+      .select('audit.userId', 'userId')
+      .addSelect('audit.userName', 'userName')
+      .addSelect('COUNT(*)', 'count')
+      .where('audit.userId IS NOT NULL')
+      .groupBy('audit.userId')
+      .addGroupBy('audit.userName')
+      .orderBy('count', 'DESC')
+      .limit(10)
+      .getRawMany();
 
-      // Failed logins
-      if (log.eventType === AuditEventType.LOGIN_FAILED) {
-        stats.failedLogins++;
-      }
+    // 7. Top projects — GROUP BY projectId, ORDER BY count DESC, LIMIT 10
+    const topProjectsRows: AggregatedCountRow[] = await baseQuery()
+      .select('audit.projectId', 'key')
+      .addSelect('COUNT(*)', 'count')
+      .where('audit.projectId IS NOT NULL')
+      .groupBy('audit.projectId')
+      .orderBy('count', 'DESC')
+      .limit(10)
+      .getRawMany();
 
-      // Suspicious activity
-      if (log.eventType === AuditEventType.SUSPICIOUS_ACTIVITY) {
-        stats.suspiciousActivity++;
-      }
-    });
-
-    // Get top users
-    stats.topUsers = Object.entries(stats.eventsByUser)
-      .map(([userId, count]) => {
-        const log = logs.find((l) => l.userId === userId);
-        return {
-          userId,
-          userName: log?.userName || 'Unknown',
-          count,
-        };
+    // 8. Security-specific counts — conditional COUNT via WHERE
+    const securityEvents = await baseQuery()
+      .andWhere('audit.severity IN (:...sevs)', {
+        sevs: [AuditSeverity.HIGH, AuditSeverity.CRITICAL],
       })
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+      .getCount();
 
-    // Get top projects
-    stats.topProjects = Object.entries(stats.eventsByProject)
-      .map(([projectId, count]) => ({ projectId, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+    const failedLogins = await baseQuery()
+      .andWhere('audit.eventType = :evt', { evt: AuditEventType.LOGIN_FAILED })
+      .getCount();
 
-    return stats;
+    const suspiciousActivity = await baseQuery()
+      .andWhere('audit.eventType = :evt', { evt: AuditEventType.SUSPICIOUS_ACTIVITY })
+      .getCount();
+
+    // Transform raw rows into response shape
+    const toRecord = (rows: AggregatedCountRow[]): Record<string, number> =>
+      Object.fromEntries(rows.map((r) => [r.key, parseInt(r.count, 10)]));
+
+    return {
+      totalEvents,
+      eventsByType: toRecord(eventsByTypeRows),
+      eventsBySeverity: toRecord(eventsBySeverityRows),
+      eventsByStatus: toRecord(eventsByStatusRows),
+      eventsByUser: toRecord(
+        topUsersRows.map((r) => ({ key: r.userId, count: r.count })),
+      ),
+      eventsByProject: toRecord(topProjectsRows),
+      eventsByDay: toRecord(eventsByDayRows),
+      topUsers: topUsersRows.map((r) => ({
+        userId: r.userId,
+        userName: r.userName || 'Unknown',
+        count: parseInt(r.count, 10),
+      })),
+      topProjects: topProjectsRows.map((r) => ({
+        projectId: r.key,
+        count: parseInt(r.count, 10),
+      })),
+      securityEvents,
+      failedLogins,
+      suspiciousActivity,
+    };
   }
 
   /**
@@ -415,6 +506,35 @@ export class AuditService {
       expiresAt: LessThan(new Date()),
     });
     return result.affected || 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // TENANT ISOLATION — Hard gate
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Apply mandatory tenant isolation to a QueryBuilder.
+   *
+   * SECURITY: This is the ONLY place tenant filtering is applied.
+   * If organizationId is falsy, we throw ForbiddenException immediately —
+   * this prevents ANY cross-tenant query execution, even if controller
+   * guards are bypassed.
+   *
+   * @throws ForbiddenException if organizationId is missing
+   */
+  private applyTenantFilter(
+    qb: SelectQueryBuilder<AuditLog>,
+    organizationId: string,
+  ): void {
+    if (!organizationId) {
+      this.logger.error(
+        'CRITICAL: Audit query attempted without organizationId — blocked',
+      );
+      throw new ForbiddenException(
+        'Tenant context required for audit log access',
+      );
+    }
+    qb.andWhere('audit.organizationId = :organizationId', { organizationId });
   }
 
   /**

@@ -14,12 +14,14 @@ import {
   AuditEventType,
   AuditSeverity,
 } from '../audit/entities/audit-log.entity';
+import { SYSTEM_TENANT_ID } from '../audit/audit.constants';
 import * as crypto from 'crypto'; // Keep for crypto.createHash
 import { UAParser } from 'ua-parser-js';
 import { generateHexToken } from '../common/utils/token.util';
 
 export interface CreateSessionData {
   userId: string;
+  organizationId?: string;
   userAgent?: string;
   ipAddress?: string;
   type?: SessionType;
@@ -150,6 +152,7 @@ export class SessionService {
 
     // Log session creation
     await this.auditService.log({
+      organizationId: data.organizationId || SYSTEM_TENANT_ID,
       eventType: AuditEventType.SESSION_CREATED,
       severity: AuditSeverity.LOW,
       description: 'User session created',
@@ -232,6 +235,7 @@ export class SessionService {
 
     // Log session termination
     await this.auditService.log({
+      organizationId: SYSTEM_TENANT_ID,
       eventType: AuditEventType.SESSION_TERMINATED,
       severity: AuditSeverity.MEDIUM,
       description: 'User session terminated',
@@ -358,6 +362,7 @@ export class SessionService {
 
       // Log suspicious activity
       await this.auditService.log({
+        organizationId: SYSTEM_TENANT_ID,
         eventType: AuditEventType.SUSPICIOUS_ACTIVITY,
         severity: AuditSeverity.HIGH,
         description: 'Suspicious session activity detected',
@@ -394,6 +399,7 @@ export class SessionService {
 
     // Log session lock
     await this.auditService.log({
+      organizationId: SYSTEM_TENANT_ID,
       eventType: AuditEventType.SESSION_LOCKED,
       severity: AuditSeverity.HIGH,
       description: 'Session locked due to suspicious activity',
