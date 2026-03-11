@@ -1,4 +1,4 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Job } from 'bullmq';
@@ -290,6 +290,44 @@ export class SecurityAlertProcessor extends WorkerHost {
         return 'info';
       default:
         return 'info';
+    }
+  }
+
+  // ===========================================================================
+  // DEAD LETTER QUEUE (DLQ) — Exhausted Retry Logging
+  // ===========================================================================
+
+  /**
+   * Fires when a job fails (on every attempt, not just the final one).
+   *
+   * - Final failure (all retries exhausted): CRITICAL log with full payload
+   * - Intermediate failure: WARN log for observability
+   *
+   * Without this listener, jobs that exhaust their retries would silently
+   * sit in the Redis dead-letter set with no application-level visibility.
+   */
+  @OnWorkerEvent('failed')
+  onJobFailed(job: Job<SecurityAlertJobPayload>, error: Error): void {
+    const maxAttempts = (job.opts?.attempts as number | undefined) ?? 5;
+    const isExhausted = job.attemptsMade >= maxAttempts;
+
+    if (isExhausted) {
+      // =====================================================================
+      // CRITICAL: All retries exhausted — alert will NOT be delivered
+      // =====================================================================
+      this.logger.error(
+        `[DLQ] SECURITY ALERT PERMANENTLY FAILED after ${job.attemptsMade}/${maxAttempts} attempts. ` +
+          `Job=${job.id} AuditLog=${job.data.auditLogId} ` +
+          `Org=${job.data.organizationId} Event=${job.data.eventType} ` +
+          `Severity=${job.data.severity} Error="${error.message}"`,
+      );
+    } else {
+      // Non-final failure — will be retried
+      this.logger.warn(
+        `[RETRY] Security alert attempt ${job.attemptsMade}/${maxAttempts} failed. ` +
+          `Job=${job.id} AuditLog=${job.data.auditLogId} ` +
+          `Error="${error.message}"`,
+      );
     }
   }
 }

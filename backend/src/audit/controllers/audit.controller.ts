@@ -4,12 +4,16 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
   Req,
+  Res,
   HttpCode,
   HttpStatus,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   AuditService,
   AuditLogFilter,
@@ -23,7 +27,22 @@ import {
   AuditSeverity,
   AuditStatus,
 } from '../entities/audit-log.entity';
-import { Request as ExpressRequest } from 'express';
+import { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+import { pipeline } from 'stream/promises';
+import { Readable } from 'stream';
+import { AuditJsonTransformStream } from '../streams/audit-json-transform.stream';
+import { TenantContextInterceptor } from '../interceptors/tenant-context.interceptor';
+
+// =============================================================================
+// STREAM TIMEOUT CONFIGURATION
+// =============================================================================
+
+/**
+ * Default maximum stream execution time (5 minutes).
+ * Prevents Slowloris-style attacks that hold DB cursors indefinitely.
+ * Override via AUDIT_STREAM_TIMEOUT_MS environment variable.
+ */
+const DEFAULT_STREAM_TIMEOUT_MS = 300_000;
 
 // ---------------------------------------------------------------------------
 // Strict Typing for JWT User (Zero `any`)
@@ -43,8 +62,20 @@ interface AuthenticatedRequest extends ExpressRequest {
 
 @Controller('audit')
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(TenantContextInterceptor)
 export class AuditController {
-  constructor(private auditService: AuditService) {}
+  private readonly logger = new Logger(AuditController.name);
+  private readonly streamTimeoutMs: number;
+
+  constructor(
+    private auditService: AuditService,
+    private configService: ConfigService,
+  ) {
+    this.streamTimeoutMs = this.configService.get<number>(
+      'AUDIT_STREAM_TIMEOUT_MS',
+      DEFAULT_STREAM_TIMEOUT_MS,
+    );
+  }
 
   @Get('logs')
   @RequirePermission('audit:read')
@@ -260,6 +291,105 @@ export class AuditController {
       exportedAt: new Date().toISOString(),
       totalRecords: logs.length,
     };
+  }
+
+  // ===========================================================================
+  // STREAMING JSON EXPORT (Memory-Safe, Unbounded)
+  // ===========================================================================
+
+  @Get('export/stream')
+  @RequirePermission('audit:export')
+  async streamExportAuditLogs(
+    @Req() req: AuthenticatedRequest,
+    @Res() res: ExpressResponse,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ): Promise<void> {
+    const organizationId = this.extractOrganizationId(req);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+    // Set streaming response headers
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="audit-export-${timestamp}.json"`,
+    );
+    res.setHeader('Transfer-Encoding', 'chunked');
+    res.setHeader('Cache-Control', 'no-cache, no-store');
+
+    // Get the raw TypeORM ReadStream
+    const dbStream = (await this.auditService.exportAuditLogsStream(
+      organizationId,
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
+    )) as unknown as Readable;
+
+    // Transform: raw DB rows → valid JSON array
+    const jsonTransform = new AuditJsonTransformStream();
+
+    // =========================================================================
+    // ZOMBIE CONNECTION CLEANUP
+    // =========================================================================
+    // If the client disconnects mid-download, destroy the DB stream
+    // immediately to release the PostgreSQL cursor and return the
+    // connection to the pool.
+    const cleanup = (): void => {
+      if (!dbStream.destroyed) {
+        dbStream.destroy();
+        this.logger.warn(
+          `Stream export aborted: client disconnected (org=${organizationId})`,
+        );
+      }
+    };
+
+    req.on('close', cleanup);
+    res.on('error', cleanup);
+
+    // =========================================================================
+    // STREAM TIMEOUT (Anti-Tarpit)
+    // =========================================================================
+    // Prevents Slowloris-style attacks where a malicious client reads at
+    // 1 byte/sec, holding the PostgreSQL cursor open indefinitely.
+    // AbortController lets us trigger from both timeout AND cleanup.
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      this.logger.warn(
+        `Stream export timed out after ${this.streamTimeoutMs}ms (org=${organizationId})`,
+      );
+      abortController.abort();
+      cleanup();
+    }, this.streamTimeoutMs);
+
+    try {
+      // pipeline() handles backpressure automatically:
+      // HTTP slow → Transform pauses → DB stream pauses → no buffer bloat
+      await pipeline(dbStream, jsonTransform, res, {
+        signal: abortController.signal,
+      });
+    } catch (error) {
+      // pipeline throws if any stream errors or is destroyed early.
+      // Client disconnect errors are expected — only log unexpected ones.
+      if (!res.headersSent) {
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: 'Stream export failed',
+        });
+      }
+
+      const errMessage =
+        error instanceof Error ? error.message : String(error);
+
+      // Suppress client-abort noise in logs
+      if (!errMessage.includes('aborted') && !errMessage.includes('ECONNRESET')) {
+        this.logger.error(
+          `Stream export error (org=${organizationId}): ${errMessage}`,
+        );
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      req.removeListener('close', cleanup);
+      res.removeListener('error', cleanup);
+    }
   }
 
   private exportToCSV(logs: AuditLog[]): string {

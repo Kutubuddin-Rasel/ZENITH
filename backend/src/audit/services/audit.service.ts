@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, SelectQueryBuilder } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { Readable } from 'stream';
 import {
   AuditLog,
   AuditEventType,
@@ -369,6 +370,40 @@ export class AuditService {
     const [logs, total] = await query.getManyAndCount();
 
     return { logs, total };
+  }
+
+  /**
+   * Stream audit logs as a ReadableStream for memory-safe export.
+   *
+   * Returns a raw TypeORM ReadStream (Node.js Readable in objectMode).
+   * Each emitted object is a raw DB row with alias-prefixed columns
+   * (e.g., `audit_id`, `audit_eventType`).
+   *
+   * TENANT ISOLATION: `applyTenantFilter()` is called before `.stream()`.
+   * BACKPRESSURE: Handled by pipeline() in the controller.
+   * CLEANUP: The caller MUST destroy() the stream on client disconnect.
+   */
+  async exportAuditLogsStream(
+    organizationId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<Readable> {
+    const query = this.auditLogRepo.createQueryBuilder('audit');
+
+    // MANDATORY: Database-level tenant isolation
+    this.applyTenantFilter(query, organizationId);
+
+    if (startDate) {
+      query.andWhere('audit.timestamp >= :startDate', { startDate });
+    }
+
+    if (endDate) {
+      query.andWhere('audit.timestamp <= :endDate', { endDate });
+    }
+
+    query.orderBy('audit.timestamp', 'DESC');
+
+    return query.stream();
   }
 
   /**
