@@ -55,9 +55,9 @@ import { WorkflowsModule } from './workflows/workflows.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { ResourceManagementModule } from './resource-management/resource-management.module';
 import { APP_GUARD } from '@nestjs/core';
-// MOVED: JwtAuthGuard, PermissionsGuard now in AuthCoreModule
 import { createDatabaseConfig } from './database/config/database.config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { CustomFieldsModule } from './custom-fields/custom-fields.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -126,12 +126,24 @@ import {
           global: { ttlMs?: number; limit?: number };
         }
         const rateLimitCfg = configService.get<RateLimitCfg>('rateLimit');
-        return [
-          {
-            ttl: rateLimitCfg?.global.ttlMs || 60000,
-            limit: rateLimitCfg?.global.limit || 100,
-          },
-        ];
+
+        const redisHost = configService.get<string>('REDIS_HOST', 'localhost');
+        const redisPort = configService.get<number>('REDIS_PORT', 6379);
+        const redisPassword = configService.get<string>('REDIS_PASSWORD');
+
+        return {
+          throttlers: [
+            {
+              ttl: rateLimitCfg?.global.ttlMs || 60000,
+              limit: rateLimitCfg?.global.limit || 100,
+            },
+          ],
+          storage: new ThrottlerStorageRedisService({
+            host: redisHost,
+            port: redisPort,
+            password: redisPassword,
+          }),
+        };
       },
     }),
     DatabaseModule,
@@ -249,7 +261,7 @@ import {
   ],
 })
 export class AppModule implements OnApplicationShutdown, NestModule {
-  constructor(private readonly moduleRef: ModuleRef) {}
+  constructor(private readonly moduleRef: ModuleRef) { }
 
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(CorrelationMiddleware).forRoutes('*');

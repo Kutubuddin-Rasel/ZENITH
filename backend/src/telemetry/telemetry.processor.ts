@@ -4,11 +4,35 @@ import { Logger } from '@nestjs/common';
 import { IssuesService } from '../issues/issues.service';
 import { CacheService } from '../cache/cache.service';
 
-interface HeartbeatData {
+// =============================================================================
+// HEARTBEAT JOB DATA (Matches HeartbeatDto shape)
+// =============================================================================
+
+/**
+ * Typed job payload for heartbeat processing.
+ * Mirrors HeartbeatDto — by the time data reaches the worker,
+ * it has already been validated by the controller's ValidationPipe.
+ */
+interface HeartbeatJobData {
   ticketId: string;
   projectId: string;
   userId: string;
 }
+
+/** Shape of the cached session object */
+interface TelemetrySession {
+  startTime: number;
+}
+
+// =============================================================================
+// PROCESSOR
+// =============================================================================
+
+/** Auto-transition threshold: 10 minutes of continuous activity */
+const AUTO_TRANSITION_THRESHOLD_MS = 10 * 60 * 1000;
+
+/** Redis session TTL: 5 minutes (re-extended on each heartbeat) */
+const SESSION_TTL_SECONDS = 300;
 
 @Processor('telemetry')
 export class TelemetryProcessor extends WorkerHost {
@@ -21,7 +45,7 @@ export class TelemetryProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<HeartbeatData, any, string>): Promise<any> {
+  async process(job: Job<HeartbeatJobData, void, string>): Promise<void> {
     switch (job.name) {
       case 'heartbeat':
         return this.handleHeartbeat(job.data);
@@ -30,7 +54,7 @@ export class TelemetryProcessor extends WorkerHost {
     }
   }
 
-  private async handleHeartbeat(data: HeartbeatData) {
+  private async handleHeartbeat(data: HeartbeatJobData): Promise<void> {
     const { ticketId, projectId, userId } = data;
     if (!ticketId || !projectId || !userId) {
       this.logger.warn('Invalid heartbeat data', data);
@@ -38,25 +62,27 @@ export class TelemetryProcessor extends WorkerHost {
     }
 
     const sessionKey = `telemetry:session:${ticketId}:${userId}`;
-    const session = await this.cacheService.get<{ startTime: number }>(
-      sessionKey,
-    );
+    const session = await this.cacheService.get<TelemetrySession>(sessionKey);
     const now = Date.now();
 
     if (!session) {
       // New session
-      await this.cacheService.set(sessionKey, { startTime: now }, { ttl: 300 }); // 5 min TTL
+      await this.cacheService.set(
+        sessionKey,
+        { startTime: now },
+        { ttl: SESSION_TTL_SECONDS },
+      );
       this.logger.debug(`Started new session for ${ticketId}`);
     } else {
       // Existing session, extend TTL
-      await this.cacheService.set(sessionKey, session, { ttl: 300 });
+      await this.cacheService.set(sessionKey, session, {
+        ttl: SESSION_TTL_SECONDS,
+      });
 
-      // Check duration
+      // Check duration for auto-transition
       const duration = now - session.startTime;
-      if (duration > 10 * 60 * 1000) {
-        // 10 minutes
+      if (duration > AUTO_TRANSITION_THRESHOLD_MS) {
         try {
-          // Fetch issue to check status
           const issue = await this.issuesService.findOne(
             projectId,
             ticketId,
@@ -74,9 +100,10 @@ export class TelemetryProcessor extends WorkerHost {
             );
           }
         } catch (error) {
+          const errMsg =
+            error instanceof Error ? error.message : String(error);
           this.logger.error(
-            `Failed to auto-transition ticket ${ticketId}`,
-            error,
+            `Failed to auto-transition ticket ${ticketId}: ${errMsg}`,
           );
         }
       }

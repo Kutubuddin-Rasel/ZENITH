@@ -40,6 +40,7 @@
     "@clickhouse/client": "^1.14.0",
     "@google/generative-ai": "^0.24.1",
     "@langchain/textsplitters": "^1.0.1",
+    "@nest-lab/throttler-storage-redis": "^1.2.0",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/cache-manager": "^3.0.1",
