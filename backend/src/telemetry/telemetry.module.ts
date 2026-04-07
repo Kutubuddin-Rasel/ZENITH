@@ -3,6 +3,7 @@ import { TelemetryService } from './telemetry.service';
 import { TelemetryController } from './telemetry.controller';
 import { BullModule } from '@nestjs/bullmq';
 import { TelemetryProcessor } from './telemetry.processor';
+import { TelemetryMetricsService } from './telemetry-metrics.service';
 import { ApiKeysModule } from '../api-keys/api-keys.module';
 import { IssuesModule } from '../issues/issues.module';
 
@@ -15,7 +16,7 @@ import { IssuesModule } from '../issues/issues.module';
     }),
   ],
   controllers: [TelemetryController],
-  providers: [TelemetryService, TelemetryProcessor],
-  exports: [TelemetryService],
+  providers: [TelemetryService, TelemetryProcessor, TelemetryMetricsService],
+  exports: [TelemetryService, TelemetryMetricsService],
 })
 export class TelemetryModule {}
