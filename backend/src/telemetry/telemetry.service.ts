@@ -21,13 +21,14 @@ export interface TraceCarrier {
 }
 
 /**
- * BullMQ job payload with embedded trace context.
- * Extends HeartbeatDto with the serialized OTel context.
+ * BullMQ job payload with embedded trace context and tenant context.
+ * Extends HeartbeatDto fields with organizationId + serialized OTel context.
  */
 export interface HeartbeatJobPayload {
   ticketId: string;
   projectId: string;
   userId: string;
+  organizationId: string;
   _traceCarrier?: TraceCarrier;
 }
 
@@ -46,6 +47,10 @@ export interface HeartbeatJobPayload {
  * 2. OpenTelemetry: Creates a span for queue dispatch, injects trace
  *    context into the job payload for cross-boundary propagation
  *
+ * TENANT CONTEXT:
+ * organizationId is extracted server-side from the API key's user
+ * in the controller — never trusted from client input.
+ *
  * ZERO `any` TOLERANCE.
  */
 @Injectable()
@@ -58,7 +63,10 @@ export class TelemetryService {
     private readonly telemetryMetrics: TelemetryMetricsService,
   ) {}
 
-  async ingestHeartbeat(data: HeartbeatDto): Promise<{ status: string }> {
+  async ingestHeartbeat(
+    data: HeartbeatDto,
+    organizationId: string,
+  ): Promise<{ status: string }> {
     const span = this.tracer.startSpan('telemetry.ingestHeartbeat', undefined, context.active());
 
     try {
@@ -73,6 +81,7 @@ export class TelemetryService {
         ticketId: data.ticketId,
         projectId: data.projectId,
         userId: data.userId,
+        organizationId,
         _traceCarrier: Object.keys(carrier).length > 0 ? carrier : undefined,
       };
 

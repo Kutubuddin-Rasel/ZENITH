@@ -5,6 +5,7 @@ import { context, trace, SpanStatusCode, propagation, ROOT_CONTEXT } from '@open
 import { IssuesService } from '../issues/issues.service';
 import { CacheService } from '../cache/cache.service';
 import { TelemetryMetricsService } from './telemetry-metrics.service';
+import { TelemetryAggregationService } from './telemetry-aggregation.service';
 import { HeartbeatJobPayload, TraceCarrier } from './telemetry.service';
 
 // =============================================================================
@@ -39,6 +40,7 @@ export class TelemetryProcessor extends WorkerHost {
     private readonly issuesService: IssuesService,
     private readonly cacheService: CacheService,
     private readonly telemetryMetrics: TelemetryMetricsService,
+    private readonly aggregationService: TelemetryAggregationService,
   ) {
     super();
   }
@@ -67,6 +69,7 @@ export class TelemetryProcessor extends WorkerHost {
         attributes: {
           'telemetry.ticket_id': data.ticketId,
           'telemetry.project_id': data.projectId,
+          'telemetry.organization_id': data.organizationId,
         },
       },
       parentContext,
@@ -77,12 +80,22 @@ export class TelemetryProcessor extends WorkerHost {
 
     return context.with(trace.setSpan(parentContext, span), async () => {
       try {
-        const { ticketId, projectId, userId } = data;
-        if (!ticketId || !projectId || !userId) {
+        const { ticketId, projectId, userId, organizationId } = data;
+        if (!ticketId || !projectId || !userId || !organizationId) {
           this.logger.warn('Invalid heartbeat data', data);
           span.setStatus({ code: SpanStatusCode.ERROR, message: 'Invalid heartbeat data' });
           return;
         }
+
+        // =================================================================
+        // BUFFER: Write to Redis aggregation buffer (non-blocking)
+        // This feeds the periodic flush to PostgreSQL.
+        // =================================================================
+        await this.aggregationService.bufferHeartbeat(
+          organizationId,
+          projectId,
+          userId,
+        );
 
         const sessionKey = `telemetry:session:${ticketId}:${userId}`;
         const session = await this.cacheService.get<TelemetrySession>(sessionKey);
@@ -109,7 +122,13 @@ export class TelemetryProcessor extends WorkerHost {
           span.setAttribute('telemetry.session_duration_ms', duration);
 
           if (duration > AUTO_TRANSITION_THRESHOLD_MS) {
-            await this.attemptAutoTransition(projectId, ticketId, userId, span);
+            await this.attemptAutoTransition(
+              organizationId,
+              projectId,
+              ticketId,
+              userId,
+              span,
+            );
           }
         }
 
@@ -130,6 +149,7 @@ export class TelemetryProcessor extends WorkerHost {
   // ===========================================================================
 
   private async attemptAutoTransition(
+    organizationId: string,
     projectId: string,
     ticketId: string,
     userId: string,
@@ -156,6 +176,12 @@ export class TelemetryProcessor extends WorkerHost {
         transitionSpan.addEvent('transition.completed', {
           'telemetry.from_status': issue.status,
         });
+
+        // Buffer transition event for analytics
+        await this.aggregationService.bufferTransition(
+          organizationId,
+          projectId,
+        );
       } else {
         this.telemetryMetrics.recordAutoTransition('skipped');
         transitionSpan.addEvent('transition.skipped', {
