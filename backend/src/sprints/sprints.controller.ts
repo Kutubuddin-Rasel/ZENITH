@@ -28,7 +28,7 @@ import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
 
 /**
  * SprintsController - Manages sprint lifecycle.
- * 
+ *
  * CSRF Protection: Mutations require x-csrf-token header.
  * GET endpoints (burndown, velocity, etc.) are exempt.
  */
@@ -38,7 +38,7 @@ export class SprintsController {
   constructor(
     private readonly sprintsService: SprintsService,
     private readonly usersService: UsersService,
-  ) { }
+  ) {}
 
   /**
    * Helper: Get user's organization ID
@@ -209,7 +209,6 @@ export class SprintsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-
     return this.sprintsService.getBurndown(
       projectId,
       sprintId,
@@ -223,7 +222,6 @@ export class SprintsController {
     @Param('projectId') projectId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-
     return this.sprintsService.getVelocity(projectId, req.user.userId);
   }
 

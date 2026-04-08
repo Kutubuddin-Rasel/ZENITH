@@ -13,7 +13,21 @@ export class CreateCommentDto {
   // TRANSFORM ORDER: trim → sanitize → validate
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @SanitizeHtml({
-    allowedTags: ['b', 'i', 'em', 'strong', 'a', 'code', 'pre', 'blockquote', 'ul', 'ol', 'li', 'p', 'br'],
+    allowedTags: [
+      'b',
+      'i',
+      'em',
+      'strong',
+      'a',
+      'code',
+      'pre',
+      'blockquote',
+      'ul',
+      'ol',
+      'li',
+      'p',
+      'br',
+    ],
     allowedAttributes: {
       a: ['href', 'target'],
     },

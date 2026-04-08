@@ -8,7 +8,6 @@
  * 2. Call 6+ should use FALLBACK instantly (circuit OPEN)
  */
 
-
 import CircuitBreaker = require('opossum');
 
 // Simulate the gateway configuration (same as integration.gateway.ts)

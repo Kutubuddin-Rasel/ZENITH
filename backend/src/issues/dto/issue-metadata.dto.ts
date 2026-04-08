@@ -1,9 +1,9 @@
 import {
-    IsString,
-    IsOptional,
-    IsObject,
-    ValidateNested,
-    IsNumber,
+  IsString,
+  IsOptional,
+  IsObject,
+  ValidateNested,
+  IsNumber,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -12,31 +12,31 @@ import { Type } from 'class-transformer';
  * Used by both Entity and DTOs for type safety
  */
 export interface IssueMetadata {
-    // Generic fields
-    customFields?: Record<string, string | number | boolean>;
-    externalIds?: ExternalIdDto[];
-    importSource?: string;
+  // Generic fields
+  customFields?: Record<string, string | number | boolean>;
+  externalIds?: ExternalIdDto[];
+  importSource?: string;
 
-    // GitHub integration fields
-    githubPrNumber?: number;
-    githubRepo?: string;
-    githubUrl?: string;
+  // GitHub integration fields
+  githubPrNumber?: number;
+  githubRepo?: string;
+  githubUrl?: string;
 
-    // Jira integration fields
-    jiraKey?: string;
-    jiraId?: string;
-    jiraLink?: string;
+  // Jira integration fields
+  jiraKey?: string;
+  jiraId?: string;
+  jiraLink?: string;
 }
 
 /**
  * DTO for external ID references (e.g., Jira, GitHub)
  */
 export class ExternalIdDto {
-    @IsString()
-    source: string;
+  @IsString()
+  source: string;
 
-    @IsString()
-    id: string;
+  @IsString()
+  id: string;
 }
 
 /**
@@ -45,42 +45,42 @@ export class ExternalIdDto {
  * Unknown properties are stripped by class-transformer
  */
 export class IssueMetadataDto implements IssueMetadata {
-    @IsOptional()
-    @IsObject()
-    customFields?: Record<string, string | number | boolean>;
+  @IsOptional()
+  @IsObject()
+  customFields?: Record<string, string | number | boolean>;
 
-    @IsOptional()
-    @ValidateNested({ each: true })
-    @Type(() => ExternalIdDto)
-    externalIds?: ExternalIdDto[];
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => ExternalIdDto)
+  externalIds?: ExternalIdDto[];
 
-    @IsOptional()
-    @IsString()
-    importSource?: string;
+  @IsOptional()
+  @IsString()
+  importSource?: string;
 
-    // GitHub integration fields
-    @IsOptional()
-    @IsNumber()
-    githubPrNumber?: number;
+  // GitHub integration fields
+  @IsOptional()
+  @IsNumber()
+  githubPrNumber?: number;
 
-    @IsOptional()
-    @IsString()
-    githubRepo?: string;
+  @IsOptional()
+  @IsString()
+  githubRepo?: string;
 
-    @IsOptional()
-    @IsString()
-    githubUrl?: string;
+  @IsOptional()
+  @IsString()
+  githubUrl?: string;
 
-    // Jira integration fields
-    @IsOptional()
-    @IsString()
-    jiraKey?: string;
+  // Jira integration fields
+  @IsOptional()
+  @IsString()
+  jiraKey?: string;
 
-    @IsOptional()
-    @IsString()
-    jiraId?: string;
+  @IsOptional()
+  @IsString()
+  jiraId?: string;
 
-    @IsOptional()
-    @IsString()
-    jiraLink?: string;
+  @IsOptional()
+  @IsString()
+  jiraLink?: string;
 }

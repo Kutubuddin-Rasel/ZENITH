@@ -99,7 +99,7 @@ export class StatefulCsrfGuard implements CanActivate {
     private readonly csrfService: CsrfService,
     private readonly auditService: AuditService,
     private readonly cacheService: CacheService,
-  ) { }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Check if CSRF validation is required for this handler

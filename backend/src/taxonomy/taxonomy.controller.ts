@@ -24,7 +24,10 @@ import { RequirePermission } from '../auth/decorators/require-permission.decorat
 import { StatefulCsrfGuard } from '../security/csrf/csrf.guard';
 import { UpdateComponentDto } from './dto/update-component.dto';
 import { CreateComponentDto } from './dto/create-component.dto';
-import { PaginationQueryDto, PaginatedResult } from './dto/pagination-query.dto';
+import {
+  PaginationQueryDto,
+  PaginatedResult,
+} from './dto/pagination-query.dto';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 import { Label } from './entities/label.entity';
 import { Component } from './entities/component.entity';
@@ -32,7 +35,7 @@ import { Component } from './entities/component.entity';
 @Controller('projects/:projectId')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class TaxonomyController {
-  constructor(private svc: TaxonomyService) { }
+  constructor(private svc: TaxonomyService) {}
 
   // — Labels —
 
@@ -53,7 +56,13 @@ export class TaxonomyController {
     @Query() query: PaginationQueryDto,
     @Request() req: { user: JwtRequestUser },
   ): Promise<PaginatedResult<Label>> {
-    return this.svc.listLabels(projectId, req.user.userId, query.page, query.limit, query.search);
+    return this.svc.listLabels(
+      projectId,
+      req.user.userId,
+      query.page,
+      query.limit,
+      query.search,
+    );
   }
 
   @RequirePermission('labels:update')
@@ -120,7 +129,13 @@ export class TaxonomyController {
     @Query() query: PaginationQueryDto,
     @Request() req: { user: JwtRequestUser },
   ): Promise<PaginatedResult<Component>> {
-    return this.svc.listComponents(projectId, req.user.userId, query.page, query.limit, query.search);
+    return this.svc.listComponents(
+      projectId,
+      req.user.userId,
+      query.page,
+      query.limit,
+      query.search,
+    );
   }
 
   @RequirePermission('components:update')

@@ -333,7 +333,9 @@ export class ApiKeysService {
         if (key.expiresAt && new Date() > key.expiresAt) {
           this.auditService
             .log({
-              organizationId: (key.user as { organizationId?: string })?.organizationId || SYSTEM_TENANT_ID,
+              organizationId:
+                (key.user as { organizationId?: string })?.organizationId ||
+                SYSTEM_TENANT_ID,
               eventType: AuditEventType.API_KEY_EXPIRED,
               severity: AuditSeverity.MEDIUM,
               description: 'Attempted use of expired API key',
@@ -354,7 +356,9 @@ export class ApiKeysService {
         if (key.revokeAt && new Date() > key.revokeAt) {
           this.auditService
             .log({
-              organizationId: (key.user as { organizationId?: string })?.organizationId || SYSTEM_TENANT_ID,
+              organizationId:
+                (key.user as { organizationId?: string })?.organizationId ||
+                SYSTEM_TENANT_ID,
               eventType: AuditEventType.API_KEY_EXPIRED,
               severity: AuditSeverity.MEDIUM,
               description: 'Attempted use of rotated API key past grace period',

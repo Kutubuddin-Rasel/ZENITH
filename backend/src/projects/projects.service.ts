@@ -65,7 +65,7 @@ export class ProjectsService implements OnModuleInit {
     private readonly tenantRepoFactory?: TenantRepositoryFactory,
     private readonly tenantContext?: TenantContext,
     private readonly cls?: ClsService,
-  ) { }
+  ) {}
 
   /**
    * OnModuleInit: Create tenant-aware repository wrappers

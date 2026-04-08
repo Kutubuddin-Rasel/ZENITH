@@ -41,7 +41,7 @@ export class EmailService {
     @InjectQueue(EMAIL_QUEUE_NAME)
     private readonly emailQueue: Queue<EmailJobData, EmailJobResult>,
     private readonly rateLimitService: EmailRateLimitService,
-  ) { }
+  ) {}
 
   // ==========================================================================
   // PUBLIC METHODS (PRODUCERS)
@@ -137,10 +137,7 @@ export class EmailService {
       expiresInHours,
     };
 
-    const job = await this.emailQueue.add(
-      EMAIL_JOB_NAMES.SEND_REPORT,
-      jobData,
-    );
+    const job = await this.emailQueue.add(EMAIL_JOB_NAMES.SEND_REPORT, jobData);
 
     this.logger.log(
       `Report email queued for ${to} (${projectName} / ${reportType}) — Job ID: ${job.id ?? 'unknown'}`,

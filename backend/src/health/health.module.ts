@@ -14,9 +14,6 @@ import { CacheModule } from '../cache/cache.module';
     // CoreQueueModule is @Global() — BullModule queues are available without explicit import
   ],
   controllers: [HealthController],
-  providers: [
-    RedisHealthIndicator,
-    BullMQHealthIndicator,
-  ],
+  providers: [RedisHealthIndicator, BullMQHealthIndicator],
 })
 export class HealthModule {}

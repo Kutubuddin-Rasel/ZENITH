@@ -18,14 +18,14 @@ import { WorkflowExecution } from './workflow-execution.entity';
 export interface WorkflowNode {
   id: string;
   type:
-  | 'start'
-  | 'end'
-  | 'status'
-  | 'decision'
-  | 'action'
-  | 'approval'
-  | 'parallel'
-  | 'merge';
+    | 'start'
+    | 'end'
+    | 'status'
+    | 'decision'
+    | 'action'
+    | 'approval'
+    | 'parallel'
+    | 'merge';
   name: string;
   description?: string;
   position: { x: number; y: number };

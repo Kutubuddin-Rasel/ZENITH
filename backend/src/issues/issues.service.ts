@@ -66,7 +66,7 @@ export class IssuesService implements OnModuleInit {
     @InjectRepository(Board)
     private readonly boardRepo: Repository<Board>,
     private readonly auditLogsService: AuditLogsService,
-  ) { }
+  ) {}
 
   /**
    * OnModuleInit: Create tenant-aware repository wrappers
@@ -1381,7 +1381,7 @@ export class WorkLogsService {
     @InjectRepository(Issue)
     private issueRepo: Repository<Issue>,
     private membersService: ProjectMembersService,
-  ) { }
+  ) {}
 
   async listWorkLogs(projectId: string, issueId: string) {
     return this.workLogRepo.find({

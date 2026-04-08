@@ -47,4 +47,4 @@ import { AlertsProcessor } from './alerting/processors/alerts.processor';
     HistoricalMetricsService,
   ],
 })
-export class AnalyticsModule { }
+export class AnalyticsModule {}

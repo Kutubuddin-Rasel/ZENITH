@@ -50,4 +50,4 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
   ],
   exports: [BullModule],
 })
-export class CoreQueueModule { }
+export class CoreQueueModule {}

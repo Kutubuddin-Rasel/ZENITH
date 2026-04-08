@@ -142,13 +142,11 @@ export class AIResponseValidator {
     if (typeof value !== 'string') return null;
     // Remove control characters (0x00-0x1F and 0x7F) and excessive whitespace
 
-    return (
-      value
+    return value
 
-        .replace(/[\u0000-\u001F\u007F]/g, '')
-        .trim()
-        .slice(0, 1000)
-    ); // Max length
+      .replace(/[\u0000-\u001F\u007F]/g, '')
+      .trim()
+      .slice(0, 1000); // Max length
   }
 
   /**

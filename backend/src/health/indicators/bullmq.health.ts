@@ -169,9 +169,7 @@ export class BullMQHealthIndicator extends HealthIndicator {
     // Fast-fail: check ioredis connection state without network round-trip
     const connectionStatus = client.status;
     if (connectionStatus !== 'ready') {
-      throw new Error(
-        `Connection not ready (status: ${connectionStatus})`,
-      );
+      throw new Error(`Connection not ready (status: ${connectionStatus})`);
     }
 
     // Lightweight O(1) Redis PING — confirms Redis is responsive
@@ -193,9 +191,7 @@ export class BullMQHealthIndicator extends HealthIndicator {
   private createTimeout(ms: number, queueName: string): Promise<never> {
     return new Promise<never>((_, reject) => {
       const timer = setTimeout(() => {
-        reject(
-          new Error(`Health check timed out after ${ms}ms`),
-        );
+        reject(new Error(`Health check timed out after ${ms}ms`));
       }, ms);
 
       // Prevent timer from keeping the Node.js process alive

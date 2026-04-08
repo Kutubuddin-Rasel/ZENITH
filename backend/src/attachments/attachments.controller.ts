@@ -30,7 +30,7 @@ import * as path from 'path';
 
 /**
  * AttachmentsController - Multi-target file uploads
- * 
+ *
  * CSRF Protection: Uploads and deletes require x-csrf-token header.
  * MIME Filtering: Only allowed file types accepted.
  */
@@ -40,7 +40,7 @@ export class AttachmentsController {
   constructor(
     private svc: AttachmentsService,
     private virusScanner: VirusScanningService,
-  ) { }
+  ) {}
 
   // Project-level attachments (general project files)
   @RequireCsrf()
@@ -397,7 +397,8 @@ export class AttachmentsController {
     await this.svc['membersService'].getUserRole(projectId, req.user.userId);
 
     // SECURITY: Use jail-checked path resolution (Path Traversal Defense)
-    const { resolveSafeFilePath } = await import('./config/path-security.config');
+    const { resolveSafeFilePath } =
+      await import('./config/path-security.config');
     const filePath = resolveSafeFilePath(attachment.filename);
 
     if (!fs.existsSync(filePath)) {

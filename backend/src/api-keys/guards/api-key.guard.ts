@@ -204,7 +204,9 @@ export class ApiKeyGuard implements CanActivate {
 
       try {
         await this.auditService.log({
-          organizationId: (apiKey.user as { organizationId?: string })?.organizationId || SYSTEM_TENANT_ID,
+          organizationId:
+            (apiKey.user as { organizationId?: string })?.organizationId ||
+            SYSTEM_TENANT_ID,
           eventType: AuditEventType.API_KEY_IP_DENIED,
           severity: AuditSeverity.HIGH,
           description: `API key access blocked: IP ${clientIp} not in allowlist`,

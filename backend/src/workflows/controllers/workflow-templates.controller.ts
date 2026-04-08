@@ -22,7 +22,7 @@ import { StatefulCsrfGuard, RequireCsrf } from '../../security/csrf/csrf.guard';
 @Controller('api/workflow-templates')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class WorkflowTemplatesController {
-  constructor(private workflowTemplateService: WorkflowTemplateService) { }
+  constructor(private workflowTemplateService: WorkflowTemplateService) {}
 
   @Post()
   @RequirePermission('projects:edit')

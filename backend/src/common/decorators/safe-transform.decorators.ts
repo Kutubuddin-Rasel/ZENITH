@@ -258,7 +258,21 @@ export interface SanitizeHtmlOptions {
  * BLOCKED: script, iframe, object, style, on* events, javascript: URLs
  */
 const DEFAULT_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
-  allowedTags: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'code', 'pre', 'blockquote'],
+  allowedTags: [
+    'b',
+    'i',
+    'em',
+    'strong',
+    'a',
+    'p',
+    'br',
+    'ul',
+    'ol',
+    'li',
+    'code',
+    'pre',
+    'blockquote',
+  ],
   allowedAttributes: {
     a: ['href', 'target'],
   },
@@ -294,7 +308,9 @@ export function SanitizeHtml(options?: SanitizeHtmlOptions): PropertyDecorator {
   const sanitizeOptions: sanitizeHtml.IOptions = {
     ...DEFAULT_SANITIZE_OPTIONS,
     ...(options?.allowedTags && { allowedTags: options.allowedTags }),
-    ...(options?.allowedAttributes && { allowedAttributes: options.allowedAttributes }),
+    ...(options?.allowedAttributes && {
+      allowedAttributes: options.allowedAttributes,
+    }),
   };
 
   return createSafeTransform<unknown>((params) => {
@@ -313,4 +329,3 @@ export function SanitizeHtml(options?: SanitizeHtmlOptions): PropertyDecorator {
     return value;
   });
 }
-

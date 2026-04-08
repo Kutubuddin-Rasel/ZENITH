@@ -26,7 +26,7 @@ export class CommentsService {
     private membersService: ProjectMembersService,
     private watcherService: WatchersService,
     private auditLogsService: AuditLogsService,
-  ) { }
+  ) {}
 
   /** Create a comment under an issue */
   async create(

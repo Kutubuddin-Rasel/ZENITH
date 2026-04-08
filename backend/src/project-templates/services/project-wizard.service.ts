@@ -85,7 +85,7 @@ export class ProjectWizardService {
     @Optional() private templateScorer?: TemplateScorerService,
     // NEW: Unified template application service
     @Optional() private templateApplicationService?: TemplateApplicationService,
-  ) { }
+  ) {}
 
   /**
    * Get wizard questions based on user's experience and preferences
@@ -569,7 +569,6 @@ export class ProjectWizardService {
             this.logger.log(
               `Creating board "${boardConfig.name}" with columns: ${columns.map((c) => c.name).join(', ')}`,
             );
-
 
             await this.boardsService.create(projectId, userId, {
               name: boardConfig.name,

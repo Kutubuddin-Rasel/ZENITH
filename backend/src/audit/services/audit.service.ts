@@ -501,7 +501,9 @@ export class AuditService {
       .getCount();
 
     const suspiciousActivity = await baseQuery()
-      .andWhere('audit.eventType = :evt', { evt: AuditEventType.SUSPICIOUS_ACTIVITY })
+      .andWhere('audit.eventType = :evt', {
+        evt: AuditEventType.SUSPICIOUS_ACTIVITY,
+      })
       .getCount();
 
     // Transform raw rows into response shape

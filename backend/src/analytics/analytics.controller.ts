@@ -30,7 +30,7 @@ export class AnalyticsController {
     private readonly sprintRiskService: SprintRiskService,
     private readonly analyticsJobsService: AnalyticsJobsService,
     private readonly historicalMetricsService: HistoricalMetricsService,
-  ) { }
+  ) {}
 
   @Get('cycle-time')
   async getCycleTime(
@@ -58,9 +58,7 @@ export class AnalyticsController {
   }
 
   @Get('stalled-issues')
-  async getStalledIssues(
-    @Param('projectId', ParseUUIDPipe) projectId: string,
-  ) {
+  async getStalledIssues(@Param('projectId', ParseUUIDPipe) projectId: string) {
     return this.analyticsJobsService.getStalledIssues(projectId);
   }
 

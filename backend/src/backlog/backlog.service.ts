@@ -36,7 +36,7 @@ export class BacklogService {
     private issueRepo: Repository<Issue>,
     private membersService: ProjectMembersService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
-  ) { }
+  ) {}
 
   /**
    * Generate cache key for backlog page
@@ -88,7 +88,8 @@ export class BacklogService {
 
     // Check cache first
     const cacheKey = this.getCacheKey(projectId, page, limit);
-    const cached = await this.cache.get<PaginatedBacklogResponse<Issue>>(cacheKey);
+    const cached =
+      await this.cache.get<PaginatedBacklogResponse<Issue>>(cacheKey);
     if (cached) {
       return cached;
     }

@@ -25,10 +25,18 @@ import { WorkflowExecution } from '../entities/workflow-execution.entity';
 import { WorkflowDefinition } from '../entities/workflow.entity';
 import { ExecutionContext } from '../entities/workflow-execution.entity';
 import { CreateWorkflowDto, UpdateWorkflowDto } from '../dto';
-import { UserThrottlerGuard, WorkflowThrottle } from '../guards/user-throttler.guard';
+import {
+  UserThrottlerGuard,
+  WorkflowThrottle,
+} from '../guards/user-throttler.guard';
 
 @Controller('api/workflows')
-@UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard, UserThrottlerGuard)
+@UseGuards(
+  JwtAuthGuard,
+  StatefulCsrfGuard,
+  PermissionsGuard,
+  UserThrottlerGuard,
+)
 export class WorkflowsController {
   constructor(
     private workflowEngineService: WorkflowEngineService,
@@ -37,7 +45,7 @@ export class WorkflowsController {
     private workflowRepo: Repository<Workflow>,
     @InjectRepository(WorkflowExecution)
     private executionRepo: Repository<WorkflowExecution>,
-  ) { }
+  ) {}
 
   @Post()
   @RequirePermission('projects:edit')
@@ -146,7 +154,8 @@ export class WorkflowsController {
     // Apply validated DTO fields
     if (dto.name !== undefined) workflow.name = dto.name;
     if (dto.description !== undefined) workflow.description = dto.description;
-    if (dto.definition !== undefined) workflow.definition = dto.definition as unknown as WorkflowDefinition;
+    if (dto.definition !== undefined)
+      workflow.definition = dto.definition as unknown as WorkflowDefinition;
     if (dto.tags !== undefined) workflow.tags = dto.tags;
     if (dto.category !== undefined) workflow.category = dto.category;
     if (dto.icon !== undefined) workflow.icon = dto.icon;

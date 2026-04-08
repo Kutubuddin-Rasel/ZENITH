@@ -14,6 +14,10 @@ export enum TelemetryMetricNames {
   ACTIVE_SESSIONS = 'zenith_telemetry_active_sessions',
   PROCESSING_DURATION = 'zenith_telemetry_processing_duration_seconds',
   AUTO_TRANSITIONS = 'zenith_telemetry_auto_transitions_total',
+  /** Red Team: Circuit breaker drops (cardinality cap exceeded) */
+  BUFFER_OVERFLOW = 'zenith_telemetry_buffer_overflow_total',
+  /** Red Team: DLQ events (data lost due to PG outage) */
+  FLUSH_FAILURES = 'zenith_telemetry_flush_failures_total',
 }
 
 /**
@@ -59,6 +63,8 @@ export class TelemetryMetricsService implements OnModuleInit {
   private readonly activeSessionsGauge: Gauge<string>;
   private readonly processingDuration: Histogram<string>;
   private readonly autoTransitionsCounter: Counter<TransitionLabelNames>;
+  private readonly bufferOverflowCounter: Counter<string>;
+  private readonly flushFailuresCounter: Counter<string>;
 
   /** In-memory session counter — updated by the processor */
   private activeSessionCount = 0;
@@ -117,6 +123,26 @@ export class TelemetryMetricsService implements OnModuleInit {
       labelNames: ['result'],
       registers: [register],
     });
+
+    // =========================================================================
+    // COUNTER: Buffer overflow events (Red Team — circuit breaker drops)
+    // Alert threshold: any increment = botnet or misconfigured client
+    // =========================================================================
+    this.bufferOverflowCounter = new Counter<string>({
+      name: TelemetryMetricNames.BUFFER_OVERFLOW,
+      help: 'Heartbeats dropped by Redis cardinality circuit breaker',
+      registers: [register],
+    });
+
+    // =========================================================================
+    // COUNTER: Flush DLQ events (Red Team — data loss due to PG outage)
+    // Alert threshold: any increment = CRITICAL (data was lost)
+    // =========================================================================
+    this.flushFailuresCounter = new Counter<string>({
+      name: TelemetryMetricNames.FLUSH_FAILURES,
+      help: 'Telemetry flush DLQ events (data lost due to PostgreSQL outage)',
+      registers: [register],
+    });
   }
 
   onModuleInit(): void {
@@ -156,6 +182,16 @@ export class TelemetryMetricsService implements OnModuleInit {
   /** Record an auto-transition result */
   recordAutoTransition(result: 'success' | 'skipped' | 'error'): void {
     this.autoTransitionsCounter.inc({ result });
+  }
+
+  /** Record a buffer overflow (circuit breaker dropped a write) */
+  recordBufferOverflow(): void {
+    this.bufferOverflowCounter.inc();
+  }
+
+  /** Record a flush DLQ event (data lost due to PG outage) */
+  recordFlushFailure(): void {
+    this.flushFailuresCounter.inc();
   }
 
   // ===========================================================================

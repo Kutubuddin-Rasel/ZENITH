@@ -58,7 +58,6 @@ export class CreateAdminCommand extends CommandRunner {
         passwordVersion: 3, // Argon2id
       });
 
-
       await userRepository.save(admin);
 
       console.log('\n========================================');

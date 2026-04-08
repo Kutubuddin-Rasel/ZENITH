@@ -31,7 +31,7 @@ export class ReportsController {
     private readonly reportsService: ReportsService,
     private readonly excelExportService: ExcelExportService,
     private readonly pdfExportService: PdfExportService,
-  ) { }
+  ) {}
 
   // ---------------------------------------------------------------------------
   // Existing Report Endpoints (unchanged API surface)

@@ -261,7 +261,7 @@ import {
   ],
 })
 export class AppModule implements OnApplicationShutdown, NestModule {
-  constructor(private readonly moduleRef: ModuleRef) { }
+  constructor(private readonly moduleRef: ModuleRef) {}
 
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(CorrelationMiddleware).forRoutes('*');

@@ -43,7 +43,8 @@ interface JwtPayload {
   },
 })
 export class NotificationsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
+{
   private readonly logger = new Logger(NotificationsGateway.name);
 
   @WebSocketServer() server: Server;
@@ -51,7 +52,7 @@ export class NotificationsGateway
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
-  ) { }
+  ) {}
 
   /**
    * Log gateway initialization with configured origins
@@ -114,7 +115,10 @@ export class NotificationsGateway
         );
         socket.emit('unauthorized', {
           message: 'Authentication failed',
-          reason: (error as Error).name === 'TokenExpiredError' ? 'expired' : 'invalid',
+          reason:
+            (error as Error).name === 'TokenExpiredError'
+              ? 'expired'
+              : 'invalid',
         });
         socket.disconnect(true);
       }
@@ -193,7 +197,9 @@ export class NotificationsGateway
       }
 
       if (delivered) {
-        this.logger.debug(`Notification ${notificationId} delivered to user ${userId}`);
+        this.logger.debug(
+          `Notification ${notificationId} delivered to user ${userId}`,
+        );
         await onDeliveryResult(notificationId, true);
       } else {
         this.logger.warn(
@@ -202,7 +208,9 @@ export class NotificationsGateway
         await onDeliveryResult(notificationId, false);
       }
     } catch (error) {
-      this.logger.error(`Delivery error for ${notificationId}: ${(error as Error).message}`);
+      this.logger.error(
+        `Delivery error for ${notificationId}: ${(error as Error).message}`,
+      );
       await onDeliveryResult(notificationId, false);
     }
   }

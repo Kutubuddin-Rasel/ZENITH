@@ -37,7 +37,7 @@ export class TaxonomyService {
     private membersService: ProjectMembersService,
     private issuesService: IssuesService,
     private auditLogsService: AuditLogsService,
-  ) { }
+  ) {}
 
   // — Labels CRUD —
 
@@ -53,16 +53,18 @@ export class TaxonomyService {
     const saved = await this.labelRepo.save(lbl);
 
     // AUDIT: Log label creation (Phase 5)
-    this.auditLogsService.log({
-      event_uuid: randomUUID(),
-      timestamp: new Date(),
-      tenant_id: projectId,
-      actor_id: userId,
-      resource_type: 'Label',
-      resource_id: saved.id,
-      action_type: 'CREATE',
-      metadata: { name: saved.name, severity: 'LOW' },
-    }).catch(() => { }); // Non-blocking
+    this.auditLogsService
+      .log({
+        event_uuid: randomUUID(),
+        timestamp: new Date(),
+        tenant_id: projectId,
+        actor_id: userId,
+        resource_type: 'Label',
+        resource_id: saved.id,
+        action_type: 'CREATE',
+        metadata: { name: saved.name, severity: 'LOW' },
+      })
+      .catch(() => {}); // Non-blocking
 
     return saved;
   }
@@ -122,16 +124,18 @@ export class TaxonomyService {
     await this.labelRepo.remove(lbl);
 
     // AUDIT: Log label deletion (Phase 5 - MEDIUM severity)
-    this.auditLogsService.log({
-      event_uuid: randomUUID(),
-      timestamp: new Date(),
-      tenant_id: projectId,
-      actor_id: userId,
-      resource_type: 'Label',
-      resource_id: labelId,
-      action_type: 'DELETE',
-      metadata: { ...snapshot, severity: 'MEDIUM' },
-    }).catch(() => { }); // Non-blocking
+    this.auditLogsService
+      .log({
+        event_uuid: randomUUID(),
+        timestamp: new Date(),
+        tenant_id: projectId,
+        actor_id: userId,
+        resource_type: 'Label',
+        resource_id: labelId,
+        action_type: 'DELETE',
+        metadata: { ...snapshot, severity: 'MEDIUM' },
+      })
+      .catch(() => {}); // Non-blocking
   }
 
   // — Label ↔ Issue assignments —
@@ -178,16 +182,18 @@ export class TaxonomyService {
     const saved = await this.compRepo.save(cmp);
 
     // AUDIT: Log component creation (Phase 5)
-    this.auditLogsService.log({
-      event_uuid: randomUUID(),
-      timestamp: new Date(),
-      tenant_id: projectId,
-      actor_id: userId,
-      resource_type: 'Component',
-      resource_id: saved.id,
-      action_type: 'CREATE',
-      metadata: { name: saved.name, severity: 'LOW' },
-    }).catch(() => { }); // Non-blocking
+    this.auditLogsService
+      .log({
+        event_uuid: randomUUID(),
+        timestamp: new Date(),
+        tenant_id: projectId,
+        actor_id: userId,
+        resource_type: 'Component',
+        resource_id: saved.id,
+        action_type: 'CREATE',
+        metadata: { name: saved.name, severity: 'LOW' },
+      })
+      .catch(() => {}); // Non-blocking
 
     return saved;
   }
@@ -198,7 +204,12 @@ export class TaxonomyService {
     page: number = 1,
     limit: number = 50,
     search?: string,
-  ): Promise<{ data: Component[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    data: Component[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     await this.projectsService.findOneById(projectId);
     await this.membersService.getUserRole(projectId, userId);
 
@@ -247,16 +258,18 @@ export class TaxonomyService {
     await this.compRepo.remove(cmp);
 
     // AUDIT: Log component deletion (Phase 5 - MEDIUM severity)
-    this.auditLogsService.log({
-      event_uuid: randomUUID(),
-      timestamp: new Date(),
-      tenant_id: projectId,
-      actor_id: userId,
-      resource_type: 'Component',
-      resource_id: componentId,
-      action_type: 'DELETE',
-      metadata: { ...snapshot, severity: 'MEDIUM' },
-    }).catch(() => { }); // Non-blocking
+    this.auditLogsService
+      .log({
+        event_uuid: randomUUID(),
+        timestamp: new Date(),
+        tenant_id: projectId,
+        actor_id: userId,
+        resource_type: 'Component',
+        resource_id: componentId,
+        action_type: 'DELETE',
+        metadata: { ...snapshot, severity: 'MEDIUM' },
+      })
+      .catch(() => {}); // Non-blocking
   }
 
   // — Component ↔ Issue assignments —

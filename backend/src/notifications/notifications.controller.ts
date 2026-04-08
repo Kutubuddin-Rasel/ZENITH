@@ -31,7 +31,7 @@ import { CursorPaginationDto } from './dto/cursor-pagination.dto';
 @Controller('notifications')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class NotificationsController {
-  constructor(private svc: NotificationsService) { }
+  constructor(private svc: NotificationsService) {}
 
   /** Get current user's unread notifications (legacy) */
   @RequirePermission('notifications:view')

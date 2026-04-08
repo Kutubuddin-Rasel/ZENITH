@@ -329,7 +329,9 @@ export class TwoFactorAuthService {
 
     // Log the admin action to audit trail
     // Look up target user's org for tenant-scoped audit
-    const targetUser = await this.userRepo.findOne({ where: { id: targetUserId } });
+    const targetUser = await this.userRepo.findOne({
+      where: { id: targetUserId },
+    });
     await this.auditService.logSecurityEvent(
       targetUser?.organizationId || SYSTEM_TENANT_ID,
       AuditEventType.TWO_FA_DISABLED,

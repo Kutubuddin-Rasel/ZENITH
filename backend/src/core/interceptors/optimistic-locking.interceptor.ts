@@ -54,7 +54,6 @@ export class OptimisticLockingInterceptor implements NestInterceptor {
           );
         }
 
-
         return throwError(() => error);
       }),
     );

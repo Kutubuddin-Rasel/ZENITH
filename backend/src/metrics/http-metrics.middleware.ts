@@ -23,7 +23,10 @@
 
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { httpRequestsCounter, httpDurationHistogram } from './http-metrics.providers';
+import {
+  httpRequestsCounter,
+  httpDurationHistogram,
+} from './http-metrics.providers';
 
 // ---------------------------------------------------------------------------
 // Middleware
@@ -58,9 +61,7 @@ export class HttpMetricsMiddleware implements NestMiddleware {
       );
 
       // Increment total request counter
-      httpRequestsCounter.inc(
-        { method, route, status_code: statusCode },
-      );
+      httpRequestsCounter.inc({ method, route, status_code: statusCode });
     });
 
     next();

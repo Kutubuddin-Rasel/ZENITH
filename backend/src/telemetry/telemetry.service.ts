@@ -1,7 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { context, trace, SpanStatusCode, propagation } from '@opentelemetry/api';
+import {
+  context,
+  trace,
+  SpanStatusCode,
+  propagation,
+} from '@opentelemetry/api';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 import { TelemetryMetricsService } from './telemetry-metrics.service';
 
@@ -67,7 +72,11 @@ export class TelemetryService {
     data: HeartbeatDto,
     organizationId: string,
   ): Promise<{ status: string }> {
-    const span = this.tracer.startSpan('telemetry.ingestHeartbeat', undefined, context.active());
+    const span = this.tracer.startSpan(
+      'telemetry.ingestHeartbeat',
+      undefined,
+      context.active(),
+    );
 
     try {
       // =====================================================================

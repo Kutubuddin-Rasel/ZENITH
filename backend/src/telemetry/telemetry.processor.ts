@@ -1,7 +1,13 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
-import { context, trace, SpanStatusCode, propagation, ROOT_CONTEXT } from '@opentelemetry/api';
+import {
+  context,
+  trace,
+  SpanStatusCode,
+  propagation,
+  ROOT_CONTEXT,
+} from '@opentelemetry/api';
 import { IssuesService } from '../issues/issues.service';
 import { CacheService } from '../cache/cache.service';
 import { TelemetryMetricsService } from './telemetry-metrics.service';
@@ -60,7 +66,7 @@ export class TelemetryProcessor extends WorkerHost {
     // This creates a child span linked to the original HTTP request
     // =========================================================================
     const parentContext = data._traceCarrier
-      ? propagation.extract(ROOT_CONTEXT, data._traceCarrier as TraceCarrier)
+      ? propagation.extract(ROOT_CONTEXT, data._traceCarrier)
       : ROOT_CONTEXT;
 
     const span = this.tracer.startSpan(
@@ -83,22 +89,32 @@ export class TelemetryProcessor extends WorkerHost {
         const { ticketId, projectId, userId, organizationId } = data;
         if (!ticketId || !projectId || !userId || !organizationId) {
           this.logger.warn('Invalid heartbeat data', data);
-          span.setStatus({ code: SpanStatusCode.ERROR, message: 'Invalid heartbeat data' });
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: 'Invalid heartbeat data',
+          });
           return;
         }
 
         // =================================================================
         // BUFFER: Write to Redis aggregation buffer (non-blocking)
-        // This feeds the periodic flush to PostgreSQL.
+        // Returns false if circuit breaker tripped (cardinality cap).
         // =================================================================
-        await this.aggregationService.bufferHeartbeat(
+        const buffered = await this.aggregationService.bufferHeartbeat(
           organizationId,
           projectId,
           userId,
         );
+        if (!buffered) {
+          this.telemetryMetrics.recordBufferOverflow();
+          span.addEvent('buffer.overflow', {
+            'telemetry.reason': 'cardinality_cap',
+          });
+        }
 
         const sessionKey = `telemetry:session:${ticketId}:${userId}`;
-        const session = await this.cacheService.get<TelemetrySession>(sessionKey);
+        const session =
+          await this.cacheService.get<TelemetrySession>(sessionKey);
         const now = Date.now();
 
         if (!session) {
@@ -162,7 +178,11 @@ export class TelemetryProcessor extends WorkerHost {
     );
 
     try {
-      const issue = await this.issuesService.findOne(projectId, ticketId, userId);
+      const issue = await this.issuesService.findOne(
+        projectId,
+        ticketId,
+        userId,
+      );
 
       if (issue.status !== 'In Progress') {
         this.logger.log(`Auto-transitioning ticket ${ticketId} to In Progress`);
@@ -194,7 +214,9 @@ export class TelemetryProcessor extends WorkerHost {
       const errMsg = error instanceof Error ? error.message : String(error);
       this.telemetryMetrics.recordAutoTransition('error');
       transitionSpan.setStatus({ code: SpanStatusCode.ERROR, message: errMsg });
-      this.logger.error(`Failed to auto-transition ticket ${ticketId}: ${errMsg}`);
+      this.logger.error(
+        `Failed to auto-transition ticket ${ticketId}: ${errMsg}`,
+      );
     } finally {
       transitionSpan.end();
     }

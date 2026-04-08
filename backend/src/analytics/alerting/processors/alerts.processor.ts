@@ -25,40 +25,40 @@ import { ALERTS_QUEUE, AlertJobData } from '../interfaces/alert.interfaces';
  */
 @Processor(ALERTS_QUEUE)
 export class AlertsProcessor extends WorkerHost {
-    private readonly logger = new Logger(AlertsProcessor.name);
+  private readonly logger = new Logger(AlertsProcessor.name);
 
-    constructor(private readonly alertingService: AlertingService) {
-        super();
+  constructor(private readonly alertingService: AlertingService) {
+    super();
+  }
+
+  /**
+   * Process an alert job.
+   *
+   * Extracts provider targets and payload from the job data,
+   * delegates to AlertingService.dispatch().
+   *
+   * If dispatch throws (all providers failed), BullMQ auto-retries
+   * with exponential backoff.
+   */
+  async process(job: Job<AlertJobData>): Promise<void> {
+    this.logger.log(
+      `Processing alert job ${job.id} — attempt ${job.attemptsMade + 1}/${job.opts.attempts ?? 5}`,
+    );
+
+    const { providers, payload } = job.data;
+
+    try {
+      await this.alertingService.dispatch(providers, payload);
+
+      this.logger.log(
+        `Alert job ${job.id} completed — project: ${payload.projectId}`,
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.error(`Alert job ${job.id} failed: ${msg}`);
+
+      // Re-throw to trigger BullMQ retry
+      throw err;
     }
-
-    /**
-     * Process an alert job.
-     *
-     * Extracts provider targets and payload from the job data,
-     * delegates to AlertingService.dispatch().
-     *
-     * If dispatch throws (all providers failed), BullMQ auto-retries
-     * with exponential backoff.
-     */
-    async process(job: Job<AlertJobData>): Promise<void> {
-        this.logger.log(
-            `Processing alert job ${job.id} — attempt ${job.attemptsMade + 1}/${job.opts.attempts ?? 5}`,
-        );
-
-        const { providers, payload } = job.data;
-
-        try {
-            await this.alertingService.dispatch(providers, payload);
-
-            this.logger.log(
-                `Alert job ${job.id} completed — project: ${payload.projectId}`,
-            );
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Unknown error';
-            this.logger.error(`Alert job ${job.id} failed: ${msg}`);
-
-            // Re-throw to trigger BullMQ retry
-            throw err;
-        }
-    }
+  }
 }

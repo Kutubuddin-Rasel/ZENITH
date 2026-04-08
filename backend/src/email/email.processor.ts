@@ -105,8 +105,7 @@ export class EmailProcessor extends WorkerHost {
       ],
       [
         EMAIL_JOB_NAMES.SEND_REPORT,
-        (d, j) =>
-          this.handleReport(d as unknown as SendReportJobData, j),
+        (d, j) => this.handleReport(d as unknown as SendReportJobData, j),
       ],
     ]);
   }
@@ -191,7 +190,8 @@ export class EmailProcessor extends WorkerHost {
 
     // Generate presigned download URL with configured TTL
     // Override the provider's default TTL with our 48h expiry
-    const downloadUrl = await this.s3StorageProvider.getDownloadUrl(s3ObjectKey);
+    const downloadUrl =
+      await this.s3StorageProvider.getDownloadUrl(s3ObjectKey);
 
     const html = this.templateService.render('report-ready', {
       title: `Weekly ${reportType} Report — ${projectName}`,

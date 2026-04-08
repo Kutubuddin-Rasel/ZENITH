@@ -34,14 +34,14 @@ import { PaginatedReleasesQueryDto } from './dto/paginated-releases-query.dto';
 
 /**
  * ReleasesController - Manages SDLC release lifecycle
- * 
+ *
  * CSRF Protection: All mutations require x-csrf-token header.
  * Critical endpoints (triggerDeploy, createRollback) have highest security impact.
  */
 @Controller('projects/:projectId/releases')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class ReleasesController {
-  constructor(private svc: ReleasesService) { }
+  constructor(private svc: ReleasesService) {}
 
   @RequireCsrf()
   @RequirePermission('releases:create')
@@ -356,4 +356,3 @@ export class ReleasesController {
     );
   }
 }
-

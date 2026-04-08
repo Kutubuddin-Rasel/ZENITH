@@ -45,7 +45,7 @@ export class AuthService {
     private cacheService: CacheService,
     private passwordBreachService: PasswordBreachService,
     private tokenBlacklistService: TokenBlacklistService,
-  ) { }
+  ) {}
 
   // Validate credentials for LocalStrategy
   async validateUser(
@@ -262,7 +262,6 @@ export class AuthService {
 
     await this.invitesService.respondToInvite(invite.id, user.id, true);
 
-
     const { passwordHash, hashedRefreshToken, ...safeUser } = user;
     return this.login(safeUser as SafeUser);
   }
@@ -275,7 +274,6 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-
 
     const { passwordHash, hashedRefreshToken, ...safeUser } = user;
     return safeUser as SafeUser;

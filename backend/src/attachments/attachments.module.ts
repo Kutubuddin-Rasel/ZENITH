@@ -25,5 +25,4 @@ import { ReleasesModule } from '../releases/releases.module';
   controllers: [AttachmentsController],
   exports: [AttachmentsService],
 })
-export class AttachmentsModule { }
-
+export class AttachmentsModule {}

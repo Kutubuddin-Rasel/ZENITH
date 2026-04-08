@@ -42,7 +42,7 @@ export class AnalyticsJobsService {
     private readonly sprintRiskService: SprintRiskService,
     private readonly tenantContext: TenantContext,
     private readonly historicalMetricsService: HistoricalMetricsService,
-  ) { }
+  ) {}
 
   /**
    * STALL RATE DETECTION

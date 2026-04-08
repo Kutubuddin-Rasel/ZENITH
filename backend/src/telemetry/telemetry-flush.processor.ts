@@ -4,11 +4,16 @@ import { Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { TelemetryAggregationService, TelemetryBufferEntry } from './telemetry-aggregation.service';
+import {
+  TelemetryAggregationService,
+  TelemetryBufferEntry,
+  RotatedBatchResult,
+} from './telemetry-aggregation.service';
 import {
   TelemetryDailyMetric,
   TelemetryMetricType,
 } from './entities/telemetry-daily-metric.entity';
+import { TelemetryMetricsService } from './telemetry-metrics.service';
 
 // =============================================================================
 // JOB PAYLOAD TYPES
@@ -31,23 +36,25 @@ interface PruneJobPayload {
 // =============================================================================
 
 /**
- * TelemetryFlushProcessor — BullMQ Worker for Periodic Aggregation Persistence
+ * TelemetryFlushProcessor — Atomic Batch Flush with DLQ
  *
  * ARCHITECTURE:
  * This processor handles two repeatable jobs:
  *
  * 1. `flush-aggregates` (every 5 minutes):
- *    - Drains Redis buffers for today's date
- *    - Bulk upserts into telemetry_daily_metrics table
- *    - Uses INSERT ... ON CONFLICT DO UPDATE for idempotency
+ *    a. RENAME active keys → frozen namespace (atomic per-key)
+ *    b. Read from frozen keys (isolated — live traffic is unaffected)
+ *    c. Bulk upsert to PostgreSQL
+ *    d. ONLY on PG success: UNLINK frozen keys + DECRBY buffer counter
+ *    e. On final retry exhaustion: log CRITICAL, cleanup frozen keys (graceful data drop)
  *
  * 2. `prune-old-metrics` (daily at 03:00 UTC):
- *    - Deletes rows older than retention period (default: 90 days)
- *    - Uses indexed metricDate column for efficient range delete
+ *    - DELETE rows older than retention period
  *
- * CONCURRENCY SAFETY:
- * BullMQ repeatable jobs guarantee exactly-one execution per cycle
- * across all K8s pods. No distributed locking needed.
+ * MULTI-POD SAFETY:
+ * - BullMQ repeatable jobs: exactly-one execution per cycle
+ * - Each job uses its own batchId (from BullMQ job ID) for key isolation
+ * - If a job retries, it reuses the same batchId → processes the same frozen keys
  *
  * ZERO `any` TOLERANCE.
  */
@@ -61,6 +68,7 @@ export class TelemetryFlushProcessor extends WorkerHost {
     @InjectRepository(TelemetryDailyMetric)
     private readonly metricsRepository: Repository<TelemetryDailyMetric>,
     private readonly configService: ConfigService,
+    private readonly telemetryMetrics: TelemetryMetricsService,
   ) {
     super();
     this.retentionDays = this.configService.get<number>(
@@ -74,7 +82,7 @@ export class TelemetryFlushProcessor extends WorkerHost {
   ): Promise<void> {
     switch (job.name) {
       case 'flush-aggregates':
-        return this.handleFlush(job.data as FlushJobPayload);
+        return this.handleFlush(job);
       case 'prune-old-metrics':
         return this.handlePrune(job.data as PruneJobPayload);
       default:
@@ -83,30 +91,100 @@ export class TelemetryFlushProcessor extends WorkerHost {
   }
 
   // ===========================================================================
-  // FLUSH: Redis → PostgreSQL
+  // FLUSH: Atomic Rotate → Read → Upsert → Cleanup
   // ===========================================================================
 
-  private async handleFlush(data: FlushJobPayload): Promise<void> {
+  private async handleFlush(
+    job: Job<FlushJobPayload | PruneJobPayload, void, string>,
+  ): Promise<void> {
+    const data = job.data as FlushJobPayload;
     const date = data.date || new Date().toISOString().slice(0, 10);
+    const batchId = job.id || `fallback-${Date.now()}`;
+    const isLastAttempt = job.attemptsMade + 1 >= (job.opts.attempts || 5);
 
-    this.logger.debug(`Flushing telemetry aggregates for ${date}`);
+    this.logger.debug(
+      `Flush attempt ${job.attemptsMade + 1} for date=${date} batch=${batchId}`,
+    );
 
-    // Phase 1: Drain Redis buffers
-    const entries = await this.aggregationService.drainDate(date);
-    if (entries.length === 0) {
+    // =========================================================================
+    // PHASE 1: Atomically rotate active keys → frozen namespace
+    // New heartbeats will instantly create fresh active keys.
+    // =========================================================================
+    let batch: RotatedBatchResult;
+    try {
+      batch = await this.aggregationService.rotateAndRead(date, batchId);
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Rotate-and-read failed: ${errMsg}`);
+      throw error; // BullMQ retries
+    }
+
+    if (batch.entries.length === 0) {
       this.logger.debug(`No aggregates to flush for ${date}`);
       return;
     }
 
-    // Phase 2: Bulk upsert into PostgreSQL
-    await this.bulkUpsert(entries, date);
+    // =========================================================================
+    // PHASE 2: Bulk upsert to PostgreSQL
+    // =========================================================================
+    try {
+      await this.bulkUpsert(batch.entries, date);
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Bulk upsert failed for batch=${batchId}: ${errMsg}`);
+
+      if (isLastAttempt) {
+        // =====================================================================
+        // DLQ: Final retry exhausted. PostgreSQL is unreachable.
+        //
+        // DECISION: Gracefully drop telemetry data to prevent Redis bloat.
+        // Telemetry is analytics data (not financial) — losing 5 min of
+        // heartbeat counts is acceptable. Keeping frozen keys forever
+        // would exhaust Redis memory, which is NOT acceptable.
+        //
+        // LOG CRITICAL so PagerDuty/CloudWatch alarm triggers.
+        // =====================================================================
+        this.logger.error(
+          `🔴 CRITICAL: Telemetry flush DLQ triggered. ` +
+            `Dropping ${batch.entries.length} aggregates for batch=${batchId} ` +
+            `after ${job.attemptsMade + 1} attempts. ` +
+            `PostgreSQL may be down. Data is lost.`,
+        );
+
+        // Fire Prometheus metric — dashboards/alerts can react
+        this.telemetryMetrics.recordFlushFailure();
+
+        // Clean up frozen keys to prevent Redis memory bloat
+        await this.aggregationService.deleteProcessedBatch(
+          batch.frozenKeys,
+          batch.entityCount,
+        );
+
+        return; // Don't rethrow — job completes (failed data is dropped)
+      }
+
+      throw error; // Retry with the same batchId
+    }
+
+    // =========================================================================
+    // PHASE 3: Cleanup ONLY after successful PG write
+    // Frozen keys are safe to delete now — data is persisted.
+    // =========================================================================
+    await this.aggregationService.deleteProcessedBatch(
+      batch.frozenKeys,
+      batch.entityCount,
+    );
+
+    this.logger.log(
+      `Flushed ${batch.entries.length} aggregates for batch=${batchId}`,
+    );
   }
 
   /**
    * Bulk upsert aggregated telemetry into PostgreSQL.
    *
-   * Uses INSERT ... ON CONFLICT (org, project, type, date) DO UPDATE SET value = value + new
-   * This makes flushes additive — multiple flushes per day accumulate correctly.
+   * Uses INSERT ... ON CONFLICT (org, project, type, date) DO UPDATE
+   * for idempotent writes.
    */
   private async bulkUpsert(
     entries: TelemetryBufferEntry[],
@@ -115,7 +193,6 @@ export class TelemetryFlushProcessor extends WorkerHost {
     const metricsToUpsert: Partial<TelemetryDailyMetric>[] = [];
 
     for (const entry of entries) {
-      // Each entry produces up to 3 metric rows
       if (entry.heartbeats > 0) {
         metricsToUpsert.push({
           organizationId: entry.organizationId,
@@ -149,30 +226,20 @@ export class TelemetryFlushProcessor extends WorkerHost {
 
     if (metricsToUpsert.length === 0) return;
 
-    try {
-      // TypeORM createQueryBuilder for bulk upsert with ON CONFLICT
-      await this.metricsRepository
-        .createQueryBuilder()
-        .insert()
-        .into(TelemetryDailyMetric)
-        .values(metricsToUpsert)
-        .orUpdate(
-          ['value', 'updatedAt'],
-          ['organizationId', 'projectId', 'metricType', 'metricDate'],
-        )
-        .execute();
+    await this.metricsRepository
+      .createQueryBuilder()
+      .insert()
+      .into(TelemetryDailyMetric)
+      .values(metricsToUpsert)
+      .orUpdate(
+        ['value', 'updatedAt'],
+        ['organizationId', 'projectId', 'metricType', 'metricDate'],
+      )
+      .execute();
 
-      this.logger.log(
-        `Flushed ${metricsToUpsert.length} metric rows for ${date} ` +
-          `(${entries.length} projects)`,
-      );
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Bulk upsert failed for ${date}: ${errMsg}`);
-      // BullMQ will retry (attempts: 3) — data is already deleted from Redis.
-      // In production, consider a dead-letter-queue or writing to a local file.
-      throw error;
-    }
+    this.logger.log(
+      `Upserted ${metricsToUpsert.length} metric rows for ${date}`,
+    );
   }
 
   // ===========================================================================

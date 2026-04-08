@@ -81,15 +81,15 @@ export class HealthController {
 
     this.logger.log(
       `Health thresholds resolved: heap=${this.thresholds.heapBytes / (1024 * 1024)}MB, ` +
-      `rss=${this.thresholds.rssBytes / (1024 * 1024)}MB, ` +
-      `disk=${(this.thresholds.diskPercent * 100).toFixed(0)}%, ` +
-      `dbTimeout=${this.thresholds.dbTimeoutMs}ms, ` +
-      `bullmqTimeout=${this.thresholds.bullmqTimeoutMs}ms`,
+        `rss=${this.thresholds.rssBytes / (1024 * 1024)}MB, ` +
+        `disk=${(this.thresholds.diskPercent * 100).toFixed(0)}%, ` +
+        `dbTimeout=${this.thresholds.dbTimeoutMs}ms, ` +
+        `bullmqTimeout=${this.thresholds.bullmqTimeoutMs}ms`,
     );
 
     this.logger.log(
       `BullMQ health monitoring ${this.criticalQueues.length} queues: ` +
-      this.criticalQueues.map((q) => q.name).join(', '),
+        this.criticalQueues.map((q) => q.name).join(', '),
     );
   }
 
@@ -116,17 +116,19 @@ export class HealthController {
   checkReady() {
     return this.health.check([
       // Database connectivity
-      () => this.db.pingCheck('database', { timeout: this.thresholds.dbTimeoutMs }),
+      () =>
+        this.db.pingCheck('database', { timeout: this.thresholds.dbTimeoutMs }),
 
       // Redis connectivity (critical for sessions, caching)
       () => this.redis.isHealthy('redis'),
 
       // BullMQ queue connections (critical for async job processing)
-      () => this.bullmq.checkHealth(
-        'bullmq',
-        this.criticalQueues,
-        this.thresholds.bullmqTimeoutMs,
-      ),
+      () =>
+        this.bullmq.checkHealth(
+          'bullmq',
+          this.criticalQueues,
+          this.thresholds.bullmqTimeoutMs,
+        ),
 
       // Memory check (prevent serving when near OOM)
       () => this.memory.checkHeap('memory_heap', this.thresholds.heapBytes),
@@ -142,13 +144,15 @@ export class HealthController {
   @HealthCheck()
   checkDetailed() {
     return this.health.check([
-      () => this.db.pingCheck('database', { timeout: this.thresholds.dbTimeoutMs }),
+      () =>
+        this.db.pingCheck('database', { timeout: this.thresholds.dbTimeoutMs }),
       () => this.redis.isHealthy('redis'),
-      () => this.bullmq.checkHealth(
-        'bullmq',
-        this.criticalQueues,
-        this.thresholds.bullmqTimeoutMs,
-      ),
+      () =>
+        this.bullmq.checkHealth(
+          'bullmq',
+          this.criticalQueues,
+          this.thresholds.bullmqTimeoutMs,
+        ),
       () => this.memory.checkHeap('memory_heap', this.thresholds.heapBytes),
       () => this.memory.checkRSS('memory_rss', this.thresholds.rssBytes),
       () =>

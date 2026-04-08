@@ -34,7 +34,7 @@ export class ProjectSecurityPolicyService {
     @InjectRepository(ProjectSecurityPolicy)
     private readonly policyRepo: Repository<ProjectSecurityPolicy>,
     private readonly cacheService: CacheService,
-  ) { }
+  ) {}
 
   /**
    * Build cache key for project policy
@@ -46,9 +46,7 @@ export class ProjectSecurityPolicyService {
   /**
    * Reconstruct Date fields after Redis deserialization
    */
-  private hydrateDates(
-    cached: CachedSecurityPolicy,
-  ): ProjectSecurityPolicy {
+  private hydrateDates(cached: CachedSecurityPolicy): ProjectSecurityPolicy {
     return {
       ...cached,
       createdAt: new Date(cached.createdAt),
@@ -64,8 +62,7 @@ export class ProjectSecurityPolicyService {
     const cacheKey = this.getCacheKey(projectId);
 
     // Check cache first
-    const cached =
-      await this.cacheService.get<CachedSecurityPolicy>(cacheKey);
+    const cached = await this.cacheService.get<CachedSecurityPolicy>(cacheKey);
     if (cached) {
       return this.hydrateDates(cached);
     }
@@ -135,8 +132,7 @@ export class ProjectSecurityPolicyService {
     const cacheKey = this.getCacheKey(projectId);
 
     // Check cache first
-    const cached =
-      await this.cacheService.get<CachedSecurityPolicy>(cacheKey);
+    const cached = await this.cacheService.get<CachedSecurityPolicy>(cacheKey);
     if (cached) {
       return this.hydrateDates(cached);
     }
@@ -177,4 +173,3 @@ export class ProjectSecurityPolicyService {
     );
   }
 }
-

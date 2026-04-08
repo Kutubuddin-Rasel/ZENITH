@@ -11,53 +11,53 @@ import { Type } from 'class-transformer';
  * - Composite cursor (createdAt + id) handles same-millisecond items
  */
 export class CursorPaginationDto {
-    @IsOptional()
-    @IsString()
-    cursor?: string;
+  @IsOptional()
+  @IsString()
+  cursor?: string;
 
-    @IsOptional()
-    @Type(() => Number)
-    @IsInt()
-    @Min(1)
-    @Max(50)
-    limit: number = 20;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit: number = 20;
 }
 
 /**
  * Cursor payload interface (Base64 encoded)
  */
 export interface CursorPayload {
-    createdAt: string; // ISO string
-    id: string;
+  createdAt: string; // ISO string
+  id: string;
 }
 
 /**
  * Paginated response with cursor
  */
 export interface CursorPaginatedResult<T> {
-    data: T[];
-    nextCursor: string | null;
+  data: T[];
+  nextCursor: string | null;
 }
 
 /**
  * Encode cursor from notification data
  */
 export function encodeCursor(createdAt: Date, id: string): string {
-    const payload: CursorPayload = {
-        createdAt: createdAt.toISOString(),
-        id,
-    };
-    return Buffer.from(JSON.stringify(payload)).toString('base64');
+  const payload: CursorPayload = {
+    createdAt: createdAt.toISOString(),
+    id,
+  };
+  return Buffer.from(JSON.stringify(payload)).toString('base64');
 }
 
 /**
  * Decode cursor to get pagination position
  */
 export function decodeCursor(cursor: string): CursorPayload | null {
-    try {
-        const decoded = Buffer.from(cursor, 'base64').toString('utf-8');
-        return JSON.parse(decoded) as CursorPayload;
-    } catch {
-        return null;
-    }
+  try {
+    const decoded = Buffer.from(cursor, 'base64').toString('utf-8');
+    return JSON.parse(decoded) as CursorPayload;
+  } catch {
+    return null;
+  }
 }

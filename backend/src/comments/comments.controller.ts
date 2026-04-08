@@ -24,7 +24,7 @@ import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
 
 /**
  * CommentsController - Handles comment CRUD for issues.
- * 
+ *
  * CSRF Protection: Mutations require x-csrf-token header.
  * RATE LIMITING: Create limited to 10 requests/minute.
  * PAGINATION: GET supports ?page=1&limit=20 (max 100)
@@ -32,7 +32,7 @@ import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
 @Controller('projects/:projectId/issues/:issueId/comments')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class CommentsController {
-  constructor(private svc: CommentsService) { }
+  constructor(private svc: CommentsService) {}
 
   // RATE LIMITING: 10 comments per minute per client
   @Throttle({ default: { limit: 10, ttl: 60000 } })

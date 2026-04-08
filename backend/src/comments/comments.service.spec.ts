@@ -118,7 +118,9 @@ describe('CommentsService', () => {
   describe('findAll', () => {
     it('should return paginated comments for an issue', async () => {
       issuesService.findOne.mockResolvedValue({ id: 'issue-123' });
-      commentRepo.findAndCount = jest.fn().mockResolvedValue([[mockComment], 1]);
+      commentRepo.findAndCount = jest
+        .fn()
+        .mockResolvedValue([[mockComment], 1]);
 
       const result = await service.findAll(
         'project-123',

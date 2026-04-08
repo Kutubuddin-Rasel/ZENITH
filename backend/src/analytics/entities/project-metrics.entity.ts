@@ -15,13 +15,7 @@
  * - Unique constraint on DATE(calculatedAt) ensures idempotent cron execution.
  */
 
-import {
-    Entity,
-    PrimaryGeneratedColumn,
-    Column,
-    Index,
-    Unique,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index, Unique } from 'typeorm';
 
 // ---------------------------------------------------------------------------
 // Strict Enums & Interfaces
@@ -32,10 +26,10 @@ import {
  * Prevents arbitrary string insertion — new metrics require a code change.
  */
 export enum MetricType {
-    CYCLE_TIME = 'CYCLE_TIME',
-    VELOCITY = 'VELOCITY',
-    RISK_SCORE = 'RISK_SCORE',
-    STALL_RATE = 'STALL_RATE',
+  CYCLE_TIME = 'CYCLE_TIME',
+  VELOCITY = 'VELOCITY',
+  RISK_SCORE = 'RISK_SCORE',
+  STALL_RATE = 'STALL_RATE',
 }
 
 /**
@@ -43,9 +37,9 @@ export enum MetricType {
  * Stored alongside the primary `value` for rich analytics.
  */
 export interface IPercentiles {
-    p50: number;
-    p85: number;
-    p95: number;
+  p50: number;
+  p85: number;
+  p95: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,100 +67,100 @@ export interface IPercentiles {
  */
 @Entity({ name: 'project_metrics' })
 @Index('idx_project_metrics_query', [
-    'organizationId',
-    'projectId',
-    'metricType',
-    'calculatedAt',
+  'organizationId',
+  'projectId',
+  'metricType',
+  'calculatedAt',
 ])
 @Unique('uq_project_metrics_daily', [
-    'organizationId',
-    'projectId',
-    'metricType',
-    'metricDate',
+  'organizationId',
+  'projectId',
+  'metricType',
+  'metricDate',
 ])
 export class ProjectMetrics {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    /**
-     * Tenant isolation — NOT nullable.
-     * Every metric snapshot belongs to exactly one organization.
-     * This is the first column in the compound index for optimal
-     * query plan narrowing.
-     */
-    @Column({ type: 'uuid' })
-    @Index()
-    organizationId: string;
+  /**
+   * Tenant isolation — NOT nullable.
+   * Every metric snapshot belongs to exactly one organization.
+   * This is the first column in the compound index for optimal
+   * query plan narrowing.
+   */
+  @Column({ type: 'uuid' })
+  @Index()
+  organizationId: string;
 
-    /** The project this metric was calculated for */
-    @Column({ type: 'uuid' })
-    @Index()
-    projectId: string;
+  /** The project this metric was calculated for */
+  @Column({ type: 'uuid' })
+  @Index()
+  projectId: string;
 
-    /** What kind of metric this snapshot represents */
-    @Column({
-        type: 'enum',
-        enum: MetricType,
-    })
-    metricType: MetricType;
+  /** What kind of metric this snapshot represents */
+  @Column({
+    type: 'enum',
+    enum: MetricType,
+  })
+  metricType: MetricType;
 
-    /**
-     * The primary metric value.
-     * - CYCLE_TIME: average days
-     * - VELOCITY: completed story points
-     * - RISK_SCORE: 0-100 risk score
-     * - STALL_RATE: number of stalled issues
-     *
-     * Using 'decimal' with precision for financial-grade accuracy.
-     */
-    @Column({
-        type: 'decimal',
-        precision: 10,
-        scale: 2,
-        default: 0,
-    })
-    value: number;
+  /**
+   * The primary metric value.
+   * - CYCLE_TIME: average days
+   * - VELOCITY: completed story points
+   * - RISK_SCORE: 0-100 risk score
+   * - STALL_RATE: number of stalled issues
+   *
+   * Using 'decimal' with precision for financial-grade accuracy.
+   */
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
+  value: number;
 
-    /**
-     * Optional percentile data (JSONB).
-     * Only populated for metrics that have distribution data (e.g., CYCLE_TIME).
-     * NULL for scalar metrics (e.g., RISK_SCORE, STALL_RATE).
-     *
-     * Strict TypeScript interface: IPercentiles { p50, p85, p95 }
-     */
-    @Column({
-        type: 'jsonb',
-        nullable: true,
-        default: null,
-    })
-    percentiles: IPercentiles | null;
+  /**
+   * Optional percentile data (JSONB).
+   * Only populated for metrics that have distribution data (e.g., CYCLE_TIME).
+   * NULL for scalar metrics (e.g., RISK_SCORE, STALL_RATE).
+   *
+   * Strict TypeScript interface: IPercentiles { p50, p85, p95 }
+   */
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    default: null,
+  })
+  percentiles: IPercentiles | null;
 
-    /**
-     * Full timestamp of when the metric was calculated.
-     * Used for sorting and display purposes.
-     */
-    @Column({ type: 'timestamp' })
-    calculatedAt: Date;
+  /**
+   * Full timestamp of when the metric was calculated.
+   * Used for sorting and display purposes.
+   */
+  @Column({ type: 'timestamp' })
+  calculatedAt: Date;
 
-    /**
-     * Date-truncated boundary (day granularity).
-     * Used in the UNIQUE constraint for cron idempotency.
-     *
-     * Truncating to day boundary enables:
-     * - Natural GROUP BY for frontend charts
-     * - One snapshot per metric per project per day
-     * - Efficient constraint checking without DATE() function in the index
-     *
-     * Stored as 'date' type (not timestamp) for clean equality checks.
-     */
-    @Column({ type: 'date' })
-    metricDate: string;
+  /**
+   * Date-truncated boundary (day granularity).
+   * Used in the UNIQUE constraint for cron idempotency.
+   *
+   * Truncating to day boundary enables:
+   * - Natural GROUP BY for frontend charts
+   * - One snapshot per metric per project per day
+   * - Efficient constraint checking without DATE() function in the index
+   *
+   * Stored as 'date' type (not timestamp) for clean equality checks.
+   */
+  @Column({ type: 'date' })
+  metricDate: string;
 
-    /**
-     * Optional reference ID for sprint-scoped metrics.
-     * Populated for RISK_SCORE (which sprint was evaluated).
-     * NULL for project-global metrics (CYCLE_TIME, VELOCITY).
-     */
-    @Column({ type: 'uuid', nullable: true, default: null })
-    referenceId: string | null;
+  /**
+   * Optional reference ID for sprint-scoped metrics.
+   * Populated for RISK_SCORE (which sprint was evaluated).
+   * NULL for project-global metrics (CYCLE_TIME, VELOCITY).
+   */
+  @Column({ type: 'uuid', nullable: true, default: null })
+  referenceId: string | null;
 }

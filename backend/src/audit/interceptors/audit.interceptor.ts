@@ -35,7 +35,12 @@ export class AuditInterceptor implements NestInterceptor {
     const requestId = this.generateRequestId();
     const user = (
       request as unknown as {
-        user?: { userId: string; email: string; name: string; organizationId?: string };
+        user?: {
+          userId: string;
+          email: string;
+          name: string;
+          organizationId?: string;
+        };
       }
     ).user;
 
@@ -82,7 +87,9 @@ export class AuditInterceptor implements NestInterceptor {
     data: any,
     duration: number,
     requestId: string,
-    user: { userId: string; email: string; name: string; organizationId?: string } | undefined,
+    user:
+      | { userId: string; email: string; name: string; organizationId?: string }
+      | undefined,
   ): Promise<void> {
     try {
       const eventType = this.determineEventType(
@@ -157,7 +164,9 @@ export class AuditInterceptor implements NestInterceptor {
     error: any,
     duration: number,
     requestId: string,
-    user: { userId: string; email: string; name: string; organizationId?: string } | undefined,
+    user:
+      | { userId: string; email: string; name: string; organizationId?: string }
+      | undefined,
   ): Promise<void> {
     try {
       const eventType = this.determineErrorEventType(

@@ -31,7 +31,7 @@ export class RevisionsService {
     @InjectRepository(Revision)
     private revRepo: Repository<Revision>,
     private readonly diffService: DiffService,
-  ) { }
+  ) {}
 
   /** List revisions for a given entity */
   async list(type: EntityType, entityId: string): Promise<Revision[]> {

@@ -1,10 +1,5 @@
 // src/backlog/dto/reorder-backlog-items.dto.ts
-import {
-  IsArray,
-  IsUUID,
-  ArrayMinSize,
-  ArrayMaxSize,
-} from 'class-validator';
+import { IsArray, IsUUID, ArrayMinSize, ArrayMaxSize } from 'class-validator';
 
 /**
  * Maximum items per reorder request

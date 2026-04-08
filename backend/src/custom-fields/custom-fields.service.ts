@@ -39,7 +39,7 @@ export class CustomFieldsService {
     private valuesRepository: Repository<CustomFieldValue>,
     private membersService: ProjectMembersService,
     private readonly auditLogsService: AuditLogsService,
-  ) { }
+  ) {}
 
   /**
    * Validate user has required role in project
@@ -387,4 +387,3 @@ export class CustomFieldsService {
     return saved;
   }
 }
-

@@ -12,16 +12,16 @@
 
 /** Supported export formats for scheduled reports */
 export enum ScheduledReportFormat {
-    PDF = 'pdf',
-    XLSX = 'xlsx',
+  PDF = 'pdf',
+  XLSX = 'xlsx',
 }
 
 /** Report types that can be scheduled */
 export enum ScheduledReportType {
-    VELOCITY = 'velocity',
-    BURNDOWN = 'burndown',
-    EPIC_PROGRESS = 'epic-progress',
-    ISSUE_BREAKDOWN = 'issue-breakdown',
+  VELOCITY = 'velocity',
+  BURNDOWN = 'burndown',
+  EPIC_PROGRESS = 'epic-progress',
+  ISSUE_BREAKDOWN = 'issue-breakdown',
 }
 
 // ---------------------------------------------------------------------------
@@ -40,26 +40,26 @@ export enum ScheduledReportType {
  * twice due to pod restarts.
  */
 export interface IScheduledReportJob {
-    /** Project ID to generate report for */
-    projectId: string;
+  /** Project ID to generate report for */
+  projectId: string;
 
-    /** Organization ID (tenant) for tenant-scoped queries and S3 path */
-    organizationId: string;
+  /** Organization ID (tenant) for tenant-scoped queries and S3 path */
+  organizationId: string;
 
-    /** Project name for report branding */
-    projectName: string;
+  /** Project name for report branding */
+  projectName: string;
 
-    /** Report type to generate */
-    reportType: ScheduledReportType;
+  /** Report type to generate */
+  reportType: ScheduledReportType;
 
-    /** Export format */
-    format: ScheduledReportFormat;
+  /** Export format */
+  format: ScheduledReportFormat;
 
-    /** ISO week string for deduplication (e.g., '2026-W09') */
-    weekIdentifier: string;
+  /** ISO week string for deduplication (e.g., '2026-W09') */
+  weekIdentifier: string;
 
-    /** User ID to run queries under (system service account) */
-    userId: string;
+  /** User ID to run queries under (system service account) */
+  userId: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,12 +73,12 @@ export interface IScheduledReportJob {
  * Example: reports/org-abc/proj-123/weekly-2026-03-02.pdf
  */
 export function buildReportS3Key(
-    organizationId: string,
-    projectId: string,
-    date: string,
-    format: ScheduledReportFormat,
+  organizationId: string,
+  projectId: string,
+  date: string,
+  format: ScheduledReportFormat,
 ): string {
-    return `reports/${organizationId}/${projectId}/weekly-${date}.${format}`;
+  return `reports/${organizationId}/${projectId}/weekly-${date}.${format}`;
 }
 
 /**
@@ -88,11 +88,11 @@ export function buildReportS3Key(
  * Example: scheduled-report:abc-123:2026-W09:pdf
  */
 export function buildJobId(
-    projectId: string,
-    weekIdentifier: string,
-    format: ScheduledReportFormat,
+  projectId: string,
+  weekIdentifier: string,
+  format: ScheduledReportFormat,
 ): string {
-    return `scheduled-report:${projectId}:${weekIdentifier}:${format}`;
+  return `scheduled-report:${projectId}:${weekIdentifier}:${format}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -104,11 +104,11 @@ export const SCHEDULED_REPORTS_QUEUE = 'scheduled-reports-queue';
 
 /** Default report formats to generate per project */
 export const DEFAULT_REPORT_FORMATS: ScheduledReportFormat[] = [
-    ScheduledReportFormat.PDF,
+  ScheduledReportFormat.PDF,
 ];
 
 /** Default report types to generate per project */
 export const DEFAULT_REPORT_TYPES: ScheduledReportType[] = [
-    ScheduledReportType.VELOCITY,
-    ScheduledReportType.ISSUE_BREAKDOWN,
+  ScheduledReportType.VELOCITY,
+  ScheduledReportType.ISSUE_BREAKDOWN,
 ];

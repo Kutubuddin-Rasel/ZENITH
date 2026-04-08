@@ -104,7 +104,7 @@ export class ReportsService {
     private readonly sprintIssueRepo: Repository<SprintIssue>,
     private readonly cacheService: CacheService,
     private readonly tenantContext: TenantContext,
-  ) { }
+  ) {}
 
   /**
    * Helper: Get tenant ID with strict enforcement.
@@ -178,22 +178,20 @@ export class ReportsService {
       ]),
     );
 
-    const velocityData: VelocityDataPoint[] = completedSprints.map(
-      (sprint) => {
-        const agg = aggregationMap.get(sprint.id) || {
-          committedPoints: 0,
-          completedPoints: 0,
-        };
-        return {
-          sprintId: sprint.id,
-          sprintName: sprint.name,
-          completedPoints: agg.completedPoints,
-          committedPoints: agg.committedPoints,
-          sprintStart: sprint.startDate,
-          sprintEnd: sprint.endDate,
-        };
-      },
-    );
+    const velocityData: VelocityDataPoint[] = completedSprints.map((sprint) => {
+      const agg = aggregationMap.get(sprint.id) || {
+        committedPoints: 0,
+        completedPoints: 0,
+      };
+      return {
+        sprintId: sprint.id,
+        sprintName: sprint.name,
+        completedPoints: agg.completedPoints,
+        committedPoints: agg.committedPoints,
+        sprintStart: sprint.startDate,
+        sprintEnd: sprint.endDate,
+      };
+    });
 
     const sortedVelocityData = velocityData.sort(
       (a, b) =>
@@ -249,11 +247,7 @@ export class ReportsService {
    * DEFENSE-IN-DEPTH:
    * issue.organizationId filter enforced at DB level.
    */
-  async getCumulativeFlow(
-    projectId: string,
-    _userId: string,
-    days = 30,
-  ) {
+  async getCumulativeFlow(projectId: string, _userId: string, days = 30) {
     const cacheKey = `reports:cfd:${projectId}:${days}`;
     const cached = await this.cacheService.get(cacheKey);
 

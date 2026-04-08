@@ -93,6 +93,8 @@ export class TenantContextInterceptor implements NestInterceptor {
       user?: { userId?: string; id?: string; sub?: string };
     }
     const typed = request as RequestWithUser;
-    return typed.user?.userId || typed.user?.id || typed.user?.sub || 'anonymous';
+    return (
+      typed.user?.userId || typed.user?.id || typed.user?.sub || 'anonymous'
+    );
   }
 }

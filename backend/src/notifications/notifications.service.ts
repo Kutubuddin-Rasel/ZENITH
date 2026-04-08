@@ -23,7 +23,7 @@ export class NotificationsService {
     private gateway: NotificationsGateway,
     @Inject(forwardRef(() => SmartDigestService))
     private smartDigestService: SmartDigestService,
-  ) { }
+  ) {}
 
   /** Create a notification for multiple users */
   async createMany(
@@ -140,7 +140,10 @@ export class NotificationsService {
     // Generate next cursor from last item
     const nextCursor =
       hasNextPage && data.length > 0
-        ? encodeCursor(data[data.length - 1].createdAt, data[data.length - 1].id)
+        ? encodeCursor(
+            data[data.length - 1].createdAt,
+            data[data.length - 1].id,
+          )
         : null;
 
     return { data, nextCursor };

@@ -10,9 +10,9 @@ import { NotificationStatus } from '../entities/notification.entity';
  * - Prevents state corruption from arbitrary strings
  */
 export class UpdateNotificationStatusDto {
-    @IsNotEmpty()
-    @IsEnum(NotificationStatus, {
-        message: `status must be one of: ${Object.values(NotificationStatus).join(', ')}`,
-    })
-    status: NotificationStatus;
+  @IsNotEmpty()
+  @IsEnum(NotificationStatus, {
+    message: `status must be one of: ${Object.values(NotificationStatus).join(', ')}`,
+  })
+  status: NotificationStatus;
 }

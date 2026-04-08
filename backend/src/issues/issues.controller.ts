@@ -47,7 +47,7 @@ export class IssuesController {
     private readonly issuesService: IssuesService,
     private readonly workLogsService: WorkLogsService,
     private readonly usersService: UsersService,
-  ) { }
+  ) {}
 
   /**
    * Helper: Get user's organization ID
@@ -430,4 +430,3 @@ export class IssuesController {
     );
   }
 }
-

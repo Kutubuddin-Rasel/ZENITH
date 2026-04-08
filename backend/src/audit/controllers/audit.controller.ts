@@ -27,7 +27,10 @@ import {
   AuditSeverity,
   AuditStatus,
 } from '../entities/audit-log.entity';
-import { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+import {
+  Request as ExpressRequest,
+  Response as ExpressResponse,
+} from 'express';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
 import { AuditJsonTransformStream } from '../streams/audit-json-transform.stream';
@@ -376,11 +379,13 @@ export class AuditController {
         });
       }
 
-      const errMessage =
-        error instanceof Error ? error.message : String(error);
+      const errMessage = error instanceof Error ? error.message : String(error);
 
       // Suppress client-abort noise in logs
-      if (!errMessage.includes('aborted') && !errMessage.includes('ECONNRESET')) {
+      if (
+        !errMessage.includes('aborted') &&
+        !errMessage.includes('ECONNRESET')
+      ) {
         this.logger.error(
           `Stream export error (org=${organizationId}): ${errMessage}`,
         );

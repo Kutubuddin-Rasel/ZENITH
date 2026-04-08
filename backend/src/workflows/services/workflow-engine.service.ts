@@ -59,7 +59,12 @@ export class WorkflowEngineService {
     private executionRepo: Repository<WorkflowExecution>,
   ) {
     // Resolve worker path relative to this file
-    this.workerPath = path.join(__dirname, '..', 'workers', 'workflow.worker.js');
+    this.workerPath = path.join(
+      __dirname,
+      '..',
+      'workers',
+      'workflow.worker.js',
+    );
   }
 
   /**
@@ -493,13 +498,18 @@ export class WorkflowEngineService {
           condition = JSON.parse(condition) as JsonLogicRule;
         } catch {
           // Cannot parse as JSON, reject the condition
-          this.logger.error('String condition cannot be parsed as JSON Logic. Returning false.');
+          this.logger.error(
+            'String condition cannot be parsed as JSON Logic. Returning false.',
+          );
           return false;
         }
       }
 
       // SECURITY: Use json-logic-js for safe evaluation
-      const result = jsonLogic.apply(condition, context as unknown as Record<string, unknown>);
+      const result = jsonLogic.apply(
+        condition,
+        context as unknown as Record<string, unknown>,
+      );
 
       // Ensure boolean return
       return Boolean(result);

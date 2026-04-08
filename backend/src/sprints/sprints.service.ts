@@ -67,7 +67,7 @@ export class SprintsService implements OnModuleInit {
     private readonly tenantRepoFactory: TenantRepositoryFactory,
     // REDIS CACHING: Inject cache service
     private readonly cacheService: CacheService,
-  ) { }
+  ) {}
 
   /**
    * OnModuleInit: Create tenant-aware repository wrappers
@@ -614,7 +614,9 @@ export class SprintsService implements OnModuleInit {
     // Get initial scope from first snapshot or current state
     const initialScope = snapshots.length > 0 ? snapshots[0].totalPoints : 0;
     // PRECISION: Round to 2 decimal places
-    const idealBurnRate = parseFloat((initialScope / (totalDays || 1)).toFixed(2));
+    const idealBurnRate = parseFloat(
+      (initialScope / (totalDays || 1)).toFixed(2),
+    );
 
     // Transform sprint to summary DTO
     const sprintSummary: SprintSummaryDto = {
@@ -657,7 +659,10 @@ export class SprintsService implements OnModuleInit {
    * Uses single query with DISTINCT ON instead of N+1 loop
    * CACHED: 5-minute TTL (invalidated when sprint is completed)
    */
-  async getVelocity(projectId: string, _userId: string): Promise<VelocityResponseDto> {
+  async getVelocity(
+    projectId: string,
+    _userId: string,
+  ): Promise<VelocityResponseDto> {
     // CACHE: Check cache first
     const cacheKey = `project:${projectId}:velocity`;
     const cached = await this.cacheService.get<VelocityResponseDto>(cacheKey);
@@ -716,7 +721,10 @@ export class SprintsService implements OnModuleInit {
     });
 
     // Calculate average velocity (rounded to 2 decimals)
-    const totalCompleted = history.reduce((sum, h) => sum + h.completedPoints, 0);
+    const totalCompleted = history.reduce(
+      (sum, h) => sum + h.completedPoints,
+      0,
+    );
     const average = parseFloat((totalCompleted / history.length).toFixed(2));
 
     // Calculate trend based on first half vs second half
@@ -749,8 +757,10 @@ export class SprintsService implements OnModuleInit {
     const firstHalf = history.slice(0, mid);
     const secondHalf = history.slice(mid);
 
-    const firstAvg = firstHalf.reduce((s, h) => s + h.completedPoints, 0) / firstHalf.length;
-    const secondAvg = secondHalf.reduce((s, h) => s + h.completedPoints, 0) / secondHalf.length;
+    const firstAvg =
+      firstHalf.reduce((s, h) => s + h.completedPoints, 0) / firstHalf.length;
+    const secondAvg =
+      secondHalf.reduce((s, h) => s + h.completedPoints, 0) / secondHalf.length;
 
     const threshold = 0.1; // 10% difference threshold
     const percentChange = (secondAvg - firstAvg) / (firstAvg || 1);

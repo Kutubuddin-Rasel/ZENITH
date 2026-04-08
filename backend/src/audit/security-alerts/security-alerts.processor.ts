@@ -308,7 +308,7 @@ export class SecurityAlertProcessor extends WorkerHost {
    */
   @OnWorkerEvent('failed')
   onJobFailed(job: Job<SecurityAlertJobPayload>, error: Error): void {
-    const maxAttempts = (job.opts?.attempts as number | undefined) ?? 5;
+    const maxAttempts = job.opts?.attempts ?? 5;
     const isExhausted = job.attemptsMade >= maxAttempts;
 
     if (isExhausted) {

@@ -8,9 +8,9 @@ import { CloudinaryStorageProvider } from './providers/cloudinary-storage.provid
 
 /**
  * Storage Module
- * 
+ *
  * Provides a swappable file storage backend based on configuration.
- * 
+ *
  * Environment Variable:
  *   STORAGE_PROVIDER=local      (default - filesystem)
  *   STORAGE_PROVIDER=s3         (AWS S3)
@@ -18,37 +18,39 @@ import { CloudinaryStorageProvider } from './providers/cloudinary-storage.provid
  */
 @Module({})
 export class StorageModule {
-    static forRoot(): DynamicModule {
-        const storageProvider: Provider = {
-            provide: FILE_STORAGE_PROVIDER,
-            useFactory: (configService: ConfigService) => {
-                const providerType = configService.get<string>('STORAGE_PROVIDER', 'local');
+  static forRoot(): DynamicModule {
+    const storageProvider: Provider = {
+      provide: FILE_STORAGE_PROVIDER,
+      useFactory: (configService: ConfigService) => {
+        const providerType = configService.get<string>(
+          'STORAGE_PROVIDER',
+          'local',
+        );
 
-                switch (providerType) {
-                    case 's3':
-                        return new S3StorageProvider(configService);
-                    case 'cloudinary':
-                        return new CloudinaryStorageProvider(configService);
-                    case 'local':
-                    default:
-                        return new LocalDiskProvider();
-                }
-            },
-            inject: [ConfigService],
-        };
+        switch (providerType) {
+          case 's3':
+            return new S3StorageProvider(configService);
+          case 'cloudinary':
+            return new CloudinaryStorageProvider(configService);
+          case 'local':
+          default:
+            return new LocalDiskProvider();
+        }
+      },
+      inject: [ConfigService],
+    };
 
-        return {
-            module: StorageModule,
-            imports: [ConfigModule],
-            providers: [
-                storageProvider,
-                LocalDiskProvider,
-                S3StorageProvider,
-                CloudinaryStorageProvider,
-            ],
-            exports: [FILE_STORAGE_PROVIDER],
-            global: true,
-        };
-    }
+    return {
+      module: StorageModule,
+      imports: [ConfigModule],
+      providers: [
+        storageProvider,
+        LocalDiskProvider,
+        S3StorageProvider,
+        CloudinaryStorageProvider,
+      ],
+      exports: [FILE_STORAGE_PROVIDER],
+      global: true,
+    };
+  }
 }
-

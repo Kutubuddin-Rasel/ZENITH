@@ -88,8 +88,8 @@ export class TelemetryModule implements OnModuleInit {
           opts: {
             removeOnComplete: true,
             removeOnFail: 100, // Keep last 100 failed jobs for debugging
-            attempts: 3,
-            backoff: { type: 'exponential', delay: 5000 },
+            attempts: 5,
+            backoff: { type: 'exponential', delay: 30000 }, // 30s, 60s, 120s, 240s, 480s ≈ 15 min
           },
         },
       );
@@ -113,7 +113,9 @@ export class TelemetryModule implements OnModuleInit {
           },
         },
       );
-      this.logger.log('Registered prune-old-metrics repeatable job (daily 03:00 UTC)');
+      this.logger.log(
+        'Registered prune-old-metrics repeatable job (daily 03:00 UTC)',
+      );
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to register repeatable jobs: ${errMsg}`);

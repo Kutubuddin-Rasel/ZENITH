@@ -19,10 +19,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { UsersService } from '../users/users.service';
-import {
-  StatefulCsrfGuard,
-  RequireCsrf,
-} from '../security/csrf/csrf.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
 
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 import { ProjectRole } from '../membership/enums/project-role.enum';

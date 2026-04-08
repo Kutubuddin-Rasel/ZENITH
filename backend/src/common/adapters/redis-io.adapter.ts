@@ -69,7 +69,6 @@ export class RedisIoAdapter extends IoAdapter {
       appConfig?.cors?.additionalOrigins ?? [];
     const origins = [frontendUrl, ...additionalOrigins];
 
-
     const server = super.createIOServer(port, {
       ...options,
       cors: {
@@ -90,7 +89,6 @@ export class RedisIoAdapter extends IoAdapter {
     });
 
     if (this.adapterConstructor) {
-
       server.adapter(this.adapterConstructor);
     } else {
       this.logger.warn(

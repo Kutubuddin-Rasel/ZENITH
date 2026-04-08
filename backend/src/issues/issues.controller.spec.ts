@@ -10,7 +10,6 @@ import { StatefulCsrfGuard } from '../security/csrf/csrf.guard';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { Reflector } from '@nestjs/core';
 
-
 describe('IssuesController', () => {
   let controller: IssuesController;
 

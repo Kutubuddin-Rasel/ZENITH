@@ -28,7 +28,7 @@ import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
 @Controller('projects/:projectId/backlog')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class BacklogController {
-  constructor(private backlogSvc: BacklogService) { }
+  constructor(private backlogSvc: BacklogService) {}
 
   /**
    * View backlog with pagination (GET - no CSRF required)

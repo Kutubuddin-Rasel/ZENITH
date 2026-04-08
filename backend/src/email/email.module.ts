@@ -17,4 +17,4 @@ import { S3StorageProvider } from '../attachments/storage/providers/s3-storage.p
   ],
   exports: [EmailService],
 })
-export class EmailModule { }
+export class EmailModule {}

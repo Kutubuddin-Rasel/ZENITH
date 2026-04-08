@@ -32,7 +32,7 @@ import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 @Controller()
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CustomFieldsController {
-  constructor(private readonly customFieldsService: CustomFieldsService) { }
+  constructor(private readonly customFieldsService: CustomFieldsService) {}
 
   /**
    * Extract user context for tenant-scoped operations
@@ -81,10 +81,7 @@ export class CustomFieldsController {
    */
   @RequirePermission('custom-fields:view')
   @Get('custom-fields/:id')
-  findOne(
-    @Param('id') id: string,
-    @Request() req: { user: JwtRequestUser },
-  ) {
+  findOne(@Param('id') id: string, @Request() req: { user: JwtRequestUser }) {
     return this.customFieldsService.findOneDefinition(
       this.getUserContext(req.user),
       id,
@@ -113,10 +110,7 @@ export class CustomFieldsController {
    */
   @RequirePermission('custom-fields:delete')
   @Delete('custom-fields/:id')
-  remove(
-    @Param('id') id: string,
-    @Request() req: { user: JwtRequestUser },
-  ) {
+  remove(@Param('id') id: string, @Request() req: { user: JwtRequestUser }) {
     return this.customFieldsService.removeDefinition(
       this.getUserContext(req.user),
       id,

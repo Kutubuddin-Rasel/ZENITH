@@ -131,7 +131,7 @@ export class CycleTimeService {
     private readonly revisionsService: RevisionsService,
     private readonly tenantContext: TenantContext,
     private readonly cacheService: CacheService,
-  ) { }
+  ) {}
 
   /**
    * Get cycle time metrics with caching + stampede prevention.
@@ -223,7 +223,9 @@ export class CycleTimeService {
         this.toCachePayload(result),
         { ttl: CACHE_TTL_SECONDS, namespace: CACHE_NAMESPACE },
       );
-      this.logger.debug(`Cache SET for ${cacheKey} (TTL: ${CACHE_TTL_SECONDS}s)`);
+      this.logger.debug(
+        `Cache SET for ${cacheKey} (TTL: ${CACHE_TTL_SECONDS}s)`,
+      );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       this.logger.error(`Cache write failed (fail-open): ${msg}`);
@@ -397,11 +399,11 @@ export class CycleTimeService {
       data:
         usage === 'detailed'
           ? cached.data.map((m) => ({
-            issueId: m.issueId,
-            issueTitle: m.issueTitle,
-            cycleTimeHours: m.cycleTimeHours,
-            completedAt: new Date(m.completedAt),
-          }))
+              issueId: m.issueId,
+              issueTitle: m.issueTitle,
+              cycleTimeHours: m.cycleTimeHours,
+              completedAt: new Date(m.completedAt),
+            }))
           : [],
     };
   }
@@ -453,8 +455,7 @@ export class CycleTimeService {
         const revisions = revisionMap.get(issue.id) ?? [];
 
         const doneRev = revisions.find(
-          (r) =>
-            (r.snapshot as RevisionStatusSnapshot)?.status === 'Done',
+          (r) => (r.snapshot as RevisionStatusSnapshot)?.status === 'Done',
         );
         const doneTime = doneRev
           ? new Date(doneRev.createdAt)
@@ -522,8 +523,9 @@ export class CycleTimeService {
 
     const startTime = this.findStartTime(revisions);
 
-    const effectiveStart = startTime
-      ?? new Date(doneTime.getTime() - DEFAULT_FALLBACK_HOURS * MS_PER_HOUR);
+    const effectiveStart =
+      startTime ??
+      new Date(doneTime.getTime() - DEFAULT_FALLBACK_HOURS * MS_PER_HOUR);
 
     const diffMs = doneTime.getTime() - effectiveStart.getTime();
     const cycleTimeHours = diffMs / MS_PER_HOUR;

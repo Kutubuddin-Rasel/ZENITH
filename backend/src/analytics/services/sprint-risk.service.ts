@@ -89,7 +89,7 @@ export class SprintRiskService {
     private readonly sprintsService: SprintsService,
     private readonly cacheService: CacheService,
     @InjectQueue(ALERTS_QUEUE) private readonly alertsQueue: Queue,
-  ) { }
+  ) {}
 
   /**
    * Get sprint risk score with caching + stampede prevention.
@@ -173,11 +173,10 @@ export class SprintRiskService {
     // Only cache successful calculations (not error states)
     if (result.level !== 'Error') {
       try {
-        await this.cacheService.set<CachedSprintRiskResult>(
-          cacheKey,
-          result,
-          { ttl: CACHE_TTL_SECONDS, namespace: CACHE_NAMESPACE },
-        );
+        await this.cacheService.set<CachedSprintRiskResult>(cacheKey, result, {
+          ttl: CACHE_TTL_SECONDS,
+          namespace: CACHE_NAMESPACE,
+        });
         this.logger.debug(
           `Cache SET for ${cacheKey} (TTL: ${CACHE_TTL_SECONDS}s)`,
         );
@@ -248,9 +247,7 @@ export class SprintRiskService {
           projectName: projectId, // Resolved by cron caller if available
           organizationId: '', // Populated by cron caller
           severity:
-            result.score > 90
-              ? AlertSeverity.CRITICAL
-              : AlertSeverity.WARNING,
+            result.score > 90 ? AlertSeverity.CRITICAL : AlertSeverity.WARNING,
           title: 'Sprint Risk Alert — High Risk Detected',
           message: `Sprint risk score is *${result.score}/100* (${result.level}). Factors: ${result.factors.map((f) => `${f.name}: ${f.score}`).join(', ')}`,
           metricValue: result.score,
@@ -273,9 +270,7 @@ export class SprintRiskService {
     } catch (err: unknown) {
       // Alert dispatch failure must NEVER crash the calculation flow
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      this.logger.error(
-        `Failed to dispatch risk alert (non-blocking): ${msg}`,
-      );
+      this.logger.error(`Failed to dispatch risk alert (non-blocking): ${msg}`);
     }
   }
 
@@ -367,8 +362,8 @@ export class SprintRiskService {
 
       const finalScore = Math.round(
         scopeRiskRef.score * 0.3 +
-        velocityRiskRef.score * 0.3 +
-        timeRiskRef.score * 0.4,
+          velocityRiskRef.score * 0.3 +
+          timeRiskRef.score * 0.4,
       );
 
       return {

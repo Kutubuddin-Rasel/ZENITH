@@ -40,4 +40,4 @@ import { S3StorageProvider } from 'src/attachments/storage/providers/s3-storage.
     S3StorageProvider,
   ],
 })
-export class ReportsModule { }
+export class ReportsModule {}

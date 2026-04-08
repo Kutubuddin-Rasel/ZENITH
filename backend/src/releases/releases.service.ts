@@ -50,7 +50,7 @@ export class ReleasesService {
     private issuesService: IssuesService,
     private watchersService: WatchersService,
     private readonly auditLogsService: AuditLogsService,
-  ) { }
+  ) {}
 
   /** Create a release & notify */
   async create(
@@ -216,7 +216,9 @@ export class ReleasesService {
       resource_type: 'Release',
       resource_id: saved.id,
       action_type: 'UPDATE',
-      changes: dto.status ? { status: [previousStatus, saved.status] } : undefined,
+      changes: dto.status
+        ? { status: [previousStatus, saved.status] }
+        : undefined,
       metadata: {
         event: 'RELEASE_UPDATED',
         releaseName: saved.name,
@@ -651,7 +653,7 @@ export class ReleasesService {
 
   /**
    * Trigger a webhook for a release deployment
-   * 
+   *
    * SECURITY FEATURES:
    * - SSRF allowlist validation (only trusted CI/CD providers)
    * - Idempotency check (prevents double deployment)
@@ -747,8 +749,7 @@ export class ReleasesService {
       await this.update(projectId, releaseId, userId, {
         status: ReleaseStatus.UPCOMING,
         description:
-          release.description +
-          `\n\n⚠️ Deployment failed: Invalid webhook URL`,
+          release.description + `\n\n⚠️ Deployment failed: Invalid webhook URL`,
       });
       throw error;
     }

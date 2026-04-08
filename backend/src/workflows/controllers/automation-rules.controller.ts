@@ -21,7 +21,7 @@ import { StatefulCsrfGuard, RequireCsrf } from '../../security/csrf/csrf.guard';
 @Controller('api/automation-rules')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class AutomationRulesController {
-  constructor(private automationRulesService: AutomationRulesService) { }
+  constructor(private automationRulesService: AutomationRulesService) {}
 
   @Post()
   @RequirePermission('projects:edit')

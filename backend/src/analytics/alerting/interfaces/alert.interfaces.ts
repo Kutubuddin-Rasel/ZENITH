@@ -12,49 +12,49 @@
 
 /** Severity levels for alert routing */
 export enum AlertSeverity {
-    INFO = 'info',
-    WARNING = 'warning',
-    CRITICAL = 'critical',
+  INFO = 'info',
+  WARNING = 'warning',
+  CRITICAL = 'critical',
 }
 
 /** The standardized alert payload dispatched to BullMQ */
 export interface AlertPayload {
-    /** Which project triggered the alert */
-    projectId: string;
-    /** Project name for display */
-    projectName: string;
-    /** Organization ID for audit/routing */
-    organizationId: string;
-    /** Alert severity determines routing (PagerDuty for critical, Slack for all) */
-    severity: AlertSeverity;
-    /** Human-readable alert title */
-    title: string;
-    /** Detailed message body */
-    message: string;
-    /** Metric value that triggered the alert */
-    metricValue: number;
-    /** Threshold that was exceeded */
-    threshold: number;
-    /** Optional sprint context */
-    sprintId?: string;
-    /** Optional sprint name */
-    sprintName?: string;
+  /** Which project triggered the alert */
+  projectId: string;
+  /** Project name for display */
+  projectName: string;
+  /** Organization ID for audit/routing */
+  organizationId: string;
+  /** Alert severity determines routing (PagerDuty for critical, Slack for all) */
+  severity: AlertSeverity;
+  /** Human-readable alert title */
+  title: string;
+  /** Detailed message body */
+  message: string;
+  /** Metric value that triggered the alert */
+  metricValue: number;
+  /** Threshold that was exceeded */
+  threshold: number;
+  /** Optional sprint context */
+  sprintId?: string;
+  /** Optional sprint name */
+  sprintName?: string;
 }
 
 /** BullMQ job data wrapping the alert payload */
 export interface AlertJobData {
-    /** Which providers to target */
-    providers: AlertProviderType[];
-    /** The alert payload */
-    payload: AlertPayload;
-    /** ISO timestamp of when the job was created */
-    createdAt: string;
+  /** Which providers to target */
+  providers: AlertProviderType[];
+  /** The alert payload */
+  payload: AlertPayload;
+  /** ISO timestamp of when the job was created */
+  createdAt: string;
 }
 
 /** Supported alert provider types */
 export enum AlertProviderType {
-    SLACK = 'slack',
-    PAGERDUTY = 'pagerduty',
+  SLACK = 'slack',
+  PAGERDUTY = 'pagerduty',
 }
 
 // ---------------------------------------------------------------------------
@@ -71,17 +71,17 @@ export enum AlertProviderType {
  * implementation — zero changes to AlertingService.
  */
 export interface IAlertProvider {
-    /** Provider type identifier */
-    readonly type: AlertProviderType;
+  /** Provider type identifier */
+  readonly type: AlertProviderType;
 
-    /** Whether this provider is configured and operational */
-    isEnabled(): boolean;
+  /** Whether this provider is configured and operational */
+  isEnabled(): boolean;
 
-    /**
-     * Send an alert to the external platform.
-     * Throws on failure — BullMQ handles retries.
-     */
-    sendAlert(payload: AlertPayload): Promise<void>;
+  /**
+   * Send an alert to the external platform.
+   * Throws on failure — BullMQ handles retries.
+   */
+  sendAlert(payload: AlertPayload): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,27 +90,27 @@ export interface IAlertProvider {
 
 /** Slack Block Kit text object */
 interface SlackTextObject {
-    type: 'plain_text' | 'mrkdwn';
-    text: string;
-    emoji?: boolean;
+  type: 'plain_text' | 'mrkdwn';
+  text: string;
+  emoji?: boolean;
 }
 
 /** Slack Block Kit section block */
 interface SlackSectionBlock {
-    type: 'section';
-    text?: SlackTextObject;
-    fields?: SlackTextObject[];
+  type: 'section';
+  text?: SlackTextObject;
+  fields?: SlackTextObject[];
 }
 
 /** Slack Block Kit header block */
 interface SlackHeaderBlock {
-    type: 'header';
-    text: SlackTextObject;
+  type: 'header';
+  text: SlackTextObject;
 }
 
 /** Slack Block Kit divider */
 interface SlackDividerBlock {
-    type: 'divider';
+  type: 'divider';
 }
 
 /** Union of supported Slack block types */
@@ -118,8 +118,8 @@ type SlackBlock = SlackSectionBlock | SlackHeaderBlock | SlackDividerBlock;
 
 /** Complete Slack Incoming Webhook payload */
 export interface SlackWebhookPayload {
-    text: string; // Fallback text for notifications
-    blocks: SlackBlock[];
+  text: string; // Fallback text for notifications
+  blocks: SlackBlock[];
 }
 
 // ---------------------------------------------------------------------------
@@ -134,28 +134,28 @@ type PagerDutySeverity = 'info' | 'warning' | 'error' | 'critical';
 
 /** PagerDuty custom details (strongly typed for our use case) */
 interface PagerDutyCustomDetails {
-    projectId: string;
-    projectName: string;
-    organizationId: string;
-    metricValue: number;
-    threshold: number;
-    sprintId?: string;
-    sprintName?: string;
+  projectId: string;
+  projectName: string;
+  organizationId: string;
+  metricValue: number;
+  threshold: number;
+  sprintId?: string;
+  sprintName?: string;
 }
 
 /** PagerDuty Events API v2 payload */
 export interface PagerDutyEventPayload {
-    routing_key: string;
-    event_action: PagerDutyAction;
-    dedup_key: string; // Prevents duplicate incidents
-    payload: {
-        summary: string;
-        source: string;
-        severity: PagerDutySeverity;
-        component: string;
-        group: string;
-        custom_details: PagerDutyCustomDetails;
-    };
+  routing_key: string;
+  event_action: PagerDutyAction;
+  dedup_key: string; // Prevents duplicate incidents
+  payload: {
+    summary: string;
+    source: string;
+    severity: PagerDutySeverity;
+    component: string;
+    group: string;
+    custom_details: PagerDutyCustomDetails;
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -14,7 +14,12 @@
  * - OTLP/gRPC exporter → OTel Collector (production)
  * - Console exporter fallback (development) via OTEL_TRACES_EXPORTER=console
  * - Auto-instrumentations: HTTP, Express, pg, ioredis, BullMQ (partial)
- * - Sensitive header filtering: Authorization, Cookie, Set-Cookie stripped
+ * - SanitizingExporter: wraps the real exporter to scrub PII from spans
+ *
+ * SECURITY (Red Team Patch 3):
+ * - Database queries (db.statement) are REDACTED to prevent PII leakage
+ * - HTTP headers, URL query params, and auth attributes are scrubbed
+ * - Defense-in-depth: HTTP instrumentation also configured to skip headers
  *
  * CONFIGURATION (Environment Variables):
  * - OTEL_ENABLED=true              — Enable/disable OTel (default: false)
@@ -33,7 +38,11 @@ import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
 } from '@opentelemetry/semantic-conventions';
-import { ConsoleSpanExporter } from '@opentelemetry/sdk-trace-node';
+import {
+  ConsoleSpanExporter,
+  ReadableSpan,
+  SpanExporter,
+} from '@opentelemetry/sdk-trace-node';
 import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
 
 // =============================================================================
@@ -46,20 +55,116 @@ const environment = process.env.NODE_ENV || 'development';
 const useConsoleExporter = process.env.OTEL_TRACES_EXPORTER === 'console';
 
 // =============================================================================
-// SENSITIVE HEADER FILTER
+// SENSITIVE ATTRIBUTE PATTERNS (Red Team Patch 3)
 // =============================================================================
 
 /**
- * Headers that MUST be stripped from traces to prevent PII/credential leaks.
- * This list is applied to both HTTP client and server instrumentations.
+ * Regex patterns for span attribute keys that MUST be scrubbed.
+ *
+ * ATTACK VECTOR:
+ * Auto-instrumentations (pg, express, http) capture raw SQL queries,
+ * HTTP headers, and URL query parameters. If a query contains an email,
+ * or a URL contains a JWT in a query param, it leaks into Jaeger/Zipkin.
+ *
+ * DEFENSE:
+ * Any attribute matching these patterns has its value replaced with [REDACTED].
  */
-const SENSITIVE_HEADERS_BLOCKLIST: string[] = [
-  'authorization',
-  'cookie',
-  'set-cookie',
-  'x-csrf-token',
-  'x-api-key',
+const SENSITIVE_ATTR_PATTERNS: RegExp[] = [
+  // Database: pg instrumentation captures full SQL statements
+  /^db\.statement$/,
+  /^db\.query\.text$/,
+
+  // HTTP headers that might slip through despite empty header config
+  /^http\.request\.header\./,
+  /^http\.response\.header\./,
+
+  // URL query params (may contain tokens, emails, etc.)
+  /^http\.url$/,
+  /^url\.full$/,
+
+  // Authentication/session attributes
+  /^http\.request\.header\.authorization$/,
+  /^http\.request\.header\.cookie$/,
+  /^http\.request\.header\.set-cookie$/,
+  /^http\.request\.header\.x-api-key$/,
+  /^http\.request\.header\.x-csrf-token$/,
 ];
+
+/**
+ * Attributes that should have query strings stripped (not fully redacted).
+ * We keep the path for debugging but strip query params.
+ */
+const URL_STRIP_PATTERNS: RegExp[] = [/^http\.target$/, /^url\.path$/];
+
+// =============================================================================
+// SANITIZING EXPORTER (Defense-in-Depth)
+// =============================================================================
+
+/**
+ * SanitizingExporter — Wraps a real SpanExporter to scrub sensitive data.
+ *
+ * WHY NOT a SpanProcessor?
+ * - `onEnd(ReadableSpan)` receives a read-only interface — can't modify
+ * - `onStart(Span)` fires before all attributes are set
+ * - Wrapping the exporter intercepts spans at the last possible moment
+ *   before they leave the Node.js process boundary
+ *
+ * This is the standard pattern used by Datadog, Honeycomb, and Grafana
+ * Cloud agents for pre-export data scrubbing.
+ */
+class SanitizingExporter implements SpanExporter {
+  constructor(private readonly delegate: SpanExporter) {}
+
+  export(
+    spans: ReadableSpan[],
+    resultCallback: (result: { code: number }) => void,
+  ): void {
+    for (const span of spans) {
+      this.redactSpan(span);
+    }
+    this.delegate.export(spans, resultCallback);
+  }
+
+  async shutdown(): Promise<void> {
+    return this.delegate.shutdown();
+  }
+
+  async forceFlush(): Promise<void> {
+    if (this.delegate.forceFlush) {
+      return this.delegate.forceFlush();
+    }
+  }
+
+  /**
+   * Scrub sensitive attributes from a span in-place.
+   *
+   * ReadableSpan.attributes is typed as readonly, but the underlying
+   * object IS mutable. This is the accepted OTel community pattern
+   * for pre-export redaction.
+   */
+  private redactSpan(span: ReadableSpan): void {
+    const attrs = span.attributes as Record<
+      string,
+      string | number | boolean | undefined
+    >;
+
+    for (const key of Object.keys(attrs)) {
+      // Full redaction: replace value entirely
+      if (SENSITIVE_ATTR_PATTERNS.some((pattern) => pattern.test(key))) {
+        attrs[key] = '[REDACTED]';
+        continue;
+      }
+
+      // URL strip: keep path, remove query string
+      if (URL_STRIP_PATTERNS.some((pattern) => pattern.test(key))) {
+        const value = attrs[key];
+        if (typeof value === 'string' && value.includes('?')) {
+          attrs[key] = value.split('?')[0] + '?[REDACTED]';
+        }
+      }
+    }
+  }
+}
 
 // =============================================================================
 // BOOTSTRAP
@@ -71,9 +176,12 @@ if (isEnabled) {
     diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
   }
 
-  const traceExporter = useConsoleExporter
+  const rawExporter = useConsoleExporter
     ? new ConsoleSpanExporter()
     : new OTLPTraceExporter();
+
+  // Wrap the real exporter with PII scrubbing
+  const sanitizedExporter = new SanitizingExporter(rawExporter);
 
   const sdk = new NodeSDK({
     resource: resourceFromAttributes({
@@ -81,17 +189,18 @@ if (isEnabled) {
       [ATTR_SERVICE_VERSION]: process.env.npm_package_version || '0.0.0',
       'deployment.environment.name': environment,
     }),
-    traceExporter,
+    traceExporter: sanitizedExporter,
     instrumentations: [
       getNodeAutoInstrumentations({
         // =====================================================================
-        // HTTP Instrumentation — filter sensitive headers
+        // HTTP Instrumentation — defense-in-depth header blocking
+        // Even though SanitizingExporter scrubs, we also prevent capture.
         // =====================================================================
         '@opentelemetry/instrumentation-http': {
           headersToSpanAttributes: {
             server: {
-              requestHeaders: [], // Don't capture request headers
-              responseHeaders: [], // Don't capture response headers
+              requestHeaders: [],
+              responseHeaders: [],
             },
             client: {
               requestHeaders: [],
@@ -140,8 +249,10 @@ if (isEnabled) {
 
   console.log(
     `[OTel] Instrumentation initialized: service=${serviceName} env=${environment} ` +
-      `exporter=${useConsoleExporter ? 'console' : 'otlp-grpc'}`,
+      `exporter=${useConsoleExporter ? 'console' : 'otlp-grpc'} redaction=ENABLED`,
   );
 } else {
-  console.log('[OTel] Instrumentation DISABLED (set OTEL_ENABLED=true to enable)');
+  console.log(
+    '[OTel] Instrumentation DISABLED (set OTEL_ENABLED=true to enable)',
+  );
 }
