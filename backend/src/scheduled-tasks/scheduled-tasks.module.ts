@@ -26,6 +26,11 @@ import { Module, OnModuleInit, Logger } from '@nestjs/common';
 import { BullModule, InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ProjectPurgeProcessor } from './purge.processor';
+import { PurgeNotificationsListener } from './purge-notifications.listener';
+import { PurgeAdminService } from './purge-admin.service';
+import { PurgeController } from './purge.controller';
+import { IntegrationsModule } from '../integrations/integrations.module';
+// AuditLogsModule is @Global() — AuditLogsService is available without explicit import
 import {
   PROJECT_PURGE_QUEUE,
   PROJECT_PURGE_SCHEDULER_ID,
@@ -41,8 +46,12 @@ import {
     // Register queue locally (same pattern as TelemetryModule).
     // Not in CoreQueueModule because no other module consumes this queue.
     BullModule.registerQueue({ name: PROJECT_PURGE_QUEUE }),
+    // IntegrationsModule provides SlackNotificationBridgeService for purge notifications
+    IntegrationsModule,
+    // AuditLogsService is provided by @Global() AuditLogsModule — no import needed
   ],
-  providers: [ProjectPurgeProcessor],
+  providers: [ProjectPurgeProcessor, PurgeNotificationsListener, PurgeAdminService],
+  controllers: [PurgeController],
   exports: [],
 })
 export class ScheduledTasksModule implements OnModuleInit {

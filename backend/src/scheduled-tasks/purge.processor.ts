@@ -52,15 +52,18 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { DataSource, QueryRunner } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   PROJECT_PURGE_QUEUE,
   PURGE_LOCK_DURATION_MS,
   PURGE_STALL_INTERVAL_MS,
+  PURGE_COMPLETED_EVENT,
   DEFAULT_RETENTION_DAYS,
   DEFAULT_BATCH_SIZE,
   DEFAULT_DELETE_CHUNK_SIZE,
   PurgeJobPayload,
   PurgeResult,
+  PurgeCompletedEvent,
   PurgeDeleteCounts,
   ExpiredProjectRow,
   DeleteQueryResult,
@@ -103,6 +106,7 @@ export class ProjectPurgeProcessor extends WorkerHost {
   constructor(
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
+    private readonly eventEmitter: EventEmitter2,
   ) {
     super();
     this.retentionDays =
@@ -135,6 +139,7 @@ export class ProjectPurgeProcessor extends WorkerHost {
       `🔄 Starting scheduled project purge job (jobId: ${job.id})`,
     );
 
+    const cycleStart = Date.now();
     const payload = job.data;
 
     // Allow admin overrides via job payload
@@ -164,6 +169,16 @@ export class ProjectPurgeProcessor extends WorkerHost {
         `❌ Failed to purge project ${result.projectId}: ${result.error}`,
       );
     }
+
+    // Emit purge.completed event for notification + audit listeners
+    const event: PurgeCompletedEvent = {
+      jobId: job.id ?? 'unknown',
+      results,
+      totalDurationMs: Date.now() - cycleStart,
+      trigger: payload.targetProjectId ? 'manual' : 'scheduled',
+      actorId: payload.actorId ?? 'system:purge-scheduler',
+    };
+    this.eventEmitter.emit(PURGE_COMPLETED_EVENT, event);
 
     return results;
   }
@@ -209,7 +224,11 @@ export class ProjectPurgeProcessor extends WorkerHost {
 
     for (let i = 0; i < expiredProjects.length; i++) {
       const project = expiredProjects[i];
-      const result = await this.purgeProject(project.id, project.name);
+      const result = await this.purgeProject(
+        project.id,
+        project.name,
+        project.organizationId,
+      );
       results.push(result);
     }
 
@@ -229,8 +248,9 @@ export class ProjectPurgeProcessor extends WorkerHost {
       id: string;
       name: string;
       deletedAt: Date | null;
+      organizationId: string;
     }> = await this.dataSource.query(
-      `SELECT id, name, "deletedAt" FROM projects WHERE id = $1`,
+      `SELECT id, name, "deletedAt", "organizationId" FROM projects WHERE id = $1`,
       [projectId],
     );
 
@@ -238,6 +258,7 @@ export class ProjectPurgeProcessor extends WorkerHost {
       return {
         projectId,
         projectName: 'UNKNOWN',
+        organizationId: 'UNKNOWN',
         success: false,
         error: `Project ${projectId} not found`,
         deletedCounts: this.emptyDeleteCounts(),
@@ -250,6 +271,7 @@ export class ProjectPurgeProcessor extends WorkerHost {
       return {
         projectId,
         projectName: project.name,
+        organizationId: project.organizationId,
         success: false,
         error: `Project ${projectId} is not soft-deleted. Cannot purge active projects.`,
         deletedCounts: this.emptyDeleteCounts(),
@@ -257,7 +279,7 @@ export class ProjectPurgeProcessor extends WorkerHost {
       };
     }
 
-    return this.purgeProject(projectId, project.name);
+    return this.purgeProject(projectId, project.name, project.organizationId);
   }
 
   // ===========================================================================
@@ -281,6 +303,7 @@ export class ProjectPurgeProcessor extends WorkerHost {
   private async purgeProject(
     projectId: string,
     projectName: string,
+    organizationId: string,
   ): Promise<PurgeResult> {
     const startTime = Date.now();
     const counts: MutablePurgeDeleteCounts = this.emptyDeleteCounts();
@@ -514,6 +537,7 @@ export class ProjectPurgeProcessor extends WorkerHost {
       return {
         projectId,
         projectName,
+        organizationId,
         success: true,
         deletedCounts: counts,
         durationMs,
@@ -532,6 +556,7 @@ export class ProjectPurgeProcessor extends WorkerHost {
       return {
         projectId,
         projectName,
+        organizationId,
         success: false,
         error: errorMessage,
         deletedCounts: counts,

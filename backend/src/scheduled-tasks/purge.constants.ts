@@ -42,6 +42,15 @@ export const PROJECT_PURGE_SCHEDULER_ID = 'project-purge-scheduler' as const;
  */
 export const PURGE_JOB_NAME = 'purge-expired-projects' as const;
 
+/**
+ * EventEmitter2 event name emitted after a purge cycle completes.
+ *
+ * Listeners:
+ * - PurgeNotificationsListener → Slack Block Kit message
+ * - PurgeNotificationsListener → AuditLogsService compliance log
+ */
+export const PURGE_COMPLETED_EVENT = 'purge.completed' as const;
+
 // =============================================================================
 // CRON SCHEDULE
 // =============================================================================
@@ -168,6 +177,13 @@ export interface PurgeJobPayload {
    * Bypasses batch discovery query and directly purges the specified project.
    */
   readonly targetProjectId?: string;
+
+  /**
+   * User ID of the admin who triggered the purge (manual trigger only).
+   * Used for audit logging — identifies the human actor.
+   * For scheduled runs, this is undefined (actor = 'system:purge-scheduler').
+   */
+  readonly actorId?: string;
 }
 
 /**
@@ -188,6 +204,8 @@ export interface ExpiredProjectRow {
 export interface PurgeResult {
   readonly projectId: string;
   readonly projectName: string;
+  /** Organization that owned this project — used for per-org Slack routing */
+  readonly organizationId: string;
   readonly success: boolean;
   readonly error?: string;
   readonly deletedCounts: PurgeDeleteCounts;
@@ -242,4 +260,28 @@ export interface PurgeDeleteCounts {
  */
 export interface DeleteQueryResult {
   readonly rowCount?: number;
+}
+
+// =============================================================================
+// EVENT PAYLOAD
+// =============================================================================
+
+/**
+ * Payload emitted via EventEmitter2 after a purge cycle completes.
+ *
+ * Contains all results from the batch, plus metadata about the trigger.
+ * Consumed by PurgeNotificationsListener for Slack notifications and
+ * audit logging.
+ */
+export interface PurgeCompletedEvent {
+  /** BullMQ job ID for correlation */
+  readonly jobId: string;
+  /** All purge results from this cycle */
+  readonly results: ReadonlyArray<PurgeResult>;
+  /** Total duration of the purge cycle in milliseconds */
+  readonly totalDurationMs: number;
+  /** How this purge was triggered */
+  readonly trigger: 'scheduled' | 'manual';
+  /** Actor ID — 'system:purge-scheduler' for cron, user UUID for admin */
+  readonly actorId: string;
 }

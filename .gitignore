@@ -25,6 +25,7 @@ node_modules/
 # Project Specific
 docs/
 .agent/
+skills-lock.json
 
 # Test & Coverage
 coverage/
