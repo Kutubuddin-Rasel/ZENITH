@@ -17,6 +17,7 @@ import { ClsService } from 'nestjs-cls';
 import { v4 as uuidv4 } from 'uuid';
 import { SessionsService } from '../auth/sessions.service';
 import { PasswordBreachService } from '../auth/services/password-breach.service';
+import { PasswordPolicyService } from '../auth/services/password-policy.service';
 
 interface RawUserRow {
   user_id: string;
@@ -44,6 +45,8 @@ export class UsersService {
     private readonly sessionsService: SessionsService,
     @Inject(forwardRef(() => PasswordBreachService))
     private readonly passwordBreachService: PasswordBreachService,
+    @Inject(forwardRef(() => PasswordPolicyService))
+    private readonly passwordPolicyService: PasswordPolicyService,
   ) {}
 
   /** Create a new user */
@@ -55,6 +58,8 @@ export class UsersService {
     organizationId?: string,
     defaultRole?: string,
     passwordVersion: number = 1,
+    emailVerificationToken: string | null = null,
+    emailVerificationExpiry: Date | null = null,
   ): Promise<User> {
     const user = this.userRepo.create({
       email,
@@ -64,6 +69,9 @@ export class UsersService {
       organizationId,
       defaultRole,
       passwordVersion,
+      emailVerified: false,
+      emailVerificationToken,
+      emailVerificationExpiry,
     });
     return this.userRepo.save(user);
   }
@@ -265,9 +273,14 @@ export class UsersService {
       const valid = await argon2.verify(user.passwordHash, dto.currentPassword);
       if (!valid) throw new ForbiddenException('Current password is incorrect');
     }
-    if (!dto.newPassword || dto.newPassword.length < 6) {
+    // Layer 1: Password policy validation (NIST 800-63B + zxcvbn entropy)
+    const policyResult = this.passwordPolicyService.validate(
+      dto.newPassword,
+      [user.email, user.name],
+    );
+    if (!policyResult.isAcceptable) {
       throw new BadRequestException(
-        'New password must be at least 6 characters',
+        policyResult.feedback.join(' '),
       );
     }
     if (dto.newPassword !== dto.confirmNewPassword) {
@@ -345,6 +358,10 @@ export class UsersService {
     user.avatarUrl = undefined;
     user.hashedRefreshToken = undefined;
     user.passwordHash = ''; // Invalidate password
+    // Clear email verification data (GDPR: no PII retention)
+    user.emailVerified = false;
+    user.emailVerificationToken = null;
+    user.emailVerificationExpiry = null;
 
     await this.userRepo.save(user);
 

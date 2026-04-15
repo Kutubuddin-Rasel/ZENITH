@@ -12,6 +12,7 @@ import { Organization } from '../../organizations/entities/organization.entity';
 @Index('IDX_user_email', ['email'])
 @Index('IDX_user_is_active', ['isActive'])
 @Index('IDX_user_is_super_admin', ['isSuperAdmin'])
+@Index('IDX_user_email_verification_token', ['emailVerificationToken'])
 // @Index('IDX_user_name_search') // Requires pg_trgm
 // @Index('IDX_user_email_search') // Requires pg_trgm
 export class User {
@@ -50,7 +51,32 @@ export class User {
   @Column({ default: 1 })
   passwordVersion: number;
 
+  // ---------------------------------------------------------------------------
+  // Email Verification (OWASP Identity Verification)
+  // ---------------------------------------------------------------------------
+
+  /** Whether the user has verified their email address */
+  @Column({ default: false })
+  emailVerified: boolean;
+
+  /**
+   * Cryptographic token for email verification (crypto.randomBytes(32).hex).
+   * select: false — never exposed in normal queries (same pattern as hashedRefreshToken).
+   */
+  @Column({ type: 'varchar', nullable: true, select: false })
+  emailVerificationToken: string | null;
+
+  /**
+   * Token expiry (OWASP recommends 24h max for email verification tokens).
+   * Null when no pending verification.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  emailVerificationExpiry: Date | null;
+
+  // ---------------------------------------------------------------------------
   // Organization relationship
+  // ---------------------------------------------------------------------------
+
   @Column({ type: 'uuid', nullable: true })
   organizationId?: string;
 

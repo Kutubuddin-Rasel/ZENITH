@@ -1,19 +1,15 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  ConflictException,
-  BadRequestException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt'; // Used for refresh token hashing only
+import { randomBytes } from 'crypto';
 import { UsersService } from '../users/users.service';
 import { InvitesService } from '../invites/invites.service';
 import { ProjectMembersService } from '../membership/project-members/project-members.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { OnboardingService } from '../onboarding/services/onboarding.service';
 import { PasswordService } from './services/password.service';
+import { PasswordPolicyService } from './services/password-policy.service';
 import { RegisterDto } from './dto/register.dto';
 import { SafeUser } from './types/safe-user.interface';
 import { JwtRequestUser } from './types/jwt-request-user.interface';
@@ -25,6 +21,7 @@ import { AuthConfig } from '../config/auth.config';
 import { CacheService } from '../cache/cache.service';
 import { PasswordBreachService } from './services/password-breach.service';
 import { TokenBlacklistService } from './services/token-blacklist.service';
+import { LoginHistoryService, RecordLoginAttemptParams } from '../users/login-history.service';
 
 // Argon2id = version 3 (see passwordVersion column in User entity)
 const ARGON2ID_VERSION = 3;
@@ -40,11 +37,13 @@ export class AuthService {
     private onboardingService: OnboardingService,
     private configService: ConfigService,
     private passwordService: PasswordService,
+    private passwordPolicyService: PasswordPolicyService,
     private auditLogsService: AuditLogsService,
     private cls: ClsService,
     private cacheService: CacheService,
     private passwordBreachService: PasswordBreachService,
     private tokenBlacklistService: TokenBlacklistService,
+    private loginHistoryService: LoginHistoryService,
   ) {}
 
   // Validate credentials for LocalStrategy
@@ -55,7 +54,7 @@ export class AuthService {
   ): Promise<SafeUser | null> {
     const user = await this.usersService.findOneByEmail(email.toLowerCase());
     if (!user || !user.isActive) {
-      // Audit: LOGIN_FAILED (user not found)
+      // Audit + Login History: record failed attempt (user not found)
       await this.auditLogsService.log({
         event_uuid: uuidv4(),
         timestamp: new Date(),
@@ -72,6 +71,7 @@ export class AuthService {
           requestId: this.cls.get<string>('requestId'),
         },
       });
+      // No login history for unknown users (no userId to associate with)
       return null;
     }
 
@@ -92,6 +92,16 @@ export class AuthService {
           email,
           requestId: this.cls.get<string>('requestId'),
         },
+      });
+      // Record locked attempt in login history
+      await this.loginHistoryService.recordAttempt({
+        userId: user.id,
+        ipAddress: ipAddress ?? '0.0.0.0',
+        userAgent: null,
+        deviceFingerprint: null,
+        success: false,
+        failureReason: 'account_locked',
+        organizationId: user.organizationId ?? null,
       });
       return null;
     }
@@ -127,11 +137,32 @@ export class AuthService {
           requestId: this.cls.get<string>('requestId'),
         },
       });
+      // Record failed login in history
+      await this.loginHistoryService.recordAttempt({
+        userId: user.id,
+        ipAddress: ipAddress ?? '0.0.0.0',
+        userAgent: null,
+        deviceFingerprint: null,
+        success: false,
+        failureReason: 'invalid_password',
+        organizationId: user.organizationId ?? null,
+      });
       return null;
     }
 
     // Success - Clear any existing lockout
     await this.clearLockout(user.id);
+
+    // Record successful login in history
+    await this.loginHistoryService.recordAttempt({
+      userId: user.id,
+      ipAddress: ipAddress ?? '0.0.0.0',
+      userAgent: null,
+      deviceFingerprint: null,
+      success: true,
+      failureReason: null,
+      organizationId: user.organizationId ?? null,
+    });
 
     // strip passwordHash before returning
 
@@ -191,7 +222,18 @@ export class AuthService {
       throw new ConflictException('Email already in use');
     }
 
-    // Check password against known breaches (HIBP API - k-anonymity)
+    // Layer 1: Password policy validation (NIST 800-63B + zxcvbn entropy)
+    const policyResult = this.passwordPolicyService.validate(
+      dto.password,
+      [dto.email, dto.name],
+    );
+    if (!policyResult.isAcceptable) {
+      throw new BadRequestException(
+        policyResult.feedback.join(' '),
+      );
+    }
+
+    // Layer 2: Check password against known breaches (HIBP API - k-anonymity)
     const breachCheck = await this.passwordBreachService.checkPassword(
       dto.password,
     );
@@ -201,8 +243,14 @@ export class AuthService {
       );
     }
 
-    // Use Argon2id for new registrations
+    // Layer 3: Use Argon2id for new registrations
     const hash = await this.passwordService.hash(dto.password);
+
+    // Generate email verification token (OWASP: 32 bytes = 256-bit entropy)
+    const emailVerificationToken = randomBytes(32).toString('hex');
+    const emailVerificationExpiry = new Date(
+      Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+    );
 
     // If workspaceName provided, create organization
     let organizationId: string | undefined;
@@ -224,10 +272,15 @@ export class AuthService {
       organizationId,
       undefined, // defaultRole
       ARGON2ID_VERSION, // Track password version (Argon2id)
+      emailVerificationToken,
+      emailVerificationExpiry,
     );
 
     // Initialize onboarding for the new user
     await this.onboardingService.initializeOnboarding(user.id);
+
+    // TODO: Send verification email with token (EmailService integration)
+    // await this.emailService.sendVerificationEmail(user.email, emailVerificationToken);
 
     return user;
   }

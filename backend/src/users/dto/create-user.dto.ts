@@ -2,6 +2,7 @@ import {
   IsEmail,
   IsString,
   MinLength,
+  MaxLength,
   IsOptional,
   IsIn,
 } from 'class-validator';
@@ -54,7 +55,12 @@ export class ChangePasswordDto {
   currentPassword: string;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(12, {
+    message: 'New password must be at least 12 characters long',
+  })
+  @MaxLength(128, {
+    message: 'New password must be less than 128 characters',
+  })
   newPassword: string;
 
   @IsString()

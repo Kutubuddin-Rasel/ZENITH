@@ -12,6 +12,7 @@ import { SAMLService } from './services/saml.service';
 import { SAMLController } from './controllers/saml.controller';
 import { CookieService } from './services/cookie.service';
 import { PasswordService } from './services/password.service';
+import { PasswordPolicyService } from './services/password-policy.service';
 import { PasswordBreachService } from './services/password-breach.service';
 import { TokenBlacklistService } from './services/token-blacklist.service';
 import { SessionsService } from './sessions.service';
@@ -67,6 +68,7 @@ import { AuditModule } from '../audit/audit.module';
     SAMLService,
     CookieService,
     PasswordService,
+    PasswordPolicyService,
     PasswordBreachService,
     TokenBlacklistService,
     SessionsService,
@@ -89,6 +91,7 @@ import { AuditModule } from '../audit/audit.module';
     SAMLService,
     CookieService,
     PasswordBreachService,
+    PasswordPolicyService,
     SessionsService,
     ProjectRoleGuard,
     StatelessCsrfGuard,
