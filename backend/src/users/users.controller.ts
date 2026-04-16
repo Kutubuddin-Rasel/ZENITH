@@ -16,19 +16,24 @@ import {
   Injectable,
   UseInterceptors,
   UploadedFile,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from './users.service';
 import { UserSecuritySettingsService } from './user-security-settings.service';
+import { LoginHistoryService, LoginHistoryEntry } from './login-history.service';
 import { User } from './entities/user.entity';
 import {
   CreateUserDto,
   UpdateUserDto,
   ChangePasswordDto,
 } from './dto/create-user.dto';
+import { LoginHistoryQueryDto } from './dto/login-history-query.dto';
 import { UpdateUserSecuritySettingsDto } from './dto/user-security-settings.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
@@ -52,6 +57,7 @@ export class UsersController {
     private readonly usersService: UsersService,
     private readonly userSecuritySettingsService: UserSecuritySettingsService,
     private readonly projectMembersService: ProjectMembersService,
+    private readonly loginHistoryService: LoginHistoryService,
   ) {}
 
   // GET /users (scoped to current user's organization)
@@ -115,6 +121,62 @@ export class UsersController {
     @Body() dto: UpdateUserSecuritySettingsDto,
   ) {
     return this.userSecuritySettingsService.update(req.user.userId, dto);
+  }
+
+  // ===========================================================================
+  // EMAIL VERIFICATION (PUBLIC — no auth guard)
+  // ===========================================================================
+
+  /**
+   * GET /users/verify-email/:token
+   *
+   * Public endpoint — user clicks this link from their email client.
+   * No JwtAuthGuard because the user may not be logged in yet.
+   *
+   * SECURITY:
+   * - Token is a 64-char hex string (256-bit entropy)
+   * - Token is single-use (cleared after verification)
+   * - Token has 24h expiry (OWASP compliance)
+   * - Rate limited by global ThrottlerGuard (100 req/min)
+   *
+   * HTTP STATUS CODES:
+   * - 200: Verification successful (or already verified — idempotent)
+   * - 400: Malformed token or expired token
+   * - 404: Token not found or already used
+   */
+  @Get('verify-email/:token')
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(
+    @Param('token') token: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return this.usersService.verifyEmail(token);
+  }
+
+  // ===========================================================================
+  // LOGIN HISTORY (Authenticated)
+  // ===========================================================================
+
+  /**
+   * GET /users/me/login-history?limit=20
+   *
+   * Returns paginated login history for the currently authenticated user.
+   * Ordered by timestamp DESC (most recent first).
+   * Uses the IDX_login_history_user_timestamp composite index.
+   *
+   * HTTP STATUS CODES:
+   * - 200: Login history entries returned
+   * - 401: Not authenticated
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('me/login-history')
+  async getLoginHistory(
+    @Request() req: AuthenticatedRequest,
+    @Query() query: LoginHistoryQueryDto,
+  ): Promise<ReadonlyArray<LoginHistoryEntry>> {
+    return this.loginHistoryService.getHistory(
+      req.user.userId,
+      query.limit,
+    );
   }
 
   // GET /users/available (scoped to current user's organization)
@@ -187,21 +249,36 @@ export class UsersController {
    *
    * Change password for a user. Only the user themselves or Super Admin can change.
    *
+   * REQUEST LIFECYCLE:
+   *   1. ThrottlerGuard (APP_GUARD) → 100 req/min global
+   *   2. @Throttle override    → 5 req/hour for this endpoint specifically
+   *   3. JwtAuthGuard           → Validate JWT, extract userId
+   *   4. CsrfGuard              → Validate CSRF token (double-submit cookie)
+   *   5. Controller             → Authorization check (self or SuperAdmin)
+   *   6. UsersService           → PasswordPolicyService → BreachCheck → Argon2id
+   *
    * CSRF REQUIRED: Critical security operation
+   * RATE LIMITED: 5 attempts per hour to prevent brute-force on currentPassword
    */
   @UseGuards(JwtAuthGuard, CsrfGuard)
+  @Throttle({ default: { limit: 5, ttl: 3600000 } }) // 5 per hour
   @Patch(':id/password')
   @RequireCsrf()
   async changePassword(
     @Param('id') id: string,
     @Body() dto: ChangePasswordDto,
     @Request() req: AuthenticatedRequest,
-  ) {
+  ): Promise<{ success: boolean; revokedSessions?: number }> {
     // Only the user themselves or Super Admin can change password
     if (req.user.userId !== id && !req.user.isSuperAdmin) {
       throw new ForbiddenException('You can only change your own password');
     }
-    return this.usersService.changePassword(id, dto, req.user.isSuperAdmin);
+    return this.usersService.changePassword(
+      id,
+      dto,
+      req.user.isSuperAdmin,
+      req.sessionID, // Preserve current session after password change
+    );
   }
 
   // GET /users/:id (MOVED TO BOTTOM TO PREVENT ROUTE CONFLICTS)

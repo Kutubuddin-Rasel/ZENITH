@@ -98,6 +98,95 @@ export class UsersService {
     return this.userRepo.findOneBy({ email: email.toLowerCase() });
   }
 
+  // ===========================================================================
+  // EMAIL VERIFICATION
+  // ===========================================================================
+
+  /**
+   * Verify a user's email address using the token from the verification link.
+   *
+   * EDGE CASES HANDLED:
+   * 1. Malformed token (too short → reject before DB hit)
+   * 2. No matching user for token (token not found in DB)
+   * 3. Already verified user (idempotent — returns success)
+   * 4. Expired token (past emailVerificationExpiry)
+   * 5. Happy path: mark verified, clear token + expiry
+   *
+   * SECURITY:
+   * - emailVerificationToken has `select: false` on the entity, so we must
+   *   use createQueryBuilder with addSelect to fetch it.
+   * - Token is cleared atomically after verification to prevent replay.
+   *
+   * @param token - The hex token from the verification URL
+   * @returns Object with success status and message
+   */
+  async verifyEmail(
+    token: string,
+  ): Promise<{ success: boolean; message: string }> {
+    // Gate 1: Malformed token — our tokens are 64 hex chars (32 bytes)
+    if (!token || token.length !== 64) {
+      throw new BadRequestException('Invalid verification token format');
+    }
+
+    // Query with addSelect because emailVerificationToken is select: false
+    const user = await this.userRepo
+      .createQueryBuilder('user')
+      .addSelect('user.emailVerificationToken')
+      .where('user.emailVerificationToken = :token', { token })
+      .getOne();
+
+    if (!user) {
+      throw new NotFoundException(
+        'Verification token not found or already used',
+      );
+    }
+
+    // Gate 2: Already verified (idempotent — don't error)
+    if (user.emailVerified) {
+      return { success: true, message: 'Email is already verified' };
+    }
+
+    // Gate 3: Token expired (OWASP: 24h max for email verification)
+    if (
+      user.emailVerificationExpiry &&
+      user.emailVerificationExpiry < new Date()
+    ) {
+      // Clear the expired token so it can't be retried
+      user.emailVerificationToken = null;
+      user.emailVerificationExpiry = null;
+      await this.userRepo.save(user);
+
+      throw new BadRequestException(
+        'Verification token has expired. Please request a new verification email.',
+      );
+    }
+
+    // Happy path: mark verified, clear token + expiry atomically
+    user.emailVerified = true;
+    user.emailVerificationToken = null;
+    user.emailVerificationExpiry = null;
+    await this.userRepo.save(user);
+
+    // Audit: EMAIL_VERIFIED
+    await this.auditLogsService.log({
+      event_uuid: uuidv4(),
+      timestamp: new Date(),
+      tenant_id: user.organizationId || 'unknown',
+      actor_id: user.id,
+      resource_type: 'User',
+      resource_id: user.id,
+      action_type: 'UPDATE',
+      action: 'EMAIL_VERIFIED',
+      metadata: {
+        severity: 'MEDIUM',
+        email: user.email,
+        requestId: this.cls.get<string>('requestId'),
+      },
+    });
+
+    return { success: true, message: 'Email verified successfully' };
+  }
+
   /** Activate or deactivate a user */
   async setActive(id: string, active: boolean): Promise<User> {
     const user = await this.findOneById(id);
