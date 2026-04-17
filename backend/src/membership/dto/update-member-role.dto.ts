@@ -2,7 +2,7 @@ import { IsString, IsIn } from 'class-validator';
 import { ProjectRole } from '../enums/project-role.enum';
 
 /**
- * Allowed roles for project membership assignment.
+ * Allowed roles for role update operations.
  * Matches the ProjectRole enum values exposed to the API.
  */
 const ALLOWED_ROLES: readonly string[] = [
@@ -13,10 +13,7 @@ const ALLOWED_ROLES: readonly string[] = [
   ProjectRole.VIEWER,
 ] as const;
 
-export class AddMemberDto {
-  @IsString()
-  userId!: string;
-
+export class UpdateMemberRoleDto {
   @IsString()
   @IsIn([...ALLOWED_ROLES], {
     message: `roleName must be one of: ${ALLOWED_ROLES.join(', ')}`,
