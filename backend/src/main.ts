@@ -172,6 +172,11 @@ async function bootstrap() {
     bodyParser.raw({ type: 'application/json', limit: '1mb' }),
   );
 
+  app.use(
+    '/organizations/webhook/stripe',
+    bodyParser.raw({ type: 'application/json', limit: '1mb' }),
+  );
+
   // ==========================================================================
   // REQUEST SIZE LIMITS (DoS Prevention)
   // JSON: 10MB (allows large payloads for bulk operations)
