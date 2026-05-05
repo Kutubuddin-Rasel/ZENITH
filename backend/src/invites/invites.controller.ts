@@ -8,10 +8,14 @@ import {
   Req,
   Patch,
   Get,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { InvitesService } from './invites.service';
 import { CreateInviteDto } from './dto/create-invite.dto';
+import { BulkInviteDto } from './dto/bulk-invite.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { StatelessCsrfGuard } from '../auth/guards/csrf.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { RespondToInviteDto } from './dto/respond-to-invite.dto';
@@ -26,7 +30,7 @@ export class InvitesController {
    * Create a new invite.
    * Only SuperAdmin or ProjectLead for projectId may call.
    */
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, StatelessCsrfGuard, PermissionsGuard)
   @RequirePermission('invites:create')
   @Post()
   createInvite(@Body() dto: CreateInviteDto, @Req() req: AuthenticatedRequest) {
@@ -39,7 +43,7 @@ export class InvitesController {
   /**
    * Revoke a pending invite.
    */
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, StatelessCsrfGuard, PermissionsGuard)
   @RequirePermission('invites:create') // Same perm as creating
   @Patch(':id/revoke')
   async revokeInvite(
@@ -53,7 +57,7 @@ export class InvitesController {
   /**
    * Resend a pending invite notification.
    */
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, StatelessCsrfGuard, PermissionsGuard)
   @RequirePermission('invites:create') // Same perm as creating
   @Post(':id/resend')
   async resendInvite(
@@ -68,7 +72,7 @@ export class InvitesController {
    * Respond to an invite (accept or reject).
    * Any authenticated user who is the invitee can call this.
    */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, StatelessCsrfGuard)
   @Patch(':id/respond')
   async respondToInvite(
     @Param('id') id: string,
@@ -82,6 +86,27 @@ export class InvitesController {
       dto.reason,
     );
     return { message: `Invite ${dto.accept ? 'accepted' : 'rejected'}` };
+  }
+
+  /**
+   * Bulk create invites in a single transactional batch.
+   * Returns partial success: { created: [...], failed: [...] }
+   */
+  @UseGuards(JwtAuthGuard, StatelessCsrfGuard, PermissionsGuard)
+  @RequirePermission('invites:create')
+  @Post('bulk')
+  @HttpCode(HttpStatus.OK)
+  async bulkInvite(
+    @Body() dto: BulkInviteDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.invitesService.bulkInvite({
+      projectId: dto.projectId,
+      inviterId: req.user.userId,
+      defaultRole: dto.defaultRole,
+      expiresInHours: dto.expiresInHours,
+      invites: dto.invites,
+    });
   }
 }
 
