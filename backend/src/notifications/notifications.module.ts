@@ -11,6 +11,7 @@ import { ConfigModule } from '@nestjs/config';
 import { NotificationsGateway } from './notifications.gateway';
 // REMOVED: MembershipModule - using ProjectCoreModule (global) for ProjectMembersService
 import { NotificationsListener } from './notifications.listener';
+import { AchievementNotificationListener } from './listeners/achievement-notification.listener';
 // REMOVED: AuthModule - guards are global via APP_GUARD
 import { CacheModule } from '../cache/cache.module';
 import { SmartDigestService } from './services/smart-digest.service';
@@ -29,6 +30,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     NotificationsService,
     NotificationsGateway,
     NotificationsListener,
+    AchievementNotificationListener,
     BriefingService,
     SmartDigestService,
     DailyDigestProcessor,
