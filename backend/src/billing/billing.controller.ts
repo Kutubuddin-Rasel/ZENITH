@@ -1,10 +1,13 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   Headers,
   Req,
+  Query,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { BillingService } from './billing.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -23,8 +26,12 @@ export class BillingController {
     @Req() req: { user: JwtRequestUser },
     @Body() body: { priceId: string; orgId: string },
   ) {
-    // In production, verify user.orgId matches body.orgId and user is Admin
-    return this.billingService.createCheckoutSession(body.orgId, body.priceId);
+    this.assertBillingAuthorization(req.user, body.orgId);
+    return this.billingService.createCheckoutSession(
+      body.orgId,
+      body.priceId,
+      req.user.userId,
+    );
   }
 
   @Post('portal')
@@ -34,7 +41,24 @@ export class BillingController {
     @Req() req: { user: JwtRequestUser },
     @Body() body: { orgId: string },
   ) {
+    this.assertBillingAuthorization(req.user, body.orgId);
     return this.billingService.createPortalSession(body.orgId);
+  }
+
+  @Get('invoices')
+  @UseGuards(JwtAuthGuard)
+  async getInvoices(
+    @Req() req: { user: JwtRequestUser },
+    @Query('orgId') orgId: string,
+    @Query('limit') limit?: string,
+    @Query('starting_after') startingAfter?: string,
+  ) {
+    this.assertBillingAuthorization(req.user, orgId);
+    return this.billingService.listInvoices(
+      orgId,
+      Number(limit) || 10,
+      startingAfter,
+    );
   }
 
   @Post('webhook')
@@ -48,5 +72,28 @@ export class BillingController {
 
     // For this implementation, we assume we receive Buffer if properly configured
     return this.billingService.handleWebhook(signature, rawBody);
+  }
+
+  /**
+   * Centralized billing authorization check.
+   * Validates the requesting user belongs to the target org and holds SuperAdmin privileges.
+   *
+   * Why isSuperAdmin: No granular `billing:admin` permission exists in the RBAC system yet.
+   * isSuperAdmin is the strictest available gate and prevents unauthorized billing operations.
+   */
+  private assertBillingAuthorization(
+    user: JwtRequestUser,
+    targetOrgId: string,
+  ): void {
+    if (!user.organizationId || user.organizationId !== targetOrgId) {
+      throw new ForbiddenException(
+        'You do not belong to this organization',
+      );
+    }
+    if (!user.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Billing operations require admin privileges',
+      );
+    }
   }
 }
