@@ -6,11 +6,14 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { InviteStatus } from '../enums/invite-status.enum';
 // import { Project } from '../../projects/entities/project.entity';
 
 @Entity({ name: 'invites' })
+@Index('IDX_invites_project_email_status', ['projectId', 'inviteeEmail', 'status'])
 export class Invite {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -18,11 +21,14 @@ export class Invite {
   @Column({ unique: true })
   token: string; // secure random string
 
-  @Column()
-  inviteeId: string;
-  @ManyToOne(() => User)
+  @Column({ nullable: true })
+  inviteeId: string | null;
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'inviteeId' })
-  invitee: User;
+  invitee: User | null;
+
+  @Column({ nullable: true })
+  inviteeEmail: string | null;
 
   @Column()
   inviterId: string;
@@ -39,8 +45,8 @@ export class Invite {
   @Column({ type: 'timestamp', nullable: true })
   expiresAt?: Date; // optional expiry date/time
 
-  @Column({ default: 'Pending' })
-  status: 'Pending' | 'Accepted' | 'Rejected' | 'Revoked';
+  @Column({ type: 'varchar', default: InviteStatus.Pending })
+  status: InviteStatus;
 
   @Column({ type: 'timestamp', nullable: true })
   respondedAt?: Date;

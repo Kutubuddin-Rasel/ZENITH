@@ -63,8 +63,8 @@ export interface BoardEventPayload extends BaseEventPayload {
  */
 export interface InviteEventPayload extends BaseEventPayload {
   inviteId: string;
-  email: string;
-  action: 'created' | 'revoked' | 'resend' | 'responded';
+  email?: string;
+  action: 'created' | 'revoked' | 'resend' | 'responded' | 'expired';
 }
 
 /**
@@ -148,8 +148,8 @@ export class EventFactory {
     projectId: string;
     inviteId: string;
     actorId: string;
-    email: string;
-    action: 'created' | 'revoked' | 'resend' | 'responded';
+    email?: string;
+    action: 'created' | 'revoked' | 'resend' | 'responded' | 'expired';
   }): InviteEventPayload {
     return {
       projectId: data.projectId,

@@ -308,6 +308,12 @@ export class AuthService {
       throw new BadRequestException('Invite is invalid or has expired.');
     }
 
+    if (!invite.inviteeId) {
+      throw new BadRequestException(
+        'This invite has no linked user. The invitee must register first.',
+      );
+    }
+
     const user = await this.usersService.findOneById(invite.inviteeId);
     if (!user) {
       throw new Error('Invitee user does not exist. Cannot redeem invite.');

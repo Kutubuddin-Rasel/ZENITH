@@ -16,6 +16,9 @@ export class NotificationsListener {
   @OnEvent('invite.created')
   async handleInviteCreated(payload: InviteCreatedPayload) {
     try {
+      // Shadow invites (email-only) have no inviteeId — skip in-app notification
+      if (!payload.invite.inviteeId) return;
+
       await this.notificationsService.createMany(
         [payload.invite.inviteeId],
         `You've been invited to join Project "${payload.project?.name ?? ''}" as ${payload.role}`,
@@ -30,6 +33,9 @@ export class NotificationsListener {
   @OnEvent('invite.resend')
   async handleInviteResend(payload: InviteResendPayload) {
     try {
+      // Shadow invites (email-only) have no inviteeId — skip in-app notification
+      if (!payload.invite.inviteeId) return;
+
       await this.notificationsService.createMany(
         [payload.invite.inviteeId],
         `REMINDER: You've been invited to join Project "${payload.project?.name ?? ''}" as ${payload.invite.role}`,
@@ -58,15 +64,20 @@ export class NotificationsListener {
   @OnEvent('invite.revoked')
   async handleInviteRevoked(payload: InviteRevokedPayload) {
     try {
+      // Shadow invites (email-only) have no inviteeId — skip notification cleanup
+      if (!payload.invite.inviteeId) return;
+
+      const inviteeId = payload.invite.inviteeId;
+
       // First, try to delete notifications by context
       await this.notificationsService.deleteByContext(
-        payload.invite.inviteeId,
+        inviteeId,
         { projectId: payload.project?.id ?? '', inviteId: payload.invite.id },
       );
 
       // Second, try to delete by inviteId only (in case projectId doesn't match)
       await this.notificationsService.deleteByContext(
-        payload.invite.inviteeId,
+        inviteeId,
         { inviteId: payload.invite.id },
       );
 
@@ -74,7 +85,7 @@ export class NotificationsListener {
       const projectName = payload.project?.name ?? '';
       if (projectName) {
         await this.notificationsService.deleteByMessageContent(
-          payload.invite.inviteeId,
+          inviteeId,
           `invited to join Project "${projectName}"`,
         );
       }
@@ -82,13 +93,13 @@ export class NotificationsListener {
       // Fourth, as a final cleanup, remove ALL invitation notifications for this project
       // This prevents old notifications from persisting
       await this.notificationsService.deleteByMessageContent(
-        payload.invite.inviteeId,
+        inviteeId,
         `invited to join Project`,
       );
 
       // Then create the revocation notification for the invitee
       await this.notificationsService.createMany(
-        [payload.invite.inviteeId],
+        [inviteeId],
         `Your invitation to join Project "${payload.project?.name ?? ''}" has been revoked.`,
         { projectId: payload.project?.id ?? '', inviteId: payload.invite.id },
         NotificationType.WARNING,

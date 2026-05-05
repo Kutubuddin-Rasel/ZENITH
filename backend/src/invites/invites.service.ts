@@ -7,6 +7,7 @@ import {
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Invite } from './entities/invite.entity';
+import { InviteStatus } from './enums/invite-status.enum';
 import { randomBytes } from 'crypto';
 import { ProjectsService } from '../projects/projects.service';
 import { UsersService } from '../users/users.service';
@@ -35,39 +36,67 @@ export class InvitesService {
     const { projectId, inviteeId, email, inviterId, role, expiresInHours } =
       data;
 
-    let actualInviteeId: string;
+    let resolvedInviteeId: string | null = null;
+    let resolvedInviteeEmail: string | null = null;
 
     if (inviteeId) {
-      actualInviteeId = inviteeId;
+      // Direct user ID provided — resolve to existing user
+      resolvedInviteeId = inviteeId;
     } else if (email) {
+      // Email provided — attempt to resolve to existing user
       const user = await this.usersService.findOneByEmail(email);
-      if (!user) {
-        throw new BadRequestException(`User with email ${email} not found`);
+      if (user) {
+        resolvedInviteeId = user.id;
+      } else {
+        // Shadow Account: user does not exist yet — store email only
+        resolvedInviteeEmail = email;
       }
-      actualInviteeId = user.id;
     } else {
       throw new BadRequestException(
         'Either inviteeId or email must be provided',
       );
     }
 
-    const existing = await this.inviteRepo.findOne({
-      where: { projectId, inviteeId: actualInviteeId, status: 'Pending' },
-      order: { createdAt: 'DESC' },
-    });
-    if (existing)
-      throw new BadRequestException(
-        'Active invite already exists for this user/project',
-      );
+    // Duplicate-invite guard: check for active (Pending) invite to same target
+    if (resolvedInviteeId) {
+      const existing = await this.inviteRepo.findOne({
+        where: {
+          projectId,
+          inviteeId: resolvedInviteeId,
+          status: InviteStatus.Pending,
+        },
+        order: { createdAt: 'DESC' },
+      });
+      if (existing) {
+        throw new BadRequestException(
+          'Active invite already exists for this user/project',
+        );
+      }
+    } else if (resolvedInviteeEmail) {
+      const existing = await this.inviteRepo.findOne({
+        where: {
+          projectId,
+          inviteeEmail: resolvedInviteeEmail,
+          status: InviteStatus.Pending,
+        },
+        order: { createdAt: 'DESC' },
+      });
+      if (existing) {
+        throw new BadRequestException(
+          'Active invite already exists for this email/project',
+        );
+      }
+    }
 
     const token = randomBytes(32).toString('hex');
     const invite = this.inviteRepo.create({
       token,
       projectId,
-      inviteeId: actualInviteeId,
+      inviteeId: resolvedInviteeId,
+      inviteeEmail: resolvedInviteeEmail,
       inviterId,
       role,
-      status: 'Pending',
+      status: InviteStatus.Pending,
       expiresAt: expiresInHours
         ? new Date(Date.now() + expiresInHours * 3600 * 1000)
         : undefined,
@@ -110,11 +139,11 @@ export class InvitesService {
       );
     }
 
-    if (invite.status !== 'Pending') {
+    if (invite.status !== InviteStatus.Pending) {
       throw new BadRequestException('Can only revoke a pending invite.');
     }
 
-    invite.status = 'Revoked';
+    invite.status = InviteStatus.Revoked;
     await this.inviteRepo.save(invite);
 
     // Emit event to notify the invited user that their invitation has been revoked
@@ -134,7 +163,7 @@ export class InvitesService {
         'You do not have permission to resend this invite.',
       );
     }
-    if (invite.status !== 'Pending') {
+    if (invite.status !== InviteStatus.Pending) {
       throw new BadRequestException('Can only resend a pending invite.');
     }
 
@@ -156,10 +185,18 @@ export class InvitesService {
     if (!invite) throw new NotFoundException();
     if (invite.inviteeId !== userId)
       throw new ForbiddenException('Not your invite');
-    if (invite.status !== 'Pending')
+    if (invite.status !== InviteStatus.Pending)
       throw new BadRequestException('Invite already responded');
 
-    invite.status = accept ? 'Accepted' : 'Rejected';
+    // CRITICAL: Expiration validation — must occur BEFORE any state transition
+    // Uses UTC comparison (Date instances are always UTC internally in Node.js)
+    if (invite.expiresAt && invite.expiresAt < new Date()) {
+      invite.status = InviteStatus.Expired;
+      await this.inviteRepo.save(invite);
+      throw new BadRequestException('Invite has expired');
+    }
+
+    invite.status = accept ? InviteStatus.Accepted : InviteStatus.Rejected;
     invite.respondedAt = new Date();
     invite.reason = reason;
     await this.inviteRepo.save(invite);
