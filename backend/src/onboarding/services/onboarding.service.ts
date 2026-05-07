@@ -1,11 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   OnboardingProgress,
   OnboardingStep,
   OnboardingStepStatus,
 } from '../entities/onboarding-progress.entity';
+import {
+  ONBOARDING_EVENTS,
+  OnboardingCompletedEvent,
+  OnboardingStepCompletedEvent,
+} from '../events/onboarding-events';
 
 export interface OnboardingStepData {
   stepId: string;
@@ -23,6 +29,7 @@ export class OnboardingService {
   constructor(
     @InjectRepository(OnboardingProgress)
     private onboardingRepo: Repository<OnboardingProgress>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -112,18 +119,40 @@ export class OnboardingService {
     onboarding.steps[stepIndex] = step;
 
     // Update current step
+    let transitionedToCompleted = false;
     if (status === OnboardingStepStatus.COMPLETED) {
       const nextStep = this.getNextStep(stepId);
       if (nextStep) {
         onboarding.currentStep = nextStep as OnboardingStep;
       } else {
-        // All steps completed
         onboarding.isCompleted = true;
         onboarding.completedAt = new Date();
+        transitionedToCompleted = true;
       }
     }
 
-    return this.onboardingRepo.save(onboarding);
+    const saved = await this.onboardingRepo.save(onboarding);
+
+    if (status === OnboardingStepStatus.COMPLETED) {
+      const stepEvent: OnboardingStepCompletedEvent = {
+        userId: saved.userId,
+        projectId: saved.projectId,
+        stepId,
+        timestamp: new Date(),
+      };
+      this.eventEmitter.emit(ONBOARDING_EVENTS.STEP_COMPLETED, stepEvent);
+    }
+
+    if (transitionedToCompleted) {
+      const completedEvent: OnboardingCompletedEvent = {
+        userId: saved.userId,
+        projectId: saved.projectId,
+        timestamp: saved.completedAt ?? new Date(),
+      };
+      this.eventEmitter.emit(ONBOARDING_EVENTS.COMPLETED, completedEvent);
+    }
+
+    return saved;
   }
 
   /**
@@ -171,7 +200,16 @@ export class OnboardingService {
     onboarding.completedAt = new Date();
     onboarding.currentStep = OnboardingStep.COMPLETED;
 
-    return this.onboardingRepo.save(onboarding);
+    const saved = await this.onboardingRepo.save(onboarding);
+
+    const completedEvent: OnboardingCompletedEvent = {
+      userId: saved.userId,
+      projectId: saved.projectId,
+      timestamp: saved.completedAt ?? new Date(),
+    };
+    this.eventEmitter.emit(ONBOARDING_EVENTS.COMPLETED, completedEvent);
+
+    return saved;
   }
 
   /**

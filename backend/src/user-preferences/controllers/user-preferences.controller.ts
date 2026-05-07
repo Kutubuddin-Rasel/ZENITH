@@ -2,12 +2,15 @@ import {
   Controller,
   Get,
   Patch,
+  Post,
   Body,
   UseGuards,
   Request,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { SmartDefaultsService } from '../services/smart-defaults.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../../security/csrf/csrf.guard';
 import { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
 import { UserPreferencesData } from '../entities/user-preferences.entity';
 
@@ -23,7 +26,7 @@ import { UserPreferencesData } from '../entities/user-preferences.entity';
  * Do NOT manually wrap responses here or it will cause double-nesting.
  */
 @Controller('user-preferences')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StatefulCsrfGuard)
 export class UserPreferencesController {
   constructor(private readonly smartDefaultsService: SmartDefaultsService) {}
 
@@ -46,6 +49,8 @@ export class UserPreferencesController {
    * Update current user's preferences (partial update)
    * Returns just the updated preferences data (TransformInterceptor wraps it)
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @RequireCsrf()
   @Patch('me')
   async updateMyPreferences(
     @Request() req: AuthenticatedRequest,
@@ -59,5 +64,28 @@ export class UserPreferencesController {
 
     // Return raw preferences data - TransformInterceptor wraps it with {success, data}
     return preferencesEntity.preferences;
+  }
+
+  /**
+   * GDPR: Export current user's complete preferences data
+   * Returns the user's full JSONB preference object without modification
+   */
+  @Get('me/export')
+  async exportMyPreferences(
+    @Request() req: AuthenticatedRequest,
+  ): Promise<UserPreferencesData> {
+    return this.smartDefaultsService.exportUserPreferences(req.user.userId);
+  }
+
+  /**
+   * Undo the most recent preference change for the current user
+   */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @RequireCsrf()
+  @Post('me/undo')
+  async undoMyLastChange(
+    @Request() req: AuthenticatedRequest,
+  ): Promise<UserPreferencesData> {
+    return this.smartDefaultsService.undoLastChange(req.user.userId);
   }
 }

@@ -13,15 +13,17 @@ import {
 import { OnboardingService } from '../services/onboarding.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
+import { CsrfGuard, RequireCsrf } from '../../security/csrf/csrf.guard';
 import { OnboardingStepStatus } from '../entities/onboarding-progress.entity';
 import { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
 
 @Controller('api/onboarding')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, CsrfGuard, PermissionsGuard)
 export class OnboardingController {
   constructor(private onboardingService: OnboardingService) {}
 
   @Post('initialize')
+  @RequireCsrf()
   @HttpCode(HttpStatus.OK)
   async initialize(
     @Request() req: AuthenticatedRequest,
@@ -93,6 +95,7 @@ export class OnboardingController {
   }
 
   @Post('step/:stepId/skip')
+  @RequireCsrf()
   @HttpCode(HttpStatus.OK)
   async skipStep(
     @Request() req: AuthenticatedRequest,
@@ -113,6 +116,7 @@ export class OnboardingController {
   }
 
   @Post('complete')
+  @RequireCsrf()
   @HttpCode(HttpStatus.OK)
   async complete(@Request() req: AuthenticatedRequest) {
     const progress = await this.onboardingService.completeOnboarding(
@@ -127,6 +131,7 @@ export class OnboardingController {
   }
 
   @Post('reset')
+  @RequireCsrf()
   @HttpCode(HttpStatus.OK)
   async reset(@Request() req: AuthenticatedRequest) {
     const progress = await this.onboardingService.resetOnboarding(req.user.id);
