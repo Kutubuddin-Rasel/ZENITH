@@ -118,7 +118,10 @@ describe('SearchService', () => {
     });
 
     it('should return paginated tenant-isolated results', async () => {
-      const result = await service.search(dto({ q: 'test', page: 2, limit: 10 }));
+      const result = await service.search(
+        dto({ q: 'test', page: 2, limit: 10 }),
+        'user-1',
+      );
 
       expect(result.issues.data).toHaveLength(1);
       expect(result.issues.meta).toMatchObject({
