@@ -8,7 +8,9 @@
  */
 
 export const ONBOARDING_EVENTS = {
+  STEP_STARTED: 'onboarding.step.started',
   STEP_COMPLETED: 'onboarding.step.completed',
+  STEP_SKIPPED: 'onboarding.step.skipped',
   COMPLETED: 'onboarding.completed',
 } as const;
 
@@ -18,8 +20,22 @@ interface BaseOnboardingEvent {
   readonly timestamp: Date;
 }
 
-export interface OnboardingStepCompletedEvent extends BaseOnboardingEvent {
+export interface OnboardingStepStartedEvent extends BaseOnboardingEvent {
   readonly stepId: string;
 }
 
-export type OnboardingCompletedEvent = BaseOnboardingEvent;
+export interface OnboardingStepCompletedEvent extends BaseOnboardingEvent {
+  readonly stepId: string;
+  readonly timeSpentMs: number;
+}
+
+export interface OnboardingStepSkippedEvent extends BaseOnboardingEvent {
+  readonly stepId: string;
+  readonly reason?: string;
+}
+
+export interface OnboardingCompletedEvent extends BaseOnboardingEvent {
+  readonly totalSteps: number;
+  readonly skippedSteps: number;
+  readonly completedWithoutSkipping: boolean;
+}

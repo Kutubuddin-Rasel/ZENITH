@@ -11,6 +11,8 @@ import {
   ONBOARDING_EVENTS,
   OnboardingCompletedEvent,
   OnboardingStepCompletedEvent,
+  OnboardingStepSkippedEvent,
+  OnboardingStepStartedEvent,
 } from '../events/onboarding-events';
 
 export interface OnboardingStepData {
@@ -132,27 +134,76 @@ export class OnboardingService {
     }
 
     const saved = await this.onboardingRepo.save(onboarding);
+    const persistedStep = saved.steps[stepIndex];
+
+    if (status === OnboardingStepStatus.IN_PROGRESS) {
+      const startedEvent: OnboardingStepStartedEvent = {
+        userId: saved.userId,
+        projectId: saved.projectId,
+        stepId,
+        timestamp: persistedStep.startedAt ?? new Date(),
+      };
+      this.eventEmitter.emit(ONBOARDING_EVENTS.STEP_STARTED, startedEvent);
+    }
 
     if (status === OnboardingStepStatus.COMPLETED) {
+      const startedAt = persistedStep.startedAt
+        ? new Date(persistedStep.startedAt).getTime()
+        : null;
+      const completedAt = persistedStep.completedAt
+        ? new Date(persistedStep.completedAt).getTime()
+        : Date.now();
+      const timeSpentMs =
+        startedAt !== null ? Math.max(0, completedAt - startedAt) : 0;
+
       const stepEvent: OnboardingStepCompletedEvent = {
         userId: saved.userId,
         projectId: saved.projectId,
         stepId,
-        timestamp: new Date(),
+        timeSpentMs,
+        timestamp: persistedStep.completedAt ?? new Date(),
       };
       this.eventEmitter.emit(ONBOARDING_EVENTS.STEP_COMPLETED, stepEvent);
     }
 
-    if (transitionedToCompleted) {
-      const completedEvent: OnboardingCompletedEvent = {
+    if (status === OnboardingStepStatus.SKIPPED) {
+      const reason =
+        typeof data?.skipReason === 'string' ? data.skipReason : undefined;
+      const skippedEvent: OnboardingStepSkippedEvent = {
         userId: saved.userId,
         projectId: saved.projectId,
-        timestamp: saved.completedAt ?? new Date(),
+        stepId,
+        reason,
+        timestamp: persistedStep.skippedAt ?? new Date(),
       };
-      this.eventEmitter.emit(ONBOARDING_EVENTS.COMPLETED, completedEvent);
+      this.eventEmitter.emit(ONBOARDING_EVENTS.STEP_SKIPPED, skippedEvent);
+    }
+
+    if (transitionedToCompleted) {
+      this.eventEmitter.emit(
+        ONBOARDING_EVENTS.COMPLETED,
+        this.buildCompletedEvent(saved),
+      );
     }
 
     return saved;
+  }
+
+  private buildCompletedEvent(
+    onboarding: OnboardingProgress,
+  ): OnboardingCompletedEvent {
+    const skippedSteps = onboarding.steps.filter(
+      (s) => s.status === OnboardingStepStatus.SKIPPED,
+    ).length;
+
+    return {
+      userId: onboarding.userId,
+      projectId: onboarding.projectId,
+      timestamp: onboarding.completedAt ?? new Date(),
+      totalSteps: onboarding.steps.length,
+      skippedSteps,
+      completedWithoutSkipping: skippedSteps === 0,
+    };
   }
 
   /**
@@ -202,12 +253,10 @@ export class OnboardingService {
 
     const saved = await this.onboardingRepo.save(onboarding);
 
-    const completedEvent: OnboardingCompletedEvent = {
-      userId: saved.userId,
-      projectId: saved.projectId,
-      timestamp: saved.completedAt ?? new Date(),
-    };
-    this.eventEmitter.emit(ONBOARDING_EVENTS.COMPLETED, completedEvent);
+    this.eventEmitter.emit(
+      ONBOARDING_EVENTS.COMPLETED,
+      this.buildCompletedEvent(saved),
+    );
 
     return saved;
   }
