@@ -39,6 +39,12 @@ export class WorkLog {
   @Column({ type: 'text', nullable: true })
   note?: string;
 
+  @Column({ type: 'boolean', default: true })
+  billable: boolean;
+
+  @Column({ type: 'decimal', precision: 12, scale: 4, nullable: true })
+  hourlyRate: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }
