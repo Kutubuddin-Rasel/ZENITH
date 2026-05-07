@@ -1,5 +1,11 @@
 // src/revisions/revisions.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Revision, EntityType } from './entities/revision.entity';
 import { Repository, EntityTarget, ObjectLiteral, In } from 'typeorm';
@@ -11,7 +17,7 @@ import { Release } from '../releases/entities/release.entity';
 import { Label } from '../taxonomy/entities/label.entity';
 import { Component } from '../taxonomy/entities/component.entity';
 import { DiffService, RevisionDiff } from './services/diff.service';
-import { Logger } from '@nestjs/common';
+import { ComparisonResponseDto } from './dto/comparison.dto';
 
 /**
  * Maximum entity IDs per IN (...) clause chunk.
@@ -23,6 +29,26 @@ import { Logger } from '@nestjs/common';
  */
 const BATCH_CHUNK_SIZE = 500;
 
+/**
+ * Per-entity-type metadata for tenant isolation.
+ *
+ * `Project` is anchored directly on `organizationId`; every other tracked
+ * entity type lives under a `projectId` whose project carries the org.
+ * The org-resolution query joins through `projects` to enforce isolation.
+ */
+const ENTITY_ORG_RESOLUTION: Record<
+  EntityType,
+  { table: string; projectColumn: 'organizationId' | 'projectId' }
+> = {
+  Project: { table: 'projects', projectColumn: 'organizationId' },
+  Issue: { table: 'issues', projectColumn: 'projectId' },
+  Sprint: { table: 'sprints', projectColumn: 'projectId' },
+  Board: { table: 'boards', projectColumn: 'projectId' },
+  Release: { table: 'releases', projectColumn: 'projectId' },
+  Label: { table: 'labels', projectColumn: 'projectId' },
+  Component: { table: 'components', projectColumn: 'projectId' },
+};
+
 @Injectable()
 export class RevisionsService {
   private readonly logger = new Logger(RevisionsService.name);
@@ -33,8 +59,70 @@ export class RevisionsService {
     private readonly diffService: DiffService,
   ) {}
 
-  /** List revisions for a given entity */
-  async list(type: EntityType, entityId: string): Promise<Revision[]> {
+  /**
+   * Resolve the organizationId that owns a given entity.
+   *
+   * SECURITY: Used as a preflight check on every read/write path so
+   * a tenant can never address revisions of another tenant's entity.
+   *
+   * Returns null if the entity doesn't exist (callers should treat as 404).
+   */
+  private async resolveEntityOrgId(
+    type: EntityType,
+    entityId: string,
+  ): Promise<string | null> {
+    const meta = ENTITY_ORG_RESOLUTION[type];
+    if (!meta) {
+      throw new BadRequestException(`Unsupported entity type: ${type}`);
+    }
+
+    const manager = this.revRepo.manager;
+
+    if (meta.projectColumn === 'organizationId') {
+      const row: { organizationId: string | null } | undefined = await manager
+        .createQueryBuilder()
+        .select('p."organizationId"', 'organizationId')
+        .from(meta.table, 'p')
+        .where('p.id = :id', { id: entityId })
+        .getRawOne();
+      return row?.organizationId ?? null;
+    }
+
+    const row: { organizationId: string | null } | undefined = await manager
+      .createQueryBuilder()
+      .select('proj."organizationId"', 'organizationId')
+      .from(meta.table, 'e')
+      .innerJoin('projects', 'proj', 'proj.id = e."projectId"')
+      .where('e.id = :id', { id: entityId })
+      .getRawOne();
+    return row?.organizationId ?? null;
+  }
+
+  /**
+   * Assert the caller's org matches the entity's owning org.
+   * Throws NotFound (entity missing) or Forbidden (cross-tenant).
+   */
+  private async assertTenantAccess(
+    type: EntityType,
+    entityId: string,
+    organizationId: string,
+  ): Promise<void> {
+    const ownerOrgId = await this.resolveEntityOrgId(type, entityId);
+    if (ownerOrgId === null) {
+      throw new NotFoundException(`${type} not found`);
+    }
+    if (ownerOrgId !== organizationId) {
+      throw new ForbiddenException('Cross-tenant access denied');
+    }
+  }
+
+  /** List revisions for a given entity (tenant-isolated). */
+  async list(
+    type: EntityType,
+    entityId: string,
+    organizationId: string,
+  ): Promise<Revision[]> {
+    await this.assertTenantAccess(type, entityId, organizationId);
     return this.revRepo.find({
       where: { entityType: type, entityId },
       order: { createdAt: 'DESC' },
@@ -48,15 +136,8 @@ export class RevisionsService {
    * Replaces per-entity revision fetching (100 issues = 100 queries)
    * with chunked batch queries (100 issues = 1 query).
    *
-   * SAFETY:
-   * - Chunks entityIds into groups of BATCH_CHUNK_SIZE (500) to prevent
-   *   PostgreSQL parameter limit crashes (max 65,535 params).
-   * - Returns empty array for empty input (no wasted query).
-   * - Chunks execute in parallel via Promise.all().
-   *
-   * @param entityType - The entity type to fetch revisions for
-   * @param entityIds  - Array of entity UUIDs (can be any size)
-   * @returns Combined Revision[] sorted by createdAt DESC
+   * NOTE: Internal/analytics path. Tenant isolation is the caller's
+   * responsibility — IDs must already be filtered to the active tenant.
    */
   async listBatch(
     entityType: EntityType,
@@ -66,10 +147,8 @@ export class RevisionsService {
       return [];
     }
 
-    // Deduplicate IDs to prevent redundant DB work
     const uniqueIds = [...new Set(entityIds)];
 
-    // Chunk into groups of BATCH_CHUNK_SIZE for safe IN clause usage
     const chunks: string[][] = [];
     for (let i = 0; i < uniqueIds.length; i += BATCH_CHUNK_SIZE) {
       chunks.push(uniqueIds.slice(i, i + BATCH_CHUNK_SIZE));
@@ -79,7 +158,6 @@ export class RevisionsService {
       `listBatch: Fetching revisions for ${uniqueIds.length} entities in ${chunks.length} chunk(s)`,
     );
 
-    // Execute all chunks in parallel
     const chunkResults: Revision[][] = await Promise.all(
       chunks.map((chunkIds) =>
         this.revRepo.find({
@@ -92,22 +170,23 @@ export class RevisionsService {
       ),
     );
 
-    // Flatten results from all chunks
     return chunkResults.flat();
   }
 
-  /** Roll back to a given revision snapshot */
+  /** Roll back to a given revision snapshot (tenant-isolated). */
   async rollback(
     type: EntityType,
     entityId: string,
     revisionId: string,
+    organizationId: string,
   ): Promise<ObjectLiteral> {
+    await this.assertTenantAccess(type, entityId, organizationId);
+
     const rev = await this.revRepo.findOneBy({ id: revisionId });
     if (!rev || rev.entityType !== type || rev.entityId !== entityId) {
       throw new NotFoundException('Revision not found');
     }
 
-    // Map EntityType to entity class
     const entityClassMap: Record<EntityType, EntityTarget<ObjectLiteral>> = {
       Project,
       Issue,
@@ -123,10 +202,7 @@ export class RevisionsService {
         `Entity class for type '${type}' not implemented in rollback`,
       );
 
-    // Dynamically get repository
     const repo = this.revRepo.manager.getRepository(entityClass);
-
-    // Overwrite the current entity with snapshot
     await repo.save(rev.snapshot as ObjectLiteral);
 
     return rev.snapshot as ObjectLiteral;
@@ -152,8 +228,8 @@ export class RevisionsService {
   }
 
   /**
-   * Get diff for a specific revision compared to its predecessor
-   * Returns human-readable changes
+   * Get diff for a specific revision compared to its predecessor.
+   * Returns human-readable changes.
    */
   async getDiff(revisionId: string): Promise<RevisionDiff | null> {
     const revision = await this.revRepo.findOneBy({ id: revisionId });
@@ -161,7 +237,6 @@ export class RevisionsService {
       throw new NotFoundException('Revision not found');
     }
 
-    // For CREATE actions, there's no before state
     if (revision.action === 'CREATE') {
       return this.diffService.computeDiff(
         null,
@@ -172,7 +247,6 @@ export class RevisionsService {
       );
     }
 
-    // For DELETE actions, there's no after state
     if (revision.action === 'DELETE') {
       return this.diffService.computeDiff(
         revision.snapshot as Record<string, unknown>,
@@ -183,7 +257,6 @@ export class RevisionsService {
       );
     }
 
-    // For UPDATE actions, find the previous revision to compare
     const previousRevision = await this.revRepo
       .createQueryBuilder('revision')
       .where('revision.entityType = :type', { type: revision.entityType })
@@ -207,14 +280,16 @@ export class RevisionsService {
   }
 
   /**
-   * Get activity history with human-readable diffs for an entity
-   * Returns ordered list of diffs for activity feed display
+   * Get activity history with human-readable diffs for an entity (tenant-isolated).
    */
   async getHistory(
     type: EntityType,
     entityId: string,
+    organizationId: string,
     limit = 20,
   ): Promise<RevisionDiff[]> {
+    await this.assertTenantAccess(type, entityId, organizationId);
+
     const revisions = await this.revRepo.find({
       where: { entityType: type, entityId },
       order: { createdAt: 'DESC' },
@@ -225,7 +300,7 @@ export class RevisionsService {
 
     for (let i = 0; i < revisions.length; i++) {
       const current = revisions[i];
-      const previous = revisions[i + 1]; // Next in array is previous in time
+      const previous = revisions[i + 1];
 
       if (current.action === 'CREATE') {
         diffs.push(
@@ -248,7 +323,6 @@ export class RevisionsService {
           ),
         );
       } else {
-        // UPDATE - compare with previous revision
         const before = previous?.snapshot as Record<string, unknown> | null;
         const after = current.snapshot as Record<string, unknown>;
 
@@ -265,5 +339,100 @@ export class RevisionsService {
     }
 
     return diffs;
+  }
+
+  /**
+   * Fetch a single revision (tenant-isolated).
+   * Verifies the caller owns the entity that the revision belongs to.
+   */
+  async getRevision(
+    type: EntityType,
+    entityId: string,
+    revisionId: string,
+    organizationId: string,
+  ): Promise<Revision> {
+    await this.assertTenantAccess(type, entityId, organizationId);
+
+    const rev = await this.revRepo.findOneBy({ id: revisionId });
+    if (!rev || rev.entityType !== type || rev.entityId !== entityId) {
+      throw new NotFoundException('Revision not found');
+    }
+    return rev;
+  }
+
+  /**
+   * Compare two revisions of the same entity (tenant-isolated).
+   *
+   * Both revisions must belong to the same entity, and the entity must be
+   * owned by the caller's organization. The diff is produced by DiffService
+   * using older → newer chronological order.
+   */
+  async compareRevisions(
+    type: EntityType,
+    entityId: string,
+    revisionAId: string,
+    revisionBId: string,
+    organizationId: string,
+  ): Promise<ComparisonResponseDto> {
+    if (revisionAId === revisionBId) {
+      throw new BadRequestException(
+        'Cannot compare a revision with itself',
+      );
+    }
+
+    await this.assertTenantAccess(type, entityId, organizationId);
+
+    const revs = await this.revRepo.find({
+      where: { id: In([revisionAId, revisionBId]) },
+    });
+
+    if (revs.length !== 2) {
+      throw new NotFoundException('One or both revisions not found');
+    }
+
+    for (const rev of revs) {
+      if (rev.entityType !== type || rev.entityId !== entityId) {
+        throw new NotFoundException('Revision does not belong to this entity');
+      }
+    }
+
+    const [older, newer] =
+      revs[0].createdAt.getTime() <= revs[1].createdAt.getTime()
+        ? [revs[0], revs[1]]
+        : [revs[1], revs[0]];
+
+    const before = older.snapshot as Record<string, unknown> | null;
+    const after = newer.snapshot as Record<string, unknown> | null;
+
+    const diff = this.diffService.computeDiff(
+      before,
+      after,
+      type,
+      newer.changedBy,
+      newer.createdAt,
+    );
+
+    return {
+      from: {
+        id: older.id,
+        entityType: older.entityType,
+        entityId: older.entityId,
+        action: older.action,
+        changedBy: older.changedBy,
+        createdAt: older.createdAt,
+      },
+      to: {
+        id: newer.id,
+        entityType: newer.entityType,
+        entityId: newer.entityId,
+        action: newer.action,
+        changedBy: newer.changedBy,
+        createdAt: newer.createdAt,
+      },
+      entityType: type,
+      entityId,
+      changes: diff.changes,
+      summary: diff.summary,
+    };
   }
 }
