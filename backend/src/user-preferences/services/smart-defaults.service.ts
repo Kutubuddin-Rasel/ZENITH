@@ -1,8 +1,23 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { UserPreferences } from '../entities/user-preferences.entity';
+import { EntityManager, Repository } from 'typeorm';
+import {
+  UserPreferences,
+  UserPreferencesData,
+} from '../entities/user-preferences.entity';
+import {
+  PreferenceHistory,
+  PreferenceJsonValue,
+} from '../entities/preference-history.entity';
 import { ProjectTemplate } from '../../project-templates/entities/project-template.entity';
+
+export interface PreferenceChange {
+  fieldPath: string;
+  oldValue: PreferenceJsonValue;
+  newValue: PreferenceJsonValue;
+}
+
+type PreferenceJsonObject = { [key: string]: PreferenceJsonValue };
 import { ProjectIntelligenceService } from '../../ai/services/project-intelligence.service';
 import { IssueDefaults } from '../../ai/interfaces/ai-types';
 
@@ -30,6 +45,8 @@ export class SmartDefaultsService {
   constructor(
     @InjectRepository(UserPreferences)
     private preferencesRepo: Repository<UserPreferences>,
+    @InjectRepository(PreferenceHistory)
+    private historyRepo: Repository<PreferenceHistory>,
     @InjectRepository(ProjectTemplate)
     private templateRepo: Repository<ProjectTemplate>,
     @Optional() private projectIntelligence?: ProjectIntelligenceService,
@@ -734,70 +751,177 @@ export class SmartDefaultsService {
   }
 
   /**
-   * Update user preferences with proper deep merge
-   * Fixed: Now handles nested objects (notifications.types, work.workingHours) correctly
+   * GDPR: Export full user preferences JSONB data unmodified
+   */
+  async exportUserPreferences(userId: string): Promise<UserPreferencesData> {
+    const entity = await this.getUserPreferences(userId);
+    return entity.preferences;
+  }
+
+  /**
+   * Update user preferences with proper deep merge.
+   * Diffs the incoming DTO against the stored JSONB, persists changes
+   * and PreferenceHistory rows in a single transaction for undo support.
    */
   async updateUserPreferences(
     userId: string,
     updates: Partial<UserPreferences['preferences']>,
   ): Promise<UserPreferences> {
-    const preferences = await this.getUserPreferences(userId);
+    // Ensure default row exists before opening the transaction
+    await this.getUserPreferences(userId);
 
-    // Conditional deep merge - only merge if field provided
+    return this.preferencesRepo.manager.transaction(
+      async (em: EntityManager): Promise<UserPreferences> => {
+        const prefRepo = em.getRepository(UserPreferences);
+        const histRepo = em.getRepository(PreferenceHistory);
+
+        const preferences = await prefRepo.findOneOrFail({ where: { userId } });
+        const previousTree = this.toJsonTree(preferences.preferences);
+
+        this.applyDeepMerge(preferences.preferences, updates);
+
+        const nextTree = this.toJsonTree(preferences.preferences);
+        const changes = this.diffPreferences(previousTree, nextTree, '');
+
+        const saved = await prefRepo.save(preferences);
+
+        if (changes.length > 0) {
+          const records = changes.map((change) =>
+            histRepo.create({
+              userId,
+              fieldPath: change.fieldPath,
+              oldValue: change.oldValue,
+              newValue: change.newValue,
+            }),
+          );
+          await histRepo.save(records);
+        }
+
+        return saved;
+      },
+    );
+  }
+
+  /**
+   * Undo Engine: revert the most recent preference change for a user.
+   * Restores `oldValue` at the recorded `fieldPath`, deletes the history
+   * row, and returns the restored preferences. Wrapped in a transaction.
+   */
+  async undoLastChange(userId: string): Promise<UserPreferencesData> {
+    return this.preferencesRepo.manager.transaction(
+      async (em: EntityManager): Promise<UserPreferencesData> => {
+        const prefRepo = em.getRepository(UserPreferences);
+        const histRepo = em.getRepository(PreferenceHistory);
+
+        const lastChange = await histRepo.findOne({
+          where: { userId },
+          order: { changedAt: 'DESC' },
+        });
+        if (!lastChange) {
+          throw new NotFoundException('No preference history to undo');
+        }
+
+        const preferences = await prefRepo.findOneOrFail({ where: { userId } });
+        const tree = this.toJsonTree(preferences.preferences);
+        this.setByPath(tree, lastChange.fieldPath, lastChange.oldValue);
+        preferences.preferences = this.fromJsonTree(tree);
+
+        await prefRepo.save(preferences);
+        await histRepo.delete({ id: lastChange.id });
+
+        return preferences.preferences;
+      },
+    );
+  }
+
+  private applyDeepMerge(
+    target: UserPreferencesData,
+    updates: Partial<UserPreferencesData>,
+  ): void {
     if (updates.ui) {
-      preferences.preferences.ui = {
-        ...preferences.preferences.ui,
-        ...updates.ui,
-      };
+      target.ui = { ...target.ui, ...updates.ui };
     }
-
     if (updates.notifications) {
-      // Handle nested types object separately
       const types = updates.notifications.types
-        ? {
-            ...preferences.preferences.notifications.types,
-            ...updates.notifications.types,
-          }
-        : preferences.preferences.notifications.types;
-
-      preferences.preferences.notifications = {
-        ...preferences.preferences.notifications,
+        ? { ...target.notifications.types, ...updates.notifications.types }
+        : target.notifications.types;
+      target.notifications = {
+        ...target.notifications,
         ...updates.notifications,
         types,
       };
     }
-
     if (updates.work) {
-      // Handle nested workingHours object separately
       const workingHours = updates.work.workingHours
-        ? {
-            ...preferences.preferences.work.workingHours,
-            ...updates.work.workingHours,
-          }
-        : preferences.preferences.work.workingHours;
-
-      preferences.preferences.work = {
-        ...preferences.preferences.work,
-        ...updates.work,
-        workingHours,
-      };
+        ? { ...target.work.workingHours, ...updates.work.workingHours }
+        : target.work.workingHours;
+      target.work = { ...target.work, ...updates.work, workingHours };
     }
-
     if (updates.learning) {
-      preferences.preferences.learning = {
-        ...preferences.preferences.learning,
-        ...updates.learning,
-      };
+      target.learning = { ...target.learning, ...updates.learning };
     }
-
     if (updates.onboarding) {
-      preferences.preferences.onboarding = {
-        ...preferences.preferences.onboarding,
-        ...updates.onboarding,
-      };
+      target.onboarding = { ...target.onboarding, ...updates.onboarding };
     }
+  }
 
-    return this.preferencesRepo.save(preferences);
+  private isJsonObject(value: PreferenceJsonValue): value is PreferenceJsonObject {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
+  private toJsonTree(data: UserPreferencesData): PreferenceJsonObject {
+    return JSON.parse(JSON.stringify(data)) as PreferenceJsonObject;
+  }
+
+  private fromJsonTree(tree: PreferenceJsonObject): UserPreferencesData {
+    return JSON.parse(JSON.stringify(tree)) as UserPreferencesData;
+  }
+
+  private diffPreferences(
+    previous: PreferenceJsonValue,
+    next: PreferenceJsonValue,
+    path: string,
+  ): PreferenceChange[] {
+    const out: PreferenceChange[] = [];
+    if (this.isJsonObject(previous) && this.isJsonObject(next)) {
+      const keys = new Set<string>([
+        ...Object.keys(previous),
+        ...Object.keys(next),
+      ]);
+      for (const key of keys) {
+        const childPath = path ? `${path}.${key}` : key;
+        const prevChild: PreferenceJsonValue =
+          key in previous ? previous[key] : null;
+        const nextChild: PreferenceJsonValue = key in next ? next[key] : null;
+        out.push(...this.diffPreferences(prevChild, nextChild, childPath));
+      }
+      return out;
+    }
+    if (JSON.stringify(previous) !== JSON.stringify(next)) {
+      out.push({ fieldPath: path, oldValue: previous, newValue: next });
+    }
+    return out;
+  }
+
+  private setByPath(
+    target: PreferenceJsonObject,
+    path: string,
+    value: PreferenceJsonValue,
+  ): void {
+    const keys = path.split('.');
+    let cursor: PreferenceJsonObject = target;
+    for (let i = 0; i < keys.length - 1; i++) {
+      const segment = keys[i];
+      const child = cursor[segment];
+      if (!this.isJsonObject(child)) {
+        const replacement: PreferenceJsonObject = {};
+        cursor[segment] = replacement;
+        cursor = replacement;
+      } else {
+        cursor = child;
+      }
+    }
+    cursor[keys[keys.length - 1]] = value;
   }
 
   private getDefaultBehaviorPattern(): UserBehaviorPattern {
