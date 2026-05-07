@@ -1,4 +1,12 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  UseGuards,
+  Request,
+  Query,
+  DefaultValuePipe,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 import { GamificationService } from './gamification.service';
@@ -30,10 +38,24 @@ export class GamificationController {
   /**
    * GET /gamification/xp
    * Returns the total XP accumulated by the authenticated user.
+   * Reads from Redis (O(1)) with SQL fallback.
    */
   @Get('xp')
   async getMyXp(@Request() req: { user: JwtRequestUser }) {
     const totalXp = await this.gamificationService.getUserXp(req.user.userId);
     return { userId: req.user.userId, totalXp };
+  }
+
+  /**
+   * GET /gamification/leaderboard?limit=10
+   * Returns the top N users by XP from the Redis sorted set.
+   * Includes the requesting user's rank even if not in top N.
+   */
+  @Get('leaderboard')
+  async getLeaderboard(
+    @Request() req: { user: JwtRequestUser },
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    return this.gamificationService.getLeaderboard(limit, req.user.userId);
   }
 }
