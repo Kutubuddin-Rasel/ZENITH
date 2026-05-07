@@ -2,45 +2,80 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { WatchersService } from './watchers.service';
 
+interface IssueCreatedPayload {
+  projectId: string;
+  issueId: string;
+  actorId: string;
+  mentionedUserIds?: string[];
+}
+
+interface IssueUpdatedPayload {
+  projectId: string;
+  issueId: string;
+  actorId: string;
+  action: string;
+  isStatusChange?: boolean;
+  mentionedUserIds?: string[];
+}
+
+interface IssueDeletedPayload {
+  projectId: string;
+  issueId: string;
+  actorId: string;
+}
+
+interface SprintEventPayload {
+  projectId: string;
+  issueId?: string;
+  action: string;
+  actorId: string;
+  sprintName?: string;
+  isStatusChange?: boolean;
+  mentionedUserIds?: string[];
+}
+
+interface BoardEventPayload {
+  projectId: string;
+  issueId?: string;
+  action: string;
+  actorId: string;
+  boardName?: string;
+  columnName?: string;
+  isStatusChange?: boolean;
+  mentionedUserIds?: string[];
+}
+
 @Injectable()
 export class WatchersListener {
   constructor(private watchersService: WatchersService) {}
 
   @OnEvent('issue.created')
-  handleIssueCreated(payload: {
-    projectId: string;
-    issueId: string;
-    actorId: string;
-  }) {
+  handleIssueCreated(payload: IssueCreatedPayload): void {
     void this.watchersService.notifyWatchersOnEvent(
       payload.projectId,
       payload.issueId,
       'created an issue',
       payload.actorId,
+      { mentionedUserIds: payload.mentionedUserIds },
     );
   }
 
   @OnEvent('issue.updated')
-  handleIssueUpdated(payload: {
-    projectId: string;
-    issueId: string;
-    actorId: string;
-    action: string;
-  }) {
+  handleIssueUpdated(payload: IssueUpdatedPayload): void {
     void this.watchersService.notifyWatchersOnEvent(
       payload.projectId,
       payload.issueId,
       payload.action,
       payload.actorId,
+      {
+        isStatusChange: payload.isStatusChange,
+        mentionedUserIds: payload.mentionedUserIds,
+      },
     );
   }
 
   @OnEvent('issue.deleted')
-  handleIssueDeleted(payload: {
-    projectId: string;
-    issueId: string;
-    actorId: string;
-  }) {
+  handleIssueDeleted(payload: IssueDeletedPayload): void {
     void this.watchersService.notifyWatchersOnEvent(
       payload.projectId,
       payload.issueId,
@@ -50,30 +85,21 @@ export class WatchersListener {
   }
 
   @OnEvent('sprint.event')
-  handleSprintEvent(payload: {
-    projectId: string;
-    issueId?: string;
-    action: string;
-    actorId: string;
-    sprintName?: string;
-  }) {
+  handleSprintEvent(payload: SprintEventPayload): void {
     void this.watchersService.notifyWatchersOnEvent(
       payload.projectId,
       payload.issueId ?? null,
       payload.action + (payload.sprintName ? ` (${payload.sprintName})` : ''),
       payload.actorId,
+      {
+        isStatusChange: payload.isStatusChange,
+        mentionedUserIds: payload.mentionedUserIds,
+      },
     );
   }
 
   @OnEvent('board.event')
-  handleBoardEvent(payload: {
-    projectId: string;
-    issueId?: string;
-    action: string;
-    actorId: string;
-    boardName?: string;
-    columnName?: string;
-  }) {
+  handleBoardEvent(payload: BoardEventPayload): void {
     let actionMsg = payload.action;
     if (payload.boardName) actionMsg += ` (${payload.boardName})`;
     if (payload.columnName) actionMsg += ` [${payload.columnName}]`;
@@ -82,6 +108,10 @@ export class WatchersListener {
       payload.issueId ?? null,
       actionMsg,
       payload.actorId,
+      {
+        isStatusChange: payload.isStatusChange,
+        mentionedUserIds: payload.mentionedUserIds,
+      },
     );
   }
 }

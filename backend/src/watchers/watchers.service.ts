@@ -9,6 +9,19 @@ import { Issue } from '../issues/entities/issue.entity';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import { NotificationsEmitter } from './events/notifications.events';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BatchWatchFailure, BatchWatchResult } from './dto/batch-watch.dto';
+import { WatchPreference } from './enums/watch-preference.enum';
+
+/**
+ * Strictly-typed metadata accompanying a watcher dispatch. Used by the
+ * filtering pipeline to honor each watcher's WatchPreference.
+ */
+export interface WatcherEventMeta {
+  /** True when the underlying event represents a status transition. */
+  isStatusChange?: boolean;
+  /** Subset of recipient userIds explicitly @-mentioned in the source event. */
+  mentionedUserIds?: string[];
+}
 
 @Injectable()
 export class WatchersService {
@@ -31,7 +44,8 @@ export class WatchersService {
   async toggleProjectWatcher(
     projectId: string,
     userId: string,
-  ): Promise<{ watching: boolean }> {
+    preference: WatchPreference = WatchPreference.ALL,
+  ): Promise<{ watching: boolean; preference?: WatchPreference }> {
     // ensure membership
     await this.membersService.getUserRole(projectId, userId);
     // find existing
@@ -43,9 +57,9 @@ export class WatchersService {
     // REFACTORED: Direct repo query instead of projectsService.findOneById
     const project = await this.projectRepo.findOneBy({ id: projectId });
     if (!project) throw new Error('Project not found');
-    const w = this.watcherRepo.create({ projectId, userId });
+    const w = this.watcherRepo.create({ projectId, userId, preference });
     await this.watcherRepo.save(w);
-    return { watching: true };
+    return { watching: true, preference };
   }
 
   /** List watchers for project */
@@ -67,7 +81,8 @@ export class WatchersService {
     projectId: string,
     issueId: string,
     userId: string,
-  ): Promise<{ watching: boolean }> {
+    preference: WatchPreference = WatchPreference.ALL,
+  ): Promise<{ watching: boolean; preference?: WatchPreference }> {
     // REFACTORED: Direct repo query instead of issuesService.findOne
     const issue = await this.issueRepo.findOne({
       where: { id: issueId, projectId },
@@ -80,9 +95,9 @@ export class WatchersService {
       await this.watcherRepo.remove(existing);
       return { watching: false };
     }
-    const w = this.watcherRepo.create({ issueId, userId });
+    const w = this.watcherRepo.create({ issueId, userId, preference });
     await this.watcherRepo.save(w);
-    return { watching: true };
+    return { watching: true, preference };
   }
 
   /** List watchers for issue */
@@ -105,45 +120,153 @@ export class WatchersService {
     return watchers.map((w) => w.userId);
   }
 
+  /**
+   * Batch-toggle issue watchers for the caller within a single project.
+   * Each issue is processed independently; a failure on one entry does not
+   * abort the batch. Returns aggregate counts plus the per-issue failure list.
+   */
+  async batchToggleIssueWatchers(
+    projectId: string,
+    userId: string,
+    issueIds: string[],
+    preference: WatchPreference = WatchPreference.ALL,
+  ): Promise<BatchWatchResult> {
+    // Membership check once for the whole batch (fail-fast if not a member).
+    await this.membersService.getUserRole(projectId, userId);
+
+    const failures: BatchWatchFailure[] = [];
+    let success = 0;
+
+    // De-duplicate to avoid double-toggling the same issue within one request.
+    const uniqueIds = Array.from(new Set(issueIds));
+
+    for (const issueId of uniqueIds) {
+      try {
+        const issue = await this.issueRepo.findOne({
+          where: { id: issueId, projectId },
+        });
+        if (!issue) {
+          failures.push({ issueId, reason: 'Issue not found' });
+          continue;
+        }
+
+        const existing = await this.watcherRepo.findOneBy({ issueId, userId });
+        if (existing) {
+          await this.watcherRepo.remove(existing);
+        } else {
+          await this.watcherRepo.save(
+            this.watcherRepo.create({ issueId, userId, preference }),
+          );
+        }
+        success += 1;
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'Unknown error';
+        failures.push({ issueId, reason });
+      }
+    }
+
+    return { success, failed: failures.length, failures };
+  }
+
+  /**
+   * Apply a watcher's WatchPreference against the event metadata.
+   * Returns true when the notification should be delivered.
+   */
+  private shouldDeliver(
+    preference: WatchPreference,
+    userId: string,
+    meta: WatcherEventMeta,
+  ): boolean {
+    switch (preference) {
+      case WatchPreference.ALL:
+        return true;
+      case WatchPreference.MENTIONS_ONLY:
+        return meta.mentionedUserIds?.includes(userId) === true;
+      case WatchPreference.STATUS_CHANGES:
+        return meta.isStatusChange === true;
+    }
+  }
+
+  /**
+   * Resolve the effective preference for a user with potentially overlapping
+   * project + issue subscriptions. The most permissive level wins
+   * (ALL > MENTIONS_ONLY > STATUS_CHANGES) so the user receives every event
+   * any of their subscriptions would individually permit.
+   */
+  private resolveEffectivePreference(
+    preferences: WatchPreference[],
+  ): WatchPreference {
+    if (preferences.includes(WatchPreference.ALL)) return WatchPreference.ALL;
+    if (preferences.includes(WatchPreference.MENTIONS_ONLY)) {
+      return WatchPreference.MENTIONS_ONLY;
+    }
+    return WatchPreference.STATUS_CHANGES;
+  }
+
   /** Emit notification to watchers (to be called by other services) */
   async notifyWatchersOnEvent(
     projectId: string,
     issueId: string | null,
     action: string,
     actorId: string,
-  ) {
-    await Promise.all([
-      this.watcherRepo.find({ where: { projectId }, select: ['userId'] }),
+    meta: WatcherEventMeta = {},
+  ): Promise<void> {
+    const [projWatchers, issueWatchers] = await Promise.all([
+      this.watcherRepo.find({
+        where: { projectId },
+        select: ['userId', 'preference'],
+      }),
       issueId
-        ? this.watcherRepo.find({ where: { issueId }, select: ['userId'] })
+        ? this.watcherRepo.find({
+            where: { issueId },
+            select: ['userId', 'preference'],
+          })
         : Promise.resolve([]),
-    ]).then(([projWatchers, issueWatchers]) => {
-      const ids = new Set<string>();
-      projWatchers.forEach((w) => ids.add(w.userId));
-      issueWatchers.forEach((w) => ids.add(w.userId));
-      ids.delete(actorId);
+    ]);
 
-      const userIds = Array.from(ids);
-      if (userIds.length === 0) return;
+    // Aggregate every preference observed per user across both subscriptions.
+    const prefsByUser = new Map<string, WatchPreference[]>();
+    const collect = (rows: Watcher[]): void => {
+      for (const w of rows) {
+        if (w.userId === actorId) continue;
+        const list = prefsByUser.get(w.userId);
+        if (list) list.push(w.preference);
+        else prefsByUser.set(w.userId, [w.preference]);
+      }
+    };
+    collect(projWatchers);
+    collect(issueWatchers);
 
-      const message =
-        `User ${actorId} ${action}` + (issueId ? ` on issue ${issueId}` : '');
-      const context = { projectId, ...(issueId && { issueId }) };
+    if (prefsByUser.size === 0) return;
 
-      // 1) Emit live in-app event
-      this.notifications.emitNotification({
-        userIds,
-        message,
-        context,
-      });
+    // Filtering pipeline: honor each watcher's effective preference.
+    const recipients: string[] = [];
+    for (const [userId, prefs] of prefsByUser) {
+      const effective = this.resolveEffectivePreference(prefs);
+      if (this.shouldDeliver(effective, userId, meta)) {
+        recipients.push(userId);
+      }
+    }
 
-      // 2) REFACTORED: Emit event for NotificationsModule to handle persistence
-      this.eventEmitter.emit('watcher.notification', {
-        userIds,
-        message,
-        context,
-        type: 'INFO',
-      });
+    if (recipients.length === 0) return;
+
+    const message =
+      `User ${actorId} ${action}` + (issueId ? ` on issue ${issueId}` : '');
+    const context = { projectId, ...(issueId && { issueId }) };
+
+    // 1) Emit live in-app event
+    this.notifications.emitNotification({
+      userIds: recipients,
+      message,
+      context,
+    });
+
+    // 2) REFACTORED: Emit event for NotificationsModule to handle persistence
+    this.eventEmitter.emit('watcher.notification', {
+      userIds: recipients,
+      message,
+      context,
+      type: 'INFO',
     });
   }
 }
