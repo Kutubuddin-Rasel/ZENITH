@@ -6,13 +6,18 @@ import { AchievementProgress } from './entities/achievement-progress.entity';
 import { GamificationService } from './gamification.service';
 import { GamificationController } from './gamification.controller';
 import { GamificationListener } from './listeners/gamification.listener';
+import { OnboardingGamificationListener } from './listeners/onboarding-gamification.listener';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Achievement, UserAchievement, AchievementProgress]),
   ],
   controllers: [GamificationController],
-  providers: [GamificationService, GamificationListener],
+  providers: [
+    GamificationService,
+    GamificationListener,
+    OnboardingGamificationListener,
+  ],
   exports: [GamificationService],
 })
 export class GamificationModule {}

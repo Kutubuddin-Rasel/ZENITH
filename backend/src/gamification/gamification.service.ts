@@ -89,6 +89,20 @@ export class GamificationService implements OnModuleInit {
         icon: 'layers',
         xp: 300,
       },
+      {
+        slug: 'onboarding-champion',
+        name: 'Onboarding Champion',
+        description: 'Completed the full onboarding journey',
+        icon: 'rocket',
+        xp: 200,
+      },
+      {
+        slug: 'flawless-onboarding',
+        name: 'Flawless Onboarding',
+        description: 'Completed onboarding without skipping a single step',
+        icon: 'sparkles',
+        xp: 100,
+      },
     ];
 
     for (const def of defaults) {
@@ -223,8 +237,9 @@ export class GamificationService implements OnModuleInit {
     target: number,
   ): Promise<number | null> {
     // Atomic upsert: INSERT or UPDATE in one statement
-    const result = await this.dataSource.query(
-      `INSERT INTO achievement_progress ("userId", "achievementSlug", "currentCount", "targetCount", "completed")
+    const result: Array<{ currentCount: number; completed: boolean }> =
+      await this.dataSource.query(
+        `INSERT INTO achievement_progress ("userId", "achievementSlug", "currentCount", "targetCount", "completed")
        VALUES ($1, $2, $3, $4, false)
        ON CONFLICT ("userId", "achievementSlug")
        DO UPDATE SET
@@ -234,8 +249,8 @@ export class GamificationService implements OnModuleInit {
          END,
          "updatedAt" = CURRENT_TIMESTAMP
        RETURNING "currentCount", "completed"`,
-      [userId, slug, amount, target],
-    );
+        [userId, slug, amount, target],
+      );
 
     const row = result[0];
     if (!row || row.completed) {
@@ -295,9 +310,10 @@ export class GamificationService implements OnModuleInit {
     this.logger.log(`User ${userId} unlocked achievement: ${achievement.name}`);
 
     // Sync XP to Redis leaderboard (fire-and-forget, non-blocking)
-    this.syncUserXpToRedis(userId).catch((err) =>
-      this.logger.error(`Failed to sync XP to Redis for ${userId}: ${err.message}`),
-    );
+    this.syncUserXpToRedis(userId).catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Failed to sync XP to Redis for ${userId}: ${message}`);
+    });
 
     // Emit event for real-time notification delivery via WebSocket
     this.eventEmitter.emit('achievement.unlocked', {
@@ -339,7 +355,7 @@ export class GamificationService implements OnModuleInit {
       .innerJoin('ua.achievement', 'a')
       .select('COALESCE(SUM(a.xp), 0)', 'totalXp')
       .where('ua.userId = :userId', { userId })
-      .getRawOne();
+      .getRawOne<{ totalXp: string | null }>();
 
     return parseInt(result?.totalXp ?? '0', 10);
   }
