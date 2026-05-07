@@ -7,6 +7,7 @@ import { UserIdInterceptor } from './interceptors/user-id.interceptor';
 import { RevisionsService } from './revisions.service';
 import { RevisionsController } from './revisions.controller';
 import { DiffService } from './services/diff.service';
+import { RevisionPruningJob } from './jobs/revision-pruning.job';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { MembershipModule } from '../membership/membership.module';
 
@@ -16,6 +17,7 @@ import { MembershipModule } from '../membership/membership.module';
     RevisionSubscriber,
     RevisionsService,
     DiffService,
+    RevisionPruningJob,
     { provide: APP_INTERCEPTOR, useClass: UserIdInterceptor },
   ],
   controllers: [RevisionsController],
