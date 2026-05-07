@@ -4,7 +4,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Issue } from '../issues/entities/issue.entity';
 import { Project } from '../projects/entities/project.entity';
 import { User } from '../users/entities/user.entity';
+import { SearchAnalytics } from './entities/search-analytics.entity';
 import { TenantContext } from '../core/tenant/tenant-context.service';
+import { CacheService } from '../cache/cache.service';
 import { ForbiddenException } from '@nestjs/common';
 import { SearchQueryDto } from './dto/search-query.dto';
 
@@ -66,8 +68,17 @@ describe('SearchService', () => {
       createQueryBuilder: jest.fn(() => buildQb([mockUser])),
     };
 
+    const analyticsRepoMock = {
+      insert: jest.fn().mockResolvedValue({ identifiers: [{ id: 'a-1' }] }),
+    };
+
     const mockTenantContext = {
       getTenantId: jest.fn().mockReturnValue('org-1'),
+    };
+
+    const cacheServiceMock = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(true),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -76,7 +87,12 @@ describe('SearchService', () => {
         { provide: getRepositoryToken(Issue), useValue: issuesRepoMock },
         { provide: getRepositoryToken(Project), useValue: projectsRepoMock },
         { provide: getRepositoryToken(User), useValue: usersRepoMock },
+        {
+          provide: getRepositoryToken(SearchAnalytics),
+          useValue: analyticsRepoMock,
+        },
         { provide: TenantContext, useValue: mockTenantContext },
+        { provide: CacheService, useValue: cacheServiceMock },
       ],
     }).compile();
 
@@ -90,11 +106,11 @@ describe('SearchService', () => {
   describe('search', () => {
     it('should throw forbidden if no tenant context', async () => {
       tenantContext.getTenantId.mockReturnValue(null);
-      await expect(service.search(dto())).rejects.toThrow(ForbiddenException);
+      await expect(service.search(dto(), 'user-1')).rejects.toThrow(ForbiddenException);
     });
 
     it('should return empty paginated payloads when query sanitizes to empty', async () => {
-      const result = await service.search(dto({ q: '&|!' }));
+      const result = await service.search(dto({ q: '&|!' }), 'user-1');
       expect(result.issues.data).toEqual([]);
       expect(result.issues.meta.total).toBe(0);
       expect(result.projects.data).toEqual([]);
