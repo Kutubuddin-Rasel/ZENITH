@@ -819,4 +819,132 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       return 0;
     }
   }
+
+  // ==========================================================================
+  // SORTED SET OPERATIONS (Gamification Leaderboard)
+  // Redis Sorted Sets provide O(log N) insert and O(log N + M) range queries.
+  // Used for real-time XP leaderboards without SQL aggregate overhead.
+  // ==========================================================================
+
+  /**
+   * Set a member's score in a sorted set.
+   * Uses ZADD which is idempotent — safe for concurrent calls.
+   *
+   * @param key - Sorted set key (e.g., 'leaderboard:xp')
+   * @param score - Numeric score (e.g., total XP)
+   * @param member - Member identifier (e.g., userId)
+   * @param options - Optional cache options (namespace)
+   */
+  async zadd(
+    key: string,
+    score: number,
+    member: string,
+    options?: CacheOptions,
+  ): Promise<boolean> {
+    if (!this.isConnected) return false;
+
+    try {
+      const fullKey = this.buildKey(key, options);
+      await this.redis.zadd(fullKey, score, member);
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Error zadd ${key}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Get top N members from a sorted set in descending score order.
+   * Returns array of { member, score } objects.
+   *
+   * @param key - Sorted set key
+   * @param start - Start index (0-based, inclusive)
+   * @param stop - Stop index (0-based, inclusive). Use -1 for all.
+   * @param options - Optional cache options
+   */
+  async zrevrangeWithScores(
+    key: string,
+    start: number,
+    stop: number,
+    options?: CacheOptions,
+  ): Promise<{ member: string; score: number }[]> {
+    if (!this.isConnected) return [];
+
+    try {
+      const fullKey = this.buildKey(key, options);
+      const results = await this.redis.zrevrange(
+        fullKey,
+        start,
+        stop,
+        'WITHSCORES',
+      );
+
+      // ioredis returns flat array: [member1, score1, member2, score2, ...]
+      const entries: { member: string; score: number }[] = [];
+      for (let i = 0; i < results.length; i += 2) {
+        entries.push({
+          member: results[i],
+          score: parseFloat(results[i + 1]),
+        });
+      }
+      return entries;
+    } catch (error) {
+      this.logger.error(
+        `Error zrevrange ${key}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Get a member's rank in a sorted set (0-indexed, highest score = rank 0).
+   * Returns null if the member doesn't exist.
+   */
+  async zrevrank(
+    key: string,
+    member: string,
+    options?: CacheOptions,
+  ): Promise<number | null> {
+    if (!this.isConnected) return null;
+
+    try {
+      const fullKey = this.buildKey(key, options);
+      return await this.redis.zrevrank(fullKey, member);
+    } catch (error) {
+      this.logger.error(
+        `Error zrevrank ${key}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Get a member's score in a sorted set.
+   * Returns null if the member doesn't exist.
+   */
+  async zscore(
+    key: string,
+    member: string,
+    options?: CacheOptions,
+  ): Promise<number | null> {
+    if (!this.isConnected) return null;
+
+    try {
+      const fullKey = this.buildKey(key, options);
+      const score = await this.redis.zscore(fullKey, member);
+      return score !== null ? parseFloat(score) : null;
+    } catch (error) {
+      this.logger.error(
+        `Error zscore ${key}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+      return null;
+    }
+  }
 }
+
