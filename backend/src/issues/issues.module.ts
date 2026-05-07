@@ -13,6 +13,9 @@ import { WorkLogsService } from './issues.service';
 import { CaslModule } from '../auth/casl/casl.module';
 import { WorkflowsModule } from '../workflows/workflows.module';
 import { Board } from '../boards/entities/board.entity';
+import { TimerService } from './timer.service';
+import { TimerController } from './timer.controller';
+import { BillableTimeService } from './billable-time.service';
 
 @Module({
   imports: [
@@ -21,8 +24,18 @@ import { Board } from '../boards/entities/board.entity';
     CaslModule,
     WorkflowsModule,
   ],
-  providers: [IssuesService, WorkLogsService],
-  controllers: [IssuesController],
-  exports: [IssuesService, WorkLogsService],
+  providers: [
+    IssuesService,
+    WorkLogsService,
+    TimerService,
+    BillableTimeService,
+  ],
+  controllers: [IssuesController, TimerController],
+  exports: [
+    IssuesService,
+    WorkLogsService,
+    TimerService,
+    BillableTimeService,
+  ],
 })
 export class IssuesModule {}

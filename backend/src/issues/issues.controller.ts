@@ -390,6 +390,8 @@ export class IssuesController {
       req.user.userId,
       dto.minutesSpent,
       dto.note,
+      dto.billable,
+      dto.hourlyRate,
     );
   }
 

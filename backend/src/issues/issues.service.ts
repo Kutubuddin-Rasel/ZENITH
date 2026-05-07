@@ -26,6 +26,10 @@ import { ProjectMembersService } from 'src/membership/project-members/project-me
 import { UsersService } from '../users/users.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { WorkLog } from './entities/work-log.entity';
+import {
+  TimeAggregationResult,
+  toAggregationResult,
+} from './dto/time-aggregation-result.interface';
 
 import { CacheService } from '../cache/cache.service';
 import { WorkflowTransitionsService } from '../workflows/services/workflow-transitions.service';
@@ -1397,6 +1401,8 @@ export class WorkLogsService {
     userId: string,
     minutesSpent: number,
     note?: string,
+    billable?: boolean,
+    hourlyRate?: number,
   ) {
     // Ensure user is a project member and issue exists
     await this.issueRepo.findOneByOrFail({ id: issueId, projectId });
@@ -1407,6 +1413,11 @@ export class WorkLogsService {
       userId,
       minutesSpent,
       note,
+      billable: billable ?? true,
+      hourlyRate:
+        hourlyRate !== undefined && hourlyRate !== null
+          ? hourlyRate.toFixed(4)
+          : null,
     });
     return this.workLogRepo.save(workLog);
   }
@@ -1456,5 +1467,56 @@ export class WorkLogsService {
     if (minutesSpent !== undefined) workLog.minutesSpent = minutesSpent;
     if (note !== undefined) workLog.note = note;
     return this.workLogRepo.save(workLog);
+  }
+
+  async getTotalTimeByIssue(issueId: string): Promise<TimeAggregationResult> {
+    const raw = await this.workLogRepo
+      .createQueryBuilder('wl')
+      .select('COALESCE(SUM(wl.minutesSpent), 0)', 'total')
+      .where('wl.issueId = :issueId', { issueId })
+      .getRawOne<{ total: string | number | null }>();
+    return toAggregationResult(raw);
+  }
+
+  async getTotalTimeByProject(
+    projectId: string,
+  ): Promise<TimeAggregationResult> {
+    const raw = await this.workLogRepo
+      .createQueryBuilder('wl')
+      .select('COALESCE(SUM(wl.minutesSpent), 0)', 'total')
+      .where('wl.projectId = :projectId', { projectId })
+      .getRawOne<{ total: string | number | null }>();
+    return toAggregationResult(raw);
+  }
+
+  async getTotalTimeByUser(
+    userId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<TimeAggregationResult> {
+    const qb = this.workLogRepo
+      .createQueryBuilder('wl')
+      .select('COALESCE(SUM(wl.minutesSpent), 0)', 'total')
+      .where('wl.userId = :userId', { userId });
+    if (startDate) {
+      qb.andWhere('wl.createdAt >= :startDate', { startDate });
+    }
+    if (endDate) {
+      qb.andWhere('wl.createdAt <= :endDate', { endDate });
+    }
+    const raw = await qb.getRawOne<{ total: string | number | null }>();
+    return toAggregationResult(raw);
+  }
+
+  async getTotalTimeBySprint(
+    sprintId: string,
+  ): Promise<TimeAggregationResult> {
+    const raw = await this.workLogRepo
+      .createQueryBuilder('wl')
+      .innerJoin('sprint_issues', 'si', 'si.issueId = wl.issueId')
+      .select('COALESCE(SUM(wl.minutesSpent), 0)', 'total')
+      .where('si.sprintId = :sprintId', { sprintId })
+      .getRawOne<{ total: string | number | null }>();
+    return toAggregationResult(raw);
   }
 }
