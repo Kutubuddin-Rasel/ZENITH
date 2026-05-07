@@ -5,10 +5,14 @@ import { SearchService } from './search.service';
 import { Issue } from '../issues/entities/issue.entity';
 import { Project } from '../projects/entities/project.entity';
 import { User } from '../users/entities/user.entity';
+import { SearchAnalytics } from './entities/search-analytics.entity';
 import { TenantModule } from '../core/tenant/tenant.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Issue, Project, User]), TenantModule],
+  imports: [
+    TypeOrmModule.forFeature([Issue, Project, User, SearchAnalytics]),
+    TenantModule,
+  ],
   controllers: [SearchController],
   providers: [SearchService],
 })
