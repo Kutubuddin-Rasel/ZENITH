@@ -8,7 +8,7 @@ export class GamificationListener {
 
   constructor(private readonly gamificationService: GamificationService) {}
 
-  // ── Existing: Sprint Completion ──────────────────────────────────
+  // ── Sprint Completion ────────────────────────────────────────────
 
   @OnEvent('sprint.event')
   async handleSprintEvent(payload: {
@@ -30,7 +30,7 @@ export class GamificationListener {
     }
   }
 
-  // ── New: Issue Created ───────────────────────────────────────────
+  // ── Issue Created ────────────────────────────────────────────────
 
   @OnEvent('issue.created')
   async handleIssueCreated(payload: {
@@ -39,13 +39,23 @@ export class GamificationListener {
     actorId: string;
   }) {
     this.logger.log(`Issue created by user ${payload.actorId}`);
+
+    // One-shot: First Issue
     await this.gamificationService.unlockAchievement(
       payload.actorId,
       'first-issue',
     );
+
+    // Multi-step: Prolific Creator (25 issues)
+    await this.gamificationService.incrementProgress(
+      payload.actorId,
+      'prolific-creator',
+      1,
+      25,
+    );
   }
 
-  // ── New: Bug Resolved ────────────────────────────────────────────
+  // ── Bug Resolved ─────────────────────────────────────────────────
 
   @OnEvent('issue.statusChanged')
   async handleBugResolved(payload: {
@@ -67,14 +77,24 @@ export class GamificationListener {
       isBugLabel
     ) {
       this.logger.log(`Bug resolved by user ${payload.actorId}`);
+
+      // One-shot: Bug Hunter (resolve 1 bug)
       await this.gamificationService.unlockAchievement(
         payload.actorId,
         'bug-hunter',
       );
+
+      // Multi-step: Bug Hunter X (resolve 10 bugs)
+      await this.gamificationService.incrementProgress(
+        payload.actorId,
+        'bug-hunter-x',
+        1,
+        10,
+      );
     }
   }
 
-  // ── New: Early Bird (Task completed before due date) ─────────────
+  // ── Early Bird (Task completed before due date) ──────────────────
 
   @OnEvent('issue.completed')
   async handleEarlyBird(payload: {
@@ -98,7 +118,7 @@ export class GamificationListener {
     }
   }
 
-  // ── New: Collaborator (First comment on an issue) ────────────────
+  // ── Collaborator (First comment on an issue) ─────────────────────
 
   @OnEvent('comment.created')
   async handleCommentCreated(payload: {
@@ -114,7 +134,7 @@ export class GamificationListener {
     );
   }
 
-  // ── New: Team Player (Joined a project) ──────────────────────────
+  // ── Team Player (Joined a project) ───────────────────────────────
 
   @OnEvent('member.added')
   async handleMemberAdded(payload: {
