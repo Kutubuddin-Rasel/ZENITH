@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import {
@@ -865,7 +870,9 @@ export class SmartDefaultsService {
     }
   }
 
-  private isJsonObject(value: PreferenceJsonValue): value is PreferenceJsonObject {
+  private isJsonObject(
+    value: PreferenceJsonValue,
+  ): value is PreferenceJsonObject {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 

@@ -106,7 +106,9 @@ describe('SearchService', () => {
   describe('search', () => {
     it('should throw forbidden if no tenant context', async () => {
       tenantContext.getTenantId.mockReturnValue(null);
-      await expect(service.search(dto(), 'user-1')).rejects.toThrow(ForbiddenException);
+      await expect(service.search(dto(), 'user-1')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should return empty paginated payloads when query sanitizes to empty', async () => {

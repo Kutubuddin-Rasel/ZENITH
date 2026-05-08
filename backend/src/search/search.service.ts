@@ -117,10 +117,9 @@ export class SearchService {
         .createQueryBuilder('issue')
         .innerJoin('issue.project', 'project')
         .where('project.organizationId = :organizationId', { organizationId })
-        .andWhere(
-          "issue.search_vector @@ plainto_tsquery('english', :query)",
-          { query: sanitizedQuery },
-        )
+        .andWhere("issue.search_vector @@ plainto_tsquery('english', :query)", {
+          query: sanitizedQuery,
+        })
         .orderBy(
           "ts_rank(issue.search_vector, plainto_tsquery('english', :query))",
           'DESC',
@@ -147,17 +146,11 @@ export class SearchService {
         .createQueryBuilder('user')
         .where('user.organizationId = :organizationId', { organizationId })
         .andWhere('user.isActive = :isActive', { isActive: true })
-        .andWhere(
-          '(user.name ILIKE :ilike OR user.email ILIKE :ilike)',
-          { ilike: ilikeQuery },
-        )
+        .andWhere('(user.name ILIKE :ilike OR user.email ILIKE :ilike)', {
+          ilike: ilikeQuery,
+        })
         .orderBy('user.name', 'ASC')
-        .select([
-          'user.id',
-          'user.name',
-          'user.email',
-          'user.avatarUrl',
-        ])
+        .select(['user.id', 'user.name', 'user.email', 'user.avatarUrl'])
         .skip(skip)
         .take(limit)
         .getManyAndCount(),

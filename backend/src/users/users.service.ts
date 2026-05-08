@@ -67,14 +67,14 @@ export class UsersService {
   /** Get all users (scoped to organization if provided) */
   async findAll(organizationId?: string): Promise<User[]> {
     if (organizationId) {
-      return this.userRepo.find({ where: { organizationId } });
+      return this.userRepo.findMany({ where: { organizationId } });
     }
-    return this.userRepo.find();
+    return this.userRepo.findMany();
   }
 
   /** Get one user by ID, or throw if not found */
   async findOneById(id: string): Promise<User> {
-    const user = await this.userRepo.findOneBy({ id });
+    const user = await this.userRepo.findById(id);
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
@@ -83,7 +83,7 @@ export class UsersService {
 
   /** Get one user by email, or null if not found */
   async findOneByEmail(email: string): Promise<User | null> {
-    return this.userRepo.findOneBy({ email: email.toLowerCase() });
+    return this.userRepo.findByEmail(email.toLowerCase());
   }
 
   // ===========================================================================
@@ -116,12 +116,9 @@ export class UsersService {
       throw new BadRequestException('Invalid verification token format');
     }
 
-    // Query with addSelect because emailVerificationToken is select: false
-    const user = await this.userRepo
-      .createQueryBuilder('user')
-      .addSelect('user.emailVerificationToken')
-      .where('user.emailVerificationToken = :token', { token })
-      .getOne();
+    // emailVerificationToken is `select: false` on the entity — the abstract
+    // repo encapsulates the addSelect dance.
+    const user = await this.userRepo.findByVerificationToken(token);
 
     if (!user) {
       throw new NotFoundException(
@@ -186,44 +183,8 @@ export class UsersService {
     term: string,
     excludeProjectId?: string,
     organizationId?: string,
-  ): Promise<Partial<User>[]> {
-    try {
-      const qb = this.userRepo
-        .createQueryBuilder('user')
-        .select(['user.id', 'user.name', 'user.email', 'user.defaultRole'])
-        .where(
-          new Brackets((qb) => {
-            qb.where('user.name ILIKE :term', { term: `%${term}%` }).orWhere(
-              'user.email ILIKE :term',
-              { term: `%${term}%` },
-            );
-          }),
-        );
-
-      // Filter by organization
-      if (organizationId) {
-        qb.andWhere('user.organizationId = :organizationId', {
-          organizationId,
-        });
-      }
-
-      if (excludeProjectId) {
-        qb.andWhere((qb) => {
-          const subQuery = qb
-            .subQuery()
-            .select('pm.userId')
-            .from('project_members', 'pm')
-            .where('pm.projectId = :projectId', { projectId: excludeProjectId })
-            .getQuery();
-          return 'user.id NOT IN ' + subQuery;
-        });
-      }
-
-      return qb.take(10).getRawMany();
-    } catch (err) {
-      console.error('Error in search:', err);
-      throw err;
-    }
+  ): Promise<UserSearchRow[]> {
+    return this.userRepo.searchUsers(term, excludeProjectId, organizationId);
   }
 
   async update(id: string, dto: Partial<User>): Promise<User> {
@@ -242,97 +203,15 @@ export class UsersService {
   }
 
   /** Get all users with their project memberships (scoped to organization) */
-  async findAllWithProjectMemberships(organizationId?: string): Promise<any[]> {
-    const qb = this.userRepo
-      .createQueryBuilder('user')
-      .leftJoinAndSelect('project_members', 'pm', 'pm.userId = user.id')
-      .leftJoinAndSelect('pm.project', 'project')
-      .select([
-        'user.id',
-        'user.name',
-        'user.email',
-        'user.avatarUrl',
-        'user.isActive',
-        'user.isSuperAdmin',
-        'user.defaultRole',
-        'pm.projectId',
-        'pm.roleName',
-        'project.id',
-        'project.name',
-        'project.key',
-      ]);
-
-    if (organizationId) {
-      qb.where('user.organizationId = :organizationId', { organizationId });
-    }
-
-    const rawResults = await qb.getRawMany<RawUserRow>();
-
-    // Group by user
-    interface UserMapValue {
-      id: string;
-      name: string;
-      email: string;
-      avatarUrl: string;
-      isActive: boolean;
-      isSuperAdmin: boolean;
-      defaultRole: string;
-      projectMemberships: {
-        projectId: string;
-        projectName: string | null;
-        projectKey: string | null;
-        roleName: string | null;
-      }[];
-    }
-    const usersMap = new Map<string, UserMapValue>();
-
-    for (const row of rawResults) {
-      if (!usersMap.has(row.user_id)) {
-        usersMap.set(row.user_id, {
-          id: row.user_id,
-          name: row.user_name,
-          email: row.user_email,
-          avatarUrl: row.user_avatarUrl,
-          isActive: row.user_isActive,
-          isSuperAdmin: row.user_isSuperAdmin,
-          defaultRole: row.user_defaultRole,
-          projectMemberships: [],
-        });
-      }
-
-      if (row.pm_projectId) {
-        usersMap.get(row.user_id)!.projectMemberships.push({
-          projectId: row.pm_projectId,
-          projectName: row.project_name,
-          projectKey: row.project_key,
-          roleName: row.pm_roleName,
-        });
-      }
-    }
-
-    return Array.from(usersMap.values());
+  async findAllWithProjectMemberships(
+    organizationId?: string,
+  ): Promise<UserWithMemberships[]> {
+    return this.userRepo.findAllWithMemberships(organizationId);
   }
 
   /** List all users not assigned to any project (scoped to organization) */
-  async findUnassigned(organizationId?: string): Promise<Partial<User>[]> {
-    try {
-      const qb = this.userRepo
-        .createQueryBuilder('user')
-        .leftJoin('project_members', 'pm', 'pm.userId = user.id')
-        .where('pm.userId IS NULL')
-        .select(['user.id', 'user.name', 'user.email', 'user.defaultRole']);
-
-      if (organizationId) {
-        qb.andWhere('user.organizationId = :organizationId', {
-          organizationId,
-        });
-      }
-
-      return qb.getMany();
-    } catch (err) {
-      console.error('Error in findUnassigned:', err);
-      throw err;
-    }
+  async findUnassigned(organizationId?: string): Promise<UserSearchRow[]> {
+    return this.userRepo.findUnassigned(organizationId);
   }
 
   /** Change a user's password */
@@ -351,14 +230,12 @@ export class UsersService {
       if (!valid) throw new ForbiddenException('Current password is incorrect');
     }
     // Layer 1: Password policy validation (NIST 800-63B + zxcvbn entropy)
-    const policyResult = this.passwordPolicyService.validate(
-      dto.newPassword,
-      [user.email, user.name],
-    );
+    const policyResult = this.passwordPolicyService.validate(dto.newPassword, [
+      user.email,
+      user.name,
+    ]);
     if (!policyResult.isAcceptable) {
-      throw new BadRequestException(
-        policyResult.feedback.join(' '),
-      );
+      throw new BadRequestException(policyResult.feedback.join(' '));
     }
     if (dto.newPassword !== dto.confirmNewPassword) {
       throw new BadRequestException(
