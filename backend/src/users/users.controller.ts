@@ -26,7 +26,10 @@ import { extname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from './users.service';
 import { UserSecuritySettingsService } from './user-security-settings.service';
-import { LoginHistoryService, LoginHistoryEntry } from './login-history.service';
+import {
+  LoginHistoryService,
+  LoginHistoryEntry,
+} from './login-history.service';
 import { User } from './entities/user.entity';
 import {
   CreateUserDto,
@@ -173,10 +176,7 @@ export class UsersController {
     @Request() req: AuthenticatedRequest,
     @Query() query: LoginHistoryQueryDto,
   ): Promise<ReadonlyArray<LoginHistoryEntry>> {
-    return this.loginHistoryService.getHistory(
-      req.user.userId,
-      query.limit,
-    );
+    return this.loginHistoryService.getHistory(req.user.userId, query.limit);
   }
 
   // GET /users/available (scoped to current user's organization)

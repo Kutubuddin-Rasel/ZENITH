@@ -25,13 +25,15 @@ export class Watcher {
   user: User;
 
   @Index('IDX_watcher_project')
-  @Column({ nullable: true }) projectId?: string;
+  @Column({ nullable: true })
+  projectId?: string;
   @ManyToOne(() => Project, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'projectId' })
   project?: Project;
 
   @Index('IDX_watcher_issue')
-  @Column({ nullable: true }) issueId?: string;
+  @Column({ nullable: true })
+  issueId?: string;
   @ManyToOne(() => Issue, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'issueId' })
   issue?: Issue;

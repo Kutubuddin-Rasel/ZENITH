@@ -4,7 +4,6 @@ import { UsersService } from './users.service';
 import { UserSecuritySettingsService } from './user-security-settings.service';
 import { LoginHistoryService } from './login-history.service';
 import { UsersController } from './users.controller';
-import { User } from './entities/user.entity';
 import { UserSecuritySettings } from './entities/user-security-settings.entity';
 import { LoginHistory } from './entities/login-history.entity';
 import { MembershipModule } from '../membership/membership.module';
@@ -12,7 +11,8 @@ import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, UserSecuritySettings, LoginHistory]),
+    // SOLID Refactor (Step 3): User is now exposed via @Global DatabaseModule.
+    TypeOrmModule.forFeature([UserSecuritySettings, LoginHistory]),
     MembershipModule,
     forwardRef(() => AuthModule), // For SessionsService access (circular dependency)
   ],
@@ -21,4 +21,3 @@ import { AuthModule } from '../auth/auth.module';
   exports: [UsersService, UserSecuritySettingsService, LoginHistoryService],
 })
 export class UsersModule {}
-
