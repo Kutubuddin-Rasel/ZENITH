@@ -52,8 +52,7 @@ export class UpdateOrganizationSettingsDto {
   })
   @Matches(/^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$/, {
     each: true,
-    message:
-      'Each domain must be a valid domain name (e.g., acme.com)',
+    message: 'Each domain must be a valid domain name (e.g., acme.com)',
   })
   allowedEmailDomains?: string[];
 

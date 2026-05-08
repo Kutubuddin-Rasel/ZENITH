@@ -63,9 +63,7 @@ function assertSuperAdminOfOrg(
     throw new ForbiddenException('Only Super Admins can access this resource');
   }
   if (user.organizationId !== organizationId) {
-    throw new ForbiddenException(
-      'You can only manage your own organization',
-    );
+    throw new ForbiddenException('You can only manage your own organization');
   }
 }
 
