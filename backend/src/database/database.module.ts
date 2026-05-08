@@ -1,5 +1,5 @@
-import { Module, Global, Provider } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { DynamicModule, Global, Module, Provider } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { Board } from '../boards/entities/board.entity';
@@ -7,6 +7,8 @@ import { Issue } from '../issues/entities/issue.entity';
 import { WorkLog } from '../issues/entities/work-log.entity';
 import { Project } from '../projects/entities/project.entity';
 import { User } from '../users/entities/user.entity';
+
+import { createDatabaseConfig } from './config/database.config';
 
 import { BoardRepository } from './repositories/board.repository';
 import { IssueRepository } from './repositories/issue.repository';
@@ -20,6 +22,9 @@ import { TypeOrmProjectRepository } from './repositories/typeorm/typeorm-project
 import { TypeOrmUserRepository } from './repositories/typeorm/typeorm-user.repository';
 import { TypeOrmWorkLogRepository } from './repositories/typeorm/typeorm-work-log.repository';
 
+import { PaginationService } from './services/pagination.service';
+import { QueryAnalyzerService } from './services/query-analyzer.service';
+import { QueryCacheService } from './services/query-cache.service';
 import { QueryOptimizerService } from './services/query-optimizer.service';
 
 /**
@@ -36,20 +41,65 @@ const REPOSITORY_PROVIDERS: Provider[] = [
   { provide: WorkLogRepository, useClass: TypeOrmWorkLogRepository },
 ];
 
+const SERVICE_PROVIDERS: Provider[] = [
+  QueryCacheService,
+  PaginationService,
+  QueryAnalyzerService,
+  QueryOptimizerService,
+];
+
+const EXPORTED_TOKENS = [
+  QueryCacheService,
+  PaginationService,
+  QueryAnalyzerService,
+  QueryOptimizerService,
+  BoardRepository,
+  IssueRepository,
+  ProjectRepository,
+  UserRepository,
+  WorkLogRepository,
+];
+
+/**
+ * DatabaseModule — sole owner of TypeORM bootstrap, abstract repository
+ * tokens, and query-optimization services.
+ *
+ * Use `DatabaseModule.forRoot()` exactly once at the application root to
+ * register the underlying `TypeOrmModule.forRootAsync` connection. The
+ * resulting module is `@Global`, so feature modules never need to re-import
+ * it — they receive the abstract repositories directly.
+ */
 @Global()
 @Module({
   imports: [
     ConfigModule,
     TypeOrmModule.forFeature([Board, Issue, Project, User, WorkLog]),
   ],
-  providers: [QueryOptimizerService, ...REPOSITORY_PROVIDERS],
-  exports: [
-    QueryOptimizerService,
-    BoardRepository,
-    IssueRepository,
-    ProjectRepository,
-    UserRepository,
-    WorkLogRepository,
-  ],
+  providers: [...SERVICE_PROVIDERS, ...REPOSITORY_PROVIDERS],
+  exports: EXPORTED_TOKENS,
 })
-export class DatabaseModule {}
+export class DatabaseModule {
+  /**
+   * Encapsulates the TypeORM connection bootstrap behind a single static
+   * factory. The application root simply imports `DatabaseModule.forRoot()`;
+   * the underlying `TypeOrmModule.forRootAsync` becomes an implementation
+   * detail of this module.
+   */
+  static forRoot(): DynamicModule {
+    return {
+      module: DatabaseModule,
+      global: true,
+      imports: [
+        ConfigModule,
+        TypeOrmModule.forRootAsync({
+          imports: [ConfigModule],
+          inject: [ConfigService],
+          useFactory: createDatabaseConfig,
+        }),
+        TypeOrmModule.forFeature([Board, Issue, Project, User, WorkLog]),
+      ],
+      providers: [...SERVICE_PROVIDERS, ...REPOSITORY_PROVIDERS],
+      exports: EXPORTED_TOKENS,
+    };
+  }
+}
