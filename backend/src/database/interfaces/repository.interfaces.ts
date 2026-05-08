@@ -106,9 +106,7 @@ export interface IIssueReader {
   findById(id: string): Promise<Issue | null>;
   findOne(options: FindOneOptions<Issue>): Promise<Issue | null>;
   findMany(options?: FindManyOptions<Issue>): Promise<Issue[]>;
-  findAndCount(
-    options?: FindManyOptions<Issue>,
-  ): Promise<[Issue[], number]>;
+  findAndCount(options?: FindManyOptions<Issue>): Promise<[Issue[], number]>;
   findByProject(
     projectId: string,
     options?: FindManyOptions<Issue>,
@@ -133,10 +131,7 @@ export interface IIssueReader {
 export interface IIssueWriter {
   create(data: DeepPartial<Issue>): Issue;
   save(data: DeepPartial<Issue>, options?: SaveOptions): Promise<Issue>;
-  saveMany(
-    data: DeepPartial<Issue>[],
-    options?: SaveOptions,
-  ): Promise<Issue[]>;
+  saveMany(data: DeepPartial<Issue>[], options?: SaveOptions): Promise<Issue[]>;
   update(id: string, patch: QueryDeepPartialEntity<Issue>): Promise<void>;
   remove(entity: Issue): Promise<Issue>;
 }
@@ -160,10 +155,7 @@ export interface IProjectReader {
    * All non-archived projects a given user is a member of, scoped to an
    * organization. Encapsulates the project_members join.
    */
-  findForMember(
-    userId: string,
-    organizationId: string,
-  ): Promise<Project[]>;
+  findForMember(userId: string, organizationId: string): Promise<Project[]>;
   count(where?: FindOptionsWhere<Project>): Promise<number>;
   exists(where: FindOptionsWhere<Project>): Promise<boolean>;
 }
@@ -267,10 +259,7 @@ export interface IUserReader {
 export interface IUserWriter {
   create(data: DeepPartial<User>): User;
   save(data: DeepPartial<User>, options?: SaveOptions): Promise<User>;
-  saveMany(
-    data: DeepPartial<User>[],
-    options?: SaveOptions,
-  ): Promise<User[]>;
+  saveMany(data: DeepPartial<User>[], options?: SaveOptions): Promise<User[]>;
   update(id: string, patch: QueryDeepPartialEntity<User>): Promise<void>;
   remove(entity: User): Promise<User>;
 }
@@ -293,10 +282,7 @@ export interface IBoardReader {
 export interface IBoardWriter {
   create(data: DeepPartial<Board>): Board;
   save(data: DeepPartial<Board>, options?: SaveOptions): Promise<Board>;
-  saveMany(
-    data: DeepPartial<Board>[],
-    options?: SaveOptions,
-  ): Promise<Board[]>;
+  saveMany(data: DeepPartial<Board>[], options?: SaveOptions): Promise<Board[]>;
   update(id: string, patch: QueryDeepPartialEntity<Board>): Promise<void>;
   remove(entity: Board): Promise<Board>;
 }

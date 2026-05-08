@@ -42,7 +42,5 @@ export abstract class UserRepository
   ): Promise<UserWithMemberships[]>;
 
   /** Users with NO project membership, scoped to organization. */
-  abstract findUnassigned(
-    organizationId?: string,
-  ): Promise<UserSearchRow[]>;
+  abstract findUnassigned(organizationId?: string): Promise<UserSearchRow[]>;
 }
