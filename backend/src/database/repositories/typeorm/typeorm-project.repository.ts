@@ -67,6 +67,23 @@ export class TypeOrmProjectRepository extends ProjectRepository {
     });
   }
 
+  findForMember(
+    userId: string,
+    organizationId: string,
+  ): Promise<Project[]> {
+    return this.repo
+      .createQueryBuilder('project')
+      .innerJoin(
+        'project_members',
+        'pm',
+        'pm.projectId = project.id AND pm.userId = :userId',
+        { userId },
+      )
+      .where('project.isArchived = false')
+      .andWhere('project.organizationId = :organizationId', { organizationId })
+      .getMany();
+  }
+
   count(where?: FindOptionsWhere<Project>): Promise<number> {
     return this.repo.count({ where });
   }
