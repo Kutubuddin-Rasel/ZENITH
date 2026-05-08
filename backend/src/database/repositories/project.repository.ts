@@ -28,4 +28,13 @@ export abstract class ProjectRepository
     organizationId: string,
     options?: FindManyOptions<Project>,
   ): Promise<Project[]>;
+
+  /**
+   * All non-archived projects a given user is a member of, scoped to an
+   * organization. Encapsulates the project_members join.
+   */
+  abstract findForMember(
+    userId: string,
+    organizationId: string,
+  ): Promise<Project[]>;
 }

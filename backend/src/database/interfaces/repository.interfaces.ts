@@ -5,6 +5,7 @@ import {
   FindOptionsWhere,
   SaveOptions,
 } from 'typeorm';
+import { Readable } from 'stream';
 import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 
 import { Issue } from '../../issues/entities/issue.entity';
@@ -29,6 +30,76 @@ import { Board } from '../../boards/entities/board.entity';
  */
 
 // =============================================================================
+// Shared DTO types (used by service-facing repository methods)
+// =============================================================================
+
+/** Free-text + categorical filters for list-style Issue queries. */
+export interface IssueFilters {
+  status?: string;
+  assigneeId?: string;
+  search?: string;
+  label?: string;
+  sprint?: string;
+  sort?: string;
+  includeArchived?: boolean;
+  type?: string;
+}
+
+/** Slim issue projection shaped for Kanban board rendering. */
+export interface KanbanCard {
+  id: string;
+  title: string;
+  type: string;
+  priority: string;
+  assigneeId: string | null;
+  storyPoints: number;
+  status: string;
+  statusId: string | null;
+  backlogOrder: number;
+}
+
+/** Currency-safe billable aggregate computed in NUMERIC at the DB layer. */
+export interface BillableAggregate {
+  totalMinutes: number;
+  billableMinutes: number;
+  amountCents: number;
+}
+
+/** Scope for billable aggregation queries. */
+export interface BillableScope {
+  issueId?: string;
+  projectId?: string;
+}
+
+/** Project membership reference returned alongside a user row. */
+export interface UserMembershipProjectRef {
+  projectId: string;
+  projectName: string | null;
+  projectKey: string | null;
+  roleName: string | null;
+}
+
+/** User enriched with their project memberships. */
+export interface UserWithMemberships {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string;
+  isActive: boolean;
+  isSuperAdmin: boolean;
+  defaultRole: string;
+  projectMemberships: UserMembershipProjectRef[];
+}
+
+/** Slim user row for search/list endpoints. */
+export interface UserSearchRow {
+  id: string;
+  name: string;
+  email: string;
+  defaultRole: string;
+}
+
+// =============================================================================
 // Issue
 // =============================================================================
 export interface IIssueReader {
@@ -42,6 +113,19 @@ export interface IIssueReader {
     projectId: string,
     options?: FindManyOptions<Issue>,
   ): Promise<Issue[]>;
+  /** Multi-filter list view used by the issues list endpoint. */
+  findFilteredByProject(
+    projectId: string,
+    filters?: IssueFilters,
+  ): Promise<Issue[]>;
+  /** Streaming cursor for CSV export — caller is responsible for closing. */
+  streamForExport(projectId: string): Promise<Readable>;
+  /** Status histogram for project-summary aggregation. */
+  countByStatusForProject(
+    projectId: string,
+  ): Promise<{ status: string; count: number }[]>;
+  /** Board-shaped projection of all non-archived issues in a project. */
+  findKanbanCards(projectId: string): Promise<KanbanCard[]>;
   count(where?: FindOptionsWhere<Issue>): Promise<number>;
   exists(where: FindOptionsWhere<Issue>): Promise<boolean>;
 }
@@ -71,6 +155,14 @@ export interface IProjectReader {
   findByOrganization(
     organizationId: string,
     options?: FindManyOptions<Project>,
+  ): Promise<Project[]>;
+  /**
+   * All non-archived projects a given user is a member of, scoped to an
+   * organization. Encapsulates the project_members join.
+   */
+  findForMember(
+    userId: string,
+    organizationId: string,
   ): Promise<Project[]>;
   count(where?: FindOptionsWhere<Project>): Promise<number>;
   exists(where: FindOptionsWhere<Project>): Promise<boolean>;
@@ -107,6 +199,23 @@ export interface IWorkLogReader {
     projectId: string,
     options?: FindManyOptions<WorkLog>,
   ): Promise<WorkLog[]>;
+  /** SUM(minutesSpent) for a single issue. */
+  sumMinutesByIssue(issueId: string): Promise<number>;
+  /** SUM(minutesSpent) across all issues in a project. */
+  sumMinutesByProject(projectId: string): Promise<number>;
+  /** SUM(minutesSpent) for a user, optionally bounded by date range. */
+  sumMinutesByUser(
+    userId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<number>;
+  /** SUM(minutesSpent) across issues attached to a sprint via sprint_issues. */
+  sumMinutesBySprint(sprintId: string): Promise<number>;
+  /**
+   * Currency-safe billable aggregate for an issue or project scope.
+   * `amountCents` is computed in NUMERIC at the DB layer to avoid float drift.
+   */
+  aggregateBillable(scope: BillableScope): Promise<BillableAggregate>;
   count(where?: FindOptionsWhere<WorkLog>): Promise<number>;
   exists(where: FindOptionsWhere<WorkLog>): Promise<boolean>;
 }
@@ -130,6 +239,27 @@ export interface IUserReader {
   findOne(options: FindOneOptions<User>): Promise<User | null>;
   findMany(options?: FindManyOptions<User>): Promise<User[]>;
   findByEmail(email: string): Promise<User | null>;
+  /**
+   * Lookup by emailVerificationToken with addSelect for the `select: false`
+   * column. Returns the full User entity (token included) so the caller can
+   * inspect/clear it.
+   */
+  findByVerificationToken(token: string): Promise<User | null>;
+  /**
+   * Search users by name/email ILIKE term, optionally excluding members of a
+   * specific project. Returns slim rows for autocomplete.
+   */
+  searchUsers(
+    term: string,
+    excludeProjectId?: string,
+    organizationId?: string,
+  ): Promise<UserSearchRow[]>;
+  /** Aggregated user list with project memberships, scoped to organization. */
+  findAllWithMemberships(
+    organizationId?: string,
+  ): Promise<UserWithMemberships[]>;
+  /** Users with NO project membership, scoped to organization. */
+  findUnassigned(organizationId?: string): Promise<UserSearchRow[]>;
   count(where?: FindOptionsWhere<User>): Promise<number>;
   exists(where: FindOptionsWhere<User>): Promise<boolean>;
 }
