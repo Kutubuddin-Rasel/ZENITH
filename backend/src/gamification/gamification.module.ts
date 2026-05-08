@@ -10,7 +10,11 @@ import { OnboardingGamificationListener } from './listeners/onboarding-gamificat
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Achievement, UserAchievement, AchievementProgress]),
+    TypeOrmModule.forFeature([
+      Achievement,
+      UserAchievement,
+      AchievementProgress,
+    ]),
   ],
   controllers: [GamificationController],
   providers: [

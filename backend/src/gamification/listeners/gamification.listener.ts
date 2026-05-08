@@ -143,7 +143,9 @@ export class GamificationListener {
     role: string;
     addedBy?: string;
   }) {
-    this.logger.log(`User ${payload.userId} joined project ${payload.projectId}`);
+    this.logger.log(
+      `User ${payload.userId} joined project ${payload.projectId}`,
+    );
     await this.gamificationService.unlockAchievement(
       payload.userId,
       'team-player',
