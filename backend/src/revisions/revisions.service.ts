@@ -375,9 +375,7 @@ export class RevisionsService {
     organizationId: string,
   ): Promise<ComparisonResponseDto> {
     if (revisionAId === revisionBId) {
-      throw new BadRequestException(
-        'Cannot compare a revision with itself',
-      );
+      throw new BadRequestException('Cannot compare a revision with itself');
     }
 
     await this.assertTenantAccess(type, entityId, organizationId);

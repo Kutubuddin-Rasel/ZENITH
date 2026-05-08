@@ -9,7 +9,6 @@ import { ProjectSecurityPolicyService } from './project-security-policy.service'
 import { ProjectsController } from './projects.controller';
 import { ProjectSecurityPolicyController } from './project-security-policy.controller';
 // REMOVED: MembershipModule - using ProjectCoreModule (global) for ProjectMembersService
-import { Issue } from '../issues/entities/issue.entity';
 import { InvitesModule } from '../invites/invites.module';
 import { WorkflowsModule } from '../workflows/workflows.module';
 import { ProjectGenerationProcessor } from './processors/project-generation.processor';
@@ -26,11 +25,13 @@ export const PROJECT_GENERATION_QUEUE = 'project-generation';
 
 @Module({
   imports: [
+    // SOLID Refactor (Step 3): Issue is now exposed via @Global DatabaseModule.
+    // Project remains local because TenantRepositoryFactory.create(...) still
+    // requires the concrete TypeORM `Repository<Project>`.
     TypeOrmModule.forFeature([
       Project,
       ProjectAccessSettings,
       ProjectSecurityPolicy,
-      Issue,
     ]),
     // CYCLE FIX: Mutual cycle with InvitesModule - both use forwardRef
     forwardRef(() => InvitesModule),

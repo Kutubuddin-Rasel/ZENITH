@@ -77,7 +77,9 @@ import {
  * Writable version of PurgeDeleteCounts for incremental population
  * during the cascade deletion loop.
  */
-type MutablePurgeDeleteCounts = { -readonly [K in keyof PurgeDeleteCounts]: PurgeDeleteCounts[K] };
+type MutablePurgeDeleteCounts = {
+  -readonly [K in keyof PurgeDeleteCounts]: PurgeDeleteCounts[K];
+};
 
 // =============================================================================
 // PROCESSOR
@@ -143,8 +145,7 @@ export class ProjectPurgeProcessor extends WorkerHost {
     const payload = job.data;
 
     // Allow admin overrides via job payload
-    const retentionDays =
-      payload.retentionDaysOverride ?? this.retentionDays;
+    const retentionDays = payload.retentionDaysOverride ?? this.retentionDays;
     const batchSize = payload.batchSizeOverride ?? this.batchSize;
 
     // If targeting a specific project (admin manual trigger)
@@ -800,12 +801,11 @@ export class ProjectPurgeProcessor extends WorkerHost {
 
     try {
       // Loop until a chunk deletes 0 rows (= no more matching rows)
-      // eslint-disable-next-line no-constant-condition
+
       while (true) {
-        const result = (await queryRunner.query(
-          sql,
-          [...params],
-        )) as DeleteQueryResult;
+        const result = (await queryRunner.query(sql, [
+          ...params,
+        ])) as DeleteQueryResult;
 
         const deletedInChunk = result?.rowCount ?? 0;
         totalDeleted += deletedInChunk;

@@ -15,10 +15,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { AuthenticatedRequest } from '../common/types/authenticated-request.interface';
-import {
-  StatefulCsrfGuard,
-  RequireCsrf,
-} from '../security/csrf/csrf.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
 import { TimeRangeDto } from './dto/time-range.dto';
 
 /**
