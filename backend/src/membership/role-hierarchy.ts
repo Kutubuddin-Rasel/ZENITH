@@ -74,10 +74,7 @@ export function getRoleWeight(role: ProjectRole): number {
  *   isRoleHigherOrEqual(ProjectRole.PROJECT_LEAD, ProjectRole.DEVELOPER) // true
  *   isRoleHigherOrEqual(ProjectRole.VIEWER, ProjectRole.DEVELOPER)       // false
  */
-export function isRoleHigherOrEqual(
-  a: ProjectRole,
-  b: ProjectRole,
-): boolean {
+export function isRoleHigherOrEqual(a: ProjectRole, b: ProjectRole): boolean {
   return ROLE_WEIGHT[a] >= ROLE_WEIGHT[b];
 }
 

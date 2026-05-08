@@ -11,8 +11,8 @@ import { CsrfModule } from '../security/csrf/csrf.module';
   imports: [
     TypeOrmModule.forFeature([ProjectMember]),
     EventEmitterModule.forRoot(), // EventEmitter2 DI
-    AuditLogsModule,                 // AuditLogsService DI
-    CsrfModule,                      // CsrfGuard DI for @RequireCsrf()
+    AuditLogsModule, // AuditLogsService DI
+    CsrfModule, // CsrfGuard DI for @RequireCsrf()
   ],
   providers: [ProjectMembersService],
   controllers: [ProjectMembersController],
