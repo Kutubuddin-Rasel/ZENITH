@@ -17,8 +17,12 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 import { UpdateProjectAccessSettingsDto } from './dto/update-project-access-settings.dto';
 import { ProjectMembersService } from '../membership/project-members/project-members.service';
 import { ProjectRole } from '../membership/enums/project-role.enum';
-import { Issue, IssueStatus } from '../issues/entities/issue.entity';
+import { IssueStatus } from '../issues/entities/issue.entity';
 import { Revision } from '../revisions/entities/revision.entity';
+
+// SOLID Refactor (Step 3): Depend on abstract repository tokens (DIP).
+import { IssueRepository } from '../database/repositories/issue.repository';
+import { ProjectRepository } from '../database/repositories/project.repository';
 import { InvitesService } from '../invites/invites.service';
 import { Invite } from '../invites/entities/invite.entity';
 
@@ -43,14 +47,17 @@ export class ProjectsService implements OnModuleInit {
   private tenantProjectRepo!: TenantRepository<Project>;
 
   constructor(
+    // TENANT ISOLATION: Concrete `Repository<Project>` is retained ONLY for
+    // wrapping with `TenantRepositoryFactory.create(...)`. All non-tenant
+    // project lookups go through the abstract `projects` token below (DIP).
     @InjectRepository(Project)
     private readonly projectRepo: Repository<Project>,
+    private readonly projects: ProjectRepository,
+    private readonly issues: IssueRepository,
     private readonly projectMembersService: ProjectMembersService,
     @Inject(forwardRef(() => InvitesService))
     private readonly invitesService: InvitesService,
     private readonly dataSource: DataSource,
-    @InjectRepository(Issue)
-    private readonly issueRepo: Repository<Issue>,
     @InjectRepository(ProjectAccessSettings)
     private readonly accessSettingsRepo: Repository<ProjectAccessSettings>,
     private readonly cacheService: CacheService,
@@ -85,7 +92,7 @@ export class ProjectsService implements OnModuleInit {
     // TENANT ISOLATION: Get organizationId from context
     const organizationId = this.tenantContext?.getTenantId();
 
-    const project = this.projectRepo.create({
+    const project = this.projects.create({
       name: dto.name,
       key: dto.key,
       description: dto.description,
@@ -93,7 +100,7 @@ export class ProjectsService implements OnModuleInit {
     });
     let saved: Project;
     try {
-      saved = await this.projectRepo.save(project);
+      saved = await this.projects.save(project);
     } catch {
       // Likely unique constraint violation on name or key
       throw new BadRequestException('Project name or key might already exist');
@@ -202,9 +209,7 @@ export class ProjectsService implements OnModuleInit {
     );
 
     // Update project with template metadata
-    const project = await this.projectRepo.findOne({
-      where: { id: projectId },
-    });
+    const project = await this.projects.findById(projectId);
     if (project) {
       // Store template config on the project for reference
       project.templateConfig = {
@@ -229,7 +234,7 @@ export class ProjectsService implements OnModuleInit {
           defaultStoryPointScale: [1, 2, 3, 5, 8, 13],
         },
       };
-      await this.projectRepo.save(project);
+      await this.projects.save(project);
     }
 
     // Increment template usage count
@@ -259,29 +264,14 @@ export class ProjectsService implements OnModuleInit {
       });
     }
 
-    // For all other users, show only projects they are members of.
-    // TENANT ISOLATION: tenantProjectRepo auto-filters by organizationId
-    const query = this.projectRepo
-      .createQueryBuilder('project')
-      .innerJoin(
-        'project_members',
-        'pm',
-        'pm.projectId = project.id AND pm.userId = :userId',
-        { userId },
-      )
-      .andWhere('project.isArchived = false');
-
-    // TENANT ISOLATION: Filter by organization from context
-    if (organizationId) {
-      query.andWhere('project.organizationId = :organizationId', {
-        organizationId,
-      });
-    } else {
+    // For all other users, show only projects they are members of, scoped to
+    // the current organization. The project_members join is encapsulated in
+    // the abstract repo (`findForMember`).
+    if (!organizationId) {
       // Safety: return empty if no org context (prevents data leakage)
       return [];
     }
-
-    return query.getMany();
+    return this.projects.findForMember(userId, organizationId);
   }
 
   /**
@@ -303,12 +293,13 @@ export class ProjectsService implements OnModuleInit {
       return cachedProject;
     }
 
-    // TENANT ISOLATION: Use tenant-aware repository if available
+    // TENANT ISOLATION: Use tenant-aware repository if available;
+    // otherwise fall back to the abstract Project repository (DIP).
     let project: Project | null;
     if (this.tenantProjectRepo) {
       project = await this.tenantProjectRepo.findOne({ where: { id } });
     } else {
-      project = await this.projectRepo.findOneBy({ id });
+      project = await this.projects.findById(id);
     }
 
     if (!project) {
@@ -329,11 +320,12 @@ export class ProjectsService implements OnModuleInit {
    * TENANT ISOLATION: Uses tenant-aware repository for automatic filtering.
    */
   async findByKey(key: string): Promise<Project | null> {
-    // TENANT ISOLATION: Use tenant-aware repository if available
+    // TENANT ISOLATION: Use tenant-aware repository if available; otherwise
+    // route through the abstract Project repository (DIP).
     if (this.tenantProjectRepo) {
       return this.tenantProjectRepo.findOne({ where: { key } });
     }
-    return this.projectRepo.findOneBy({ key });
+    return this.projects.findByKey(key);
   }
 
   /**
@@ -346,7 +338,7 @@ export class ProjectsService implements OnModuleInit {
     const project = await this.findOneById(projectId);
     Object.assign(project, dto);
     try {
-      const saved = await this.projectRepo.save(project);
+      const saved = await this.projects.save(project);
       // Invalidate cache
       await this.cacheService.invalidateProjectCache(projectId);
 
@@ -386,7 +378,7 @@ export class ProjectsService implements OnModuleInit {
   async archive(projectId: string): Promise<Project> {
     const project = await this.findOneById(projectId);
     project.isArchived = true;
-    const saved = await this.projectRepo.save(project);
+    const saved = await this.projects.save(project);
     // Invalidate cache
     await this.cacheService.invalidateProjectCache(projectId);
     return saved;
@@ -402,7 +394,7 @@ export class ProjectsService implements OnModuleInit {
     const projectName = project.name;
     const organizationId = project.organizationId;
 
-    await this.projectRepo.remove(project);
+    await this.projects.remove(project);
 
     // Audit: PROJECT_DELETED (Severity: HIGH)
     await this.auditLogsService.log({
@@ -449,24 +441,16 @@ export class ProjectsService implements OnModuleInit {
     try {
       // Verify project exists
       const project = await this.findOneById(projectId);
-      // Choose repository
-      const issueRepository =
-        this.issueRepo || this.dataSource.getRepository(Issue);
 
-      // Count total
-      const totalCount = await issueRepository.count({
-        where: { projectId },
+      // Count total / done via abstract repo (DIP).
+      const totalCount = await this.issues.count({ projectId });
+      const doneCount = await this.issues.count({
+        projectId,
+        status: IssueStatus.DONE,
       });
-      // Count done using the enum member:
-      const doneCount = await issueRepository.count({
-        where: { projectId, status: IssueStatus.DONE },
-      });
-      // Group by status
-      const result: { status: string; count: number }[] =
-        await this.projectRepo.query(
-          'SELECT status, COUNT(*) FROM issues WHERE "projectId" = $1 GROUP BY status',
-          [projectId],
-        );
+      // Status histogram is encapsulated in the repository (raw query lives
+      // inside the concrete TypeOrm impl, not here).
+      const result = await this.issues.countByStatusForProject(projectId);
       const statusCounts = result.reduce(
         (acc: Record<string, number>, row) => {
           acc[row.status] = Number(row.count);
@@ -505,10 +489,14 @@ export class ProjectsService implements OnModuleInit {
 
   /**
    * Get recent activity (revisions) for all entities in a project
+   *
+   * TODO (SOLID Refactor): Revision is not a Tier-1 aggregate yet — this
+   * direct DataSource access + JSONB query is intentionally left in place.
+   * When Revision is promoted to Tier-1 it will gain a `RevisionRepository`
+   * abstract token with a `findByProjectId(projectId, limit)` method.
    */
   async getProjectActivity(projectId: string, limit = 50): Promise<Revision[]> {
     const repo = this.dataSource.getRepository(Revision);
-    // Query all revisions where the snapshot contains the projectId
     return repo
       .createQueryBuilder('revision')
       .where(`revision.snapshot::jsonb ->> 'projectId' = :projectId`, {
