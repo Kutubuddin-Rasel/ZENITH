@@ -56,7 +56,7 @@ export class SatisfactionService {
     private metricRepo: Repository<SatisfactionMetric>,
     @InjectRepository(SatisfactionSurvey)
     private surveyRepo: Repository<SatisfactionSurvey>,
-  ) { }
+  ) {}
 
   async trackMetric(
     userId: string,
@@ -245,9 +245,7 @@ export class SatisfactionService {
 
     // Industry-standard NPS formula
     const nps =
-      Math.round(
-        ((promoters - detractors) / totalResponses) * 100 * 10,
-      ) / 10;
+      Math.round(((promoters - detractors) / totalResponses) * 100 * 10) / 10;
 
     this.logger.debug(
       `NPS for org ${orgId}: ${nps} (P=${promoters} Pa=${passives} D=${detractors} T=${totalResponses})`,
@@ -328,8 +326,7 @@ export class SatisfactionService {
 
     return rows.map((row) => ({
       type: row.type,
-      averageScore:
-        Math.round(parseFloat(row.averageScore || '0') * 100) / 100,
+      averageScore: Math.round(parseFloat(row.averageScore || '0') * 100) / 100,
       responseCount: parseInt(row.responseCount, 10),
     }));
   }

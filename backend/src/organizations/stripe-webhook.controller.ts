@@ -50,9 +50,7 @@ interface RawBodyRequest extends Request {
 
 @Controller('organizations')
 export class StripeWebhookController {
-  constructor(
-    private readonly stripeWebhookService: StripeWebhookService,
-  ) {}
+  constructor(private readonly stripeWebhookService: StripeWebhookService) {}
 
   /**
    * POST /organizations/webhook/stripe

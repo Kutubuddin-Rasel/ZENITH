@@ -197,9 +197,7 @@ export class StripeWebhookService {
       // Mark as processed AFTER successful handling
       await this.markEventProcessed(event.id);
 
-      this.logger.log(
-        `Stripe event processed: ${event.type} (${event.id})`,
-      );
+      this.logger.log(`Stripe event processed: ${event.type} (${event.id})`);
 
       return {
         received: true,
@@ -230,38 +228,23 @@ export class StripeWebhookService {
   private async dispatchEvent(event: Stripe.Event): Promise<void> {
     switch (event.type) {
       case 'customer.subscription.updated':
-        await this.handleSubscriptionUpdated(
-          event.data.object as Stripe.Subscription,
-          event.id,
-        );
+        await this.handleSubscriptionUpdated(event.data.object, event.id);
         break;
 
       case 'customer.subscription.deleted':
-        await this.handleSubscriptionDeleted(
-          event.data.object as Stripe.Subscription,
-          event.id,
-        );
+        await this.handleSubscriptionDeleted(event.data.object, event.id);
         break;
 
       case 'invoice.payment_succeeded':
-        await this.handlePaymentSucceeded(
-          event.data.object as Stripe.Invoice,
-          event.id,
-        );
+        await this.handlePaymentSucceeded(event.data.object, event.id);
         break;
 
       case 'invoice.payment_failed':
-        await this.handlePaymentFailed(
-          event.data.object as Stripe.Invoice,
-          event.id,
-        );
+        await this.handlePaymentFailed(event.data.object, event.id);
         break;
 
       case 'checkout.session.completed':
-        await this.handleCheckoutCompleted(
-          event.data.object as Stripe.Checkout.Session,
-          event.id,
-        );
+        await this.handleCheckoutCompleted(event.data.object, event.id);
         break;
     }
   }
@@ -344,9 +327,7 @@ export class StripeWebhookService {
       },
     });
 
-    this.logger.warn(
-      `Subscription CANCELLED for org ${org.id} (${org.name})`,
-    );
+    this.logger.warn(`Subscription CANCELLED for org ${org.id} (${org.name})`);
   }
 
   /**
@@ -490,8 +471,7 @@ export class StripeWebhookService {
       return null;
     }
 
-    const customerId =
-      typeof customer === 'string' ? customer : customer.id;
+    const customerId = typeof customer === 'string' ? customer : customer.id;
 
     const org = await this.orgRepo.findOne({
       where: { stripeCustomerId: customerId },
@@ -546,9 +526,7 @@ export class StripeWebhookService {
    */
   private async isEventProcessed(eventId: string): Promise<boolean> {
     try {
-      return this.cacheService.exists(
-        `${STRIPE_EVENT_KEY_PREFIX}${eventId}`,
-      );
+      return this.cacheService.exists(`${STRIPE_EVENT_KEY_PREFIX}${eventId}`);
     } catch {
       // Fail-open: if Redis is down, process the event
       // (idempotent handlers should be safe to reprocess)
@@ -569,11 +547,9 @@ export class StripeWebhookService {
    */
   private async markEventProcessed(eventId: string): Promise<void> {
     try {
-      await this.cacheService.set(
-        `${STRIPE_EVENT_KEY_PREFIX}${eventId}`,
-        '1',
-        { ttl: STRIPE_EVENT_IDEMPOTENCY_TTL_SECONDS },
-      );
+      await this.cacheService.set(`${STRIPE_EVENT_KEY_PREFIX}${eventId}`, '1', {
+        ttl: STRIPE_EVENT_IDEMPOTENCY_TTL_SECONDS,
+      });
     } catch {
       // Non-fatal: worst case, the event gets processed again (idempotent)
       this.logger.warn(
