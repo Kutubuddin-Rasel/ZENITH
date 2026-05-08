@@ -11,8 +11,28 @@ import {
 import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 
 import { WorkLog } from '../../../issues/entities/work-log.entity';
+import {
+  BillableAggregate,
+  BillableScope,
+} from '../../interfaces/repository.interfaces';
 import { WorkLogRepository } from '../work-log.repository';
 import { mergeWhere } from './where-merge.helper';
+
+interface RawSumRow {
+  total: string | number | null;
+}
+
+interface RawBillableRow {
+  totalMinutes: string | number | null;
+  billableMinutes: string | number | null;
+  amountCents: string | number | null;
+}
+
+function toNum(value: string | number | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  const n = typeof value === 'string' ? Number(value) : value;
+  return Number.isFinite(n) ? n : 0;
+}
 
 /**
  * TypeORM-backed WorkLog repository.
@@ -76,6 +96,80 @@ export class TypeOrmWorkLogRepository extends WorkLogRepository {
       ...options,
       where: mergeWhere<WorkLog>(options?.where, { projectId }),
     });
+  }
+
+  async sumMinutesByIssue(issueId: string): Promise<number> {
+    const raw = await this.repo
+      .createQueryBuilder('wl')
+      .select('COALESCE(SUM(wl.minutesSpent), 0)', 'total')
+      .where('wl.issueId = :issueId', { issueId })
+      .getRawOne<RawSumRow>();
+    return toNum(raw?.total);
+  }
+
+  async sumMinutesByProject(projectId: string): Promise<number> {
+    const raw = await this.repo
+      .createQueryBuilder('wl')
+      .select('COALESCE(SUM(wl.minutesSpent), 0)', 'total')
+      .where('wl.projectId = :projectId', { projectId })
+      .getRawOne<RawSumRow>();
+    return toNum(raw?.total);
+  }
+
+  async sumMinutesByUser(
+    userId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<number> {
+    const qb = this.repo
+      .createQueryBuilder('wl')
+      .select('COALESCE(SUM(wl.minutesSpent), 0)', 'total')
+      .where('wl.userId = :userId', { userId });
+    if (startDate) {
+      qb.andWhere('wl.createdAt >= :startDate', { startDate });
+    }
+    if (endDate) {
+      qb.andWhere('wl.createdAt <= :endDate', { endDate });
+    }
+    const raw = await qb.getRawOne<RawSumRow>();
+    return toNum(raw?.total);
+  }
+
+  async sumMinutesBySprint(sprintId: string): Promise<number> {
+    const raw = await this.repo
+      .createQueryBuilder('wl')
+      .innerJoin('sprint_issues', 'si', 'si.issueId = wl.issueId')
+      .select('COALESCE(SUM(wl.minutesSpent), 0)', 'total')
+      .where('si.sprintId = :sprintId', { sprintId })
+      .getRawOne<RawSumRow>();
+    return toNum(raw?.total);
+  }
+
+  async aggregateBillable(
+    scope: BillableScope,
+  ): Promise<BillableAggregate> {
+    const qb = this.repo
+      .createQueryBuilder('wl')
+      .select('COALESCE(SUM(wl.minutesSpent), 0)', 'totalMinutes')
+      .addSelect(
+        'COALESCE(SUM(CASE WHEN wl.billable = true THEN wl.minutesSpent ELSE 0 END), 0)',
+        'billableMinutes',
+      )
+      .addSelect(
+        'COALESCE(ROUND(SUM(CASE WHEN wl.billable = true AND wl.hourlyRate IS NOT NULL THEN wl.minutesSpent * wl.hourlyRate ELSE 0 END) * 100.0 / 60), 0)',
+        'amountCents',
+      );
+    if (scope.issueId) {
+      qb.where('wl.issueId = :issueId', { issueId: scope.issueId });
+    } else if (scope.projectId) {
+      qb.where('wl.projectId = :projectId', { projectId: scope.projectId });
+    }
+    const raw = await qb.getRawOne<RawBillableRow>();
+    return {
+      totalMinutes: toNum(raw?.totalMinutes),
+      billableMinutes: toNum(raw?.billableMinutes),
+      amountCents: toNum(raw?.amountCents),
+    };
   }
 
   count(where?: FindOptionsWhere<WorkLog>): Promise<number> {
