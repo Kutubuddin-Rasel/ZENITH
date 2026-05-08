@@ -137,10 +137,7 @@ export class LoginHistoryService {
     userId: string,
     limit: number = DEFAULT_HISTORY_LIMIT,
   ): Promise<ReadonlyArray<LoginHistoryEntry>> {
-    const clampedLimit = Math.min(
-      Math.max(1, limit),
-      MAX_HISTORY_LIMIT,
-    );
+    const clampedLimit = Math.min(Math.max(1, limit), MAX_HISTORY_LIMIT);
 
     const entries = await this.loginHistoryRepo.find({
       where: { userId },
