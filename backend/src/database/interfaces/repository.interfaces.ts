@@ -67,7 +67,7 @@ export interface IProjectReader {
   findAndCount(
     options?: FindManyOptions<Project>,
   ): Promise<[Project[], number]>;
-  findBySlug(slug: string): Promise<Project | null>;
+  findByKey(key: string): Promise<Project | null>;
   findByOrganization(
     organizationId: string,
     options?: FindManyOptions<Project>,
