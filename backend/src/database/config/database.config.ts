@@ -1,6 +1,9 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
+import { DataSource, DataSourceOptions } from 'typeorm';
+import * as dotenv from 'dotenv';
 import * as fs from 'fs';
+import { join } from 'path';
 
 /**
  * Build SSL configuration for PostgreSQL connection.
@@ -311,3 +314,38 @@ export const createDatabaseConfig = (
 
 // Redis configuration moved to `backend/src/cache/config/cache.config.ts`
 // (SOLID/SRP: this module is responsible for PostgreSQL/TypeORM only).
+
+// =============================================================================
+// CLI DataSource (Step 5 — Bootstrap Consolidation)
+//
+// Single source of truth: the TypeORM CLI (migration:run/generate/revert) and
+// the running application both derive their connection options from
+// `createDatabaseConfig`. Previously a sibling `database-source.ts` duplicated
+// this logic with hard-coded process.env reads — that file has been deleted.
+// =============================================================================
+
+// `dotenv.config` is idempotent and safe to call multiple times — it does not
+// override values already present in process.env, so the running app (which
+// loads .env in main.ts) is unaffected.
+dotenv.config({ path: join(__dirname, '../../../.env') });
+
+/**
+ * Strip NestJS-only fields from `TypeOrmModuleOptions` so the result is a
+ * pure `DataSourceOptions` accepted by `new DataSource(...)`.
+ */
+function toDataSourceOptions(options: TypeOrmModuleOptions): DataSourceOptions {
+  const { autoLoadEntities: _autoLoadEntities, ...rest } =
+    options as TypeOrmModuleOptions & { autoLoadEntities?: boolean };
+  return rest as DataSourceOptions;
+}
+
+/**
+ * `AppDataSource` — used exclusively by the TypeORM CLI for migrations.
+ *
+ * Construction is cheap: `new DataSource(...)` does NOT open a connection;
+ * the CLI calls `.initialize()` itself. Using the same factory as the
+ * NestJS app guarantees CLI/runtime parity (SSL, replication, pool sizing).
+ */
+export const AppDataSource = new DataSource(
+  toDataSourceOptions(createDatabaseConfig(new ConfigService())),
+);
