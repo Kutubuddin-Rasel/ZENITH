@@ -1,9 +1,4 @@
-import {
-  Entity,
-  Column,
-  PrimaryColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Entity, Column, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 import { OnboardingStep } from './onboarding-progress.entity';
 
 @Entity({ name: 'onboarding_analytics' })

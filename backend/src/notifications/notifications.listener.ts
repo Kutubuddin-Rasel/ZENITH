@@ -70,16 +70,15 @@ export class NotificationsListener {
       const inviteeId = payload.invite.inviteeId;
 
       // First, try to delete notifications by context
-      await this.notificationsService.deleteByContext(
-        inviteeId,
-        { projectId: payload.project?.id ?? '', inviteId: payload.invite.id },
-      );
+      await this.notificationsService.deleteByContext(inviteeId, {
+        projectId: payload.project?.id ?? '',
+        inviteId: payload.invite.id,
+      });
 
       // Second, try to delete by inviteId only (in case projectId doesn't match)
-      await this.notificationsService.deleteByContext(
-        inviteeId,
-        { inviteId: payload.invite.id },
-      );
+      await this.notificationsService.deleteByContext(inviteeId, {
+        inviteId: payload.invite.id,
+      });
 
       // Third, try to delete by message content for this specific project
       const projectName = payload.project?.name ?? '';

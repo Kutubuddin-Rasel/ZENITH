@@ -24,8 +24,8 @@ import { CacheModule } from '../cache/cache.module';
     UsersModule,
     MembershipModule,
     EmailModule,
-    CsrfModule,       // CsrfGuard DI resolution
-    CacheModule,       // Redis for webhook idempotency
+    CsrfModule, // CsrfGuard DI resolution
+    CacheModule, // Redis for webhook idempotency
   ],
   providers: [
     OrganizationsService,

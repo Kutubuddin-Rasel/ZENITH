@@ -77,9 +77,7 @@ export class ProjectMembersController {
    */
   @RequirePermission('members:view')
   @Get()
-  async list(
-    @Param('projectId') projectId: string,
-  ): Promise<ProjectMember[]> {
+  async list(@Param('projectId') projectId: string): Promise<ProjectMember[]> {
     return this.pmService.listMembers(projectId);
   }
 

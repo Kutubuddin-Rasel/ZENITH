@@ -129,7 +129,12 @@ export class ProjectMembersService {
         });
 
         // Event: member.role_changed
-        this.emitMemberRoleChanged({ projectId, userId, oldRole, newRole: roleName });
+        this.emitMemberRoleChanged({
+          projectId,
+          userId,
+          oldRole,
+          newRole: roleName,
+        });
 
         return updated;
       }
@@ -421,7 +426,7 @@ export class ProjectMembersService {
    */
   private getActorId(): string {
     try {
-      return (this.cls.get('userId') as string) || 'system';
+      return this.cls.get('userId') || 'system';
     } catch {
       return 'system';
     }
