@@ -12,9 +12,7 @@ interface BillableScopeWithCurrency extends BillableScope {
 
 @Injectable()
 export class BillableTimeService {
-  constructor(
-    private readonly workLogs: WorkLogRepository,
-  ) {}
+  constructor(private readonly workLogs: WorkLogRepository) {}
 
   async calculateBillableAmount(
     scope: BillableScopeWithCurrency,
