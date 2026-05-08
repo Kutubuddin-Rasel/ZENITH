@@ -246,7 +246,10 @@ export class InvitesService {
     defaultRole: string;
     expiresInHours?: number;
     invites: Array<{ inviteeId?: string; email?: string; role?: string }>;
-  }): Promise<{ created: Invite[]; failed: Array<{ index: number; reason: string }> }> {
+  }): Promise<{
+    created: Invite[];
+    failed: Array<{ index: number; reason: string }>;
+  }> {
     const { projectId, inviterId, defaultRole, expiresInHours, invites } = data;
     const created: Invite[] = [];
     const failed: Array<{ index: number; reason: string }> = [];
@@ -274,25 +277,42 @@ export class InvitesService {
               resolvedInviteeEmail = entry.email;
             }
           } else {
-            failed.push({ index: i, reason: 'Either inviteeId or email must be provided' });
+            failed.push({
+              index: i,
+              reason: 'Either inviteeId or email must be provided',
+            });
             continue;
           }
 
           // Duplicate-invite guard within transaction scope
           if (resolvedInviteeId) {
             const existing = await queryRunner.manager.findOne(Invite, {
-              where: { projectId, inviteeId: resolvedInviteeId, status: InviteStatus.Pending },
+              where: {
+                projectId,
+                inviteeId: resolvedInviteeId,
+                status: InviteStatus.Pending,
+              },
             });
             if (existing) {
-              failed.push({ index: i, reason: 'Active invite already exists for this user/project' });
+              failed.push({
+                index: i,
+                reason: 'Active invite already exists for this user/project',
+              });
               continue;
             }
           } else if (resolvedInviteeEmail) {
             const existing = await queryRunner.manager.findOne(Invite, {
-              where: { projectId, inviteeEmail: resolvedInviteeEmail, status: InviteStatus.Pending },
+              where: {
+                projectId,
+                inviteeEmail: resolvedInviteeEmail,
+                status: InviteStatus.Pending,
+              },
             });
             if (existing) {
-              failed.push({ index: i, reason: 'Active invite already exists for this email/project' });
+              failed.push({
+                index: i,
+                reason: 'Active invite already exists for this email/project',
+              });
               continue;
             }
           }
@@ -314,7 +334,8 @@ export class InvitesService {
           const saved = await queryRunner.manager.save(invite);
           created.push(saved);
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'Unknown error';
+          const message =
+            error instanceof Error ? error.message : 'Unknown error';
           failed.push({ index: i, reason: message });
         }
       }

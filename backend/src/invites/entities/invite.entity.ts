@@ -13,7 +13,11 @@ import { InviteStatus } from '../enums/invite-status.enum';
 // import { Project } from '../../projects/entities/project.entity';
 
 @Entity({ name: 'invites' })
-@Index('IDX_invites_project_email_status', ['projectId', 'inviteeEmail', 'status'])
+@Index('IDX_invites_project_email_status', [
+  'projectId',
+  'inviteeEmail',
+  'status',
+])
 export class Invite {
   @PrimaryGeneratedColumn('uuid')
   id: string;
