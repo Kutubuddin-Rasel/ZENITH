@@ -53,9 +53,7 @@ export class TypeOrmIssueRepository extends IssueRepository {
     return this.repo.find(options);
   }
 
-  findAndCount(
-    options?: FindManyOptions<Issue>,
-  ): Promise<[Issue[], number]> {
+  findAndCount(options?: FindManyOptions<Issue>): Promise<[Issue[], number]> {
     return this.repo.findAndCount(options);
   }
 

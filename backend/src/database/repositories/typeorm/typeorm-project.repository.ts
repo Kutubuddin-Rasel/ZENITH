@@ -67,10 +67,7 @@ export class TypeOrmProjectRepository extends ProjectRepository {
     });
   }
 
-  findForMember(
-    userId: string,
-    organizationId: string,
-  ): Promise<Project[]> {
+  findForMember(userId: string, organizationId: string): Promise<Project[]> {
     return this.repo
       .createQueryBuilder('project')
       .innerJoin(
@@ -96,10 +93,7 @@ export class TypeOrmProjectRepository extends ProjectRepository {
     return this.repo.create(data);
   }
 
-  save(
-    data: DeepPartial<Project>,
-    options?: SaveOptions,
-  ): Promise<Project> {
+  save(data: DeepPartial<Project>, options?: SaveOptions): Promise<Project> {
     return this.repo.save(data, options);
   }
 

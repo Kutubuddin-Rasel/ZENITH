@@ -42,9 +42,7 @@ export class TypeOrmBoardRepository extends BoardRepository {
     return this.repo.find(options);
   }
 
-  findAndCount(
-    options?: FindManyOptions<Board>,
-  ): Promise<[Board[], number]> {
+  findAndCount(options?: FindManyOptions<Board>): Promise<[Board[], number]> {
     return this.repo.findAndCount(options);
   }
 
