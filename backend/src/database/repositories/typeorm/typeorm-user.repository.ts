@@ -63,9 +63,7 @@ export class TypeOrmUserRepository extends UserRepository {
     return this.repo.find(options);
   }
 
-  findAndCount(
-    options?: FindManyOptions<User>,
-  ): Promise<[User[], number]> {
+  findAndCount(options?: FindManyOptions<User>): Promise<[User[], number]> {
     return this.repo.findAndCount(options);
   }
 
@@ -184,9 +182,7 @@ export class TypeOrmUserRepository extends UserRepository {
     return Array.from(usersMap.values());
   }
 
-  async findUnassigned(
-    organizationId?: string,
-  ): Promise<UserSearchRow[]> {
+  async findUnassigned(organizationId?: string): Promise<UserSearchRow[]> {
     const qb = this.repo
       .createQueryBuilder('user')
       .leftJoin('project_members', 'pm', 'pm.userId = user.id')
@@ -224,17 +220,11 @@ export class TypeOrmUserRepository extends UserRepository {
     return this.repo.save(data, options);
   }
 
-  saveMany(
-    data: DeepPartial<User>[],
-    options?: SaveOptions,
-  ): Promise<User[]> {
+  saveMany(data: DeepPartial<User>[], options?: SaveOptions): Promise<User[]> {
     return this.repo.save(data, options);
   }
 
-  async update(
-    id: string,
-    patch: QueryDeepPartialEntity<User>,
-  ): Promise<void> {
+  async update(id: string, patch: QueryDeepPartialEntity<User>): Promise<void> {
     await this.repo.update(id, patch);
   }
 

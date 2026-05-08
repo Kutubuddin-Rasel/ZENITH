@@ -145,9 +145,7 @@ export class TypeOrmWorkLogRepository extends WorkLogRepository {
     return toNum(raw?.total);
   }
 
-  async aggregateBillable(
-    scope: BillableScope,
-  ): Promise<BillableAggregate> {
+  async aggregateBillable(scope: BillableScope): Promise<BillableAggregate> {
     const qb = this.repo
       .createQueryBuilder('wl')
       .select('COALESCE(SUM(wl.minutesSpent), 0)', 'totalMinutes')
@@ -184,10 +182,7 @@ export class TypeOrmWorkLogRepository extends WorkLogRepository {
     return this.repo.create(data);
   }
 
-  save(
-    data: DeepPartial<WorkLog>,
-    options?: SaveOptions,
-  ): Promise<WorkLog> {
+  save(data: DeepPartial<WorkLog>, options?: SaveOptions): Promise<WorkLog> {
     return this.repo.save(data, options);
   }
 
