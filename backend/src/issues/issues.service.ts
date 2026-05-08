@@ -1366,9 +1366,7 @@ export class WorkLogsService {
     return toAggregationResult({ total });
   }
 
-  async getTotalTimeBySprint(
-    sprintId: string,
-  ): Promise<TimeAggregationResult> {
+  async getTotalTimeBySprint(sprintId: string): Promise<TimeAggregationResult> {
     const total = await this.workLogRepo.sumMinutesBySprint(sprintId);
     return toAggregationResult({ total });
   }
