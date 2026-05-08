@@ -6,10 +6,7 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { Repository } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
-import { Brackets } from 'typeorm';
 import * as argon2 from 'argon2';
 import { ChangePasswordDto } from './dto/create-user.dto';
 import { AuditLogsService } from '../audit/audit-logs.service';
@@ -19,26 +16,17 @@ import { SessionsService } from '../auth/sessions.service';
 import { PasswordBreachService } from '../auth/services/password-breach.service';
 import { PasswordPolicyService } from '../auth/services/password-policy.service';
 
-interface RawUserRow {
-  user_id: string;
-  user_name: string;
-  user_email: string;
-  user_avatarUrl: string;
-  user_isActive: boolean;
-  user_isSuperAdmin: boolean;
-  user_defaultRole: string;
-  pm_projectId: string | null;
-  pm_roleName: string | null;
-  project_id: string | null;
-  project_name: string | null;
-  project_key: string | null;
-}
+// SOLID Refactor (Step 3): Depend on the abstract User repository token (DIP).
+import { UserRepository } from '../database/repositories/user.repository';
+import {
+  UserSearchRow,
+  UserWithMemberships,
+} from '../database/interfaces/repository.interfaces';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
+    private readonly userRepo: UserRepository,
     private readonly auditLogsService: AuditLogsService,
     private readonly cls: ClsService,
     @Inject(forwardRef(() => SessionsService))

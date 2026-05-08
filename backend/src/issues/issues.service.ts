@@ -9,11 +9,11 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityNotFoundError, Repository } from 'typeorm';
 import {
   Issue,
-  IssueStatus,
   IssuePriority,
+  IssueStatus,
   IssueType,
 } from './entities/issue.entity';
 import { IssueLink, LinkType } from './entities/issue-link.entity';
@@ -25,7 +25,6 @@ import { Project } from '../projects/entities/project.entity';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import { UsersService } from '../users/users.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { WorkLog } from './entities/work-log.entity';
 import {
   TimeAggregationResult,
   toAggregationResult,
@@ -38,10 +37,15 @@ import { WorkflowStatusesService } from '../workflows/services/workflow-statuses
 // TENANT ISOLATION: Import tenant repository factory
 import { TenantRepositoryFactory, TenantRepository } from '../core/tenant';
 import { BoardGateway } from '../gateways/board.gateway';
-import { Board } from '../boards/entities/board.entity';
 import { EventFactory } from '../common/events/event.factory';
 import { AuditLogsService } from '../audit/audit-logs.service';
 import { v4 as uuidv4 } from 'uuid';
+
+// SOLID Refactor (Step 3): Depend on abstract repository tokens (DIP).
+import { BoardRepository } from '../database/repositories/board.repository';
+import { IssueRepository } from '../database/repositories/issue.repository';
+import { ProjectRepository } from '../database/repositories/project.repository';
+import { WorkLogRepository } from '../database/repositories/work-log.repository';
 
 @Injectable()
 export class IssuesService implements OnModuleInit {
@@ -49,17 +53,21 @@ export class IssuesService implements OnModuleInit {
   private tenantProjectRepo!: TenantRepository<Project>;
 
   constructor(
-    @InjectRepository(Issue)
-    private readonly issueRepo: Repository<Issue>,
+    // SOLID DIP: depend on abstract repository tokens.
+    private readonly issueRepo: IssueRepository,
     @InjectRepository(IssueLink)
     private readonly issueLinkRepo: Repository<IssueLink>,
+    // TENANT ISOLATION: Concrete `Repository<Project>` is retained ONLY for
+    // wrapping with `TenantRepositoryFactory.create(...)` (which requires the
+    // concrete TypeORM repo). All non-tenant project lookups go through the
+    // abstract `ProjectRepository` below.
     @InjectRepository(Project)
     private readonly projectRepo: Repository<Project>,
+    private readonly projects: ProjectRepository,
     private readonly projectMembersService: ProjectMembersService,
     private readonly usersService: UsersService,
     private readonly eventEmitter: EventEmitter2,
-    @InjectRepository(WorkLog)
-    private workLogRepo: Repository<WorkLog>,
+    private readonly workLogRepo: WorkLogRepository,
     private readonly cacheService: CacheService,
     private readonly transitionsService: WorkflowTransitionsService,
     private readonly workflowStatusesService: WorkflowStatusesService,
@@ -67,9 +75,10 @@ export class IssuesService implements OnModuleInit {
     private readonly tenantRepoFactory: TenantRepositoryFactory,
     // REAL-TIME: Inject Gateway and Board Repo for broadcasting
     private readonly boardGateway: BoardGateway,
-    @InjectRepository(Board)
-    private readonly boardRepo: Repository<Board>,
+    private readonly boardRepo: BoardRepository,
     private readonly auditLogsService: AuditLogsService,
+    // Required for the multi-step move transaction (replaces `issueRepo.manager.transaction`).
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -101,10 +110,7 @@ export class IssuesService implements OnModuleInit {
   ): Promise<Issue & { key: string }> {
     let key = projectKey;
     if (!key) {
-      // REFACTORED: Direct repository query instead of ProjectsService
-      const project = await this.projectRepo.findOne({
-        where: { id: issue.projectId },
-      });
+      const project = await this.projects.findById(issue.projectId);
       key = project?.key || '';
     }
     return {
@@ -280,115 +286,7 @@ export class IssuesService implements OnModuleInit {
     });
     if (!project) throw new NotFoundException('Project not found');
 
-    const qb = this.issueRepo
-      .createQueryBuilder('issue')
-      .leftJoinAndSelect('issue.assignee', 'assignee') // Only users have assignee
-      // Note: Sprint relation is managed via sprint_issues join table, not direct relation
-      // .leftJoinAndSelect('issue.labels', 'labels')
-      .where('issue.project.id = :projectId', { projectId });
-
-    // Note: Organization access is already validated via projectsService.findOneById above
-
-    // Filter archived issues unless explicitly requested
-    if (!filters?.includeArchived) {
-      qb.andWhere('issue.isArchived = :isArchived', { isArchived: false });
-    }
-
-    if (filters) {
-      if (filters.status) {
-        qb.andWhere('issue.status = :status', { status: filters.status });
-      }
-      if (filters.assigneeId) {
-        qb.andWhere('assignee.id = :assigneeId', {
-          assigneeId: filters.assigneeId,
-        });
-      }
-      if (filters.type) {
-        qb.andWhere('issue.type = :type', { type: filters.type });
-      }
-      if (filters.search) {
-        qb.andWhere(
-          '(issue.title ILIKE :search OR issue.description ILIKE :search)',
-          { search: `% ${filters.search}% ` },
-        );
-      }
-      if (filters.label) {
-        // Assuming labels are storing in simple-array 'labels' column
-        // For array column in Postgres, use array operators
-        // qb.andWhere(':label = ANY(issue.labels)', { label: filters.label });
-        // BUT current entity uses simple-array which is comma-separated string in DB (usually)
-        // or just array in TypeORM logic but string in DB.
-        // If simple-array, it's a string like "label1,label2".
-        // Use LIKE for simple-array
-        qb.andWhere('issue.labels ILIKE :label', {
-          label: `% ${filters.label}% `,
-        });
-      }
-      // Sprint filter - uses sprint_issues join table
-      if (filters.sprint) {
-        if (filters.sprint === 'null') {
-          // Issues NOT in any sprint
-          // Left join sprint_issues and check for NULL
-          qb.leftJoin('sprint_issues', 'si_null', 'si_null.issueId = issue.id');
-          qb.andWhere('si_null.id IS NULL');
-        } else {
-          // Issues in a specific sprint
-          // Inner join to filter
-          qb.innerJoin('sprint_issues', 'si', 'si.issueId = issue.id');
-          qb.andWhere('si.sprintId = :sprintId', { sprintId: filters.sprint });
-        }
-      }
-
-      // Sorting
-      if (filters.sort) {
-        if (filters.sort === 'updatedAt') {
-          qb.orderBy('issue.updatedAt', 'DESC');
-        } else if (filters.sort === 'priority') {
-          qb.addOrderBy(
-            `CASE 
-          WHEN issue.priority = 'Highest' THEN 5
-          WHEN issue.priority = 'High' THEN 4
-          WHEN issue.priority = 'Medium' THEN 3
-          WHEN issue.priority = 'Low' THEN 2
-          WHEN issue.priority = 'Lowest' THEN 1
-          ELSE 0 END`,
-            'DESC',
-          );
-          qb.addOrderBy('issue.createdAt', 'DESC'); // secondary sort
-        } else {
-          qb.orderBy('issue.createdAt', 'DESC');
-        }
-      } else {
-        qb.orderBy('issue.createdAt', 'DESC');
-      }
-    }
-
-    // OPTIMIZED: Only load essential columns for list view
-    qb.select([
-      'issue.id',
-      'issue.projectId',
-      'issue.number',
-      'issue.title',
-      'issue.status',
-      'issue.statusId', // FIX: Include statusId for relational status filtering
-      'issue.priority',
-      'issue.type',
-      'issue.assigneeId',
-      'issue.reporterId',
-      'issue.storyPoints',
-      'issue.createdAt',
-      'issue.updatedAt',
-      'issue.labels',
-      // User relations (names only)
-      'assignee.id',
-      'assignee.name',
-      'assignee.email',
-    ]);
-
-    qb.leftJoinAndSelect('issue.reporter', 'reporter'); // Keep reporter join for selection
-    qb.addSelect(['reporter.id', 'reporter.name', 'reporter.email']); // Add reporter fields to select
-
-    return qb.getMany();
+    return this.issueRepo.findFilteredByProject(projectId, filters);
   }
 
   /** Get one issue (no notification) */
@@ -904,8 +802,9 @@ export class IssuesService implements OnModuleInit {
       });
     }
 
-    // Use transaction for atomic updates
-    const result = await this.issueRepo.manager.transaction(async (manager) => {
+    // Use transaction for atomic updates (DataSource-driven; abstract repo
+    // intentionally exposes no manager surface — DIP).
+    const result = await this.dataSource.transaction(async (manager) => {
       // 1. Handle Status change (Board column move)
       if (dto.targetStatusId) {
         const newStatus = await this.workflowStatusesService.findById(
@@ -985,7 +884,7 @@ export class IssuesService implements OnModuleInit {
     payload: any,
   ) {
     try {
-      const boards = await this.boardRepo.find({ where: { projectId } });
+      const boards = await this.boardRepo.findByProject(projectId);
       for (const board of boards) {
         this.boardGateway.server.to(`board:${board.id}`).emit(event, payload);
       }
@@ -1118,7 +1017,7 @@ export class IssuesService implements OnModuleInit {
   ): Promise<NodeJS.ReadableStream> {
     // Validate project belongs to organization
     if (organizationId) {
-      const project = await this.projectRepo.findOne({
+      const project = await this.projects.findOne({
         where: { id: projectId, organizationId },
       });
       if (!project) throw new NotFoundException('Project not found');
@@ -1132,33 +1031,7 @@ export class IssuesService implements OnModuleInit {
       throw new ForbiddenException('You are not a member of this project');
     }
 
-    const qb = this.issueRepo.createQueryBuilder('issue');
-    qb.where('issue.projectId = :projectId', { projectId });
-    qb.orderBy('issue.createdAt', 'DESC');
-
-    // Select specific fields for export to keep it clean and performant
-    qb.select([
-      'issue.id AS issue_id',
-      'issue.title AS issue_title',
-      'issue.description AS issue_description',
-      'issue.status AS issue_status',
-      'issue.priority AS issue_priority',
-      'issue.type AS issue_type',
-      'issue.storyPoints AS issue_storyPoints',
-      'issue.createdAt AS issue_createdAt',
-      'issue.updatedAt AS issue_updatedAt',
-      'assignee.name AS assignee_name',
-      'assignee.email AS assignee_email',
-      'reporter.name AS reporter_name',
-      'reporter.email AS reporter_email',
-      'parent.title AS parent_title',
-    ]);
-
-    qb.leftJoin('issue.parent', 'parent');
-    qb.leftJoin('issue.assignee', 'assignee');
-    qb.leftJoin('issue.reporter', 'reporter');
-
-    return qb.stream();
+    return this.issueRepo.streamForExport(projectId);
   }
 
   /** Import issues from CSV */
@@ -1170,7 +1043,7 @@ export class IssuesService implements OnModuleInit {
   ): Promise<{ created: number; failed: number; errors: string[] }> {
     // Validate project belongs to organization
     if (organizationId) {
-      const project = await this.projectRepo.findOne({
+      const project = await this.projects.findOne({
         where: { id: projectId, organizationId },
       });
       if (!project) throw new NotFoundException('Project not found');
@@ -1380,15 +1253,13 @@ export class IssuesService implements OnModuleInit {
 @Injectable()
 export class WorkLogsService {
   constructor(
-    @InjectRepository(WorkLog)
-    private workLogRepo: Repository<WorkLog>,
-    @InjectRepository(Issue)
-    private issueRepo: Repository<Issue>,
-    private membersService: ProjectMembersService,
+    private readonly workLogRepo: WorkLogRepository,
+    private readonly issueRepo: IssueRepository,
+    private readonly membersService: ProjectMembersService,
   ) {}
 
   async listWorkLogs(projectId: string, issueId: string) {
-    return this.workLogRepo.find({
+    return this.workLogRepo.findMany({
       where: { projectId, issueId },
       order: { createdAt: 'DESC' },
       relations: ['user'],
@@ -1404,9 +1275,14 @@ export class WorkLogsService {
     billable?: boolean,
     hourlyRate?: number,
   ) {
-    // Ensure user is a project member and issue exists
-    await this.issueRepo.findOneByOrFail({ id: issueId, projectId });
-    // Optionally: check membership
+    // Ensure issue exists in this project (preserves prior `findOneByOrFail`
+    // semantics — throws EntityNotFoundError when the row is absent).
+    const issue = await this.issueRepo.findOne({
+      where: { id: issueId, projectId },
+    });
+    if (!issue) {
+      throw new EntityNotFoundError(Issue, { id: issueId, projectId });
+    }
     const workLog = this.workLogRepo.create({
       projectId,
       issueId,
@@ -1428,10 +1304,8 @@ export class WorkLogsService {
     workLogId: string,
     userId: string,
   ) {
-    const workLog = await this.workLogRepo.findOneBy({
-      id: workLogId,
-      projectId,
-      issueId,
+    const workLog = await this.workLogRepo.findOne({
+      where: { id: workLogId, projectId, issueId },
     });
     if (!workLog) throw new NotFoundException('Work log not found');
     // Only the user or ProjectLead can delete
@@ -1452,10 +1326,8 @@ export class WorkLogsService {
     minutesSpent?: number,
     note?: string,
   ) {
-    const workLog = await this.workLogRepo.findOneBy({
-      id: workLogId,
-      projectId,
-      issueId,
+    const workLog = await this.workLogRepo.findOne({
+      where: { id: workLogId, projectId, issueId },
     });
     if (!workLog) throw new NotFoundException('Work log not found');
     // Only the user or ProjectLead can edit
@@ -1470,23 +1342,15 @@ export class WorkLogsService {
   }
 
   async getTotalTimeByIssue(issueId: string): Promise<TimeAggregationResult> {
-    const raw = await this.workLogRepo
-      .createQueryBuilder('wl')
-      .select('COALESCE(SUM(wl.minutesSpent), 0)', 'total')
-      .where('wl.issueId = :issueId', { issueId })
-      .getRawOne<{ total: string | number | null }>();
-    return toAggregationResult(raw);
+    const total = await this.workLogRepo.sumMinutesByIssue(issueId);
+    return toAggregationResult({ total });
   }
 
   async getTotalTimeByProject(
     projectId: string,
   ): Promise<TimeAggregationResult> {
-    const raw = await this.workLogRepo
-      .createQueryBuilder('wl')
-      .select('COALESCE(SUM(wl.minutesSpent), 0)', 'total')
-      .where('wl.projectId = :projectId', { projectId })
-      .getRawOne<{ total: string | number | null }>();
-    return toAggregationResult(raw);
+    const total = await this.workLogRepo.sumMinutesByProject(projectId);
+    return toAggregationResult({ total });
   }
 
   async getTotalTimeByUser(
@@ -1494,29 +1358,18 @@ export class WorkLogsService {
     startDate?: Date,
     endDate?: Date,
   ): Promise<TimeAggregationResult> {
-    const qb = this.workLogRepo
-      .createQueryBuilder('wl')
-      .select('COALESCE(SUM(wl.minutesSpent), 0)', 'total')
-      .where('wl.userId = :userId', { userId });
-    if (startDate) {
-      qb.andWhere('wl.createdAt >= :startDate', { startDate });
-    }
-    if (endDate) {
-      qb.andWhere('wl.createdAt <= :endDate', { endDate });
-    }
-    const raw = await qb.getRawOne<{ total: string | number | null }>();
-    return toAggregationResult(raw);
+    const total = await this.workLogRepo.sumMinutesByUser(
+      userId,
+      startDate,
+      endDate,
+    );
+    return toAggregationResult({ total });
   }
 
   async getTotalTimeBySprint(
     sprintId: string,
   ): Promise<TimeAggregationResult> {
-    const raw = await this.workLogRepo
-      .createQueryBuilder('wl')
-      .innerJoin('sprint_issues', 'si', 'si.issueId = wl.issueId')
-      .select('COALESCE(SUM(wl.minutesSpent), 0)', 'total')
-      .where('si.sprintId = :sprintId', { sprintId })
-      .getRawOne<{ total: string | number | null }>();
-    return toAggregationResult(raw);
+    const total = await this.workLogRepo.sumMinutesBySprint(sprintId);
+    return toAggregationResult({ total });
   }
 }
