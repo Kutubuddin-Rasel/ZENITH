@@ -127,24 +127,16 @@ export class BillingService {
         await this.handleSubscriptionUpdated(event.data.object);
         break;
       case 'invoice.payment_failed':
-        await this.handlePaymentFailed(
-          event.data.object as Stripe.Invoice,
-        );
+        await this.handlePaymentFailed(event.data.object);
         break;
       case 'invoice.payment_succeeded':
-        await this.handlePaymentSucceeded(
-          event.data.object as Stripe.Invoice,
-        );
+        await this.handlePaymentSucceeded(event.data.object);
         break;
       case 'customer.subscription.trial_will_end':
-        await this.handleTrialWillEnd(
-          event.data.object as Stripe.Subscription,
-        );
+        await this.handleTrialWillEnd(event.data.object);
         break;
       case 'invoice.upcoming':
-        await this.handleInvoiceUpcoming(
-          event.data.object as Stripe.Invoice,
-        );
+        await this.handleInvoiceUpcoming(event.data.object);
         break;
       default:
         this.logger.log(`Unhandled Stripe event type: ${event.type}`);
@@ -206,9 +198,7 @@ export class BillingService {
     const org = await this.findOrgByStripeCustomer(invoice.customer as string);
     if (!org) return;
 
-    this.logger.warn(
-      `Payment failed for org ${org.id}, invoice ${invoice.id}`,
-    );
+    this.logger.warn(`Payment failed for org ${org.id}, invoice ${invoice.id}`);
 
     await this.auditLogsService.log({
       event_uuid: uuidv4(),
@@ -238,9 +228,7 @@ export class BillingService {
     });
   }
 
-  private async handlePaymentSucceeded(
-    invoice: Stripe.Invoice,
-  ): Promise<void> {
+  private async handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
     const org = await this.findOrgByStripeCustomer(invoice.customer as string);
     if (!org) return;
 
@@ -304,9 +292,7 @@ export class BillingService {
     });
   }
 
-  private async handleInvoiceUpcoming(
-    invoice: Stripe.Invoice,
-  ): Promise<void> {
+  private async handleInvoiceUpcoming(invoice: Stripe.Invoice): Promise<void> {
     const org = await this.findOrgByStripeCustomer(invoice.customer as string);
     if (!org) return;
 

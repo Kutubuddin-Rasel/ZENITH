@@ -86,9 +86,7 @@ export class BillingController {
     targetOrgId: string,
   ): void {
     if (!user.organizationId || user.organizationId !== targetOrgId) {
-      throw new ForbiddenException(
-        'You do not belong to this organization',
-      );
+      throw new ForbiddenException('You do not belong to this organization');
     }
     if (!user.isSuperAdmin) {
       throw new ForbiddenException(

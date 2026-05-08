@@ -1,4 +1,10 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt'; // Used for refresh token hashing only
@@ -21,7 +27,10 @@ import { AuthConfig } from '../config/auth.config';
 import { CacheService } from '../cache/cache.service';
 import { PasswordBreachService } from './services/password-breach.service';
 import { TokenBlacklistService } from './services/token-blacklist.service';
-import { LoginHistoryService, RecordLoginAttemptParams } from '../users/login-history.service';
+import {
+  LoginHistoryService,
+  RecordLoginAttemptParams,
+} from '../users/login-history.service';
 
 // Argon2id = version 3 (see passwordVersion column in User entity)
 const ARGON2ID_VERSION = 3;
@@ -223,14 +232,12 @@ export class AuthService {
     }
 
     // Layer 1: Password policy validation (NIST 800-63B + zxcvbn entropy)
-    const policyResult = this.passwordPolicyService.validate(
-      dto.password,
-      [dto.email, dto.name],
-    );
+    const policyResult = this.passwordPolicyService.validate(dto.password, [
+      dto.email,
+      dto.name,
+    ]);
     if (!policyResult.isAcceptable) {
-      throw new BadRequestException(
-        policyResult.feedback.join(' '),
-      );
+      throw new BadRequestException(policyResult.feedback.join(' '));
     }
 
     // Layer 2: Check password against known breaches (HIBP API - k-anonymity)

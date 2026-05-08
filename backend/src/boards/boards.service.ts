@@ -13,9 +13,6 @@ import { CreateBoardDto } from './dto/create-board.dto';
 import { UpdateBoardDto } from './dto/update-board.dto';
 import { CreateColumnDto } from './dto/create-column.dto';
 import { UpdateColumnDto } from './dto/update-column.dto';
-// REFACTORED: Using direct repository instead of ProjectsService
-import { Project } from '../projects/entities/project.entity';
-import { Issue } from '../issues/entities/issue.entity';
 import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 import { BoardGateway } from '../gateways/board.gateway';
@@ -24,25 +21,26 @@ import { CacheService } from '../cache/cache.service';
 import { WorkflowStatus } from '../workflows/entities/workflow-status.entity';
 import { EventFactory } from '../common/events/event.factory';
 
+// SOLID Refactor (Step 3): Depend on abstract repository tokens (DIP).
+import { BoardRepository } from '../database/repositories/board.repository';
+import { IssueRepository } from '../database/repositories/issue.repository';
+import { ProjectRepository } from '../database/repositories/project.repository';
+
 @Injectable()
 export class BoardsService {
   private readonly logger = new Logger(BoardsService.name);
 
   constructor(
-    @InjectRepository(Board)
-    private boardRepo: Repository<Board>,
+    private readonly boardRepo: BoardRepository,
     @InjectRepository(BoardColumn)
-    private colRepo: Repository<BoardColumn>,
-    // REFACTORED: Direct repository injection instead of forwardRef to ProjectsService
-    @InjectRepository(Project)
-    private projectRepo: Repository<Project>,
-    @InjectRepository(Issue)
-    private issueRepo: Repository<Issue>,
-    private membersService: ProjectMembersService,
-    private dataSource: DataSource,
-    private eventEmitter: EventEmitter2,
-    private boardGateway: BoardGateway,
-    private cacheService: CacheService,
+    private readonly colRepo: Repository<BoardColumn>,
+    private readonly projectRepo: ProjectRepository,
+    private readonly issueRepo: IssueRepository,
+    private readonly membersService: ProjectMembersService,
+    private readonly dataSource: DataSource,
+    private readonly eventEmitter: EventEmitter2,
+    private readonly boardGateway: BoardGateway,
+    private readonly cacheService: CacheService,
   ) {}
 
   /**
@@ -76,7 +74,6 @@ export class BoardsService {
     dto: CreateBoardDto,
     organizationId?: string,
   ): Promise<Board> {
-    // REFACTORED: Direct repo query instead of projectsService.findOneById
     const project = await this.projectRepo.findOne({
       where: { id: projectId, ...(organizationId && { organizationId }) },
     });
@@ -146,7 +143,6 @@ export class BoardsService {
     userId: string,
     organizationId?: string,
   ): Promise<Board[]> {
-    // REFACTORED: Validate organization access with direct repo
     if (organizationId) {
       const project = await this.projectRepo.findOne({
         where: { id: projectId, organizationId },
@@ -155,8 +151,7 @@ export class BoardsService {
     }
     const role = await this.membersService.getUserRole(projectId, userId);
     if (!role) throw new ForbiddenException('Not a project member');
-    return this.boardRepo.find({
-      where: { projectId },
+    return this.boardRepo.findByProject(projectId, {
       relations: ['columns'],
     });
   }
@@ -248,26 +243,9 @@ export class BoardsService {
     if (!role) throw new ForbiddenException('Not a project member');
 
     // === OPTIMIZED QUERY ===
-    // Fetch issues with ONLY the fields needed for Kanban board display
-    // EXCLUDES: description, metadata, embedding, history (can be huge)
-    // RELATIONAL STATUS: Select statusId for proper ID-based matching
-    const issues = await this.issueRepo
-      .createQueryBuilder('issue')
-      .select([
-        'issue.id',
-        'issue.title',
-        'issue.type',
-        'issue.priority',
-        'issue.assigneeId',
-        'issue.storyPoints',
-        'issue.status',
-        'issue.statusId',
-        'issue.backlogOrder',
-      ])
-      .where('issue.projectId = :projectId', { projectId })
-      .andWhere('issue.isArchived = false')
-      .orderBy('issue.backlogOrder', 'ASC')
-      .getMany();
+    // Kanban projection (slim columns + sort) is encapsulated in the repo —
+    // raw QB lives inside TypeOrmIssueRepository, not here.
+    const issues = await this.issueRepo.findKanbanCards(projectId);
 
     // === GROUP ISSUES BY COLUMN ===
     // RELATIONAL STATUS: Primary matching by statusId, fallback to string for legacy data
@@ -576,6 +554,8 @@ export class BoardsService {
 
     // @RAW_QUERY_AUDIT: Fully parameterized - no string interpolation
     // Tenant isolation: boardId in WHERE ensures only columns belonging to this board are updated
+    // TODO (SOLID Refactor): BoardColumn is not Tier-1 yet. When promoted, this
+    // bulk reorder will move into a `BoardColumnRepository.reorder(...)` method.
     await this.colRepo.query(
       `UPDATE board_columns AS c
        SET "order" = v."order"
@@ -625,9 +605,8 @@ export class BoardsService {
       );
     }
 
-    // Fetch and update issue
-    const issueRepo = this.dataSource.getRepository(Issue);
-    const issue = await issueRepo.findOne({
+    // Fetch and update issue (DIP — abstract repo).
+    const issue = await this.issueRepo.findOne({
       where: { id: issueId, projectId },
     });
     if (!issue) throw new NotFoundException('Issue not found');
@@ -640,7 +619,7 @@ export class BoardsService {
     issue.status = workflowStatus.name; // Legacy sync
     issue.backlogOrder = newOrder;
 
-    await issueRepo.save(issue);
+    await this.issueRepo.save(issue);
 
     // Emit real-time event with both old and new identifiers
     this.boardGateway.emitIssueMoved(boardId, {
@@ -718,6 +697,9 @@ export class BoardsService {
 
     // @RAW_QUERY_AUDIT: Fully parameterized - no string interpolation
     // Tenant isolation: projectId in WHERE ensures only issues belonging to this project are updated
+    // TODO (SOLID Refactor): bulk DML kept on DataSource for now — to be moved
+    // into `IssueRepository.bulkReorder(projectId, columnId, ids)` once the
+    // ordering scheme stabilises. Per Step 3 exemption, leave as-is.
     await this.dataSource.query(
       `UPDATE issues AS i
        SET "backlogOrder" = v."order"

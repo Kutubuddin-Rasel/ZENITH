@@ -173,15 +173,11 @@ export class UsageService {
 
           // Mark records as reported within the same transaction
           const now = new Date();
-          await queryRunner.manager.update(
-            UsageRecord,
-            recordIds,
-            {
-              reported: true,
-              reportedAt: now,
-              idempotencyKey,
-            },
-          );
+          await queryRunner.manager.update(UsageRecord, recordIds, {
+            reported: true,
+            reportedAt: now,
+            idempotencyKey,
+          });
 
           await queryRunner.commitTransaction();
           reportedCount += recordIds.length;
@@ -297,9 +293,7 @@ export class UsageService {
    * subscription items from Stripe. If a metered price item is found,
    * it backfills the record.
    */
-  private async resolveOrphanedRecords(
-    orphaned: UsageRecord[],
-  ): Promise<void> {
+  private async resolveOrphanedRecords(orphaned: UsageRecord[]): Promise<void> {
     // Group by orgId for efficient batch resolution
     const byOrg = new Map<string, UsageRecord[]>();
     for (const record of orphaned) {
@@ -322,10 +316,9 @@ export class UsageService {
         }
 
         // Fetch subscription items from Stripe
-        const subItems =
-          await this.stripe.subscriptionItems.list({
-            subscription: org.stripeSubscriptionId,
-          });
+        const subItems = await this.stripe.subscriptionItems.list({
+          subscription: org.stripeSubscriptionId,
+        });
 
         // Find metered items (recurring.usage_type === 'metered')
         const meteredItems = subItems.data.filter(

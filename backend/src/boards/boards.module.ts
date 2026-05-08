@@ -2,9 +2,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
-import { Board } from './entities/board.entity';
 import { BoardColumn } from './entities/board-column.entity';
-import { Issue } from '../issues/entities/issue.entity';
 import { BoardsService } from './boards.service';
 import { BoardsController } from './boards.controller';
 
@@ -25,7 +23,9 @@ import { BoardsController } from './boards.controller';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Board, BoardColumn, Issue]),
+    // SOLID Refactor (Step 3): Board + Issue exposed via @Global DatabaseModule.
+    // Only the non-Tier-1 BoardColumn entity remains local.
+    TypeOrmModule.forFeature([BoardColumn]),
     CacheModule.register({
       ttl: 5000, // 5 seconds - prevents standup refresh storms
       max: 100, // Max cached items per endpoint
