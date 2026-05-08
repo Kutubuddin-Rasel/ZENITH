@@ -50,7 +50,11 @@ import {
     IntegrationsModule,
     // AuditLogsService is provided by @Global() AuditLogsModule — no import needed
   ],
-  providers: [ProjectPurgeProcessor, PurgeNotificationsListener, PurgeAdminService],
+  providers: [
+    ProjectPurgeProcessor,
+    PurgeNotificationsListener,
+    PurgeAdminService,
+  ],
   controllers: [PurgeController],
   exports: [],
 })

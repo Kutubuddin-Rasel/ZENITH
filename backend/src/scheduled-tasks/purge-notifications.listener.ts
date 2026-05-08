@@ -105,8 +105,7 @@ export class PurgeNotificationsListener {
           );
         } catch (error) {
           // Per-org error isolation — continue with other orgs
-          const errMsg =
-            error instanceof Error ? error.message : String(error);
+          const errMsg = error instanceof Error ? error.message : String(error);
           this.logger.warn(
             `Failed to send purge notification to org ${organizationId}: ${errMsg}`,
           );
@@ -115,9 +114,7 @@ export class PurgeNotificationsListener {
     } catch (error) {
       // Top-level safety net — notification failure must never propagate
       const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Purge notification handler failed: ${errMsg}`,
-      );
+      this.logger.error(`Purge notification handler failed: ${errMsg}`);
     }
   }
 

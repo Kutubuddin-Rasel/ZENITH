@@ -20,9 +20,6 @@ export class TimeRangeDto {
 
   /** End date (inclusive). Format: ISO 8601 (YYYY-MM-DD) */
   @IsOptional()
-  @IsDateString(
-    {},
-    { message: 'endDate must be a valid ISO 8601 date string' },
-  )
+  @IsDateString({}, { message: 'endDate must be a valid ISO 8601 date string' })
   endDate?: string;
 }
