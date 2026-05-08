@@ -6,7 +6,7 @@ import { NotificationType } from '../../notifications/entities/notification.enti
 import { SprintsService } from '../../sprints/sprints.service';
 import { SprintRiskService } from './sprint-risk.service';
 import { TenantContext } from '../../core/tenant/tenant-context.service';
-import { tenantJoin } from '../../core/database/safe-query.helper';
+import { tenantJoin } from '../../database/helpers/safe-query.helper';
 import { HistoricalMetricsService } from './historical-metrics.service';
 import { MetricType } from '../entities/project-metrics.entity';
 

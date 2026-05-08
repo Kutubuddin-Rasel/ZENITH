@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm';
 import { RevisionsService } from '../../revisions/revisions.service';
 import { Revision } from '../../revisions/entities/revision.entity';
 import { TenantContext } from '../../core/tenant/tenant-context.service';
-import { tenantJoin } from '../../core/database/safe-query.helper';
+import { tenantJoin } from '../../database/helpers/safe-query.helper';
 import { CacheService } from '../../cache/cache.service';
 
 // ---------------------------------------------------------------------------

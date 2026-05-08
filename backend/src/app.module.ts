@@ -9,7 +9,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClsModule } from 'nestjs-cls';
 import { LoggingModule } from './common/logging/logging.module';
 import { CorrelationMiddleware } from './common/middleware/correlation.middleware';
@@ -55,7 +54,6 @@ import { WorkflowsModule } from './workflows/workflows.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { ResourceManagementModule } from './resource-management/resource-management.module';
 import { APP_GUARD } from '@nestjs/core';
-import { createDatabaseConfig } from './database/config/database.config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { CustomFieldsModule } from './custom-fields/custom-fields.module';
@@ -113,11 +111,10 @@ import {
     }),
     LoggingModule,
     ScheduleModule.forRoot(),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: createDatabaseConfig,
-    }),
+    // SOLID Refactor (Step 5): TypeORM bootstrap is now encapsulated inside
+    // DatabaseModule.forRoot(). The `forRootAsync` configuration is an
+    // implementation detail of `database/database.module.ts`.
+    DatabaseModule.forRoot(),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -146,7 +143,6 @@ import {
         };
       },
     }),
-    DatabaseModule,
     CacheModule,
     PerformanceModule,
     HealthModule,
