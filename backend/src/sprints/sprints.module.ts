@@ -14,6 +14,7 @@ import { BoardsModule } from '../boards/boards.module';
 // REMOVED: UsersModule - using UsersCoreModule (global) for UsersService
 import { UserPreferencesModule } from '../user-preferences/user-preferences.module';
 
+import { CacheModule } from '../cache/cache.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Sprint, SprintIssue, SprintSnapshot]),
@@ -22,6 +23,7 @@ import { UserPreferencesModule } from '../user-preferences/user-preferences.modu
     WatchersModule,
     BoardsModule,
     UserPreferencesModule,
+    CacheModule,
   ],
   providers: [SprintsService, SprintsCron],
   controllers: [SprintsController],

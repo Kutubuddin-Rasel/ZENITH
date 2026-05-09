@@ -1,9 +1,10 @@
 // src/sprints/sprints.service.ts
 import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
-  ForbiddenException,
-  BadRequestException,
   OnModuleInit,
 } from '@nestjs/common';
 import { Repository, FindOptionsWhere, In } from 'typeorm';
@@ -39,8 +40,8 @@ import {
   VelocityPointDto,
   SprintSummaryDto,
 } from './dto/sprint-metrics.dto';
-import { CacheService } from '../cache/cache.service';
-
+import { CACHE_INVALIDATOR_TOKEN, CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
+import { ICacheInvalidator, ICacheStore } from '../cache/interfaces/cache.interfaces';
 // Cache TTL for metrics (5 minutes - snapshots are daily, staleness is acceptable)
 const CACHE_TTL_SECONDS = 300;
 
@@ -66,7 +67,8 @@ export class SprintsService implements OnModuleInit {
     // TENANT ISOLATION: Inject factory
     private readonly tenantRepoFactory: TenantRepositoryFactory,
     // REDIS CACHING: Inject cache service
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_INVALIDATOR_TOKEN) private readonly cacheInvalidator: ICacheInvalidator,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
   ) {}
 
   /**
@@ -314,7 +316,7 @@ export class SprintsService implements OnModuleInit {
 
     // CACHE INVALIDATION: Clear sprint + velocity caches
     try {
-      await this.cacheService.invalidateByTags([
+      await this.cacheInvalidator.invalidateByTags([
         `sprint:${sprintId}`,
         `project:${projectId}`,
       ]);
@@ -569,7 +571,7 @@ export class SprintsService implements OnModuleInit {
 
     // CACHE INVALIDATION: Clear burndown/burnup cache after new snapshot
     try {
-      await this.cacheService.invalidateByTags([`sprint:${sprintId}`]);
+      await this.cacheInvalidator.invalidateByTags([`sprint:${sprintId}`]);
     } catch {
       // Fire and forget - don't fail snapshot for cache issues
     }
@@ -593,7 +595,7 @@ export class SprintsService implements OnModuleInit {
   ): Promise<BurndownResponseDto> {
     // CACHE: Check cache first
     const cacheKey = `sprint:${sprintId}:burndown`;
-    const cached = await this.cacheService.get<BurndownResponseDto>(cacheKey);
+    const cached = await this.cacheStore.get<BurndownResponseDto>(cacheKey);
     if (cached) return cached;
 
     // CACHE MISS: Compute data
@@ -646,7 +648,7 @@ export class SprintsService implements OnModuleInit {
     };
 
     // CACHE: Store with TTL and tag for invalidation
-    await this.cacheService.set(cacheKey, result, {
+    await this.cacheStore.set(cacheKey, result, {
       ttl: CACHE_TTL_SECONDS,
       tags: [`sprint:${sprintId}`],
     });
@@ -665,7 +667,7 @@ export class SprintsService implements OnModuleInit {
   ): Promise<VelocityResponseDto> {
     // CACHE: Check cache first
     const cacheKey = `project:${projectId}:velocity`;
-    const cached = await this.cacheService.get<VelocityResponseDto>(cacheKey);
+    const cached = await this.cacheStore.get<VelocityResponseDto>(cacheKey);
     if (cached) return cached;
 
     // TENANT ISOLATION: Use tenant-aware repo to prevent cross-tenant access
@@ -737,7 +739,7 @@ export class SprintsService implements OnModuleInit {
     };
 
     // CACHE: Store with TTL and tag for invalidation
-    await this.cacheService.set(cacheKey, result, {
+    await this.cacheStore.set(cacheKey, result, {
       ttl: CACHE_TTL_SECONDS,
       tags: [`project:${projectId}`],
     });
@@ -782,7 +784,7 @@ export class SprintsService implements OnModuleInit {
   ): Promise<BurnupResponseDto> {
     // CACHE: Check cache first
     const cacheKey = `sprint:${sprintId}:burnup`;
-    const cached = await this.cacheService.get<BurnupResponseDto>(cacheKey);
+    const cached = await this.cacheStore.get<BurnupResponseDto>(cacheKey);
     if (cached) return cached;
 
     // CACHE MISS: Compute data
@@ -830,7 +832,7 @@ export class SprintsService implements OnModuleInit {
     };
 
     // CACHE: Store with TTL and tag for invalidation
-    await this.cacheService.set(cacheKey, result, {
+    await this.cacheStore.set(cacheKey, result, {
       ttl: CACHE_TTL_SECONDS,
       tags: [`sprint:${sprintId}`],
     });
