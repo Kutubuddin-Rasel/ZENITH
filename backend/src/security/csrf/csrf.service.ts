@@ -1,9 +1,11 @@
 import {
+  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import { randomBytes, timingSafeEqual } from 'crypto';
 
 /**
@@ -24,7 +26,7 @@ export class CsrfService {
   private readonly logger = new Logger(CsrfService.name);
   private readonly TOKEN_TTL = 3600; // 1 hour
 
-  constructor(private readonly cache: CacheService) {}
+  constructor(@Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore) {}
 
   /**
    * Generate or retrieve existing CSRF token for user
@@ -56,17 +58,17 @@ export class CsrfService {
     const cacheKey = `csrf:${userId}`;
 
     // Check for existing valid token (MULTI-TAB FIX)
-    const existingToken = await this.cache.get<string>(cacheKey);
+    const existingToken = await this.cacheStore.get<string>(cacheKey);
     if (existingToken) {
       // Refresh TTL on access to prevent timeout during active session
-      await this.cache.set(cacheKey, existingToken, { ttl: this.TOKEN_TTL });
+      await this.cacheStore.set(cacheKey, existingToken, { ttl: this.TOKEN_TTL });
       return existingToken;
     }
 
     // Generate new token only if none exists
     // 32 bytes = 256 bits of entropy (cryptographically secure)
     const newToken = randomBytes(32).toString('hex');
-    await this.cache.set(cacheKey, newToken, { ttl: this.TOKEN_TTL });
+    await this.cacheStore.set(cacheKey, newToken, { ttl: this.TOKEN_TTL });
 
     this.logger.debug(
       `CSRF token generated for user ${userId.substring(0, 8)}...`,
@@ -89,7 +91,7 @@ export class CsrfService {
     }
 
     const cacheKey = `csrf:${userId}`;
-    await this.cache.del(cacheKey);
+    await this.cacheStore.del(cacheKey);
 
     this.logger.debug(
       `CSRF token invalidated for user ${userId.substring(0, 8)}...`,
@@ -111,7 +113,7 @@ export class CsrfService {
     }
 
     const cacheKey = `csrf:${userId}`;
-    const storedToken = await this.cache.get<string>(cacheKey);
+    const storedToken = await this.cacheStore.get<string>(cacheKey);
 
     if (!storedToken) {
       this.logger.debug(
