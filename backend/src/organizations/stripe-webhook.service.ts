@@ -36,10 +36,11 @@
  */
 
 import {
-  Injectable,
-  Logger,
   BadRequestException,
+  Inject,
+  Injectable,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -48,7 +49,8 @@ import Stripe from 'stripe';
 import { Organization } from './entities/organization.entity';
 import { OrganizationSettingsService } from './organization-settings.service';
 import { AuditLogsService } from '../audit/audit-logs.service';
-import { CacheService } from '../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
+import { ICacheStore } from '../cache/interfaces/cache.interfaces';
 import { v4 as uuidv4 } from 'uuid';
 
 // =============================================================================
@@ -100,7 +102,7 @@ export class StripeWebhookService {
     private readonly orgRepo: Repository<Organization>,
     private readonly settingsService: OrganizationSettingsService,
     private readonly auditLogsService: AuditLogsService,
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
   ) {
     const apiKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     this.webhookSecret = this.configService.get<string>(
@@ -526,7 +528,7 @@ export class StripeWebhookService {
    */
   private async isEventProcessed(eventId: string): Promise<boolean> {
     try {
-      return this.cacheService.exists(`${STRIPE_EVENT_KEY_PREFIX}${eventId}`);
+      return this.cacheStore.exists(`${STRIPE_EVENT_KEY_PREFIX}${eventId}`);
     } catch {
       // Fail-open: if Redis is down, process the event
       // (idempotent handlers should be safe to reprocess)
@@ -547,7 +549,7 @@ export class StripeWebhookService {
    */
   private async markEventProcessed(eventId: string): Promise<void> {
     try {
-      await this.cacheService.set(`${STRIPE_EVENT_KEY_PREFIX}${eventId}`, '1', {
+      await this.cacheStore.set(`${STRIPE_EVENT_KEY_PREFIX}${eventId}`, '1', {
         ttl: STRIPE_EVENT_IDEMPOTENCY_TTL_SECONDS,
       });
     } catch {

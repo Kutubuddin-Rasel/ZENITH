@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { CacheService } from '../cache/cache.service';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { CACHE_COUNTER_TOKEN, CACHE_INVALIDATOR_TOKEN, CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
+import { ICacheCounter, ICacheInvalidator, ICacheStore } from '../cache/interfaces/cache.interfaces';
 import {
   MetricsService,
   PerformanceMetrics,
@@ -38,7 +39,9 @@ export class ApiOptimizerService {
   };
 
   constructor(
-    private cacheService: CacheService,
+    @Inject(CACHE_COUNTER_TOKEN) private readonly cacheCounter: ICacheCounter,
+    @Inject(CACHE_INVALIDATOR_TOKEN) private readonly cacheInvalidator: ICacheInvalidator,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
     private metricsService: MetricsService,
   ) {}
 
@@ -176,7 +179,7 @@ export class ApiOptimizerService {
    */
   async getCachedResponse<T>(cacheKey: string): Promise<T | null> {
     try {
-      return await this.cacheService.get<T>(cacheKey, { namespace: 'api' });
+      return await this.cacheStore.get<T>(cacheKey, { namespace: 'api' });
     } catch (error) {
       this.logger.error(
         `Error getting cached response for key ${cacheKey}:`,
@@ -195,7 +198,7 @@ export class ApiOptimizerService {
     ttl: number = 300,
   ): Promise<boolean> {
     try {
-      return await this.cacheService.set(cacheKey, data, {
+      return await this.cacheStore.set(cacheKey, data, {
         namespace: 'api',
         ttl,
         tags: ['api-response'],
@@ -211,7 +214,7 @@ export class ApiOptimizerService {
    */
   async invalidateCache(pattern: string): Promise<boolean> {
     try {
-      return await this.cacheService.flushNamespace(`api:${pattern}`);
+      return await this.cacheInvalidator.flushNamespace(`api:${pattern}`);
     } catch (error) {
       this.logger.error(
         `Error invalidating cache for pattern ${pattern}:`,
@@ -366,7 +369,7 @@ export class ApiOptimizerService {
    * - No race condition: can't have two requests both see "99" and both pass
    *
    * **TTL Logic:**
-   * - CacheService.incr() sets TTL only on first request (when value === 1)
+   * - cache.incr() sets TTL only on first request (when value === 1)
    * - This creates a fixed sliding window from the first request
    *
    * **Fail Open Strategy:**
@@ -384,8 +387,8 @@ export class ApiOptimizerService {
 
     try {
       // ATOMIC: Increment and get new value in one Redis operation
-      // CacheService.incr() sets TTL only on first request (value === 1)
-      const currentCount = await this.cacheService.incr(key, {
+      // cache.incr() sets TTL only on first request (value === 1)
+      const currentCount = await this.cacheCounter.incr(key, {
         ttl: ttlSeconds,
         namespace: 'rate_limit',
       });
