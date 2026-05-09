@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectSecurityPolicy } from './entities/project-security-policy.entity';
-import { CacheService } from '../cache/cache.service';
-
+import { CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
+import { ICacheStore } from '../cache/interfaces/cache.interfaces';
 /**
  * Cached representation of ProjectSecurityPolicy.
  * Date fields are serialized as strings in Redis.
@@ -33,7 +33,7 @@ export class ProjectSecurityPolicyService {
   constructor(
     @InjectRepository(ProjectSecurityPolicy)
     private readonly policyRepo: Repository<ProjectSecurityPolicy>,
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
   ) {}
 
   /**
@@ -62,7 +62,7 @@ export class ProjectSecurityPolicyService {
     const cacheKey = this.getCacheKey(projectId);
 
     // Check cache first
-    const cached = await this.cacheService.get<CachedSecurityPolicy>(cacheKey);
+    const cached = await this.cacheStore.get<CachedSecurityPolicy>(cacheKey);
     if (cached) {
       return this.hydrateDates(cached);
     }
@@ -90,8 +90,8 @@ export class ProjectSecurityPolicyService {
       await this.policyRepo.save(policy);
     }
 
-    // Cache the policy (CacheService handles JSON serialization)
-    await this.cacheService.set(cacheKey, policy, { ttl: this.CACHE_TTL });
+    // Cache the policy (cache layer handles JSON serialization)
+    await this.cacheStore.set(cacheKey, policy, { ttl: this.CACHE_TTL });
 
     return policy;
   }
@@ -119,7 +119,7 @@ export class ProjectSecurityPolicyService {
     const saved = await this.policyRepo.save(policy);
 
     // Invalidate cache (next read will re-fetch)
-    await this.cacheService.del(this.getCacheKey(projectId));
+    await this.cacheStore.del(this.getCacheKey(projectId));
 
     return saved;
   }
@@ -132,7 +132,7 @@ export class ProjectSecurityPolicyService {
     const cacheKey = this.getCacheKey(projectId);
 
     // Check cache first
-    const cached = await this.cacheService.get<CachedSecurityPolicy>(cacheKey);
+    const cached = await this.cacheStore.get<CachedSecurityPolicy>(cacheKey);
     if (cached) {
       return this.hydrateDates(cached);
     }
@@ -143,7 +143,7 @@ export class ProjectSecurityPolicyService {
     });
 
     if (policy) {
-      await this.cacheService.set(cacheKey, policy, { ttl: this.CACHE_TTL });
+      await this.cacheStore.set(cacheKey, policy, { ttl: this.CACHE_TTL });
     }
 
     return policy;
@@ -154,7 +154,7 @@ export class ProjectSecurityPolicyService {
    * DISTRIBUTED: Uses Redis instead of local Map
    */
   async invalidateCache(projectId: string): Promise<void> {
-    await this.cacheService.del(this.getCacheKey(projectId));
+    await this.cacheStore.del(this.getCacheKey(projectId));
   }
 
   /**

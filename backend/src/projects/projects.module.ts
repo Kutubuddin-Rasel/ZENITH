@@ -14,6 +14,7 @@ import { WorkflowsModule } from '../workflows/workflows.module';
 import { ProjectGenerationProcessor } from './processors/project-generation.processor';
 import { ProjectGenerationService } from './services/project-generation.service';
 import { ProjectGenerationController } from './controllers/project-generation.controller';
+import { CacheModule } from '../cache/cache.module';
 // REMOVED: UsersModule - using UsersCoreModule (global) for UsersService
 // CYCLE FIX: Removed ProjectTemplatesModule - TemplateApplicationService accessed via forwardRef in ProjectsService
 
@@ -39,6 +40,7 @@ export const PROJECT_GENERATION_QUEUE = 'project-generation';
     // BullMQ: Async project generation from unstructured text (Magic Wand)
     // Consumer (Processor) will be registered when we build the generation service
     BullModule.registerQueue({ name: PROJECT_GENERATION_QUEUE }),
+    CacheModule,
   ],
   providers: [
     ProjectsService,

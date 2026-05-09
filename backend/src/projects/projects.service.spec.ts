@@ -7,7 +7,10 @@ import { ProjectAccessSettings } from './entities/project-access-settings.entity
 import { ProjectMembersService } from '../membership/project-members/project-members.service';
 import { InvitesService } from '../invites/invites.service';
 import { DataSource } from 'typeorm';
-import { CacheService } from '../cache/cache.service';
+import {
+  CACHE_STORE_TOKEN,
+  ENTITY_CACHE_TOKEN,
+} from '../cache/constants/cache.tokens';
 import { AuditLogsService } from '../audit/audit-logs.service';
 import { TenantContext, TenantRepositoryFactory } from '../core/tenant';
 import { ClsService } from 'nestjs-cls';
@@ -85,7 +88,8 @@ describe('ProjectsService', () => {
         { provide: ProjectMembersService, useValue: mockProjectMembersService },
         { provide: InvitesService, useValue: mockInvitesService },
         { provide: DataSource, useValue: mockDataSource },
-        { provide: CacheService, useValue: mockCacheService },
+        { provide: CACHE_STORE_TOKEN, useValue: mockCacheService },
+        { provide: ENTITY_CACHE_TOKEN, useValue: mockCacheService },
         { provide: AuditLogsService, useValue: mockAuditLogsService },
         { provide: TenantContext, useValue: mockTenantContext },
         { provide: TenantRepositoryFactory, useValue: mockTenantRepoFactory },

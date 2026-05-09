@@ -26,7 +26,8 @@ import { ProjectRepository } from '../database/repositories/project.repository';
 import { InvitesService } from '../invites/invites.service';
 import { Invite } from '../invites/entities/invite.entity';
 
-import { CacheService } from '../cache/cache.service';
+import { CACHE_STORE_TOKEN, ENTITY_CACHE_TOKEN } from '../cache/constants/cache.tokens';
+import { ICacheStore, IEntityCache } from '../cache/interfaces/cache.interfaces';
 import { AuditLogsService } from '../audit/audit-logs.service';
 import { ProjectTemplate } from '../project-templates/entities/project-template.entity';
 import { TemplateApplicationService } from '../project-templates/services/template-application.service';
@@ -60,7 +61,8 @@ export class ProjectsService implements OnModuleInit {
     private readonly dataSource: DataSource,
     @InjectRepository(ProjectAccessSettings)
     private readonly accessSettingsRepo: Repository<ProjectAccessSettings>,
-    private readonly cacheService: CacheService,
+    @Inject(ENTITY_CACHE_TOKEN) private readonly entityCache: IEntityCache,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
     private readonly auditLogsService: AuditLogsService,
     @Optional()
     @InjectRepository(ProjectTemplate)
@@ -280,7 +282,7 @@ export class ProjectsService implements OnModuleInit {
    */
   async findOneById(id: string): Promise<Project> {
     // Try cache first
-    const cachedProject = (await this.cacheService.getCachedProject(
+    const cachedProject = (await this.entityCache.getCachedProject(
       id,
     )) as Project | null;
 
@@ -307,7 +309,7 @@ export class ProjectsService implements OnModuleInit {
     }
 
     // Cache the project (type assertion: JSON serialization converts Date -> string)
-    await this.cacheService.cacheProject(
+    await this.entityCache.cacheProject(
       id,
       project as unknown as import('../cache/cache.interfaces').CachedProject,
     );
@@ -340,7 +342,7 @@ export class ProjectsService implements OnModuleInit {
     try {
       const saved = await this.projects.save(project);
       // Invalidate cache
-      await this.cacheService.invalidateProjectCache(projectId);
+      await this.entityCache.invalidateProjectCache(projectId);
 
       // Audit: PROJECT_UPDATED (Severity: LOW)
       const fieldsChanged = Object.keys(dto);
@@ -380,7 +382,7 @@ export class ProjectsService implements OnModuleInit {
     project.isArchived = true;
     const saved = await this.projects.save(project);
     // Invalidate cache
-    await this.cacheService.invalidateProjectCache(projectId);
+    await this.entityCache.invalidateProjectCache(projectId);
     return saved;
   }
 
@@ -415,7 +417,7 @@ export class ProjectsService implements OnModuleInit {
     });
 
     // Invalidate cache
-    await this.cacheService.invalidateProjectCache(projectId);
+    await this.entityCache.invalidateProjectCache(projectId);
   }
 
   /**
@@ -425,7 +427,7 @@ export class ProjectsService implements OnModuleInit {
   async getSummary(projectId: string) {
     // Check cache first
     const cacheKey = `project:${projectId}:summary`;
-    const cached = await this.cacheService.get<{
+    const cached = await this.cacheStore.get<{
       projectId: string;
       projectName: string;
       totalIssues: number;
@@ -471,7 +473,7 @@ export class ProjectsService implements OnModuleInit {
       };
 
       // Cache for 5 minutes
-      await this.cacheService.set(cacheKey, summary, {
+      await this.cacheStore.set(cacheKey, summary, {
         ttl: 300,
         tags: [`project:${projectId}`],
       });
