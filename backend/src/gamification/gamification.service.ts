@@ -1,12 +1,12 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Achievement } from './entities/achievement.entity';
 import { UserAchievement } from './entities/user-achievement.entity';
 import { AchievementProgress } from './entities/achievement-progress.entity';
-import { CacheService } from '../cache/cache.service';
-
+import { CACHE_SORTED_SET_TOKEN } from '../cache/constants/cache.tokens';
+import { ICacheSortedSet } from '../cache/interfaces/cache.interfaces';
 /** Redis sorted-set key for the XP leaderboard */
 const LEADERBOARD_KEY = 'leaderboard:xp';
 const LEADERBOARD_NS = 'gamification';
@@ -24,7 +24,7 @@ export class GamificationService implements OnModuleInit {
     private progressRepo: Repository<AchievementProgress>,
     private readonly eventEmitter: EventEmitter2,
     private readonly dataSource: DataSource,
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_SORTED_SET_TOKEN) private readonly cacheSortedSet: ICacheSortedSet,
   ) {}
 
   async onModuleInit() {
@@ -141,7 +141,7 @@ export class GamificationService implements OnModuleInit {
    */
   async getUserXp(userId: string): Promise<number> {
     // Try Redis first (O(1) lookup)
-    const cachedXp = await this.cacheService.zscore(LEADERBOARD_KEY, userId, {
+    const cachedXp = await this.cacheSortedSet.zscore(LEADERBOARD_KEY, userId, {
       namespace: LEADERBOARD_NS,
     });
     if (cachedXp !== null) {
@@ -169,7 +169,7 @@ export class GamificationService implements OnModuleInit {
     const safeLimit = Math.min(Math.max(limit, 1), 100);
 
     // Try Redis (O(log N + M))
-    const redisEntries = await this.cacheService.zrevrangeWithScores(
+    const redisEntries = await this.cacheSortedSet.zrevrangeWithScores(
       LEADERBOARD_KEY,
       0,
       safeLimit - 1,
@@ -189,10 +189,10 @@ export class GamificationService implements OnModuleInit {
         const inTop = entries.find((e) => e.userId === userId);
         if (!inTop) {
           const [rank, score] = await Promise.all([
-            this.cacheService.zrevrank(LEADERBOARD_KEY, userId, {
+            this.cacheSortedSet.zrevrank(LEADERBOARD_KEY, userId, {
               namespace: LEADERBOARD_NS,
             }),
-            this.cacheService.zscore(LEADERBOARD_KEY, userId, {
+            this.cacheSortedSet.zscore(LEADERBOARD_KEY, userId, {
               namespace: LEADERBOARD_NS,
             }),
           ]);
@@ -340,7 +340,7 @@ export class GamificationService implements OnModuleInit {
    */
   private async syncUserXpToRedis(userId: string): Promise<void> {
     const totalXp = await this.computeXpFromSql(userId);
-    await this.cacheService.zadd(LEADERBOARD_KEY, totalXp, userId, {
+    await this.cacheSortedSet.zadd(LEADERBOARD_KEY, totalXp, userId, {
       namespace: LEADERBOARD_NS,
     });
     this.logger.debug(`Synced leaderboard: user=${userId} xp=${totalXp}`);

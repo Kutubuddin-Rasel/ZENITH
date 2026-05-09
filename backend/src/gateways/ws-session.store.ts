@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { CacheService } from '../cache/cache.service';
-
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
+import { ICacheStore } from '../cache/interfaces/cache.interfaces';
 /**
  * Grace period (in seconds) before room subscriptions expire.
  * User has this window to reconnect and auto-rejoin rooms.
@@ -26,14 +26,14 @@ const WS_SESSION_NAMESPACE = 'ws-sessions';
  *
  * DESIGN:
  * - Per-user (not per-socket) — survives socket ID changes on reconnect
- * - Uses CacheService (global) — no direct Redis exposure
+ * - Uses cache layer (global) — no direct Redis exposure
  * - Graceful degradation — if Redis is down, returns empty arrays
  */
 @Injectable()
 export class WsSessionStore {
   private readonly logger = new Logger(WsSessionStore.name);
 
-  constructor(private readonly cacheService: CacheService) {}
+  constructor(@Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore) {}
 
   /**
    * Track a room subscription for a user.
@@ -52,7 +52,7 @@ export class WsSessionStore {
     }
 
     // Store with rolling TTL (refreshed on every join)
-    await this.cacheService.set(key, rooms, {
+    await this.cacheStore.set(key, rooms, {
       ttl: GRACE_PERIOD_TTL,
       namespace: WS_SESSION_NAMESPACE,
     });
@@ -76,9 +76,9 @@ export class WsSessionStore {
 
     if (filtered.length === 0) {
       // No rooms left — clean up the key
-      await this.cacheService.del(key, { namespace: WS_SESSION_NAMESPACE });
+      await this.cacheStore.del(key, { namespace: WS_SESSION_NAMESPACE });
     } else {
-      await this.cacheService.set(key, filtered, {
+      await this.cacheStore.set(key, filtered, {
         ttl: GRACE_PERIOD_TTL,
         namespace: WS_SESSION_NAMESPACE,
       });
@@ -98,7 +98,7 @@ export class WsSessionStore {
    */
   async getRooms(userId: string): Promise<string[]> {
     const key = this.buildKey(userId);
-    const rooms = await this.cacheService.get<string[]>(key, {
+    const rooms = await this.cacheStore.get<string[]>(key, {
       namespace: WS_SESSION_NAMESPACE,
     });
 
@@ -113,7 +113,7 @@ export class WsSessionStore {
    */
   async clearRooms(userId: string): Promise<void> {
     const key = this.buildKey(userId);
-    await this.cacheService.del(key, { namespace: WS_SESSION_NAMESPACE });
+    await this.cacheStore.del(key, { namespace: WS_SESSION_NAMESPACE });
     this.logger.debug(`Cleared all rooms for user ${userId}`);
   }
 

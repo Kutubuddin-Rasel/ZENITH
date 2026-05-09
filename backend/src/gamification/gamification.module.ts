@@ -8,6 +8,7 @@ import { GamificationController } from './gamification.controller';
 import { GamificationListener } from './listeners/gamification.listener';
 import { OnboardingGamificationListener } from './listeners/onboarding-gamification.listener';
 
+import { CacheModule } from '../cache/cache.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -15,6 +16,7 @@ import { OnboardingGamificationListener } from './listeners/onboarding-gamificat
       UserAchievement,
       AchievementProgress,
     ]),
+    CacheModule,
   ],
   controllers: [GamificationController],
   providers: [

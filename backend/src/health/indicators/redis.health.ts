@@ -1,14 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   HealthIndicator,
   HealthIndicatorResult,
   HealthCheckError,
 } from '@nestjs/terminus';
-import { CacheService } from '../../cache/cache.service';
-
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 @Injectable()
 export class RedisHealthIndicator extends HealthIndicator {
-  constructor(private readonly cache: CacheService) {
+  constructor(@Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore) {
     super();
   }
 
@@ -19,13 +19,13 @@ export class RedisHealthIndicator extends HealthIndicator {
       // Use cache service ping via set/get pattern
       const testKey = 'health:ping';
       const testValue = 'pong';
-      const setResult = await this.cache.set(testKey, testValue, { ttl: 10 });
+      const setResult = await this.cacheStore.set(testKey, testValue, { ttl: 10 });
 
       if (!setResult) {
         throw new Error('Redis set operation failed');
       }
 
-      const result = await this.cache.get<string>(testKey);
+      const result = await this.cacheStore.get<string>(testKey);
       const latency = Date.now() - startTime;
 
       if (result !== testValue) {

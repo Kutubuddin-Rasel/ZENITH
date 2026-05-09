@@ -9,6 +9,7 @@ import { WsSessionStore } from './ws-session.store';
 import { WsJwtGuard } from './guards/ws-jwt.guard';
 import { WsExceptionFilter } from './filters/ws-exception.filter';
 
+import { CacheModule } from '../cache/cache.module';
 /**
  * GatewaysModule
  *
@@ -35,6 +36,7 @@ import { WsExceptionFilter } from './filters/ws-exception.filter';
         signOptions: { expiresIn: '1h' },
       }),
     }),
+    CacheModule,
   ],
   providers: [
     BoardGateway,
