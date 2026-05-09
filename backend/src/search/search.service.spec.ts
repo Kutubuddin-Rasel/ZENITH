@@ -6,7 +6,7 @@ import { Project } from '../projects/entities/project.entity';
 import { User } from '../users/entities/user.entity';
 import { SearchAnalytics } from './entities/search-analytics.entity';
 import { TenantContext } from '../core/tenant/tenant-context.service';
-import { CacheService } from '../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
 import { ForbiddenException } from '@nestjs/common';
 import { SearchQueryDto } from './dto/search-query.dto';
 
@@ -92,7 +92,7 @@ describe('SearchService', () => {
           useValue: analyticsRepoMock,
         },
         { provide: TenantContext, useValue: mockTenantContext },
-        { provide: CacheService, useValue: cacheServiceMock },
+        { provide: CACHE_STORE_TOKEN, useValue: cacheServiceMock },
       ],
     }).compile();
 

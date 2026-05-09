@@ -8,10 +8,12 @@ import { User } from '../users/entities/user.entity';
 import { SearchAnalytics } from './entities/search-analytics.entity';
 import { TenantModule } from '../core/tenant/tenant.module';
 
+import { CacheModule } from '../cache/cache.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Issue, Project, User, SearchAnalytics]),
     TenantModule,
+    CacheModule,
   ],
   controllers: [SearchController],
   providers: [SearchService],

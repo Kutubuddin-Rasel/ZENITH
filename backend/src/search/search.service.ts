@@ -1,4 +1,4 @@
-import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Issue } from '../issues/entities/issue.entity';
@@ -6,7 +6,8 @@ import { Project } from '../projects/entities/project.entity';
 import { User } from '../users/entities/user.entity';
 import { SearchAnalytics } from './entities/search-analytics.entity';
 import { TenantContext } from '../core/tenant/tenant-context.service';
-import { CacheService } from '../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
+import { ICacheStore } from '../cache/interfaces/cache.interfaces';
 import {
   PaginatedResponse,
   createPaginatedResponse,
@@ -56,7 +57,7 @@ export class SearchService {
     @InjectRepository(SearchAnalytics)
     private analyticsRepo: Repository<SearchAnalytics>,
     private readonly tenantContext: TenantContext,
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
   ) {}
 
   async search(dto: SearchQueryDto, userId: string): Promise<SearchResult> {
@@ -85,7 +86,7 @@ export class SearchService {
     const cacheKey = `search:${organizationId}:${userId}:global:${sanitizedQuery}:${page}:${limit}`;
     const cacheOpts = { namespace: SEARCH_CACHE_NAMESPACE };
 
-    const cached = await this.cacheService.get<SearchResult>(
+    const cached = await this.cacheStore.get<SearchResult>(
       cacheKey,
       cacheOpts,
     );
@@ -184,7 +185,7 @@ export class SearchService {
 
     // Cache the fully assembled result. Short TTL keeps results fresh while
     // absorbing repeat keystrokes from typeahead clients (≤60s).
-    await this.cacheService.set<SearchResult>(cacheKey, result, {
+    await this.cacheStore.set<SearchResult>(cacheKey, result, {
       namespace: SEARCH_CACHE_NAMESPACE,
       ttl: SEARCH_CACHE_TTL_SECONDS,
     });
