@@ -1,11 +1,13 @@
 import {
+  ConflictException,
+  Inject,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
-  ConflictException,
-  InternalServerErrorException,
 } from '@nestjs/common';
-import { CacheService } from '../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
+import { ICacheStore } from '../cache/interfaces/cache.interfaces';
 import { WorkLogsService } from './issues.service';
 import {
   ActiveTimerPayload,
@@ -21,7 +23,7 @@ export class TimerService {
   private readonly logger = new Logger(TimerService.name);
 
   constructor(
-    private readonly cache: CacheService,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
     private readonly workLogsService: WorkLogsService,
   ) {}
 
@@ -31,7 +33,7 @@ export class TimerService {
     issueId: string,
   ): Promise<ActiveTimerPayload> {
     const key = buildTimerKey(userId);
-    const existing = await this.cache.get<ActiveTimerPayload>(key, {
+    const existing = await this.cacheStore.get<ActiveTimerPayload>(key, {
       namespace: TIMER_NAMESPACE,
     });
     if (existing) {
@@ -45,7 +47,7 @@ export class TimerService {
       issueId,
       startedAt: new Date().toISOString(),
     };
-    const ok = await this.cache.set(key, payload, {
+    const ok = await this.cacheStore.set(key, payload, {
       namespace: TIMER_NAMESPACE,
       ttl: TIMER_TTL_SECONDS,
     });
@@ -62,7 +64,7 @@ export class TimerService {
     options: { note?: string; billable?: boolean; hourlyRate?: number },
   ): Promise<WorkLog> {
     const key = buildTimerKey(userId);
-    const payload = await this.cache.get<ActiveTimerPayload>(key, {
+    const payload = await this.cacheStore.get<ActiveTimerPayload>(key, {
       namespace: TIMER_NAMESPACE,
     });
     if (!payload) {
@@ -70,7 +72,7 @@ export class TimerService {
     }
 
     // ATOMIC BOUNDARY: delete first; only persist a WorkLog if Redis ACK'd the delete.
-    const deleted = await this.cache.del(key, { namespace: TIMER_NAMESPACE });
+    const deleted = await this.cacheStore.del(key, { namespace: TIMER_NAMESPACE });
     if (!deleted) {
       throw new ConflictException(
         'Timer could not be released; aborting work-log creation',
@@ -93,7 +95,7 @@ export class TimerService {
       );
     } catch (err) {
       // Best-effort: restore timer so the user can retry rather than losing time.
-      await this.cache.set(key, payload, {
+      await this.cacheStore.set(key, payload, {
         namespace: TIMER_NAMESPACE,
         ttl: TIMER_TTL_SECONDS,
       });
@@ -107,7 +109,7 @@ export class TimerService {
 
   async status(userId: string): Promise<TimerStatus | null> {
     const key = buildTimerKey(userId);
-    const payload = await this.cache.get<ActiveTimerPayload>(key, {
+    const payload = await this.cacheStore.get<ActiveTimerPayload>(key, {
       namespace: TIMER_NAMESPACE,
     });
     if (!payload) return null;

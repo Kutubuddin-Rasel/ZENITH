@@ -1,7 +1,8 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_LIST_TOKEN, CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheList, ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import { NotificationType } from '../entities/notification.entity';
 import { NotificationsService } from '../notifications.service';
 
@@ -20,7 +21,8 @@ export class SmartDigestService {
   private readonly logger = new Logger(SmartDigestService.name);
 
   constructor(
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_LIST_TOKEN) private readonly cacheList: ICacheList,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
     @InjectQueue('notifications')
@@ -39,16 +41,16 @@ export class SmartDigestService {
     const debounceKey = `notifications:debounce:${userId}`;
 
     // Check if this is the first notification in the batch
-    const isFirstInBatch = !(await this.cacheService.exists(debounceKey));
+    const isFirstInBatch = !(await this.cacheStore.exists(debounceKey));
 
     // Stage the notification
-    await this.cacheService.rpush(key, item, { ttl: STAGING_TTL });
+    await this.cacheList.rpush(key, item, { ttl: STAGING_TTL });
 
     // If first in batch, schedule a delayed job for 15 minutes
     if (isFirstInBatch) {
       await this.scheduleDebounceDigest(userId);
       // Set debounce marker (expires after 15 minutes)
-      await this.cacheService.set(debounceKey, Date.now(), {
+      await this.cacheStore.set(debounceKey, Date.now(), {
         ttl: DEBOUNCE_DELAY_MS / 1000,
       });
     }
@@ -86,7 +88,7 @@ export class SmartDigestService {
    */
   async hasPending(userId: string): Promise<boolean> {
     const key = `notifications:staging:${userId}`;
-    const len = await this.cacheService.llen(key);
+    const len = await this.cacheList.llen(key);
     return len > 0;
   }
 
@@ -95,7 +97,7 @@ export class SmartDigestService {
    */
   async getPendingCount(userId: string): Promise<number> {
     const key = `notifications:staging:${userId}`;
-    return this.cacheService.llen(key);
+    return this.cacheList.llen(key);
   }
 
   /**
@@ -105,7 +107,7 @@ export class SmartDigestService {
     const key = `notifications:staging:${userId}`;
     const debounceKey = `notifications:debounce:${userId}`;
 
-    const items = await this.cacheService.lrange<StagedNotification>(
+    const items = await this.cacheList.lrange<StagedNotification>(
       key,
       0,
       -1,
@@ -113,7 +115,7 @@ export class SmartDigestService {
 
     if (!items || items.length === 0) {
       // Clean up debounce key even if no items
-      await this.cacheService.del(debounceKey);
+      await this.cacheStore.del(debounceKey);
       return;
     }
 
@@ -151,8 +153,8 @@ export class SmartDigestService {
     );
 
     // Clear Staging and Debounce
-    await this.cacheService.del(key);
-    await this.cacheService.del(debounceKey);
+    await this.cacheStore.del(key);
+    await this.cacheStore.del(debounceKey);
 
     this.logger.log(
       `Generated digest for user ${userId} with ${items.length} items`,
