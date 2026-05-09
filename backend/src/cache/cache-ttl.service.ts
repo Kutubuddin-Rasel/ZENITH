@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { CacheConfig } from '../config/cache.config';
+import { CacheConfig } from './config/cache.config';
 
 /**
  * CacheTtlService - Centralized Cache TTL Provider

@@ -79,11 +79,8 @@ export interface CachedIssue {
 }
 
 /**
- * Redis stats response structure.
+ * `RedisStats` lives at `./interfaces/cache.interfaces.ts` alongside the
+ * service contracts; consume it from there. Re-exported here for any caller
+ * that still references the legacy path.
  */
-export interface RedisStats {
-  connected: boolean;
-  memory: unknown[] | null;
-  info: Record<string, unknown> | null;
-  keyspace: Record<string, unknown> | null;
-}
+export type { RedisStats } from './interfaces/cache.interfaces';
