@@ -1,11 +1,12 @@
 // src/issues/issues.service.ts
 import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  HttpException,
+  Inject,
   Injectable,
   NotFoundException,
-  BadRequestException,
-  ForbiddenException,
-  ConflictException,
-  HttpException,
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -30,7 +31,8 @@ import {
   toAggregationResult,
 } from './dto/time-aggregation-result.interface';
 
-import { CacheService } from '../cache/cache.service';
+import { CACHE_COUNTER_TOKEN, CACHE_INVALIDATOR_TOKEN, CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
+import { ICacheCounter, ICacheInvalidator, ICacheStore } from '../cache/interfaces/cache.interfaces';
 import { WorkflowTransitionsService } from '../workflows/services/workflow-transitions.service';
 import { WorkflowStatusesService } from '../workflows/services/workflow-statuses.service';
 
@@ -68,7 +70,9 @@ export class IssuesService implements OnModuleInit {
     private readonly usersService: UsersService,
     private readonly eventEmitter: EventEmitter2,
     private readonly workLogRepo: WorkLogRepository,
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_COUNTER_TOKEN) private readonly cacheCounter: ICacheCounter,
+    @Inject(CACHE_INVALIDATOR_TOKEN) private readonly cacheInvalidator: ICacheInvalidator,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
     private readonly transitionsService: WorkflowTransitionsService,
     private readonly workflowStatusesService: WorkflowStatusesService,
     // TENANT ISOLATION: Inject factory to create tenant-aware repos
@@ -224,7 +228,7 @@ export class IssuesService implements OnModuleInit {
     const saved = await this.issueRepo.save(issue);
 
     // Invalidate project issues cache if it existed (e.g. list cache)
-    await this.cacheService.invalidateByTags([`project:${projectId}: issues`]);
+    await this.cacheInvalidator.invalidateByTags([`project:${projectId}: issues`]);
 
     const { type, payload } = EventFactory.createIssueEvent('issue.created', {
       projectId,
@@ -298,7 +302,7 @@ export class IssuesService implements OnModuleInit {
   ): Promise<Issue> {
     // Try cache first
     const cacheKey = `issue:${issueId} `;
-    const cachedIssue = await this.cacheService.get<Issue>(cacheKey);
+    const cachedIssue = await this.cacheStore.get<Issue>(cacheKey);
 
     if (cachedIssue) {
       // Validate project context
@@ -347,7 +351,7 @@ export class IssuesService implements OnModuleInit {
     }
 
     // Cache the issue
-    await this.cacheService.set(cacheKey, issue, {
+    await this.cacheStore.set(cacheKey, issue, {
       ttl: 900, // 15 minutes
       tags: [`issue:${issueId} `, `project:${projectId}: issues`],
     });
@@ -489,7 +493,7 @@ export class IssuesService implements OnModuleInit {
     const savedIssue = await this.issueRepo.save(issue);
 
     // Invalidate cache
-    await this.cacheService.del(`issue:${issueId} `);
+    await this.cacheStore.del(`issue:${issueId} `);
 
     // Reload issue
     const updatedIssue = await this.findOne(
@@ -589,7 +593,7 @@ export class IssuesService implements OnModuleInit {
     await this.issueRepo.save(issue);
 
     // Invalidate cache
-    await this.cacheService.del(`issue:${issueId} `);
+    await this.cacheStore.del(`issue:${issueId} `);
 
     this.eventEmitter.emit('issue.archived', {
       projectId,
@@ -644,7 +648,7 @@ export class IssuesService implements OnModuleInit {
     await this.issueRepo.save(issue);
 
     // Invalidate cache
-    await this.cacheService.del(`issue:${issueId} `);
+    await this.cacheStore.del(`issue:${issueId} `);
 
     this.eventEmitter.emit('issue.unarchived', {
       projectId,
@@ -682,7 +686,7 @@ export class IssuesService implements OnModuleInit {
     await this.issueRepo.remove(issue);
 
     // Invalidate cache
-    await this.cacheService.del(`issue:${issueId} `);
+    await this.cacheStore.del(`issue:${issueId} `);
 
     this.eventEmitter.emit('issue.deleted', {
       projectId,
@@ -834,7 +838,7 @@ export class IssuesService implements OnModuleInit {
     });
 
     // Invalidate cache
-    await this.cacheService.del(`issue:${issueId}`);
+    await this.cacheStore.del(`issue:${issueId}`);
 
     // Emit event
     this.eventEmitter.emit('issue.moved', {
@@ -1061,7 +1065,7 @@ export class IssuesService implements OnModuleInit {
     const PROJECT_IMPORT_LIMIT = 20;
     const PROJECT_IMPORT_TTL = 3600; // 1 hour in seconds
     const rateLimitKey = `rate_limit:project:${projectId}:import`;
-    const currentCount = await this.cacheService.incr(rateLimitKey, {
+    const currentCount = await this.cacheCounter.incr(rateLimitKey, {
       ttl: PROJECT_IMPORT_TTL,
     });
 

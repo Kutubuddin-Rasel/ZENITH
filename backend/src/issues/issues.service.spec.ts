@@ -22,7 +22,11 @@ import { Project } from '../projects/entities/project.entity';
 import { Board } from '../boards/entities/board.entity';
 import { ProjectMembersService } from '../membership/project-members/project-members.service';
 import { UsersService } from '../users/users.service';
-import { CacheService } from '../cache/cache.service';
+import {
+  CACHE_COUNTER_TOKEN,
+  CACHE_INVALIDATOR_TOKEN,
+  CACHE_STORE_TOKEN,
+} from '../cache/constants/cache.tokens';
 import { WorkflowTransitionsService } from '../workflows/services/workflow-transitions.service';
 import { WorkflowStatusesService } from '../workflows/services/workflow-statuses.service';
 import { TenantRepositoryFactory } from '../core/tenant';
@@ -237,7 +241,9 @@ describe('IssuesService', () => {
         },
         { provide: ProjectMembersService, useValue: mockProjectMembersService },
         { provide: UsersService, useValue: mockUsersService },
-        { provide: CacheService, useValue: mockCacheService },
+        { provide: CACHE_STORE_TOKEN, useValue: mockCacheService },
+        { provide: CACHE_INVALIDATOR_TOKEN, useValue: mockCacheService },
+        { provide: CACHE_COUNTER_TOKEN, useValue: mockCacheService },
         {
           provide: WorkflowTransitionsService,
           useValue: mockTransitionsService,
