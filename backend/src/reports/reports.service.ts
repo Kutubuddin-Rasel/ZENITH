@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -9,7 +9,8 @@ import {
 import { Sprint, SprintStatus } from 'src/sprints/entities/sprint.entity';
 import { SprintIssue } from 'src/sprints/entities/sprint-issue.entity';
 import { SprintsService } from 'src/sprints/sprints.service';
-import { CacheService } from 'src/cache/cache.service';
+import { CACHE_STORE_TOKEN } from 'src/cache/constants/cache.tokens';
+import { ICacheStore } from 'src/cache/interfaces/cache.interfaces';
 import { TenantContext } from '../core/tenant/tenant-context.service';
 
 // ---------------------------------------------------------------------------
@@ -102,7 +103,7 @@ export class ReportsService {
     private readonly issueRepo: Repository<Issue>,
     @InjectRepository(SprintIssue)
     private readonly sprintIssueRepo: Repository<SprintIssue>,
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
     private readonly tenantContext: TenantContext,
   ) {}
 
@@ -132,7 +133,7 @@ export class ReportsService {
     _userId: string,
   ): Promise<VelocityDataPoint[]> {
     const cacheKey = `reports:velocity:${projectId}`;
-    const cached = await this.cacheService.get<VelocityDataPoint[]>(cacheKey);
+    const cached = await this.cacheStore.get<VelocityDataPoint[]>(cacheKey);
 
     if (cached) return cached;
 
@@ -198,7 +199,7 @@ export class ReportsService {
         new Date(a.sprintStart).getTime() - new Date(b.sprintStart).getTime(),
     );
 
-    await this.cacheService.set(cacheKey, sortedVelocityData, { ttl: 300 });
+    await this.cacheStore.set(cacheKey, sortedVelocityData, { ttl: 300 });
     return sortedVelocityData;
   }
 
@@ -249,7 +250,7 @@ export class ReportsService {
    */
   async getCumulativeFlow(projectId: string, _userId: string, days = 30) {
     const cacheKey = `reports:cfd:${projectId}:${days}`;
-    const cached = await this.cacheService.get(cacheKey);
+    const cached = await this.cacheStore.get(cacheKey);
 
     if (cached) return cached;
 
@@ -304,7 +305,7 @@ export class ReportsService {
       return dataPoint;
     });
 
-    await this.cacheService.set(cacheKey, result, { ttl: 300 });
+    await this.cacheStore.set(cacheKey, result, { ttl: 300 });
     return result;
   }
 
@@ -320,7 +321,7 @@ export class ReportsService {
   ): Promise<EpicProgressDataPoint[]> {
     const cacheKey = `reports:epic-progress:${projectId}`;
     const cached =
-      await this.cacheService.get<EpicProgressDataPoint[]>(cacheKey);
+      await this.cacheStore.get<EpicProgressDataPoint[]>(cacheKey);
 
     if (cached) return cached;
 
@@ -379,7 +380,7 @@ export class ReportsService {
       };
     });
 
-    await this.cacheService.set(cacheKey, result, { ttl: 300 });
+    await this.cacheStore.set(cacheKey, result, { ttl: 300 });
     return result;
   }
 
@@ -394,7 +395,7 @@ export class ReportsService {
     _userId: string,
   ): Promise<IssueBreakdownResult> {
     const cacheKey = `reports:breakdown:${projectId}`;
-    const cached = await this.cacheService.get<IssueBreakdownResult>(cacheKey);
+    const cached = await this.cacheStore.get<IssueBreakdownResult>(cacheKey);
 
     if (cached) return cached;
 
@@ -484,7 +485,7 @@ export class ReportsService {
       totalIssues: totalCount,
     };
 
-    await this.cacheService.set(cacheKey, result, { ttl: 300 });
+    await this.cacheStore.set(cacheKey, result, { ttl: 300 });
     return result;
   }
 }

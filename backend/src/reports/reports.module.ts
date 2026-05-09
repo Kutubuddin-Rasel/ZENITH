@@ -19,6 +19,7 @@ import { ProjectMember } from 'src/membership/entities/project-member.entity';
 // S3 provider for scheduled report uploads
 import { S3StorageProvider } from 'src/attachments/storage/providers/s3-storage.provider';
 
+import { CacheModule } from '../cache/cache.module';
 @Module({
   imports: [
     ScheduleModule.forRoot(),
@@ -28,6 +29,7 @@ import { S3StorageProvider } from 'src/attachments/storage/providers/s3-storage.
     RevisionsModule,
     MembershipModule,
     EmailModule,
+    CacheModule,
   ],
   controllers: [ReportsController],
   providers: [
