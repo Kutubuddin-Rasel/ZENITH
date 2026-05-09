@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
-import { Logger } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import {
   context,
   trace,
@@ -9,7 +9,8 @@ import {
   ROOT_CONTEXT,
 } from '@opentelemetry/api';
 import { IssuesService } from '../issues/issues.service';
-import { CacheService } from '../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
+import { ICacheStore } from '../cache/interfaces/cache.interfaces';
 import { TelemetryMetricsService } from './telemetry-metrics.service';
 import { TelemetryAggregationService } from './telemetry-aggregation.service';
 import { HeartbeatJobPayload, TraceCarrier } from './telemetry.service';
@@ -44,7 +45,7 @@ export class TelemetryProcessor extends WorkerHost {
 
   constructor(
     private readonly issuesService: IssuesService,
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
     private readonly telemetryMetrics: TelemetryMetricsService,
     private readonly aggregationService: TelemetryAggregationService,
   ) {
@@ -114,12 +115,12 @@ export class TelemetryProcessor extends WorkerHost {
 
         const sessionKey = `telemetry:session:${ticketId}:${userId}`;
         const session =
-          await this.cacheService.get<TelemetrySession>(sessionKey);
+          await this.cacheStore.get<TelemetrySession>(sessionKey);
         const now = Date.now();
 
         if (!session) {
           // New session
-          await this.cacheService.set(
+          await this.cacheStore.set(
             sessionKey,
             { startTime: now },
             { ttl: SESSION_TTL_SECONDS },
@@ -129,7 +130,7 @@ export class TelemetryProcessor extends WorkerHost {
           this.logger.debug(`Started new session for ${ticketId}`);
         } else {
           // Existing session, extend TTL
-          await this.cacheService.set(sessionKey, session, {
+          await this.cacheStore.set(sessionKey, session, {
             ttl: SESSION_TTL_SECONDS,
           });
 

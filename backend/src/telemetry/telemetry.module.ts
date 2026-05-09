@@ -13,6 +13,7 @@ import { TelemetryDailyMetric } from './entities/telemetry-daily-metric.entity';
 import { ApiKeysModule } from '../api-keys/api-keys.module';
 import { IssuesModule } from '../issues/issues.module';
 
+import { CacheModule } from '../cache/cache.module';
 // =============================================================================
 // TELEMETRY MODULE
 // =============================================================================
@@ -22,7 +23,7 @@ import { IssuesModule } from '../issues/issues.module';
  *
  * Heartbeat Flow:
  *   Controller → TelemetryService → BullMQ(telemetry) → TelemetryProcessor
- *     ↳ writes to Redis session (CacheService)
+ *     ↳ writes to Redis session (cache layer)
  *     ↳ buffers aggregates in Redis (TelemetryAggregationService)
  *     ↳ may auto-transition tickets (IssuesService)
  *
@@ -47,6 +48,7 @@ import { IssuesModule } from '../issues/issues.module';
       { name: 'telemetry' },
       { name: 'telemetry-flush' },
     ),
+    CacheModule,
   ],
   controllers: [TelemetryController],
   providers: [
