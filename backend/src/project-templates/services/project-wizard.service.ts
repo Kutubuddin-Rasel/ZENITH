@@ -8,7 +8,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import {
   ProjectTemplate,
   ProjectCategory,
@@ -81,7 +82,7 @@ export class ProjectWizardService {
     private sprintsService: SprintsService,
     private dataSource: DataSource,
     @Optional() private projectIntelligence?: ProjectIntelligenceService,
-    @Optional() private cacheService?: CacheService,
+    @Optional() @Inject(CACHE_STORE_TOKEN) private readonly cacheStore?: ICacheStore,
     @Optional() private templateScorer?: TemplateScorerService,
     // NEW: Unified template application service
     @Optional() private templateApplicationService?: TemplateApplicationService,
@@ -489,8 +490,8 @@ export class ProjectWizardService {
       }
 
       // Invalidate cache
-      if (this.cacheService) {
-        await this.cacheService.del(`project_setup:${userId}`);
+      if (this.cacheStore) {
+        await this.cacheStore.del(`project_setup:${userId}`);
       }
 
       return project;

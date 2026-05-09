@@ -1,4 +1,4 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not } from 'typeorm';
 import {
@@ -7,8 +7,8 @@ import {
   ProjectMethodology,
 } from '../entities/project-template.entity';
 import { UserPreferences } from '../../user-preferences/entities/user-preferences.entity';
-import { CacheService } from '../../cache/cache.service';
-
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 export interface RecommendationContext {
   userId: string;
   projectType?: string;
@@ -36,7 +36,7 @@ export class TemplateRecommendationService {
     private templateRepo: Repository<ProjectTemplate>,
     @InjectRepository(UserPreferences)
     private preferencesRepo: Repository<UserPreferences>,
-    @Optional() private cacheService?: CacheService,
+    @Optional() @Inject(CACHE_STORE_TOKEN) private readonly cacheStore?: ICacheStore,
   ) {}
 
   /**
@@ -49,9 +49,9 @@ export class TemplateRecommendationService {
     // Try to get from cache first
     const cacheKey = `template_recommendations:${context.userId}:${context.industry || 'all'}:${context.methodology || 'all'}`;
 
-    if (this.cacheService) {
+    if (this.cacheStore) {
       const cached =
-        await this.cacheService.get<TemplateRecommendation[]>(cacheKey);
+        await this.cacheStore.get<TemplateRecommendation[]>(cacheKey);
       if (cached) {
         return cached;
       }
@@ -109,8 +109,8 @@ export class TemplateRecommendationService {
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
 
-    if (this.cacheService) {
-      await this.cacheService.set(cacheKey, result, { ttl: this.CACHE_TTL });
+    if (this.cacheStore) {
+      await this.cacheStore.set(cacheKey, result, { ttl: this.CACHE_TTL });
     }
 
     return result;
