@@ -19,6 +19,7 @@
  */
 
 import {
+  Inject,
   Injectable,
   Logger,
   OnModuleDestroy,
@@ -33,7 +34,8 @@ import {
   BREAKER_STATE_VALUES,
   BreakerEventType,
 } from '../../common/services/metrics.service';
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -133,7 +135,9 @@ export class IntegrationGateway implements OnModuleDestroy {
     @Optional() private readonly auditLogsService?: AuditLogsService,
     @Optional() private readonly rbacService?: RBACService,
     @Optional() private readonly metricsService?: MetricsService,
-    @Optional() private readonly cacheService?: CacheService,
+    @Optional()
+    @Inject(CACHE_STORE_TOKEN)
+    private readonly cacheStore?: ICacheStore,
   ) {}
 
   /**
@@ -368,9 +372,9 @@ export class IntegrationGateway implements OnModuleDestroy {
     breaker: CircuitBreaker,
     name: string,
   ): Promise<void> {
-    if (!this.cacheService) {
+    if (!this.cacheStore) {
       this.logger.debug(
-        `CacheService not available, skipping Redis hydration for: ${name}`,
+        `Cache store not available, skipping Redis hydration for: ${name}`,
       );
       return;
     }
@@ -378,7 +382,7 @@ export class IntegrationGateway implements OnModuleDestroy {
     const key = this.buildRedisKey(name);
 
     try {
-      const state = await this.cacheService.get<CircuitState>(key, {
+      const state = await this.cacheStore.get<CircuitState>(key, {
         namespace: REDIS_STATE_NAMESPACE,
       });
 
@@ -424,9 +428,9 @@ export class IntegrationGateway implements OnModuleDestroy {
     breaker: CircuitBreaker,
     name: string,
   ): void {
-    if (!this.cacheService) {
+    if (!this.cacheStore) {
       this.logger.debug(
-        `CacheService not available, skipping Redis listeners for: ${name}`,
+        `Cache store not available, skipping Redis listeners for: ${name}`,
       );
       return;
     }
@@ -461,7 +465,7 @@ export class IntegrationGateway implements OnModuleDestroy {
     name: string,
   ): Promise<void> {
     try {
-      await this.cacheService?.set(key, state, {
+      await this.cacheStore?.set(key, state, {
         ttl: REDIS_STATE_TTL_SECONDS,
         namespace: REDIS_STATE_NAMESPACE,
       });
@@ -483,7 +487,7 @@ export class IntegrationGateway implements OnModuleDestroy {
    */
   private async clearCircuitState(key: string, name: string): Promise<void> {
     try {
-      await this.cacheService?.del(key, {
+      await this.cacheStore?.del(key, {
         namespace: REDIS_STATE_NAMESPACE,
       });
       this.logger.debug(`Cleared circuit '${name}' state from Redis`);

@@ -7,7 +7,8 @@
 export { appConfig, AppConfig } from './app.config';
 export { authConfig, AuthConfig } from './auth.config';
 export { rateLimitConfig, RateLimitConfig } from './rate-limit.config';
-export { cacheConfig, CacheConfig } from './cache.config';
+export { cacheConfig, CacheConfig } from '../cache/config/cache.config';
+export { redisConfig, RedisConfig } from '../cache/config/redis.config';
 export { integrationConfig, IntegrationConfig } from './integration.config';
 
 /**
@@ -18,7 +19,8 @@ export const allConfigs = [
   async () => (await import('./app.config')).appConfig,
   async () => (await import('./auth.config')).authConfig,
   async () => (await import('./rate-limit.config')).rateLimitConfig,
-  async () => (await import('./cache.config')).cacheConfig,
+  async () => (await import('../cache/config/cache.config')).cacheConfig,
+  async () => (await import('../cache/config/redis.config')).redisConfig,
   async () => (await import('./integration.config')).integrationConfig,
 ];
 
@@ -30,5 +32,6 @@ export const CONFIG_KEYS = {
   AUTH: 'auth',
   RATE_LIMIT: 'rateLimit',
   CACHE: 'cache',
+  REDIS: 'redis',
   INTEGRATION: 'integration',
 } as const;
