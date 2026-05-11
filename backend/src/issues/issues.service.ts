@@ -39,7 +39,8 @@ import { WorkflowStatusesService } from '../workflows/services/workflow-statuses
 // TENANT ISOLATION: Import tenant repository factory
 import { TenantRepositoryFactory, TenantRepository } from '../core/tenant';
 import { BoardGateway } from '../gateways/board.gateway';
-import { EventFactory } from '../common/events/event.factory';
+import { ISSUE_EVENT_FACTORY_TOKEN } from '../common/constants/events.tokens';
+import type { IIssueEventFactory } from '../common/interfaces/event-factory.interfaces';
 import { AuditLogsService } from '../audit/audit-logs.service';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -83,6 +84,8 @@ export class IssuesService implements OnModuleInit {
     private readonly auditLogsService: AuditLogsService,
     // Required for the multi-step move transaction (replaces `issueRepo.manager.transaction`).
     private readonly dataSource: DataSource,
+    @Inject(ISSUE_EVENT_FACTORY_TOKEN)
+    private readonly issueEventFactory: IIssueEventFactory,
   ) {}
 
   /**
@@ -230,7 +233,7 @@ export class IssuesService implements OnModuleInit {
     // Invalidate project issues cache if it existed (e.g. list cache)
     await this.cacheInvalidator.invalidateByTags([`project:${projectId}: issues`]);
 
-    const { type, payload } = EventFactory.createIssueEvent('issue.created', {
+    const { type, payload } = this.issueEventFactory.create('issue.created', {
       projectId,
       issueId: saved.id,
       actorId: reporterId,

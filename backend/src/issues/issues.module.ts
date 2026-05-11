@@ -12,6 +12,8 @@ import { TimerController } from './timer.controller';
 import { BillableTimeService } from './billable-time.service';
 
 import { CacheModule } from '../cache/cache.module';
+import { CommonEventsModule } from '../common/submodules/events.module';
+
 @Module({
   imports: [
     // SOLID Refactor (Step 3): Tier-1 entities (Issue, WorkLog, Board) are now
@@ -21,6 +23,7 @@ import { CacheModule } from '../cache/cache.module';
     CaslModule,
     WorkflowsModule,
     CacheModule,
+    CommonEventsModule,
   ],
   providers: [
     IssuesService,
