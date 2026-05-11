@@ -1,10 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CACHE_COUNTER_TOKEN, CACHE_INVALIDATOR_TOKEN, CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
 import { ICacheCounter, ICacheInvalidator, ICacheStore } from '../cache/interfaces/cache.interfaces';
-import {
-  MetricsService,
+import { PERFORMANCE_METRICS_READER_TOKEN } from '../common/constants/metrics.tokens';
+import type {
+  IPerformanceMetricsReader,
   PerformanceMetrics,
-} from '../common/services/metrics.service';
+} from '../common/interfaces/metrics.interfaces';
 import { Request, Response } from 'express';
 import { createHash } from 'crypto';
 
@@ -42,7 +43,8 @@ export class ApiOptimizerService {
     @Inject(CACHE_COUNTER_TOKEN) private readonly cacheCounter: ICacheCounter,
     @Inject(CACHE_INVALIDATOR_TOKEN) private readonly cacheInvalidator: ICacheInvalidator,
     @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
-    private metricsService: MetricsService,
+    @Inject(PERFORMANCE_METRICS_READER_TOKEN)
+    private readonly performanceReader: IPerformanceMetricsReader,
   ) {}
 
   /**
@@ -442,11 +444,11 @@ export class ApiOptimizerService {
   /**
    * Get API performance metrics (Phase 3 - Real Metrics)
    *
-   * Returns REAL performance data from Prometheus counters,
-   * not mock data. Delegates to MetricsService for actual values.
+   * Returns REAL performance data from Prometheus counters via the
+   * `IPerformanceMetricsReader` token (DIP — no concrete coupling).
    */
   async getPerformanceMetrics(): Promise<PerformanceMetrics> {
-    return this.metricsService.getPerformanceMetrics();
+    return this.performanceReader.getPerformanceMetrics();
   }
 
   /**
