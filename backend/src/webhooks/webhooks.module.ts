@@ -7,14 +7,14 @@ import { Webhook } from './entities/webhook.entity';
 import { WebhookLog } from './entities/webhook-log.entity';
 import { MembershipModule } from '../membership/membership.module';
 import { CsrfModule } from '../security/csrf/csrf.module';
-import { CommonModule } from '../common/common.module';
+import { CommonSecurityModule } from '../common/submodules/security.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Webhook, WebhookLog]),
     MembershipModule, // Provides ProjectMembersService for authorization
     CsrfModule, // Provides StatefulCsrfGuard for CSRF protection
-    CommonModule, // Provides EncryptionService for secret encryption at rest
+    CommonSecurityModule, // Provides ENCRYPTION_SERVICE_TOKEN for secret encryption at rest
   ],
   controllers: [WebhooksController],
   providers: [WebhooksService, WebhookDeliveryProcessor],

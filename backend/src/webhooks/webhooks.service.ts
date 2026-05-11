@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -15,7 +16,8 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { generateHexToken } from '../common/utils/token.util';
 import { ProjectMembersService } from '../membership/project-members/project-members.service';
 import { ProjectRole } from '../membership/enums/project-role.enum';
-import { EncryptionService } from '../common/services/encryption.service';
+import { ENCRYPTION_SERVICE_TOKEN } from '../common/constants/encryption.tokens';
+import type { IEncryptionService } from '../common/interfaces/encryption.interfaces';
 import {
   WEBHOOK_DELIVERY_QUEUE,
   WEBHOOK_DELIVERY_JOB,
@@ -64,7 +66,8 @@ export class WebhooksService {
     @InjectQueue(WEBHOOK_DELIVERY_QUEUE)
     private readonly deliveryQueue: Queue<WebhookDeliveryJobData>,
     private readonly projectMembersService: ProjectMembersService,
-    private readonly encryptionService: EncryptionService,
+    @Inject(ENCRYPTION_SERVICE_TOKEN)
+    private readonly encryptionService: IEncryptionService,
   ) {}
 
   // ==========================================================================

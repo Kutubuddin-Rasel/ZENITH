@@ -1,13 +1,14 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
-import { Logger } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import * as https from 'https';
 import { Webhook } from './entities/webhook.entity';
 import { WebhookLog } from './entities/webhook-log.entity';
-import { EncryptionService } from '../common/services/encryption.service';
+import { ENCRYPTION_SERVICE_TOKEN } from '../common/constants/encryption.tokens';
+import type { IEncryptionService } from '../common/interfaces/encryption.interfaces';
 import {
   WEBHOOK_DELIVERY_QUEUE,
   WebhookDeliveryJobData,
@@ -25,7 +26,7 @@ import {
 //   - removeOnFail: false — failed jobs stay for dead letter analysis
 //
 // SECURITY:
-//   - Decrypts HMAC secret in-memory only (AES-256-GCM via EncryptionService)
+//   - Decrypts HMAC secret in-memory only (AES-256-GCM via IEncryptionService)
 //   - TLS 1.2+ enforced, self-signed certs rejected
 //   - Plaintext secret never logged
 // ============================================================================
@@ -48,7 +49,8 @@ export class WebhookDeliveryProcessor extends WorkerHost {
     private readonly webhookRepo: Repository<Webhook>,
     @InjectRepository(WebhookLog)
     private readonly logRepo: Repository<WebhookLog>,
-    private readonly encryptionService: EncryptionService,
+    @Inject(ENCRYPTION_SERVICE_TOKEN)
+    private readonly encryptionService: IEncryptionService,
   ) {
     super();
   }
