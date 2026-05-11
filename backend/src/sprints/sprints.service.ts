@@ -30,7 +30,8 @@ import { BoardType } from '../boards/entities/board.entity';
 import { SmartDefaultsService } from '../user-preferences/services/smart-defaults.service';
 // TENANT ISOLATION: Import tenant repository factory
 import { TenantRepositoryFactory, TenantRepository } from '../core/tenant';
-import { EventFactory } from '../common/events/event.factory';
+import { SPRINT_EVENT_FACTORY_TOKEN } from '../common/constants/events.tokens';
+import type { ISprintEventFactory } from '../common/interfaces/event-factory.interfaces';
 import {
   BurndownResponseDto,
   BurndownSnapshotDto,
@@ -69,6 +70,8 @@ export class SprintsService implements OnModuleInit {
     // REDIS CACHING: Inject cache service
     @Inject(CACHE_INVALIDATOR_TOKEN) private readonly cacheInvalidator: ICacheInvalidator,
     @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
+    @Inject(SPRINT_EVENT_FACTORY_TOKEN)
+    private readonly sprintEventFactory: ISprintEventFactory,
   ) {}
 
   /**
@@ -117,7 +120,7 @@ export class SprintsService implements OnModuleInit {
       }
     }
 
-    const sprintPayload = EventFactory.createSprintEvent({
+    const sprintPayload = this.sprintEventFactory.create({
       projectId,
       sprintId: saved.id,
       actorId: userId,
@@ -228,7 +231,7 @@ export class SprintsService implements OnModuleInit {
       }
     }
 
-    const updatePayload = EventFactory.createSprintEvent({
+    const updatePayload = this.sprintEventFactory.create({
       projectId,
       sprintId: updated.id,
       actorId: userId,
@@ -286,7 +289,7 @@ export class SprintsService implements OnModuleInit {
     sprint.status = SprintStatus.COMPLETED;
     const archived = await this.sprintRepo.save(sprint);
 
-    const archivePayload = EventFactory.createSprintEvent({
+    const archivePayload = this.sprintEventFactory.create({
       projectId,
       sprintId: archived.id,
       actorId: userId,
@@ -340,7 +343,7 @@ export class SprintsService implements OnModuleInit {
     }
     await this.sprintRepo.remove(sprint);
 
-    const deletePayload = EventFactory.createSprintEvent({
+    const deletePayload = this.sprintEventFactory.create({
       projectId,
       sprintId: sprint.id,
       actorId: userId,
@@ -391,7 +394,7 @@ export class SprintsService implements OnModuleInit {
     });
 
     // Emit event after successful transaction
-    const addIssuePayload = EventFactory.createSprintEvent({
+    const addIssuePayload = this.sprintEventFactory.create({
       projectId,
       sprintId: sprint.id,
       actorId: userId,
@@ -434,7 +437,7 @@ export class SprintsService implements OnModuleInit {
     });
 
     // Emit event after successful transaction
-    const removeIssuePayload = EventFactory.createSprintEvent({
+    const removeIssuePayload = this.sprintEventFactory.create({
       projectId,
       sprintId: sprint.id,
       actorId: userId,
@@ -493,7 +496,7 @@ export class SprintsService implements OnModuleInit {
       console.warn('Failed to create board for sprint:', error);
     }
 
-    const startPayload = EventFactory.createSprintEvent({
+    const startPayload = this.sprintEventFactory.create({
       projectId,
       sprintId: started.id,
       actorId: userId,

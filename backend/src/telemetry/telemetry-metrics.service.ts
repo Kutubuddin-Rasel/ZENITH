@@ -35,9 +35,10 @@ type TransitionLabelNames = 'result';
  * TelemetryMetricsService — Domain-Specific Prometheus Metrics
  *
  * ARCHITECTURE:
- * Uses the global prom-client registry (same as MetricsService in CommonModule).
- * All metrics are automatically exposed at the existing `/metrics` endpoint
- * via MetricsController — no additional wiring needed.
+ * Uses the global prom-client registry (same one owned by
+ * `PrometheusRegistryProvider` in `CommonObservabilityModule`). All metrics
+ * are automatically exposed at the existing `/metrics` endpoint via
+ * `MetricsController` — no additional wiring needed.
  *
  * METRICS:
  * 1. zenith_telemetry_heartbeats_total     (Counter)   — Total heartbeats received

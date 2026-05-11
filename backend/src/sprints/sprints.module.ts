@@ -15,6 +15,8 @@ import { BoardsModule } from '../boards/boards.module';
 import { UserPreferencesModule } from '../user-preferences/user-preferences.module';
 
 import { CacheModule } from '../cache/cache.module';
+import { CommonEventsModule } from '../common/submodules/events.module';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([Sprint, SprintIssue, SprintSnapshot]),
@@ -24,6 +26,7 @@ import { CacheModule } from '../cache/cache.module';
     BoardsModule,
     UserPreferencesModule,
     CacheModule,
+    CommonEventsModule,
   ],
   providers: [SprintsService, SprintsCron],
   controllers: [SprintsController],
