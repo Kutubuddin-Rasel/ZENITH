@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -15,7 +16,8 @@ import { SyncLog, SyncStatus } from '../entities/sync-log.entity';
 import { ExternalData } from '../entities/external-data.entity';
 import { SearchIndex } from '../entities/search-index.entity';
 import { IntegrationConfig, AuthConfig } from '../entities/integration.entity';
-import { EncryptionService } from '../../common/services/encryption.service';
+import { ENCRYPTION_SERVICE_TOKEN } from '../../common/constants/encryption.tokens';
+import type { IEncryptionService } from '../../common/interfaces/encryption.interfaces';
 import { RateLimitService } from './rate-limit.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -58,7 +60,8 @@ export class IntegrationService {
     private externalDataRepo: Repository<ExternalData>,
     @InjectRepository(SearchIndex)
     private searchIndexRepo: Repository<SearchIndex>,
-    private encryptionService: EncryptionService,
+    @Inject(ENCRYPTION_SERVICE_TOKEN)
+    private readonly encryptionService: IEncryptionService,
     private rateLimitService: RateLimitService,
     @InjectQueue('integration-sync') private syncQueue: Queue,
   ) {}
