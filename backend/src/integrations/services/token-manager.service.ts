@@ -1,11 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Integration, IntegrationStatus } from '../entities/integration.entity';
 import { IntegrationService } from './integration.service';
 import { OAuthService } from './oauth.service';
-import { EncryptionService } from '../../common/services/encryption.service';
+import { ENCRYPTION_SERVICE_TOKEN } from '../../common/constants/encryption.tokens';
+import type { IEncryptionService } from '../../common/interfaces/encryption.interfaces';
 
 /**
  * Service for managing OAuth token lifecycle (expiration, refresh, rotation).
@@ -25,7 +26,8 @@ export class TokenManagerService {
     private integrationRepo: Repository<Integration>,
     private integrationService: IntegrationService,
     private oauthService: OAuthService,
-    private encryptionService: EncryptionService,
+    @Inject(ENCRYPTION_SERVICE_TOKEN)
+    private readonly encryptionService: IEncryptionService,
   ) {}
 
   /**
