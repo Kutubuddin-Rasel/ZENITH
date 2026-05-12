@@ -11,7 +11,10 @@ import { SprintIssue } from 'src/sprints/entities/sprint-issue.entity';
 import { SprintsService } from 'src/sprints/sprints.service';
 import { CACHE_STORE_TOKEN } from 'src/cache/constants/cache.tokens';
 import { ICacheStore } from 'src/cache/interfaces/cache.interfaces';
-import { TenantContext } from '../core/tenant/tenant-context.service';
+import {
+  TENANT_CONTEXT_READER_TOKEN,
+  type ITenantContextReader,
+} from '../core/tenant';
 
 // ---------------------------------------------------------------------------
 // Strict Interfaces (ZERO `any`)
@@ -104,7 +107,8 @@ export class ReportsService {
     @InjectRepository(SprintIssue)
     private readonly sprintIssueRepo: Repository<SprintIssue>,
     @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
-    private readonly tenantContext: TenantContext,
+    @Inject(TENANT_CONTEXT_READER_TOKEN)
+    private readonly tenantContext: ITenantContextReader,
   ) {}
 
   /**

@@ -5,7 +5,7 @@ import { Issue } from '../issues/entities/issue.entity';
 import { Project } from '../projects/entities/project.entity';
 import { User } from '../users/entities/user.entity';
 import { SearchAnalytics } from './entities/search-analytics.entity';
-import { TenantContext } from '../core/tenant/tenant-context.service';
+import { TENANT_CONTEXT_READER_TOKEN } from '../core/tenant';
 import { CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
 import { ForbiddenException } from '@nestjs/common';
 import { SearchQueryDto } from './dto/search-query.dto';
@@ -91,7 +91,7 @@ describe('SearchService', () => {
           provide: getRepositoryToken(SearchAnalytics),
           useValue: analyticsRepoMock,
         },
-        { provide: TenantContext, useValue: mockTenantContext },
+        { provide: TENANT_CONTEXT_READER_TOKEN, useValue: mockTenantContext },
         { provide: CACHE_STORE_TOKEN, useValue: cacheServiceMock },
       ],
     }).compile();
@@ -100,7 +100,7 @@ describe('SearchService', () => {
     issuesRepo = module.get(getRepositoryToken(Issue));
     projectsRepo = module.get(getRepositoryToken(Project));
     usersRepo = module.get(getRepositoryToken(User));
-    tenantContext = module.get(TenantContext);
+    tenantContext = module.get(TENANT_CONTEXT_READER_TOKEN);
   });
 
   describe('search', () => {
