@@ -95,7 +95,10 @@ export class IssuesService implements OnModuleInit {
   onModuleInit() {
     // Wrap projectRepo with automatic tenant filtering
     // Queries will automatically add WHERE organizationId = <current_tenant>
-    this.tenantProjectRepo = this.tenantRepoFactory.create(this.projectRepo);
+    this.tenantProjectRepo = this.tenantRepoFactory.create(
+      this.projectRepo,
+      'organizationId',
+    );
   }
 
   /**

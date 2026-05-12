@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Integration, IntegrationType } from '../entities/integration.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -6,7 +6,8 @@ import { ExternalData, MappedData } from '../entities/external-data.entity';
 import { SearchIndex } from '../entities/search-index.entity';
 import { RateLimitService } from './rate-limit.service';
 import { TokenManagerService } from './token-manager.service';
-import { EncryptionService } from '../../common/services/encryption.service';
+import { ENCRYPTION_SERVICE_TOKEN } from '../../common/constants/encryption.tokens';
+import type { IEncryptionService } from '../../common/interfaces/encryption.interfaces';
 import { BaseIntegrationService } from './base-integration.service';
 
 export interface GoogleCalendarEvent {
@@ -101,7 +102,8 @@ export class GoogleWorkspaceIntegrationService extends BaseIntegrationService {
     searchIndexRepo: Repository<SearchIndex>,
     rateLimitService: RateLimitService,
     tokenManagerService: TokenManagerService,
-    encryptionService: EncryptionService,
+    @Inject(ENCRYPTION_SERVICE_TOKEN)
+    encryptionService: IEncryptionService,
   ) {
     super(
       integrationRepo,
