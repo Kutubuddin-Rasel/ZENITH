@@ -1,11 +1,12 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { IntegrationService } from '../services/integration.service';
 import { GitHubIntegrationService } from '../services/github-integration.service';
 import { SlackIntegrationService } from '../services/slack-integration.service';
 import { IntegrationType } from '../entities/integration.entity';
-import { MetricsService } from '../../common/services/metrics.service';
+import { INTEGRATION_METRICS_RECORDER_TOKEN } from '../../common/constants/metrics.tokens';
+import type { IIntegrationMetricsRecorder } from '../../common/interfaces/metrics.interfaces';
 
 export interface SyncJobData {
   integrationId: string;
@@ -34,7 +35,8 @@ export class IntegrationSyncProcessor extends WorkerHost {
     private readonly integrationService: IntegrationService,
     private readonly githubService: GitHubIntegrationService,
     private readonly slackService: SlackIntegrationService,
-    private readonly metricsService: MetricsService,
+    @Inject(INTEGRATION_METRICS_RECORDER_TOKEN)
+    private readonly integrationMetrics: IIntegrationMetricsRecorder,
   ) {
     super();
   }
@@ -102,7 +104,7 @@ export class IntegrationSyncProcessor extends WorkerHost {
     durationSeconds: number,
   ): void {
     try {
-      this.metricsService.recordSync(
+      this.integrationMetrics.recordSync(
         integrationType.toLowerCase(),
         status,
         durationSeconds,

@@ -23,6 +23,11 @@ import { OAuthService } from './services/oauth.service';
 import { WebhookVerificationService } from './services/webhook-verification.service';
 import { TokenManagerService } from './services/token-manager.service';
 import { RateLimitService } from './services/rate-limit.service';
+import { IntegrationAlertService } from './services/integration-alert.service';
+import { INTEGRATION_ALERT_ORCHESTRATOR_TOKEN } from '../common/constants/integration-alerting.tokens';
+import { CommonAlertingModule } from '../common/submodules/alerting.module';
+import { CommonObservabilityModule } from '../common/submodules/observability.module';
+import { CommonSecurityModule } from '../common/submodules/security.module';
 import { IntegrationController } from './controllers/integration.controller';
 import { IntegrationMarketplaceController } from './controllers/integration-marketplace.controller';
 import { OAuthController } from './controllers/oauth.controller';
@@ -47,6 +52,9 @@ import { IntegrationSyncProcessor } from './processors/integration-sync.processo
     EventEmitterModule.forRoot(),
     AuthModule,
     AccessControlModule,
+    CommonAlertingModule,
+    CommonObservabilityModule,
+    CommonSecurityModule,
     // Queue registration now in CoreQueueModule (global)
     UsersModule,
     IssuesModule,
@@ -76,6 +84,11 @@ import { IntegrationSyncProcessor } from './processors/integration-sync.processo
     TrelloIntegrationService,
     IntercomService,
     UniversalSearchService,
+    IntegrationAlertService,
+    {
+      provide: INTEGRATION_ALERT_ORCHESTRATOR_TOKEN,
+      useExisting: IntegrationAlertService,
+    },
     // Sprint 2: Add processor to run in-process
     IntegrationSyncProcessor,
   ],
@@ -96,6 +109,8 @@ import { IntegrationSyncProcessor } from './processors/integration-sync.processo
     TrelloIntegrationService,
     UniversalSearchService,
     IntercomService,
+    IntegrationAlertService,
+    INTEGRATION_ALERT_ORCHESTRATOR_TOKEN,
   ],
 })
 export class IntegrationsModule {}
