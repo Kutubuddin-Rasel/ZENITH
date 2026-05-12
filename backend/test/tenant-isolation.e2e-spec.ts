@@ -18,12 +18,15 @@ import {
 import { ClsModule, ClsService } from 'nestjs-cls';
 
 // Tenant infrastructure
+import { TenantModule, TenantRepositoryFactory } from 'src/core/tenant';
+// Internal-only imports — integration tests legitimately drive the
+// concrete CLS-backed context to exercise bypass / direct setters.
+// Application code MUST NOT import from this path (use the
+// segregated tokens in `core/tenant` instead).
 import {
-  TenantModule,
   TenantContext,
-  TenantRepositoryFactory,
   TENANT_ID_KEY,
-} from 'src/core/tenant';
+} from 'src/core/tenant/tenant-context.service';
 
 // Unique test run ID to avoid table conflicts
 const TEST_RUN_ID = Date.now().toString().slice(-6);
@@ -207,7 +210,10 @@ describe('Tenant Isolation (Red Team Test)', () => {
     it('should return projects for the current tenant only', async () => {
       if (!shouldRunIntegrationTests) return;
 
-      const tenantProjectRepo = tenantRepoFactory.create(projectRepo);
+      const tenantProjectRepo = tenantRepoFactory.create(
+        projectRepo,
+        'organizationId',
+      );
 
       // Run as Tenant A - should see the project
       const projectsAsA = await runAsTenant(tenantA.id, async () => {
@@ -221,7 +227,10 @@ describe('Tenant Isolation (Red Team Test)', () => {
     it('should return EMPTY array when querying as different tenant (RED TEAM)', async () => {
       if (!shouldRunIntegrationTests) return;
 
-      const tenantProjectRepo = tenantRepoFactory.create(projectRepo);
+      const tenantProjectRepo = tenantRepoFactory.create(
+        projectRepo,
+        'organizationId',
+      );
 
       // Run as Tenant B - should NOT see Tenant A's project
       const projectsAsB = await runAsTenant(tenantB.id, async () => {
@@ -237,7 +246,10 @@ describe('Tenant Isolation (Red Team Test)', () => {
     it('should return project for the owning tenant', async () => {
       if (!shouldRunIntegrationTests) return;
 
-      const tenantProjectRepo = tenantRepoFactory.create(projectRepo);
+      const tenantProjectRepo = tenantRepoFactory.create(
+        projectRepo,
+        'organizationId',
+      );
 
       // Run as Tenant A - should find the project
       const projectAsA = await runAsTenant(tenantA.id, async () => {
@@ -253,7 +265,10 @@ describe('Tenant Isolation (Red Team Test)', () => {
     it("should return NULL when accessing another tenant's data by ID (RED TEAM)", async () => {
       if (!shouldRunIntegrationTests) return;
 
-      const tenantProjectRepo = tenantRepoFactory.create(projectRepo);
+      const tenantProjectRepo = tenantRepoFactory.create(
+        projectRepo,
+        'organizationId',
+      );
 
       // ATTACK SCENARIO: Tenant B tries to access Tenant A's project by ID
       const projectAsB = await runAsTenant(tenantB.id, async () => {
@@ -271,7 +286,10 @@ describe('Tenant Isolation (Red Team Test)', () => {
     it('should only count entities in current tenant', async () => {
       if (!shouldRunIntegrationTests) return;
 
-      const tenantProjectRepo = tenantRepoFactory.create(projectRepo);
+      const tenantProjectRepo = tenantRepoFactory.create(
+        projectRepo,
+        'organizationId',
+      );
 
       // Tenant A count
       const countA = await runAsTenant(tenantA.id, async () => {
@@ -291,7 +309,10 @@ describe('Tenant Isolation (Red Team Test)', () => {
     it('should auto-inject tenant filter in QueryBuilder (use .andWhere)', async () => {
       if (!shouldRunIntegrationTests) return;
 
-      const tenantProjectRepo = tenantRepoFactory.create(projectRepo);
+      const tenantProjectRepo = tenantRepoFactory.create(
+        projectRepo,
+        'organizationId',
+      );
 
       // Run as Tenant B with QueryBuilder
       // NOTE: Must use .andWhere() to preserve the tenant filter
@@ -310,7 +331,10 @@ describe('Tenant Isolation (Red Team Test)', () => {
     it('should allow mixing tenant filter with other conditions', async () => {
       if (!shouldRunIntegrationTests) return;
 
-      const tenantProjectRepo = tenantRepoFactory.create(projectRepo);
+      const tenantProjectRepo = tenantRepoFactory.create(
+        projectRepo,
+        'organizationId',
+      );
 
       // Run as Tenant A with additional filter
       const projectsAsA = await runAsTenant(tenantA.id, async () => {
@@ -328,7 +352,10 @@ describe('Tenant Isolation (Red Team Test)', () => {
     it('should allow bypass for admin operations', async () => {
       if (!shouldRunIntegrationTests) return;
 
-      const tenantProjectRepo = tenantRepoFactory.create(projectRepo);
+      const tenantProjectRepo = tenantRepoFactory.create(
+        projectRepo,
+        'organizationId',
+      );
 
       // Admin operation with bypass enabled
       const allProjects = await runAsTenant(tenantB.id, async () => {
@@ -352,7 +379,10 @@ describe('Tenant Isolation (Red Team Test)', () => {
     it('should return all data when no tenant is set (dangerous - log warning)', async () => {
       if (!shouldRunIntegrationTests) return;
 
-      const tenantProjectRepo = tenantRepoFactory.create(projectRepo);
+      const tenantProjectRepo = tenantRepoFactory.create(
+        projectRepo,
+        'organizationId',
+      );
 
       // Run without setting tenant (e.g., system background job)
       const allProjects = await clsService.run(async () => {

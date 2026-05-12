@@ -78,7 +78,10 @@ export class SprintsService implements OnModuleInit {
    * OnModuleInit: Create tenant-aware repository wrappers
    */
   onModuleInit() {
-    this.tenantProjectRepo = this.tenantRepoFactory.create(this.projectRepo);
+    this.tenantProjectRepo = this.tenantRepoFactory.create(
+      this.projectRepo,
+      'organizationId',
+    );
   }
 
   /** Create sprint under a project */

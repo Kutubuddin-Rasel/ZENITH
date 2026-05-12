@@ -5,7 +5,10 @@ import { Issue } from '../issues/entities/issue.entity';
 import { Project } from '../projects/entities/project.entity';
 import { User } from '../users/entities/user.entity';
 import { SearchAnalytics } from './entities/search-analytics.entity';
-import { TenantContext } from '../core/tenant/tenant-context.service';
+import {
+  TENANT_CONTEXT_READER_TOKEN,
+  type ITenantContextReader,
+} from '../core/tenant';
 import { CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
 import { ICacheStore } from '../cache/interfaces/cache.interfaces';
 import {
@@ -56,7 +59,8 @@ export class SearchService {
     private usersRepo: Repository<User>,
     @InjectRepository(SearchAnalytics)
     private analyticsRepo: Repository<SearchAnalytics>,
-    private readonly tenantContext: TenantContext,
+    @Inject(TENANT_CONTEXT_READER_TOKEN)
+    private readonly tenantContext: ITenantContextReader,
     @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
   ) {}
 
