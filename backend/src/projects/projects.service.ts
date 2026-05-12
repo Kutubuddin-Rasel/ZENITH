@@ -31,11 +31,12 @@ import { ICacheStore, IEntityCache } from '../cache/interfaces/cache.interfaces'
 import { AuditLogsService } from '../audit/audit-logs.service';
 import { ProjectTemplate } from '../project-templates/entities/project-template.entity';
 import { TemplateApplicationService } from '../project-templates/services/template-application.service';
-// TENANT ISOLATION: Import tenant repository factory
+// TENANT ISOLATION: Import tenant repository factory + segregated reader.
 import {
   TenantRepositoryFactory,
   TenantRepository,
-  TenantContext,
+  TENANT_CONTEXT_READER_TOKEN,
+  type ITenantContextReader,
 } from '../core/tenant';
 import { ClsService } from 'nestjs-cls';
 import { v4 as uuidv4 } from 'uuid';
@@ -70,9 +71,11 @@ export class ProjectsService implements OnModuleInit {
     @Optional()
     @Inject(forwardRef(() => TemplateApplicationService))
     private readonly templateApplicationService?: TemplateApplicationService,
-    // TENANT ISOLATION: Inject factory and context
+    // TENANT ISOLATION: Inject factory and segregated reader (DIP).
     private readonly tenantRepoFactory?: TenantRepositoryFactory,
-    private readonly tenantContext?: TenantContext,
+    @Optional()
+    @Inject(TENANT_CONTEXT_READER_TOKEN)
+    private readonly tenantContext?: ITenantContextReader,
     private readonly cls?: ClsService,
   ) {}
 
@@ -81,7 +84,10 @@ export class ProjectsService implements OnModuleInit {
    */
   onModuleInit() {
     if (this.tenantRepoFactory) {
-      this.tenantProjectRepo = this.tenantRepoFactory.create(this.projectRepo);
+      this.tenantProjectRepo = this.tenantRepoFactory.create(
+        this.projectRepo,
+        'organizationId',
+      );
     }
   }
 

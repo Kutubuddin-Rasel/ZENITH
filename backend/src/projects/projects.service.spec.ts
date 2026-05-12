@@ -12,7 +12,10 @@ import {
   ENTITY_CACHE_TOKEN,
 } from '../cache/constants/cache.tokens';
 import { AuditLogsService } from '../audit/audit-logs.service';
-import { TenantContext, TenantRepositoryFactory } from '../core/tenant';
+import {
+  TENANT_CONTEXT_READER_TOKEN,
+  TenantRepositoryFactory,
+} from '../core/tenant';
 import { ClsService } from 'nestjs-cls';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 import { ProjectTemplate } from '../project-templates/entities/project-template.entity';
@@ -91,7 +94,7 @@ describe('ProjectsService', () => {
         { provide: CACHE_STORE_TOKEN, useValue: mockCacheService },
         { provide: ENTITY_CACHE_TOKEN, useValue: mockCacheService },
         { provide: AuditLogsService, useValue: mockAuditLogsService },
-        { provide: TenantContext, useValue: mockTenantContext },
+        { provide: TENANT_CONTEXT_READER_TOKEN, useValue: mockTenantContext },
         { provide: TenantRepositoryFactory, useValue: mockTenantRepoFactory },
         { provide: ClsService, useValue: mockClsService },
       ],
