@@ -6,7 +6,7 @@ import { ExternalData, MappedData } from '../entities/external-data.entity';
 import { SearchIndex, SearchMetadata } from '../entities/search-index.entity';
 import { RateLimitService } from './rate-limit.service';
 import { TokenManagerService } from './token-manager.service';
-import { EncryptionService } from '../../common/services/encryption.service';
+import type { IEncryptionService } from '../../common/interfaces/encryption.interfaces';
 
 /**
  * Base class for integration services providing common functionality.
@@ -31,7 +31,7 @@ export abstract class BaseIntegrationService {
     protected readonly searchIndexRepo: Repository<SearchIndex>,
     protected readonly rateLimitService: RateLimitService,
     protected readonly tokenManagerService: TokenManagerService,
-    protected readonly encryptionService: EncryptionService,
+    protected readonly encryptionService: IEncryptionService,
   ) {}
 
   /**
