@@ -1,8 +1,9 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AIProviderService } from './ai-provider.service';
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import {
   ProjectTemplate,
   ProjectCategory,
@@ -241,7 +242,7 @@ export class ProjectIntelligenceService {
     private readonly aiProvider: AIProviderService,
     @InjectRepository(ProjectTemplate)
     private readonly templateRepo: Repository<ProjectTemplate>,
-    @Optional() private cacheService?: CacheService,
+    @Optional() @Inject(CACHE_STORE_TOKEN) private readonly cacheStore?: ICacheStore,
     // New Intelligent Smart Setup services
     @Optional() private conversationManager?: ConversationManagerService,
     @Optional() private semanticExtractor?: SemanticExtractorService,
@@ -788,9 +789,9 @@ export class ProjectIntelligenceService {
 
     // Check cache first
     const cacheKey = `ai:project:${this.hashRequest(request)}`;
-    if (this.cacheService) {
+    if (this.cacheStore) {
       const cached =
-        await this.cacheService.get<ProjectRecommendation>(cacheKey);
+        await this.cacheStore.get<ProjectRecommendation>(cacheKey);
       if (cached) {
         this.logger.debug('Returning cached project recommendation');
         return cached;
@@ -843,8 +844,8 @@ Provide optimized project setup recommendations.`;
         response.content,
       );
 
-      if (recommendation && this.cacheService) {
-        await this.cacheService.set(cacheKey, recommendation, {
+      if (recommendation && this.cacheStore) {
+        await this.cacheStore.set(cacheKey, recommendation, {
           ttl: this.CACHE_TTL,
         });
       }

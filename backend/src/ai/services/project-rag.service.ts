@@ -1,7 +1,8 @@
 import {
+  ForbiddenException,
+  Inject,
   Injectable,
   Logger,
-  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -11,8 +12,12 @@ import {
   SemanticSearchResult,
 } from './semantic-search.service';
 import { AIProviderService } from './ai-provider.service';
-import { TenantContext } from '../../core/tenant/tenant-context.service';
-import { CacheService } from '../../cache/cache.service';
+import {
+  TENANT_CONTEXT_READER_TOKEN,
+  type ITenantContextReader,
+} from '../../core/tenant';
+import { CACHE_LIST_TOKEN, CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheList, ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import { RagConversationMessage } from '../../rag/interfaces/rag.interfaces';
 
 /**
@@ -48,7 +53,7 @@ export interface ProjectChatResponse {
  * Provides "Ask Your Project" functionality using Retrieval-Augmented Generation.
  * Flow: User Question → Semantic Search → Context Building → LLM → Answer
  *
- * CONVERSATION MEMORY: Stateless Redis-backed storage via CacheService.
+ * CONVERSATION MEMORY: Stateless Redis-backed storage via cache layer.
  * Uses RPUSH for atomic appends (race-condition safe) and LRANGE for retrieval.
  * TTL: 1 hour (3600s) — enforced by Redis, no manual cleanup needed.
  *
@@ -77,8 +82,10 @@ export class ProjectRAGService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly semanticSearch: SemanticSearchService,
     private readonly aiProvider: AIProviderService,
-    private readonly tenantContext: TenantContext,
-    private readonly cacheService: CacheService,
+    @Inject(TENANT_CONTEXT_READER_TOKEN)
+    private readonly tenantContext: ITenantContextReader,
+    @Inject(CACHE_LIST_TOKEN) private readonly cacheList: ICacheList,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
   ) {}
 
   /**
@@ -311,7 +318,7 @@ Provide a helpful answer based on the context above. Be specific and reference r
     const key = `rag:conv:${conversationId}`;
 
     try {
-      const messages = await this.cacheService.lrange<RagConversationMessage>(
+      const messages = await this.cacheList.lrange<RagConversationMessage>(
         key,
         -this.MAX_MESSAGES, // Get last N messages
         -1,
@@ -353,7 +360,7 @@ Provide a helpful answer based on the context above. Be specific and reference r
     };
 
     try {
-      await this.cacheService.rpush(key, message, {
+      await this.cacheList.rpush(key, message, {
         ttl: this.CONV_TTL_SECONDS,
         namespace: this.CONV_NAMESPACE,
       });
@@ -371,7 +378,7 @@ Provide a helpful answer based on the context above. Be specific and reference r
    */
   clearConversation(conversationId: string): void {
     const key = `rag:conv:${conversationId}`;
-    void this.cacheService.del(key, { namespace: this.CONV_NAMESPACE });
+    void this.cacheStore.del(key, { namespace: this.CONV_NAMESPACE });
   }
 
   /**
