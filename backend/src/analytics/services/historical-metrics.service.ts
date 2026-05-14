@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -6,7 +6,10 @@ import {
   MetricType,
   IPercentiles,
 } from '../entities/project-metrics.entity';
-import { TenantContext } from '../../core/tenant/tenant-context.service';
+import {
+  TENANT_CONTEXT_READER_TOKEN,
+  type ITenantContextReader,
+} from '../../core/tenant';
 
 // ---------------------------------------------------------------------------
 // Strict Interfaces (ZERO `any`)
@@ -42,7 +45,8 @@ export class HistoricalMetricsService {
   constructor(
     @InjectRepository(ProjectMetrics)
     private readonly metricsRepo: Repository<ProjectMetrics>,
-    private readonly tenantContext: TenantContext,
+    @Inject(TENANT_CONTEXT_READER_TOKEN)
+    private readonly tenantContext: ITenantContextReader,
   ) {}
 
   /**

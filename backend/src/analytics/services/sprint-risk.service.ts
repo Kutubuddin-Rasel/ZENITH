@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SprintsService } from '../../sprints/sprints.service';
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import {
   ALERTS_QUEUE,
   ALERT_LOCK_PREFIX,
@@ -87,7 +88,7 @@ export class SprintRiskService {
 
   constructor(
     private readonly sprintsService: SprintsService,
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
     @InjectQueue(ALERTS_QUEUE) private readonly alertsQueue: Queue,
   ) {}
 
@@ -113,7 +114,7 @@ export class SprintRiskService {
     // Step 1: Try cache (fail-open)
     // -----------------------------------------------------------------------
     try {
-      const cached = await this.cacheService.get<CachedSprintRiskResult>(
+      const cached = await this.cacheStore.get<CachedSprintRiskResult>(
         cacheKey,
         { namespace: CACHE_NAMESPACE },
       );
@@ -173,7 +174,7 @@ export class SprintRiskService {
     // Only cache successful calculations (not error states)
     if (result.level !== 'Error') {
       try {
-        await this.cacheService.set<CachedSprintRiskResult>(cacheKey, result, {
+        await this.cacheStore.set<CachedSprintRiskResult>(cacheKey, result, {
           ttl: CACHE_TTL_SECONDS,
           namespace: CACHE_NAMESPACE,
         });
@@ -202,7 +203,7 @@ export class SprintRiskService {
    * Dispatch a high-risk alert to BullMQ (fire-and-forget).
    *
    * DEBOUNCE (24h Lock):
-   * Uses CacheService to store `alert_sent_lock:{sprintId}` with 24h TTL.
+   * Uses cache layer to store `alert_sent_lock:{sprintId}` with 24h TTL.
    * If lock exists → skip (already alerted today).
    * If lock absent → set lock + add job to queue.
    *
@@ -222,7 +223,7 @@ export class SprintRiskService {
 
     try {
       // Check debounce lock
-      const existingLock = await this.cacheService.get<string>(lockKey, {
+      const existingLock = await this.cacheStore.get<string>(lockKey, {
         namespace: CACHE_NAMESPACE,
       });
 
@@ -234,7 +235,7 @@ export class SprintRiskService {
       }
 
       // Set 24h debounce lock BEFORE dispatching to prevent race conditions
-      await this.cacheService.set<string>(lockKey, 'locked', {
+      await this.cacheStore.set<string>(lockKey, 'locked', {
         ttl: ALERT_DEBOUNCE_TTL_SECONDS,
         namespace: CACHE_NAMESPACE,
       });
