@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConversationManagerService } from '../services/conversation-manager.service';
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import {
   createEmptyCriteria,
   createEmptyConfidence,
@@ -8,7 +9,7 @@ import {
 
 describe('ConversationManagerService', () => {
   let service: ConversationManagerService;
-  let mockCacheService: jest.Mocked<Partial<CacheService>>;
+  let mockCacheService: jest.Mocked<Partial<ICacheStore>>;
   let cacheStore: Map<string, unknown>;
 
   beforeEach(async () => {
@@ -32,7 +33,7 @@ describe('ConversationManagerService', () => {
       providers: [
         ConversationManagerService,
         {
-          provide: CacheService,
+          provide: CACHE_STORE_TOKEN,
           useValue: mockCacheService,
         },
       ],

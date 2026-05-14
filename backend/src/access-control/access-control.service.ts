@@ -1,8 +1,9 @@
 import {
+  Inject,
   Injectable,
   Logger,
-  OnModuleInit,
   OnModuleDestroy,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, IsNull, DataSource } from 'typeorm';
@@ -25,7 +26,8 @@ import {
   AuditEventType,
   AuditSeverity,
 } from '../audit/entities/audit-log.entity';
-import { CacheService } from '../cache/cache.service';
+import { CACHE_INVALIDATOR_TOKEN, CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
+import { ICacheInvalidator, ICacheStore } from '../cache/interfaces/cache.interfaces';
 import * as geoip from 'geoip-lite';
 import * as cron from 'node-cron';
 
@@ -162,7 +164,8 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
     private dataSource: DataSource, // For transactions
     private configService: ConfigService,
     private auditService: AuditService,
-    private cacheService: CacheService,
+    @Inject(CACHE_INVALIDATOR_TOKEN) private readonly cacheInvalidator: ICacheInvalidator,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
     private eventEmitter: EventEmitter2,
   ) {
     this.isEnabled =
@@ -230,7 +233,7 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
 
     // L2
     try {
-      const l2Result = await this.cacheService.get<IPAccessRule[]>(cacheKey, {
+      const l2Result = await this.cacheStore.get<IPAccessRule[]>(cacheKey, {
         namespace: CACHE_CONFIG.NAMESPACE,
       });
 
@@ -284,7 +287,7 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
 
     // L2
     try {
-      const l2Result = await this.cacheService.get<IPAccessRule[]>(cacheKey, {
+      const l2Result = await this.cacheStore.get<IPAccessRule[]>(cacheKey, {
         namespace: CACHE_CONFIG.NAMESPACE,
       });
 
@@ -353,7 +356,7 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
 
     // Check merged cache (L2)
     try {
-      const l2Merged = await this.cacheService.get<IPAccessRule[]>(
+      const l2Merged = await this.cacheStore.get<IPAccessRule[]>(
         mergedCacheKey,
         {
           namespace: CACHE_CONFIG.NAMESPACE,
@@ -413,7 +416,7 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
 
       // L2
       try {
-        const l2Result = await this.cacheService.get<IPAccessRule[]>(cacheKey, {
+        const l2Result = await this.cacheStore.get<IPAccessRule[]>(cacheKey, {
           namespace: CACHE_CONFIG.NAMESPACE,
         });
         if (l2Result !== null) {
@@ -446,7 +449,7 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
       }
 
       try {
-        const l2Result = await this.cacheService.get<IPAccessRule[]>(cacheKey, {
+        const l2Result = await this.cacheStore.get<IPAccessRule[]>(cacheKey, {
           namespace: CACHE_CONFIG.NAMESPACE,
         });
         if (l2Result !== null) {
@@ -500,7 +503,7 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
 
     // L2
     try {
-      await this.cacheService.set(key, data, {
+      await this.cacheStore.set(key, data, {
         namespace: CACHE_CONFIG.NAMESPACE,
         ttl: CACHE_CONFIG.L2_TTL_SECONDS,
         tags: ['access-control-rules', ...tags],
@@ -533,13 +536,13 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
 
       try {
         await Promise.all([
-          this.cacheService.del(CACHE_CONFIG.KEYS.GLOBAL_RULES, {
+          this.cacheStore.del(CACHE_CONFIG.KEYS.GLOBAL_RULES, {
             namespace: CACHE_CONFIG.NAMESPACE,
           }),
-          this.cacheService.del(CACHE_CONFIG.KEYS.EMERGENCY_RULES, {
+          this.cacheStore.del(CACHE_CONFIG.KEYS.EMERGENCY_RULES, {
             namespace: CACHE_CONFIG.NAMESPACE,
           }),
-          this.cacheService.invalidateByTags([
+          this.cacheInvalidator.invalidateByTags([
             'global-rules',
             'access-control-rules',
           ]),
@@ -567,7 +570,7 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
 
       // Clear L2
       try {
-        await this.cacheService.invalidateByTags([`org-${orgId}`]);
+        await this.cacheInvalidator.invalidateByTags([`org-${orgId}`]);
       } catch (error) {
         this.logger.warn(`L2 org invalidation failed: ${error}`);
       }
@@ -1278,7 +1281,7 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
 
     if (emergencyRules === undefined) {
       try {
-        const l2Result = await this.cacheService.get<IPAccessRule[]>(cacheKey, {
+        const l2Result = await this.cacheStore.get<IPAccessRule[]>(cacheKey, {
           namespace: CACHE_CONFIG.NAMESPACE,
         });
         if (l2Result !== null) {
@@ -1318,7 +1321,7 @@ export class AccessControlService implements OnModuleInit, OnModuleDestroy {
         emergencyRules = await this.accessRuleRepo.find({ where: whereClause });
 
         try {
-          await this.cacheService.set(cacheKey, emergencyRules, {
+          await this.cacheStore.set(cacheKey, emergencyRules, {
             namespace: CACHE_CONFIG.NAMESPACE,
             ttl: CACHE_CONFIG.L2_TTL_SECONDS,
             tags: ['access-control-rules', 'emergency-rules'],
