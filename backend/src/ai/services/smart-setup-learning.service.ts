@@ -3,10 +3,11 @@
  * Records template selections and updates user preferences for personalization
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import { UserPreferences } from '../../user-preferences/entities/user-preferences.entity';
 import {
   IntelligentCriteria,
@@ -65,7 +66,7 @@ export class SmartSetupLearningService {
   private readonly logger = new Logger(SmartSetupLearningService.name);
 
   constructor(
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
     @InjectRepository(UserPreferences)
     private readonly userPrefsRepo: Repository<UserPreferences>,
     @InjectRepository(ProjectTemplate)
@@ -120,7 +121,7 @@ export class SmartSetupLearningService {
   ): Promise<TemplatePreference[]> {
     try {
       const cacheKey = `${LEARNING_CONFIG.PREFERENCE_KEY_PREFIX}:${userId}`;
-      const cached = await this.cacheService.get<TemplatePreference[]>(
+      const cached = await this.cacheStore.get<TemplatePreference[]>(
         cacheKey,
         { namespace: LEARNING_CONFIG.CACHE_NAMESPACE },
       );
@@ -142,7 +143,7 @@ export class SmartSetupLearningService {
       const prefs = learningData.templatePreferences;
 
       // Cache for 5 minutes
-      await this.cacheService.set(cacheKey, prefs, {
+      await this.cacheStore.set(cacheKey, prefs, {
         ttl: 300,
         namespace: LEARNING_CONFIG.CACHE_NAMESPACE,
       });
@@ -231,7 +232,7 @@ export class SmartSetupLearningService {
     try {
       // Get existing history
       const history =
-        (await this.cacheService.get<SelectionEvent[]>(historyKey, {
+        (await this.cacheStore.get<SelectionEvent[]>(historyKey, {
           namespace: LEARNING_CONFIG.CACHE_NAMESPACE,
         })) || [];
 
@@ -242,7 +243,7 @@ export class SmartSetupLearningService {
       }
 
       // Store with long TTL (30 days)
-      await this.cacheService.set(historyKey, history, {
+      await this.cacheStore.set(historyKey, history, {
         ttl: 60 * 60 * 24 * 30,
         namespace: LEARNING_CONFIG.CACHE_NAMESPACE,
       });
@@ -356,7 +357,7 @@ export class SmartSetupLearningService {
       await this.userPrefsRepo.save(userPrefs);
 
       // Invalidate cache
-      await this.cacheService.del(
+      await this.cacheStore.del(
         `${LEARNING_CONFIG.PREFERENCE_KEY_PREFIX}:${userId}`,
         { namespace: LEARNING_CONFIG.CACHE_NAMESPACE },
       );
@@ -377,7 +378,7 @@ export class SmartSetupLearningService {
   }> {
     const historyKey = `${LEARNING_CONFIG.SELECTION_HISTORY_KEY}:${userId}`;
     const history =
-      (await this.cacheService.get<SelectionEvent[]>(historyKey, {
+      (await this.cacheStore.get<SelectionEvent[]>(historyKey, {
         namespace: LEARNING_CONFIG.CACHE_NAMESPACE,
       })) || [];
 

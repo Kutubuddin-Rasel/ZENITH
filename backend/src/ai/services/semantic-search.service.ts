@@ -1,7 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { TenantContext } from '../../core/tenant/tenant-context.service';
+import {
+  TENANT_CONTEXT_READER_TOKEN,
+  type ITenantContextReader,
+} from '../../core/tenant';
 import { EmbeddingsService } from './embeddings.service';
 
 /**
@@ -116,7 +119,8 @@ export class SemanticSearchService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly embeddingsService: EmbeddingsService,
-    private readonly tenantContext: TenantContext,
+    @Inject(TENANT_CONTEXT_READER_TOKEN)
+    private readonly tenantContext: ITenantContextReader,
   ) {}
 
   /**
