@@ -25,7 +25,7 @@
  *   AbortError, the catch block skips Redis save and completes silently.
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Observable, Subscriber } from 'rxjs';
 import { MessageEvent } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
@@ -35,7 +35,8 @@ import {
   HybridSearchResult,
 } from './semantic-search.service';
 import { OpenAiService } from './openai.service';
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_LIST_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheList } from '../../cache/interfaces/cache.interfaces';
 import {
   RerankerService,
   RerankDocument,
@@ -135,7 +136,7 @@ export class ContextualSearchService {
     private readonly embeddingsService: EmbeddingsService,
     private readonly semanticSearch: SemanticSearchService,
     private readonly openAiService: OpenAiService,
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_LIST_TOKEN) private readonly cacheList: ICacheList,
     private readonly rerankerService: RerankerService,
     private readonly costGuard: AICostGuardService,
     private readonly piiSanitizer: PIISanitizerService,
@@ -415,7 +416,7 @@ export class ContextualSearchService {
     conversationId: string,
   ): Promise<ConversationMessage[]> {
     try {
-      return await this.cacheService.lrange<ConversationMessage>(
+      return await this.cacheList.lrange<ConversationMessage>(
         `${CONV_KEY_PREFIX}:${conversationId}`,
         -MAX_HISTORY_MESSAGES,
         -1,
@@ -446,7 +447,7 @@ export class ContextualSearchService {
     };
 
     try {
-      await this.cacheService.rpush(
+      await this.cacheList.rpush(
         `${CONV_KEY_PREFIX}:${conversationId}`,
         message,
         { ttl: CONV_TTL_SECONDS, namespace: CONV_NAMESPACE },
