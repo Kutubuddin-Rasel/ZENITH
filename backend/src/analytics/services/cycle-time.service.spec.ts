@@ -2,8 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CycleTimeService } from './cycle-time.service';
 import { DataSource } from 'typeorm';
 import { RevisionsService } from '../../revisions/revisions.service';
-import { TenantContext } from '../../core/tenant/tenant-context.service';
-import { CacheService } from '../../cache/cache.service';
+import { TENANT_CONTEXT_READER_TOKEN } from '../../core/tenant';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
 import { Revision } from '../../revisions/entities/revision.entity';
 
 // ---------------------------------------------------------------------------
@@ -127,15 +127,15 @@ describe('CycleTimeService', () => {
         CycleTimeService,
         { provide: DataSource, useValue: mockDataSource },
         { provide: RevisionsService, useValue: mockRevisionsService },
-        { provide: TenantContext, useValue: mockTenantContext },
-        { provide: CacheService, useValue: mockCacheService },
+        { provide: TENANT_CONTEXT_READER_TOKEN, useValue: mockTenantContext },
+        { provide: CACHE_STORE_TOKEN, useValue: mockCacheService },
       ],
     }).compile();
 
     service = module.get<CycleTimeService>(CycleTimeService);
     dataSource = module.get(DataSource);
     revisionsService = module.get(RevisionsService);
-    cacheService = module.get(CacheService);
+    cacheService = module.get(CACHE_STORE_TOKEN);
   });
 
   describe('calculateProjectCycleTime', () => {

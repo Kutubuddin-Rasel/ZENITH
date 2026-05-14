@@ -1,11 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { RevisionsService } from '../../revisions/revisions.service';
 import { Revision } from '../../revisions/entities/revision.entity';
-import { TenantContext } from '../../core/tenant/tenant-context.service';
+import {
+  TENANT_CONTEXT_READER_TOKEN,
+  type ITenantContextReader,
+} from '../../core/tenant';
 import { tenantJoin } from '../../database/helpers/safe-query.helper';
-import { CacheService } from '../../cache/cache.service';
-
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 // ---------------------------------------------------------------------------
 // Strict Interfaces (ZERO `any`)
 // ---------------------------------------------------------------------------
@@ -129,8 +132,9 @@ export class CycleTimeService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly revisionsService: RevisionsService,
-    private readonly tenantContext: TenantContext,
-    private readonly cacheService: CacheService,
+    @Inject(TENANT_CONTEXT_READER_TOKEN)
+    private readonly tenantContext: ITenantContextReader,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
   ) {}
 
   /**
@@ -154,7 +158,7 @@ export class CycleTimeService {
     // Step 1: Try cache (fail-open)
     // -----------------------------------------------------------------------
     try {
-      const cached = await this.cacheService.get<CachedCycleTimeResult>(
+      const cached = await this.cacheStore.get<CachedCycleTimeResult>(
         cacheKey,
         { namespace: CACHE_NAMESPACE },
       );
@@ -218,7 +222,7 @@ export class CycleTimeService {
 
     // Cache the result (fail-open — don't crash if Redis is down)
     try {
-      await this.cacheService.set<CachedCycleTimeResult>(
+      await this.cacheStore.set<CachedCycleTimeResult>(
         cacheKey,
         this.toCachePayload(result),
         { ttl: CACHE_TTL_SECONDS, namespace: CACHE_NAMESPACE },
