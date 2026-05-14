@@ -3,9 +3,10 @@
  * Manages conversation state with Redis for Smart Setup AI
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import {
   ConversationContext,
   IntelligentCriteria,
@@ -28,7 +29,7 @@ const CONVERSATION_CONFIG = {
 export class ConversationManagerService {
   private readonly logger = new Logger(ConversationManagerService.name);
 
-  constructor(private readonly cacheService: CacheService) {}
+  constructor(@Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore) {}
 
   /**
    * Get or create a conversation context
@@ -112,7 +113,7 @@ export class ConversationManagerService {
     conversationId: string,
   ): Promise<ConversationContext | null> {
     try {
-      const context = await this.cacheService.get<ConversationContext>(
+      const context = await this.cacheStore.get<ConversationContext>(
         `${CONVERSATION_CONFIG.KEY_PREFIX}:${conversationId}`,
         { namespace: CONVERSATION_CONFIG.NAMESPACE },
       );
@@ -146,7 +147,7 @@ export class ConversationManagerService {
     try {
       context.lastActivityAt = new Date();
 
-      const saved = await this.cacheService.set(
+      const saved = await this.cacheStore.set(
         `${CONVERSATION_CONFIG.KEY_PREFIX}:${context.id}`,
         context,
         {
@@ -375,7 +376,7 @@ export class ConversationManagerService {
    */
   async deleteContext(conversationId: string): Promise<boolean> {
     try {
-      return await this.cacheService.del(
+      return await this.cacheStore.del(
         `${CONVERSATION_CONFIG.KEY_PREFIX}:${conversationId}`,
         { namespace: CONVERSATION_CONFIG.NAMESPACE },
       );
