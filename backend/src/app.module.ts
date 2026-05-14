@@ -18,7 +18,7 @@ import { ProjectCoreModule } from './core/membership/project-core.module';
 import { UsersCoreModule } from './core/users/users-core.module';
 import { AuthCoreModule } from './core/auth/auth-core.module';
 import { TenantModule } from './core/tenant/tenant.module';
-import { CircuitBreakerModule } from './core/integrations/circuit-breaker.module';
+import { CircuitBreakerModule } from './circuit-breaker/circuit-breaker.module';
 import { CoreQueueModule } from './core/core-queue.module';
 import { TenantInterceptor } from './core/tenant/tenant.interceptor';
 import { OptimisticLockingInterceptor } from './core/interceptors/optimistic-locking.interceptor';
@@ -61,6 +61,7 @@ import { ApiKeysModule } from './api-keys/api-keys.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { CommonModule } from './common/common.module';
+import { ObservabilityModule } from './observability/observability.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 import { RagModule } from './rag/rag.module';
 import { AnalyticsModule } from './analytics/analytics.module';
@@ -166,6 +167,7 @@ import {
     // Cross-cutting concerns used by multiple feature modules.
     // =========================================================================
     CommonModule,
+    ObservabilityModule,
     EncryptionModule, // DEDUPLICATED: Was imported twice (lines 148, 169)
     SessionModule, // DEDUPLICATED: Was imported twice (lines 149, 170)
     AccessControlModule,
