@@ -19,10 +19,10 @@
  *   Op:  Redis INCR (atomic, no race conditions)
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { CacheService } from '../../cache/cache.service';
-
+import { CACHE_COUNTER_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheCounter } from '../../cache/interfaces/cache.interfaces';
 /** Redis namespace for AI usage counters. */
 const COST_GUARD_NAMESPACE = 'ai';
 
@@ -50,7 +50,7 @@ export class AICostGuardService {
   private readonly dailyLimit: number;
 
   constructor(
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_COUNTER_TOKEN) private readonly cacheCounter: ICacheCounter,
     private readonly configService: ConfigService,
   ) {
     this.dailyLimit = this.configService.get<number>(
@@ -68,7 +68,7 @@ export class AICostGuardService {
    *
    * Uses Redis INCR which is atomic — no race conditions even under
    * high concurrency. TTL is set on first increment (value === 1)
-   * via CacheService.incr() behavior.
+   * via cache.incr() behavior.
    *
    * FAIL-OPEN: If Redis returns 0 (connection failure), the request
    * is allowed to proceed. @Throttle provides backup defense.
@@ -81,12 +81,12 @@ export class AICostGuardService {
     const redisKey = `usage:${tenantId}:${dateKey}`;
 
     try {
-      const current = await this.cacheService.incr(redisKey, {
+      const current = await this.cacheCounter.incr(redisKey, {
         namespace: COST_GUARD_NAMESPACE,
         ttl: DAY_TTL_SECONDS,
       });
 
-      // CacheService.incr() returns 0 on Redis failure → fail-open
+      // cache.incr() returns 0 on Redis failure → fail-open
       if (current === 0) {
         this.logger.warn(
           `Redis unavailable for tenant cost guard — failing open for ${tenantId}`,

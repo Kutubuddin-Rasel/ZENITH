@@ -6,7 +6,7 @@
  * with organizational policies regarding external AI data processing.
  *
  * PERFORMANCE:
- *   Database lookup is cached in Redis with 5-minute TTL via CacheService.
+ *   Database lookup is cached in Redis with 5-minute TTL via cache layer.
  *   First request per org pays ~5ms DB cost; subsequent requests hit cache.
  *   Cache key: org:ai-consent:{organizationId}
  *
@@ -22,12 +22,14 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Inject,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity';
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 
 /** Redis namespace for AI consent flags. */
 const CONSENT_NAMESPACE = 'org';
@@ -48,7 +50,7 @@ export class AIConsentGuard implements CanActivate {
   constructor(
     @InjectRepository(Organization)
     private readonly orgRepo: Repository<Organization>,
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -91,7 +93,7 @@ export class AIConsentGuard implements CanActivate {
     const cacheKey = `ai-consent:${organizationId}`;
 
     // 1. Check Redis cache
-    const cached = await this.cacheService.get<string>(cacheKey, {
+    const cached = await this.cacheStore.get<string>(cacheKey, {
       namespace: CONSENT_NAMESPACE,
     });
 
@@ -110,7 +112,7 @@ export class AIConsentGuard implements CanActivate {
       const enabled = org?.aiEnabled ?? true;
 
       // Cache the result for 5 minutes
-      await this.cacheService.set(cacheKey, String(enabled), {
+      await this.cacheStore.set(cacheKey, String(enabled), {
         namespace: CONSENT_NAMESPACE,
         ttl: CONSENT_TTL_SECONDS,
       });

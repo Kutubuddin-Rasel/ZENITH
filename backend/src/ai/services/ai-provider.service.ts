@@ -6,7 +6,13 @@
  * PHASE 3: Now uses IntegrationGateway with circuit breakers for resilience.
  */
 
-import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnModuleInit,
+  Optional,
+} from '@nestjs/common';
 import { OpenRouterProvider } from '../providers/openrouter.provider';
 import { GeminiProvider } from '../providers/gemini.provider';
 import { GroqProvider } from '../providers/groq.provider';
@@ -15,7 +21,14 @@ import {
   AICompletionRequest,
   AICompletionResponse,
 } from '../interfaces/ai-provider.interface';
-import { IntegrationGateway } from '../../core/integrations/integration.gateway';
+import {
+  CIRCUIT_BREAKER_EXECUTOR_TOKEN,
+  CIRCUIT_BREAKER_REGISTRY_TOKEN,
+} from '../../circuit-breaker/constants/circuit-breaker.tokens';
+import type {
+  ICircuitBreakerExecutor,
+  ICircuitBreakerRegistry,
+} from '../../circuit-breaker/interfaces/circuit-breaker.interfaces';
 
 // Static fallback response when all AI providers are unavailable
 const AI_UNAVAILABLE_RESPONSE: AICompletionResponse = {
@@ -34,7 +47,12 @@ export class AIProviderService implements OnModuleInit {
     private openRouterProvider: OpenRouterProvider,
     private geminiProvider: GeminiProvider,
     private groqProvider: GroqProvider,
-    @Optional() private gateway?: IntegrationGateway,
+    @Optional()
+    @Inject(CIRCUIT_BREAKER_EXECUTOR_TOKEN)
+    private executor?: ICircuitBreakerExecutor,
+    @Optional()
+    @Inject(CIRCUIT_BREAKER_REGISTRY_TOKEN)
+    private registry?: ICircuitBreakerRegistry,
   ) {}
 
   onModuleInit() {
@@ -59,7 +77,7 @@ export class AIProviderService implements OnModuleInit {
       );
     }
 
-    if (this.gateway) {
+    if (this.executor) {
       this.logger.log('🔒 Circuit breaker protection enabled for AI calls');
     }
   }
@@ -86,15 +104,15 @@ export class AIProviderService implements OnModuleInit {
    * Returns fallback message instead of null when all providers fail.
    */
   async complete(request: AICompletionRequest): Promise<AICompletionResponse> {
-    // If no gateway, use legacy behavior
-    if (!this.gateway) {
+    // If no executor, use legacy behavior
+    if (!this.executor) {
       return (
         (await this.completeWithFailover(request)) ?? AI_UNAVAILABLE_RESPONSE
       );
     }
 
     // Use circuit breaker for resilient execution
-    return this.gateway.execute<AICompletionResponse>(
+    return this.executor.execute<AICompletionResponse>(
       {
         name: 'ai-providers',
         timeout: 30000, // AI calls can take longer
@@ -189,8 +207,8 @@ export class AIProviderService implements OnModuleInit {
     }
 
     // Add circuit breaker status
-    if (this.gateway) {
-      results['circuit-breaker'] = this.gateway.isHealthy('ai-providers');
+    if (this.registry) {
+      results['circuit-breaker'] = this.registry.isHealthy('ai-providers');
     }
 
     return results;
@@ -206,7 +224,7 @@ export class AIProviderService implements OnModuleInit {
   } {
     return {
       available: this.isAvailable,
-      circuitBreakerEnabled: !!this.gateway,
+      circuitBreakerEnabled: !!this.executor,
       providers: [
         this.groqProvider,
         this.openRouterProvider,
