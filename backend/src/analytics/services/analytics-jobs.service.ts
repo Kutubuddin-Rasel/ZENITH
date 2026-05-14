@@ -1,11 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { NotificationType } from '../../notifications/entities/notification.entity';
 import { SprintsService } from '../../sprints/sprints.service';
 import { SprintRiskService } from './sprint-risk.service';
-import { TenantContext } from '../../core/tenant/tenant-context.service';
+import {
+  TENANT_CONTEXT_READER_TOKEN,
+  type ITenantContextReader,
+} from '../../core/tenant';
 import { tenantJoin } from '../../database/helpers/safe-query.helper';
 import { HistoricalMetricsService } from './historical-metrics.service';
 import { MetricType } from '../entities/project-metrics.entity';
@@ -40,7 +43,8 @@ export class AnalyticsJobsService {
     private readonly notificationsService: NotificationsService,
     private readonly sprintsService: SprintsService,
     private readonly sprintRiskService: SprintRiskService,
-    private readonly tenantContext: TenantContext,
+    @Inject(TENANT_CONTEXT_READER_TOKEN)
+    private readonly tenantContext: ITenantContextReader,
     private readonly historicalMetricsService: HistoricalMetricsService,
   ) {}
 
