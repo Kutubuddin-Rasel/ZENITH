@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IntegrationGateway } from '../../../core/integrations/integration.gateway';
+import { CIRCUIT_BREAKER_EXECUTOR_TOKEN } from '../../../circuit-breaker/constants/circuit-breaker.tokens';
+import type { ICircuitBreakerExecutor } from '../../../circuit-breaker/interfaces/circuit-breaker.interfaces';
 import {
   IAlertProvider,
   AlertProviderType,
@@ -40,7 +41,8 @@ export class PagerDutyAlertProvider implements IAlertProvider {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly gateway: IntegrationGateway,
+    @Inject(CIRCUIT_BREAKER_EXECUTOR_TOKEN)
+    private readonly executor: ICircuitBreakerExecutor,
   ) {
     this.routingKey = this.configService.get<string>('PAGERDUTY_ROUTING_KEY');
 
@@ -76,7 +78,7 @@ export class PagerDutyAlertProvider implements IAlertProvider {
 
     const pdPayload = this.formatPayload(payload);
 
-    await this.gateway.execute(
+    await this.executor.execute(
       {
         name: 'pagerduty-alerts',
         timeout: 5000,
