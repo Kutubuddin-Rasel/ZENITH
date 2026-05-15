@@ -1,10 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
 import { CACHE_CLIENT_TOKEN } from '../constants/cache.tokens';
-import {
-  CacheOptions,
-  ICacheSortedSet,
-} from '../interfaces/cache.interfaces';
+import { CacheOptions, ICacheSortedSet } from '../interfaces/cache.interfaces';
 import { buildCacheKey } from '../utils/cache-key.util';
 
 /**
