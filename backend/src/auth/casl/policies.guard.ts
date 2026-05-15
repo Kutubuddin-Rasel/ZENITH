@@ -1,14 +1,16 @@
 import {
-  SetMetadata,
-  Injectable,
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Inject,
+  Injectable,
+  SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AppAbility, CaslAbilityFactory } from './casl-ability.factory';
 import { ProjectMembersService } from '../../membership/project-members/project-members.service';
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import { Request } from 'express';
 import { JwtAuthenticatedRequest } from '../../auth/interface/jwt-authenticated-request.interface';
 import { User } from '../../users/entities/user.entity';
@@ -33,7 +35,7 @@ export class PoliciesGuard implements CanActivate {
     private reflector: Reflector,
     private caslAbilityFactory: CaslAbilityFactory,
     private projectMembersService: ProjectMembersService,
-    private cacheService: CacheService,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -67,7 +69,7 @@ export class PoliciesGuard implements CanActivate {
 
     if (projectId) {
       const cacheKey = `project_role_id:${projectId}:${user.userId}`;
-      const cachedRoleId = await this.cacheService.get<string>(cacheKey);
+      const cachedRoleId = await this.cacheStore.get<string>(cacheKey);
       if (cachedRoleId) {
         roleId = cachedRoleId;
       } else {
@@ -80,7 +82,7 @@ export class PoliciesGuard implements CanActivate {
         if (roleDetails) {
           roleId = roleDetails.roleId;
           if (roleId) {
-            await this.cacheService.set(cacheKey, roleId, {
+            await this.cacheStore.set(cacheKey, roleId, {
               ttl: this.CACHE_TTL,
             });
           }
