@@ -9,7 +9,6 @@ import {
   AuditSeverity,
 } from '../../audit/entities/audit-log.entity';
 import { SYSTEM_TENANT_ID } from '../../audit/audit.constants';
-import { CacheService } from '../../cache/cache.service';
 
 // =============================================================================
 // CONFIGURATION
@@ -63,7 +62,6 @@ export class ApiKeyCleanupService {
     @InjectRepository(ApiKey)
     private apiKeyRepo: Repository<ApiKey>,
     private auditService: AuditService,
-    private cacheService: CacheService,
   ) {}
 
   // ===========================================================================

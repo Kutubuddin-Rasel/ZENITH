@@ -1,17 +1,19 @@
 import {
-  Injectable,
   CanActivate,
   ExecutionContext,
-  UnauthorizedException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
+  Inject,
+  Injectable,
   Logger,
-  ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request, Response } from 'express';
 import { ApiKeysService } from '../api-keys.service';
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_COUNTER_TOKEN, CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheCounter, ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import { IpResolutionService } from '../../access-control/services/ip-resolution.service';
 import { AuditService } from '../../audit/services/audit.service';
 import {
@@ -53,7 +55,8 @@ export class ApiKeyGuard implements CanActivate {
 
   constructor(
     private apiKeysService: ApiKeysService,
-    private cacheService: CacheService,
+    @Inject(CACHE_COUNTER_TOKEN) private readonly cacheCounter: ICacheCounter,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
     private ipResolutionService: IpResolutionService,
     private auditService: AuditService,
     private reflector: Reflector,
@@ -246,12 +249,12 @@ export class ApiKeyGuard implements CanActivate {
     const resetAt = (currentMinute + 1) * 60000;
 
     try {
-      const currentCount = await this.cacheService.incr(windowKey, {
+      const currentCount = await this.cacheCounter.incr(windowKey, {
         namespace: RATE_LIMIT_CONFIG.NAMESPACE,
       });
 
       if (currentCount === 1) {
-        await this.cacheService.expire(
+        await this.cacheStore.expire(
           windowKey,
           RATE_LIMIT_CONFIG.WINDOW_SECONDS + RATE_LIMIT_CONFIG.EXPIRE_BUFFER,
           { namespace: RATE_LIMIT_CONFIG.NAMESPACE },
