@@ -1,9 +1,10 @@
 import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
   Injectable,
   UnauthorizedException,
-  ConflictException,
-  BadRequestException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -12,7 +13,8 @@ import { randomBytes } from 'crypto';
 import { UsersService } from '../users/users.service';
 import { InvitesService } from '../invites/invites.service';
 import { ProjectMembersService } from '../membership/project-members/project-members.service';
-import { OrganizationsService } from '../organizations/organizations.service';
+import { IOrganizationWriter } from '../organizations/interfaces/organization.interfaces';
+import { ORG_WRITER_TOKEN } from '../organizations/constants/organization.tokens';
 import { OnboardingService } from '../onboarding/services/onboarding.service';
 import { PasswordService } from './services/password.service';
 import { PasswordPolicyService } from './services/password-policy.service';
@@ -24,13 +26,11 @@ import { AuditLogsService } from '../audit/audit-logs.service';
 import { ClsService } from 'nestjs-cls';
 import { v4 as uuidv4 } from 'uuid';
 import { AuthConfig } from '../config/auth.config';
-import { CacheService } from '../cache/cache.service';
+import { CACHE_COUNTER_TOKEN, CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
+import { ICacheCounter, ICacheStore } from '../cache/interfaces/cache.interfaces';
 import { PasswordBreachService } from './services/password-breach.service';
 import { TokenBlacklistService } from './services/token-blacklist.service';
-import {
-  LoginHistoryService,
-  RecordLoginAttemptParams,
-} from '../users/login-history.service';
+import { LoginHistoryService } from './login-history/login-history.service';
 
 // Argon2id = version 3 (see passwordVersion column in User entity)
 const ARGON2ID_VERSION = 3;
@@ -42,14 +42,16 @@ export class AuthService {
     private jwtService: JwtService,
     private invitesService: InvitesService,
     private projectMembersService: ProjectMembersService,
-    private organizationsService: OrganizationsService,
+    @Inject(ORG_WRITER_TOKEN)
+    private orgWriter: IOrganizationWriter,
     private onboardingService: OnboardingService,
     private configService: ConfigService,
     private passwordService: PasswordService,
     private passwordPolicyService: PasswordPolicyService,
     private auditLogsService: AuditLogsService,
     private cls: ClsService,
-    private cacheService: CacheService,
+    @Inject(CACHE_COUNTER_TOKEN) private readonly cacheCounter: ICacheCounter,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
     private passwordBreachService: PasswordBreachService,
     private tokenBlacklistService: TokenBlacklistService,
     private loginHistoryService: LoginHistoryService,
@@ -264,7 +266,7 @@ export class AuthService {
     let isSuperAdmin = false;
 
     if (dto.workspaceName) {
-      const organization = await this.organizationsService.create({
+      const organization = await this.orgWriter.create({
         name: dto.workspaceName,
       });
       organizationId = organization.id;
@@ -561,7 +563,7 @@ export class AuthService {
   }
 
   async isAccountLocked(userId: string): Promise<boolean> {
-    const attempts = await this.cacheService.get<number>(`lockout:${userId}`, {
+    const attempts = await this.cacheStore.get<number>(`lockout:${userId}`, {
       namespace: 'auth',
     });
     return (attempts || 0) >= this.getMaxAttempts();
@@ -570,19 +572,19 @@ export class AuthService {
   async recordFailedAttempt(userId: string): Promise<number> {
     // Get current lockout count for exponential backoff
     const lockoutCount =
-      (await this.cacheService.get<number>(`lockout_count:${userId}`, {
+      (await this.cacheStore.get<number>(`lockout_count:${userId}`, {
         namespace: 'auth',
       })) || 0;
 
     const ttl = this.getLockoutTtl(lockoutCount);
-    const attempts = await this.cacheService.incr(`lockout:${userId}`, {
+    const attempts = await this.cacheCounter.incr(`lockout:${userId}`, {
       ttl,
       namespace: 'auth',
     });
 
     // If this attempt triggers lockout, increment lockout count for next time
     if (attempts >= this.getMaxAttempts()) {
-      await this.cacheService.incr(`lockout_count:${userId}`, {
+      await this.cacheCounter.incr(`lockout_count:${userId}`, {
         ttl: 86400, // 24 hour window for lockout count
         namespace: 'auth',
       });
@@ -592,7 +594,7 @@ export class AuthService {
   }
 
   async clearLockout(userId: string): Promise<void> {
-    await this.cacheService.del(`lockout:${userId}`, { namespace: 'auth' });
+    await this.cacheStore.del(`lockout:${userId}`, { namespace: 'auth' });
     // Note: We don't clear lockout_count here - it resets naturally via TTL
     // This ensures repeat offenders get progressively longer lockouts
   }
@@ -600,7 +602,7 @@ export class AuthService {
   async unlockAccount(userId: string, adminUserId: string): Promise<void> {
     await this.clearLockout(userId);
     // Also clear lockout count on manual unlock (admin decision to reset)
-    await this.cacheService.del(`lockout_count:${userId}`, {
+    await this.cacheStore.del(`lockout_count:${userId}`, {
       namespace: 'auth',
     });
 

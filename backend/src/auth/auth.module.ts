@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -17,6 +18,13 @@ import { PasswordBreachService } from './services/password-breach.service';
 import { TokenBlacklistService } from './services/token-blacklist.service';
 import { SessionsService } from './sessions.service';
 import { SessionsController } from './sessions.controller';
+import { UserPasswordService } from './services/users/user-password.service';
+import { UserLifecycleService } from './services/users/user-lifecycle.service';
+import { SessionPreferencesService } from './services/users/session-preferences.service';
+import { UserPasswordController } from './controllers/user-password.controller';
+import { UserSecurityController } from './controllers/user-security.controller';
+import { LoginHistoryService } from './login-history/login-history.service';
+import { LoginHistoryController } from './login-history/login-history.controller';
 
 // **Guards** and **Strategies**
 import { LocalStrategy } from './strategies/local.strategy';
@@ -30,6 +38,8 @@ import { StatelessCsrfGuard } from './guards/csrf.guard';
 import { TwoFactorAuth } from './entities/two-factor-auth.entity';
 import { SAMLConfig } from './entities/saml-config.entity';
 import { UserSession } from './entities/user-session.entity';
+import { SessionPolicy } from './entities/session-policy.entity';
+import { LoginHistory } from './login-history/entities/login-history.entity';
 import { User } from '../users/entities/user.entity';
 
 import { UsersModule } from '../users/users.module';
@@ -43,7 +53,15 @@ import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([TwoFactorAuth, SAMLConfig, UserSession, User]),
+    TypeOrmModule.forFeature([
+      TwoFactorAuth,
+      SAMLConfig,
+      UserSession,
+      SessionPolicy,
+      LoginHistory,
+      User,
+    ]),
+    EventEmitterModule.forRoot(),
     UsersModule,
     OrganizationsModule,
     OnboardingModule,
@@ -72,6 +90,12 @@ import { AuditModule } from '../audit/audit.module';
     PasswordBreachService,
     TokenBlacklistService,
     SessionsService,
+    // Step 3 — auth-owned user lifecycle (extracted from UsersService).
+    UserPasswordService,
+    UserLifecycleService,
+    // Step 4 — sibling services relocated from UsersModule.
+    SessionPreferencesService,
+    LoginHistoryService,
     LocalStrategy,
     JwtStrategy,
     JwtRefreshStrategy,
@@ -84,6 +108,9 @@ import { AuditModule } from '../audit/audit.module';
     TwoFactorAuthController,
     SAMLController,
     SessionsController,
+    UserPasswordController,
+    UserSecurityController,
+    LoginHistoryController,
   ],
   exports: [
     AuthService,
@@ -93,6 +120,9 @@ import { AuditModule } from '../audit/audit.module';
     PasswordBreachService,
     PasswordPolicyService,
     SessionsService,
+    UserPasswordService,
+    SessionPreferencesService,
+    LoginHistoryService,
     ProjectRoleGuard,
     StatelessCsrfGuard,
   ],

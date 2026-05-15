@@ -10,7 +10,10 @@ import { ConfigService } from '@nestjs/config';
 import { PasswordService } from './services/password.service';
 import { AuditLogsService } from '../audit/audit-logs.service';
 import { ClsService } from 'nestjs-cls';
-import { CacheService } from '../cache/cache.service';
+import {
+  CACHE_COUNTER_TOKEN,
+  CACHE_STORE_TOKEN,
+} from '../cache/constants/cache.tokens';
 import { PasswordBreachService } from './services/password-breach.service';
 import { TokenBlacklistService } from './services/token-blacklist.service';
 import {
@@ -112,9 +115,11 @@ describe('AuthService', () => {
     };
 
     mockCacheService = {
+      // Store surface (get/del/set/expire/ttl/exists).
       get: jest.fn().mockResolvedValue(null),
-      incr: jest.fn().mockResolvedValue(1),
       del: jest.fn().mockResolvedValue(true),
+      // Counter surface (incr/decr/incrWithRollingWindow/getCounter).
+      incr: jest.fn().mockResolvedValue(1),
     };
 
     mockConfigService = {
@@ -171,7 +176,8 @@ describe('AuthService', () => {
         { provide: PasswordService, useValue: mockPasswordService },
         { provide: AuditLogsService, useValue: mockAuditLogsService },
         { provide: ClsService, useValue: mockClsService },
-        { provide: CacheService, useValue: mockCacheService },
+        { provide: CACHE_STORE_TOKEN, useValue: mockCacheService },
+        { provide: CACHE_COUNTER_TOKEN, useValue: mockCacheService },
         { provide: PasswordBreachService, useValue: mockPasswordBreachService },
         { provide: TokenBlacklistService, useValue: mockTokenBlacklistService },
       ],
