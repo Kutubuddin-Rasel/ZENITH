@@ -1,10 +1,11 @@
 import {
-  Injectable,
   CanActivate,
   ExecutionContext,
   ForbiddenException,
   HttpException,
   HttpStatus,
+  Inject,
+  Injectable,
   Logger,
 } from '@nestjs/common';
 import { Request } from 'express';
@@ -15,8 +16,8 @@ import {
   AuditSeverity,
 } from '../../audit/entities/audit-log.entity';
 import { SYSTEM_TENANT_ID } from '../../audit/audit.constants';
-import { CacheService } from '../../cache/cache.service';
-
+import { CACHE_COUNTER_TOKEN, CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheCounter, ICacheStore } from '../../cache/interfaces/cache.interfaces';
 // ============================================================================
 // CSRF RATE LIMITING CONFIGURATION
 // ============================================================================
@@ -86,7 +87,8 @@ export class StatelessCsrfGuard implements CanActivate {
   constructor(
     private readonly cookieService: CookieService,
     private readonly auditService: AuditService,
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_COUNTER_TOKEN) private readonly cacheCounter: ICacheCounter,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -148,7 +150,7 @@ export class StatelessCsrfGuard implements CanActivate {
   private async checkBan(clientIp: string): Promise<boolean> {
     try {
       const banKey = `${CSRF_RATE_LIMIT.BAN_KEY_PREFIX}${clientIp}`;
-      const banned = await this.cacheService.get<string>(banKey);
+      const banned = await this.cacheStore.get<string>(banKey);
       return banned === '1';
     } catch (error) {
       // Fail-open on Redis error (don't block legitimate users)
@@ -176,11 +178,11 @@ export class StatelessCsrfGuard implements CanActivate {
       const failKey = `${CSRF_RATE_LIMIT.FAILURE_KEY_PREFIX}${clientIp}`;
 
       // INCR and get current count
-      const currentCount = await this.cacheService.incr(failKey);
+      const currentCount = await this.cacheCounter.incr(failKey);
 
       // Set TTL on first failure (INCR returns 1 on new key)
       if (currentCount === 1) {
-        await this.cacheService.expire(
+        await this.cacheStore.expire(
           failKey,
           CSRF_RATE_LIMIT.FAILURE_WINDOW_TTL,
         );
@@ -209,7 +211,7 @@ export class StatelessCsrfGuard implements CanActivate {
   ): Promise<void> {
     try {
       const banKey = `${CSRF_RATE_LIMIT.BAN_KEY_PREFIX}${clientIp}`;
-      await this.cacheService.set(banKey, '1', {
+      await this.cacheStore.set(banKey, '1', {
         ttl: CSRF_RATE_LIMIT.BAN_DURATION_TTL,
       });
 
