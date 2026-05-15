@@ -1,14 +1,16 @@
 import {
-  Injectable,
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Inject,
+  Injectable,
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { ProjectMembersService } from '../../membership/project-members/project-members.service';
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import { REQUIRED_PROJECT_ROLES_KEY } from '../decorators/require-project-role.decorator';
 import { ProjectRole } from '../../membership/enums/project-role.enum';
 import { JwtRequestUser } from '../types/jwt-request-user.interface';
@@ -34,7 +36,7 @@ export class ProjectRoleGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private projectMembersService: ProjectMembersService,
-    private cacheService: CacheService,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -77,7 +79,7 @@ export class ProjectRoleGuard implements CanActivate {
 
     // Try to get role from cache first
     const cacheKey = `project_role:${projectId}:${userId}`;
-    let userRole = await this.cacheService.get<ProjectRole>(cacheKey);
+    let userRole = await this.cacheStore.get<ProjectRole>(cacheKey);
 
     if (userRole) {
       this.logger.debug(`Cache HIT for ${cacheKey}`);
@@ -91,7 +93,7 @@ export class ProjectRoleGuard implements CanActivate {
 
       // Store in cache for future requests
       if (userRole) {
-        await this.cacheService.set(cacheKey, userRole, {
+        await this.cacheStore.set(cacheKey, userRole, {
           ttl: this.CACHE_TTL,
         });
       }
@@ -116,11 +118,11 @@ export class ProjectRoleGuard implements CanActivate {
    * Helper method to invalidate cache when user role changes
    */
   static async invalidateCache(
-    cacheService: CacheService,
+    cacheStore: ICacheStore,
     projectId: string,
     userId: string,
   ): Promise<void> {
     const cacheKey = `project_role:${projectId}:${userId}`;
-    await cacheService.del(cacheKey);
+    await cacheStore.del(cacheKey);
   }
 }
