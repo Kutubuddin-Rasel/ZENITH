@@ -1,5 +1,5 @@
 import { IoAdapter } from '@nestjs/platform-socket.io';
-import { ServerOptions } from 'socket.io';
+import { Server, ServerOptions } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient, RedisClientType } from 'redis';
 import { INestApplication, Logger } from '@nestjs/common';
@@ -57,7 +57,7 @@ export class RedisIoAdapter extends IoAdapter {
     }
   }
 
-  createIOServer(port: number, options?: ServerOptions): any {
+  createIOServer(port: number, options?: ServerOptions): Server {
     // Get CORS origins from configuration
     interface AppConfig {
       frontendUrl?: string;
@@ -86,7 +86,7 @@ export class RedisIoAdapter extends IoAdapter {
       // Ping configuration for connection health
       pingTimeout: 20000,
       pingInterval: 25000,
-    });
+    }) as Server;
 
     if (this.adapterConstructor) {
       server.adapter(this.adapterConstructor);
