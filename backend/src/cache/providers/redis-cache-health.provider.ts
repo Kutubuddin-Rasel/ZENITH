@@ -1,10 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
 import { CACHE_CLIENT_TOKEN } from '../constants/cache.tokens';
-import {
-  ICacheHealth,
-  RedisStats,
-} from '../interfaces/cache.interfaces';
+import { ICacheHealth, RedisStats } from '../interfaces/cache.interfaces';
 
 /**
  * RedisCacheHealth — liveness and stats provider implementing `ICacheHealth`.
