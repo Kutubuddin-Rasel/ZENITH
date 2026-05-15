@@ -1,13 +1,12 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import Redis from 'ioredis';
 import { CACHE_CLIENT_TOKEN } from '../constants/cache.tokens';
-import {
-  CacheOptions,
-  ICacheStore,
-} from '../interfaces/cache.interfaces';
+import { CacheOptions, ICacheStore } from '../interfaces/cache.interfaces';
 import { buildCacheKey, buildTagKey } from '../utils/cache-key.util';
 import { CacheMetricsRecorder } from './cache-metrics-recorder';
-import { IntegrationGateway } from '../../core/integrations/integration.gateway';
+import { CIRCUIT_BREAKER_EXECUTOR_TOKEN } from '../../circuit-breaker/constants/circuit-breaker.tokens';
+import type { ICircuitBreakerExecutor } from '../../circuit-breaker/interfaces/circuit-breaker.interfaces';
 
 /**
  * RedisCacheStore — primitive K/V provider implementing `ICacheStore`.
@@ -18,13 +17,20 @@ import { IntegrationGateway } from '../../core/integrations/integration.gateway'
  *  - Tag bookkeeping when `options.tags` is provided (registers the cache key
  *    in `tag:{tagName}` Redis sets so `RedisCacheInvalidator` can fan out).
  *
- * CIRCUIT BREAKER:
- *  Get/Set are wrapped through `IntegrationGateway` when available so a
- *  Redis outage doesn't take application latency down with it. Falls back
- *  to direct calls when the gateway isn't injected (DI cycle / test mode).
+ * CIRCUIT BREAKER (lazy resolution):
+ *  Get/Set are wrapped through `ICircuitBreakerExecutor` so a Redis
+ *  outage doesn't take application latency down with it. The executor
+ *  is resolved lazily via `ModuleRef` in `onModuleInit` — NOT injected
+ *  via the constructor — because `CircuitBreakerModule` itself imports
+ *  `CacheModule` (the breaker needs `CACHE_STORE_TOKEN` for cross-pod
+ *  state replication). A constructor injection here would create a hard
+ *  `cache → breaker → cache` DI cycle that NestJS cannot resolve.
+ *
+ *  Falls back to direct Redis calls when the executor cannot be resolved
+ *  (test mode / breaker module disabled).
  */
 @Injectable()
-export class RedisCacheStore implements ICacheStore {
+export class RedisCacheStore implements ICacheStore, OnModuleInit {
   private readonly logger = new Logger(RedisCacheStore.name);
 
   private readonly breakerConfig = {
@@ -35,11 +41,30 @@ export class RedisCacheStore implements ICacheStore {
     volumeThreshold: 5,
   } as const;
 
+  private circuitBreaker?: ICircuitBreakerExecutor;
+
   constructor(
     @Inject(CACHE_CLIENT_TOKEN) private readonly client: Redis,
     private readonly metrics: CacheMetricsRecorder,
-    @Optional() private readonly circuitBreaker?: IntegrationGateway,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  onModuleInit(): void {
+    try {
+      this.circuitBreaker = this.moduleRef.get<ICircuitBreakerExecutor>(
+        CIRCUIT_BREAKER_EXECUTOR_TOKEN,
+        { strict: false },
+      );
+      this.logger.log(
+        'Circuit breaker executor resolved — cache reads/writes will be wrapped',
+      );
+    } catch {
+      this.logger.warn(
+        'Circuit breaker executor not available — falling back to direct Redis calls',
+      );
+      this.circuitBreaker = undefined;
+    }
+  }
 
   private isReady(): boolean {
     return this.client.status === 'ready';
@@ -72,7 +97,11 @@ export class RedisCacheStore implements ICacheStore {
     let result: T | null = null;
     try {
       result = this.circuitBreaker
-        ? await this.circuitBreaker.execute(this.breakerConfig, action, fallback)
+        ? await this.circuitBreaker.execute(
+            this.breakerConfig,
+            action,
+            fallback,
+          )
         : await action();
     } catch (error: unknown) {
       this.logger.error(
@@ -124,7 +153,11 @@ export class RedisCacheStore implements ICacheStore {
 
     try {
       return this.circuitBreaker
-        ? await this.circuitBreaker.execute(this.breakerConfig, action, fallback)
+        ? await this.circuitBreaker.execute(
+            this.breakerConfig,
+            action,
+            fallback,
+          )
         : await action();
     } catch (error: unknown) {
       this.logger.error(

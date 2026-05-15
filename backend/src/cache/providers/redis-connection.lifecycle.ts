@@ -26,9 +26,7 @@ import { CACHE_CLIENT_TOKEN } from '../constants/cache.tokens';
 export class RedisConnectionLifecycle implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisConnectionLifecycle.name);
 
-  constructor(
-    @Inject(CACHE_CLIENT_TOKEN) private readonly client: Redis,
-  ) {}
+  constructor(@Inject(CACHE_CLIENT_TOKEN) private readonly client: Redis) {}
 
   async onModuleInit(): Promise<void> {
     this.client.on('error', (err: Error) => {
@@ -37,8 +35,12 @@ export class RedisConnectionLifecycle implements OnModuleInit, OnModuleDestroy {
       );
     });
     this.client.on('connect', () => this.logger.log('Redis connected'));
-    this.client.on('ready', () => this.logger.log('Redis ready for operations'));
-    this.client.on('reconnecting', () => this.logger.log('Redis reconnecting...'));
+    this.client.on('ready', () =>
+      this.logger.log('Redis ready for operations'),
+    );
+    this.client.on('reconnecting', () =>
+      this.logger.log('Redis reconnecting...'),
+    );
     this.client.on('end', () => this.logger.log('Redis connection ended'));
 
     // Bounded ping to force lazy connection AND validate the handshake.
