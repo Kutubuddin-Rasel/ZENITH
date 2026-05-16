@@ -7,7 +7,7 @@ export interface ApiResponse<T> {
     page?: number;
     limit?: number;
     total?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   timestamp: string;
 }
