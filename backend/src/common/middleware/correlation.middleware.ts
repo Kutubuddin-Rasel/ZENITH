@@ -102,11 +102,13 @@ export class CorrelationMiddleware implements NestMiddleware {
 
   /**
    * Safely checks for special characters without logging the payload.
+   *
+   * Uses the Unicode `Cc` property to cover ALL C0/C1 control codes
+   * (including \n, \r, NUL, DEL) without embedding raw control bytes in
+   * the source — satisfies ESLint `no-control-regex` and is stronger
+   * than the previous `\x00-\x1f` literal range.
    */
   private hasSpecialChars(value: string): boolean {
-    // Check for newlines, control chars, or non-alphanumeric (except hyphen)
-    // Using Unicode escape for control character range to satisfy ESLint
-
-    return /[\n\r\x00-\x1f<>{}|\\^`]/.test(value);
+    return /[<>{}|\\^`]|\p{Cc}/u.test(value);
   }
 }

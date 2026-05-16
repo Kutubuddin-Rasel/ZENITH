@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NestInterceptor,
   ExecutionContext,
@@ -8,7 +9,11 @@ import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Request, Response } from 'express';
 import { performance } from 'perf_hooks';
-import { MetricsService, HttpMetricLabels } from '../services/metrics.service';
+import { HTTP_METRICS_RECORDER_TOKEN } from '../constants/metrics.tokens';
+import type {
+  HttpMetricLabels,
+  IHttpMetricsRecorder,
+} from '../interfaces/metrics.interfaces';
 
 /**
  * Request type with route property for extracting route templates.
@@ -50,7 +55,10 @@ type RequestWithRoute = Omit<Request, 'route'> & {
  */
 @Injectable()
 export class TimingInterceptor implements NestInterceptor<unknown, unknown> {
-  constructor(private readonly metricsService: MetricsService) {}
+  constructor(
+    @Inject(HTTP_METRICS_RECORDER_TOKEN)
+    private readonly httpMetrics: IHttpMetricsRecorder,
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     // Only process HTTP requests
@@ -124,8 +132,8 @@ export class TimingInterceptor implements NestInterceptor<unknown, unknown> {
       status: statusCode,
     };
 
-    // Record metrics
-    this.metricsService.recordHttpRequest(labels, durationSeconds);
+    // Record metrics via the segregated HTTP recorder (DIP — no facade).
+    this.httpMetrics.recordHttpRequest(labels, durationSeconds);
   }
 
   /**
