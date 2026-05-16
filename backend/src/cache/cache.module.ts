@@ -1,4 +1,4 @@
-import { Global, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
@@ -23,11 +23,10 @@ import { RedisCacheList } from './providers/redis-cache-list.provider';
 import { RedisCacheSortedSet } from './providers/redis-cache-sorted-set.provider';
 import { RedisCacheStore } from './providers/redis-cache-store.provider';
 import { RedisConnectionLifecycle } from './providers/redis-connection.lifecycle';
-import { CacheService } from './cache.service';
 import { CacheTtlService } from './cache-ttl.service';
 
 /**
- * CacheModule — Step 2 encapsulation.
+ * CacheModule — Step 3 final encapsulation.
  *
  * RESPONSIBILITY:
  *  - Owns the single ioredis client (CACHE_CLIENT_TOKEN) constructed from the
@@ -36,24 +35,25 @@ import { CacheTtlService } from './cache-ttl.service';
  *  - Manages connection lifecycle via `RedisConnectionLifecycle`.
  *
  * EXPORT POLICY (Zero Concrete Leaks):
- *  - Only segregated interface tokens are exported.
- *  - The legacy `CacheService` and `CacheTtlService` are exported transitionally
- *    so the existing 60 consumers keep compiling. Step 3 migrates them to
- *    inject the narrowest token directly, after which `CacheService` becomes
- *    a candidate for removal.
+ *  - Only segregated interface tokens are exported. Consumers must inject the
+ *    narrowest token they need (`CACHE_STORE_TOKEN`, `CACHE_COUNTER_TOKEN`, …).
  *  - Concrete `Redis*` provider classes and `CACHE_CLIENT_TOKEN` are NOT
  *    exported — they are implementation details of this module.
+ *  - The module is no longer `@Global()`: every consumer module must list
+ *    `CacheModule` in its `imports` array, making the dependency boundary
+ *    explicit.
  */
-@Global()
 @Module({
-  imports: [ConfigModule.forFeature(cacheConfig), ConfigModule.forFeature(redisConfig)],
+  imports: [
+    ConfigModule.forFeature(cacheConfig),
+    ConfigModule.forFeature(redisConfig),
+  ],
   providers: [
     // Lifecycle + metrics owners.
     RedisConnectionLifecycle,
     CacheMetricsRecorder,
 
-    // Single Redis client factory — replaces the inline `new Redis(...)`
-    // that used to live in CacheService.onModuleInit.
+    // Single Redis client factory — owns the ioredis connection lifecycle.
     {
       provide: CACHE_CLIENT_TOKEN,
       useFactory: (configService: ConfigService): Redis => {
@@ -77,8 +77,6 @@ import { CacheTtlService } from './cache-ttl.service';
     { provide: CACHE_SORTED_SET_TOKEN, useClass: RedisCacheSortedSet },
     { provide: ENTITY_CACHE_TOKEN, useClass: EntityCacheFacade },
 
-    // Transitional legacy bridge — delegates to the segregated tokens above.
-    CacheService,
     CacheTtlService,
   ],
   exports: [
@@ -89,9 +87,6 @@ import { CacheTtlService } from './cache-ttl.service';
     CACHE_COUNTER_TOKEN,
     CACHE_SORTED_SET_TOKEN,
     ENTITY_CACHE_TOKEN,
-
-    // Legacy bridge (transitional, removed after Step 3 consumer migration).
-    CacheService,
     CacheTtlService,
   ],
 })
