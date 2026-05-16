@@ -1,25 +1,42 @@
-import { Global, Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { EncryptionService } from './services/encryption.service';
-import { MetricsService } from './services/metrics.service';
-import { AlertService } from './services/alert.service';
-import { MetricsController } from './controllers/metrics.controller';
-import { TimingInterceptor } from './interceptors/timing.interceptor';
-import { Integration } from '../integrations/entities/integration.entity';
+import { Module } from '@nestjs/common';
+import { CommonAlertingModule } from './submodules/alerting.module';
+import { CommonEventsModule } from './submodules/events.module';
+import { CommonHttpModule } from './submodules/http.module';
+import { CommonObservabilityModule } from './submodules/observability.module';
+import { CommonSecurityModule } from './submodules/security.module';
 
 /**
- * Global module for shared services across the application.
+ * CommonModule — Transitional Barrel
+ *
+ * After the Step 3 SRP/DIP refactor, `CommonModule` is a thin barrel
+ * over five focused submodules. The `@Global()` decorator and the
+ * `Integration`-entity TypeORM registration have been removed — every
+ * consumer must now explicitly `imports: [CommonModule]` (or, after
+ * Step 4, the narrower submodule it actually needs).
+ *
+ *   - CommonSecurityModule       — encryption + throttling guards
+ *   - CommonObservabilityModule  — Prometheus registry + 6 metric recorders
+ *   - CommonAlertingModule       — multi-channel alert dispatcher (Strategy)
+ *   - CommonHttpModule           — response shaping interceptors
+ *   - CommonEventsModule         — segregated injectable event factories
+ *
+ * Step 4 will delete this barrel once all consumers import the focused
+ * submodule directly.
  */
-@Global()
 @Module({
-  imports: [TypeOrmModule.forFeature([Integration])],
-  providers: [
-    EncryptionService,
-    MetricsService,
-    AlertService,
-    TimingInterceptor,
+  imports: [
+    CommonSecurityModule,
+    CommonObservabilityModule,
+    CommonAlertingModule,
+    CommonHttpModule,
+    CommonEventsModule,
   ],
-  controllers: [MetricsController],
-  exports: [EncryptionService, MetricsService, AlertService, TimingInterceptor],
+  exports: [
+    CommonSecurityModule,
+    CommonObservabilityModule,
+    CommonAlertingModule,
+    CommonHttpModule,
+    CommonEventsModule,
+  ],
 })
 export class CommonModule {}
