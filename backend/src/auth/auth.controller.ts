@@ -8,9 +8,21 @@ import {
   Get,
   Param,
 } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { AuthService } from './auth.service';
-import { TwoFactorAuthService } from './services/two-factor-auth.service';
+import { LoginCoordinator } from './services/core/login-coordinator.service';
+import { RegistrationService } from './services/core/registration.service';
+import { TokenService } from './services/tokens/token.service';
+import {
+  ACCOUNT_LOCKOUT_POLICY_TOKEN,
+  TWO_FACTOR_SECRET_STORE_TOKEN,
+  TWO_FACTOR_VERIFIER_TOKEN,
+} from './constants/auth.tokens';
+import { IAccountLockoutPolicy } from './interfaces/core.interfaces';
+import {
+  I2FASecretStore,
+  I2FAVerifier,
+} from './interfaces/two-factor.interfaces';
 import { CookieService } from './services/cookie.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { RegisterDto } from './dto/register.dto';
@@ -21,13 +33,20 @@ import { CsrfGuard } from './guards/csrf.guard';
 import { Public } from './decorators/public.decorator';
 import { VerifyLogin2FADto } from './dto/two-factor-auth.dto';
 import { Response } from 'express';
-import { SuperAdminGuard } from './guards/super-admin.guard';
+import { SuperAdminGuard } from '../core/auth/guards/super-admin.guard';
 
 @Controller('auth')
 export class AuthController {
   constructor(
-    private authService: AuthService,
-    private twoFactorAuthService: TwoFactorAuthService,
+    private readonly loginCoordinator: LoginCoordinator,
+    private readonly registrationService: RegistrationService,
+    private readonly tokenService: TokenService,
+    @Inject(ACCOUNT_LOCKOUT_POLICY_TOKEN)
+    private readonly lockoutPolicy: IAccountLockoutPolicy,
+    @Inject(TWO_FACTOR_SECRET_STORE_TOKEN)
+    private readonly twoFactorSecretStore: I2FASecretStore,
+    @Inject(TWO_FACTOR_VERIFIER_TOKEN)
+    private readonly twoFactorVerifier: I2FAVerifier,
     private cookieService: CookieService,
   ) {}
 
@@ -51,16 +70,16 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     // LocalStrategy attaches the validated user to req.user
-    const result = await this.authService.login(req.user);
+    const result = await this.loginCoordinator.login(req.user);
 
     // Check if user has 2FA enabled
-    const has2FA = await this.twoFactorAuthService.isEnabled(req.user.id);
+    const has2FA = await this.twoFactorSecretStore.isEnabled(req.user.id);
 
     if (has2FA) {
       // SECURITY: Return a signed session token instead of raw userId
       // This prevents attackers from substituting their own userId in the 2FA step
       const twoFactorSessionToken =
-        await this.authService.generate2FASessionToken(
+        await this.tokenService.issueTwoFactorSession(
           req.user.id,
           req.user.email,
         );
@@ -94,22 +113,19 @@ export class AuthController {
   ) {
     // SECURITY: Extract userId from signed session token, NOT from request body
     // This prevents attackers from substituting arbitrary userIds
-    const { userId } = await this.authService.verify2FASessionToken(
+    const { userId } = await this.tokenService.verifyTwoFactorSession(
       dto.twoFactorSessionToken,
     );
 
-    const isValid = await this.twoFactorAuthService.verifyToken(
-      userId,
-      dto.token,
-    );
+    const isValid = await this.twoFactorVerifier.verify(userId, dto.token);
 
     if (!isValid) {
       return { success: false, message: 'Invalid 2FA token' };
     }
 
     // Generate final JWT token
-    const user = await this.authService.findUserById(userId);
-    const result = await this.authService.login(user);
+    const user = await this.registrationService.findUserById(userId);
+    const result = await this.loginCoordinator.login(user);
 
     // Set refresh token cookie after successful 2FA
     this.cookieService.setRefreshTokenCookie(res, result.refresh_token);
@@ -127,7 +143,7 @@ export class AuthController {
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('register')
   async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+    return this.registrationService.register(dto);
   }
 
   @Public()
@@ -136,7 +152,7 @@ export class AuthController {
     @Body() dto: RedeemInviteDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.redeemInvite(dto);
+    const result = await this.registrationService.redeemInvite(dto);
 
     // Set refresh token cookie for invite redemption
     this.cookieService.setRefreshTokenCookie(res, result.refresh_token);
@@ -165,7 +181,9 @@ export class AuthController {
     }
 
     // Fetch fresh user data from DB to get latest avatarUrl and other fields
-    const freshUser = await this.authService.findUserById(req.user.userId);
+    const freshUser = await this.registrationService.findUserById(
+      req.user.userId,
+    );
 
     return {
       userId: freshUser.id,
@@ -194,7 +212,7 @@ export class AuthController {
   ) {
     const userId = req.user['userId'];
     const refreshToken = req.user['refreshToken'];
-    const result = await this.authService.refreshTokens(userId, refreshToken);
+    const result = await this.tokenService.refreshTokens(userId, refreshToken);
 
     // Set new refresh token cookie (access token returned in body only)
     this.cookieService.setRefreshTokenCookie(res, result.refresh_token);
@@ -215,7 +233,7 @@ export class AuthController {
     const { userId, jti, exp } = req.user;
 
     // Logout with token blacklisting (if JTI available)
-    await this.authService.logout(userId, jti, exp);
+    await this.loginCoordinator.logout(userId, jti, exp);
 
     // Clear HttpOnly Cookies on logout
     this.cookieService.clearAuthCookies(res);
@@ -229,7 +247,7 @@ export class AuthController {
     @Param('userId') userId: string,
     @Request() req: { user: { userId: string } },
   ) {
-    await this.authService.unlockAccount(userId, req.user.userId);
+    await this.lockoutPolicy.unlock(userId, req.user.userId);
     return { message: 'Account unlocked successfully' };
   }
 }
