@@ -5,8 +5,10 @@ import { AuditLogsWorker } from './audit-logs.worker';
 import { ClickHouseClient } from './clickhouse.client';
 import { CircuitAuditLoggerAdapter } from './adapters/circuit-audit-logger.adapter';
 import { AuditLogsBypassWriterAdapter } from './adapters/audit-logs-bypass-writer.adapter';
+import { RbacAuditEmitterAdapter } from './adapters/rbac-audit-emitter.adapter';
 import { CIRCUIT_AUDIT_LOGGER_TOKEN } from '../circuit-breaker/constants/circuit-breaker.tokens';
 import { BYPASS_AUDIT_WRITER_TOKEN } from '../core/tenant/constants/tenant.tokens';
+import { RBAC_AUDIT_EMITTER_TOKEN } from '../rbac';
 
 /**
  * AuditLogs Module
@@ -16,11 +18,12 @@ import { BYPASS_AUDIT_WRITER_TOKEN } from '../core/tenant/constants/tenant.token
  *
  * DIP boundary: registers domain-specific audit adapters against the
  * abstract tokens owned by the consuming modules, so cross-cutting
- * subsystems (`circuit-breaker`, `core/tenant`) never import
+ * subsystems (`circuit-breaker`, `core/tenant`, `rbac`) never import
  * `AuditLogsService` directly.
  *
  * - `CIRCUIT_AUDIT_LOGGER_TOKEN`  → `CircuitAuditLoggerAdapter`
  * - `BYPASS_AUDIT_WRITER_TOKEN`   → `AuditLogsBypassWriterAdapter`
+ * - `RBAC_AUDIT_EMITTER_TOKEN`    → `RbacAuditEmitterAdapter`   (Step 4)
  */
 @Global()
 @Module({
@@ -41,11 +44,16 @@ import { BYPASS_AUDIT_WRITER_TOKEN } from '../core/tenant/constants/tenant.token
       provide: BYPASS_AUDIT_WRITER_TOKEN,
       useClass: AuditLogsBypassWriterAdapter,
     },
+    {
+      provide: RBAC_AUDIT_EMITTER_TOKEN,
+      useClass: RbacAuditEmitterAdapter,
+    },
   ],
   exports: [
     AuditLogsService,
     CIRCUIT_AUDIT_LOGGER_TOKEN,
     BYPASS_AUDIT_WRITER_TOKEN,
+    RBAC_AUDIT_EMITTER_TOKEN,
   ],
 })
 export class AuditLogsModule {}
