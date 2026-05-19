@@ -7,7 +7,6 @@ import { AttachmentsService } from './attachments.service';
 import { AttachmentsController } from './attachments.controller';
 import { VirusScanningService } from './services/virus-scanning.service';
 import { IssuesModule } from '../issues/issues.module';
-// REMOVED: MembershipModule - using ProjectCoreModule (global) for ProjectMembersService
 import { SprintsModule } from '../sprints/sprints.module';
 import { CommentsModule } from '../comments/comments.module';
 import { ReleasesModule } from '../releases/releases.module';

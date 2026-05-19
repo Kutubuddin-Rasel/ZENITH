@@ -1,7 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
 import { ApiKey } from '../entities/api-key.entity';
 import { AuditService } from '../../audit/services/audit.service';
 import {
@@ -9,6 +7,7 @@ import {
   AuditSeverity,
 } from '../../audit/entities/audit-log.entity';
 import { SYSTEM_TENANT_ID } from '../../audit/audit.constants';
+import { AbstractApiKeyRepository } from '../repositories/abstract/api-key.repository.abstract';
 
 // =============================================================================
 // CONFIGURATION
@@ -59,9 +58,8 @@ export class ApiKeyCleanupService {
   private readonly logger = new Logger(ApiKeyCleanupService.name);
 
   constructor(
-    @InjectRepository(ApiKey)
-    private apiKeyRepo: Repository<ApiKey>,
-    private auditService: AuditService,
+    private readonly apiKeyRepo: AbstractApiKeyRepository,
+    private readonly auditService: AuditService,
   ) {}
 
   // ===========================================================================
@@ -143,14 +141,12 @@ export class ApiKeyCleanupService {
     while (true) {
       batchNumber++;
 
-      // Find batch of keys to delete
-      const keysToDelete = await this.apiKeyRepo.find({
-        where: {
-          revokeAt: LessThan(cutoffDate),
-        },
-        take: CLEANUP_CONFIG.BATCH_SIZE,
-        select: ['id', 'keyPrefix', 'userId', 'revokeAt'],
-      });
+      // Find batch of keys to delete (projection-narrowed — keyHash and
+      // relations are excluded by the abstract repository's Pick).
+      const keysToDelete = await this.apiKeyRepo.findExpiredBefore(
+        cutoffDate,
+        CLEANUP_CONFIG.BATCH_SIZE,
+      );
 
       if (keysToDelete.length === 0) {
         break;
@@ -160,7 +156,7 @@ export class ApiKeyCleanupService {
       const keyIds = keysToDelete.map((k) => k.id);
 
       // Perform batch delete
-      await this.apiKeyRepo.delete(keyIds);
+      await this.apiKeyRepo.batchDelete(keyIds);
       totalDeleted += keysToDelete.length;
 
       this.logger.debug(
@@ -202,18 +198,14 @@ export class ApiKeyCleanupService {
       cutoffDate.getDate() - CLEANUP_CONFIG.UNUSED_THRESHOLD_DAYS,
     );
 
-    // Find unused keys that haven't been notified
-    const unusedKeys = await this.apiKeyRepo
-      .createQueryBuilder('key')
-      .where('key.createdAt < :cutoffDate', { cutoffDate })
-      .andWhere('key.isActive = :isActive', { isActive: true })
-      .andWhere('key.unusedNotifiedAt IS NULL')
-      .andWhere('(key.lastUsedAt IS NULL OR key.lastUsedAt < :cutoffDate)', {
-        cutoffDate,
-      })
-      .orderBy('key.createdAt', 'ASC') // Oldest first
-      .take(CLEANUP_CONFIG.DAILY_NOTIFICATION_CAP)
-      .getMany();
+    // Find unused keys that haven't been notified. The
+    // `(lastUsedAt IS NULL OR lastUsedAt < cutoff)` clause and the
+    // `createdAt ASC` ordering live inside the Postgres adapter so
+    // this layer stays query-shape-free.
+    const unusedKeys = await this.apiKeyRepo.findUnusedCandidates(
+      cutoffDate,
+      CLEANUP_CONFIG.DAILY_NOTIFICATION_CAP,
+    );
 
     if (unusedKeys.length === 0) {
       return 0;
@@ -285,11 +277,10 @@ export class ApiKeyCleanupService {
   > {
     const anomalies: { keyId: string; violations: number }[] = [];
 
-    // Get all active keys
-    const activeKeys = await this.apiKeyRepo.find({
-      where: { isActive: true },
-      select: ['id', 'keyPrefix', 'userId', 'rateLimit'],
-    });
+    // Get all active keys (projection-narrowed to the fields the
+    // detector actually consumes — the abstract repository's Pick
+    // makes accidental over-fetch a compile error).
+    const activeKeys = await this.apiKeyRepo.findAllActive();
 
     const now = Date.now();
     const oneDayAgo = now - 24 * 60 * 60 * 1000;
