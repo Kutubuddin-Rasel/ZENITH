@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not } from 'typeorm';
 import { UserSession } from './entities/user-session.entity';
+import { UserSessionRepository } from './repositories/abstract/user-session.repository.abstract';
 import * as crypto from 'crypto';
 
 // Simple user-agent parsing (lightweight, no external dependency)
@@ -47,10 +46,7 @@ function parseUserAgent(userAgent: string | null): {
 
 @Injectable()
 export class SessionsService {
-  constructor(
-    @InjectRepository(UserSession)
-    private readonly sessionRepo: Repository<UserSession>,
-  ) {}
+  constructor(private readonly sessionRepo: UserSessionRepository) {}
 
   /**
    * Create a new session when user logs in
@@ -89,7 +85,7 @@ export class SessionsService {
    * Update last used time when token is refreshed
    */
   async touchSession(tokenHash: string): Promise<void> {
-    await this.sessionRepo.update({ tokenHash }, { lastUsedAt: new Date() });
+    await this.sessionRepo.touchByTokenHash(tokenHash, new Date());
   }
 
   /**
@@ -101,9 +97,7 @@ export class SessionsService {
       .update(refreshToken)
       .digest('hex');
 
-    return this.sessionRepo.findOne({
-      where: { tokenHash },
-    });
+    return this.sessionRepo.findByTokenHash(tokenHash);
   }
 
   /**
@@ -125,21 +119,7 @@ export class SessionsService {
       isCurrent: boolean;
     }>
   > {
-    const sessions = await this.sessionRepo.find({
-      where: { userId },
-      order: { lastUsedAt: 'DESC' },
-      select: [
-        'id',
-        'deviceType',
-        'browser',
-        'os',
-        'ipAddress',
-        'location',
-        'createdAt',
-        'lastUsedAt',
-        'tokenHash',
-      ],
-    });
+    const sessions = await this.sessionRepo.listForUserWithDeviceInfo(userId);
 
     // Remove expired sessions
     const now = new Date();
@@ -164,11 +144,11 @@ export class SessionsService {
    * Revoke a specific session
    */
   async revokeSession(sessionId: string, userId: string): Promise<boolean> {
-    const result = await this.sessionRepo.delete({
-      id: sessionId,
-      userId, // Ensure user owns this session
-    });
-    return (result.affected ?? 0) > 0;
+    const affected = await this.sessionRepo.deleteByIdForUser(
+      sessionId,
+      userId,
+    );
+    return affected > 0;
   }
 
   /**
@@ -178,38 +158,28 @@ export class SessionsService {
     userId: string,
     currentSessionId: string,
   ): Promise<number> {
-    const result = await this.sessionRepo.delete({
-      userId,
-      id: Not(currentSessionId),
-    });
-    return result.affected ?? 0;
+    return this.sessionRepo.deleteAllForUserExcept(userId, currentSessionId);
   }
 
   /**
    * Revoke all user sessions (for logout everywhere)
    */
   async revokeAllSessions(userId: string): Promise<number> {
-    const result = await this.sessionRepo.delete({ userId });
-    return result.affected ?? 0;
+    return this.sessionRepo.deleteAllForUser(userId);
   }
 
   /**
    * Clean up expired sessions (run periodically)
    */
   async cleanupExpired(): Promise<number> {
-    const result = await this.sessionRepo
-      .createQueryBuilder()
-      .delete()
-      .where('expiresAt < :now', { now: new Date() })
-      .execute();
-    return result.affected ?? 0;
+    return this.sessionRepo.deleteExpiredBefore(new Date());
   }
 
   /**
    * Get session count for a user
    */
   async getSessionCount(userId: string): Promise<number> {
-    return this.sessionRepo.count({ where: { userId } });
+    return this.sessionRepo.countForUser(userId);
   }
 
   /**
