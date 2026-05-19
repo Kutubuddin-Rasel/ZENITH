@@ -3,11 +3,13 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Inject,
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ProjectSecurityPolicyService } from '../../projects/project-security-policy.service';
-import { TwoFactorAuthService } from '../services/two-factor-auth.service';
+import { TWO_FACTOR_SECRET_STORE_TOKEN } from '../constants/auth.tokens';
+import { I2FASecretStore } from '../interfaces/two-factor.interfaces';
 
 /**
  * Typed request interface for this guard
@@ -66,7 +68,8 @@ export class ProjectSecurityPolicyGuard implements CanActivate {
 
   constructor(
     private readonly policyService: ProjectSecurityPolicyService,
-    private readonly twoFactorService: TwoFactorAuthService,
+    @Inject(TWO_FACTOR_SECRET_STORE_TOKEN)
+    private readonly twoFactorSecretStore: I2FASecretStore,
     private readonly reflector: Reflector,
   ) {}
 
@@ -119,7 +122,7 @@ export class ProjectSecurityPolicyGuard implements CanActivate {
 
     // Check 1: 2FA Requirement
     if (policy.require2FA) {
-      const has2FA = await this.twoFactorService.isEnabled(user.userId);
+      const has2FA = await this.twoFactorSecretStore.isEnabled(user.userId);
       if (!has2FA) {
         violations.push('2FA_NOT_ENABLED');
       }
