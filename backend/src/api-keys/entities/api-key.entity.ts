@@ -10,6 +10,32 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { Project } from '../../projects/entities/project.entity';
 
+/**
+ * API Keys Persistence Entity — MODULE-INTERNAL
+ *
+ * SECURITY INVARIANT — `keyHash`
+ * ------------------------------
+ * `keyHash` is a bcrypt digest of the plaintext key. The plaintext
+ * key is shown to the caller exactly ONCE (on create + rotate, via
+ * `ApiKeyCreateResult` / `ApiKeyRotateResult`) and is NEVER
+ * persisted in any other shape. `keyHash` MUST NOT appear on any DTO
+ * crossing the public barrel (`backend/src/api-keys/index.ts`,
+ * sealed in Step 4). The `ApiKeySummary` and `ValidatedApiKey` DTOs
+ * in `interfaces/api-keys.interfaces.ts` enforce this at the type
+ * level — both DTOs deliberately omit the `keyHash` field so
+ * accidental leakage is a compile error rather than a runtime / PR
+ * review concern.
+ *
+ * BOUNDARY — TypeORM access
+ * -------------------------
+ * `@InjectRepository(ApiKey)` is permitted in EXACTLY ONE file:
+ * `repositories/postgres/postgres-api-key.repository.ts`. Every
+ * other consumer (services, controllers, guards, cron workers,
+ * external modules such as `telemetry`) MUST depend on
+ * `AbstractApiKeyRepository`. The Step 4 boundary sweep
+ * (`grep "@InjectRepository(ApiKey)" backend/src`) enforces this
+ * post-refactor.
+ */
 @Entity('api_keys')
 export class ApiKey {
   @PrimaryGeneratedColumn('uuid')
