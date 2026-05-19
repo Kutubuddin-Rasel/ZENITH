@@ -10,24 +10,52 @@ import {
   Request,
   HttpCode,
   HttpStatus,
+  Inject,
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { SAMLService } from '../services/saml.service';
+
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { Public } from '../decorators/public.decorator';
 import {
   CreateSAMLConfigDto,
   UpdateSAMLConfigDto,
   TestSAMLConfigDto,
-  // SAMLMetadataDto,
 } from '../dto/saml.dto';
+import {
+  SAML_CONFIG_READER_TOKEN,
+  SAML_CONFIG_WRITER_TOKEN,
+  SAML_STRATEGY_FACTORY_TOKEN,
+  TOKEN_ISSUER_TOKEN,
+} from '../constants/auth.tokens';
+import {
+  ISAMLConfigReader,
+  ISAMLConfigWriter,
+  ISAMLStrategyFactory,
+  SAMLProfile,
+} from '../interfaces/saml.interfaces';
+import { ITokenIssuer } from '../interfaces/token.interfaces';
+import { SAMLConfigService } from '../services/strategies/saml/saml-config.service';
+import { SAMLAuthenticator } from '../services/strategies/saml/saml.authenticator';
 
 @Controller('auth/saml')
 export class SAMLController {
-  constructor(private samlService: SAMLService) {}
+  constructor(
+    @Inject(SAML_CONFIG_READER_TOKEN)
+    private readonly configReader: ISAMLConfigReader,
+    @Inject(SAML_CONFIG_WRITER_TOKEN)
+    private readonly configWriter: ISAMLConfigWriter,
+    @Inject(SAML_STRATEGY_FACTORY_TOKEN)
+    private readonly strategyFactory: ISAMLStrategyFactory,
+    @Inject(TOKEN_ISSUER_TOKEN)
+    private readonly tokenIssuer: ITokenIssuer,
+    private readonly samlAuthenticator: SAMLAuthenticator,
+    // Concrete only for the admin-side metadata helper (outside the ISP).
+    private readonly samlConfigService: SAMLConfigService,
+  ) {}
 
-  // Public endpoints for SAML callbacks
+  // ── Public SAML callbacks ────────────────────────────────────────────
+
   @Public()
   @Get('login/:configId')
   async initiateLogin(
@@ -35,10 +63,9 @@ export class SAMLController {
     @Res() res: Response,
   ) {
     try {
-      const config = await this.samlService.getConfig(configId);
-      const strategy = this.samlService.createStrategy(config);
+      const config = await this.configReader.getById(configId);
+      const strategy = this.strategyFactory.create(config);
 
-      // Redirect to SAML provider
       strategy.generateServiceProviderMetadata(
         config.issuer,
         config.callbackUrl,
@@ -66,11 +93,12 @@ export class SAMLController {
     @Res() res: Response,
   ) {
     try {
-      const config = await this.samlService.getConfig(configId);
+      const config = await this.configReader.getById(configId);
 
-      // For now, we'll simulate a successful SAML response
-      // In a real implementation, you would validate the SAML response here
-      const mockProfile = {
+      // NOTE: in production the SAML assertion is validated by the strategy
+      // verify callback; this manual callback path is for IdP-less test
+      // harnessing. Profile shape mirrors `SAMLProfile`.
+      const profile: SAMLProfile = {
         nameID: body.nameID || 'mock-user',
         nameIDFormat: 'urn:oasis:names:tc:SAML:2.0:nameid-format:transient',
         email: body.email || 'user@example.com',
@@ -78,20 +106,26 @@ export class SAMLController {
         lastName: body.lastName || 'Doe',
         username: body.username || 'johndoe',
         groups: body.groups || ['users'],
+        attributes: {},
       };
 
-      // Handle successful authentication
-      const user = await this.samlService.handleSAMLUser(mockProfile, config);
-      const token = this.samlService.generateJWTToken(user);
+      const principal = await this.samlAuthenticator.authenticateWithConfig(
+        profile,
+        config,
+      );
+      // JWT minting is delegated to the generic ITokenIssuer — SAML
+      // never duplicates token-lifecycle logic.
+      const tokens = await this.tokenIssuer.issuePair(principal);
 
       res.json({
         success: true,
-        access_token: token,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
         user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          isSuperAdmin: user.isSuperAdmin,
+          id: principal.id,
+          email: principal.email,
+          name: principal.name,
+          isSuperAdmin: principal.isSuperAdmin,
         },
       });
     } catch {
@@ -99,15 +133,15 @@ export class SAMLController {
     }
   }
 
-  // Admin endpoints (require authentication)
+  // ── Admin endpoints (authenticated) ──────────────────────────────────
+
   @UseGuards(JwtAuthGuard)
   @Post('configs')
   async createConfig(
     @Request() req: { user: { userId: string } },
     @Body() dto: CreateSAMLConfigDto,
   ) {
-    const userId = req.user.userId;
-    return this.samlService.createOrUpdateConfig(null, dto, userId);
+    return this.configWriter.createOrUpdate(null, dto, req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -117,52 +151,51 @@ export class SAMLController {
     @Request() req: { user: { userId: string } },
     @Body() dto: UpdateSAMLConfigDto,
   ) {
-    const userId = req.user.userId;
-    return this.samlService.createOrUpdateConfig(id, dto, userId);
+    return this.configWriter.createOrUpdate(id, dto, req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('configs')
   async listConfigs() {
-    return this.samlService.listConfigs();
+    return this.configReader.list();
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('configs/:id')
   async getConfig(@Param('id') id: string) {
-    return this.samlService.getConfig(id);
+    return this.configReader.getById(id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete('configs/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteConfig(@Param('id') id: string) {
-    await this.samlService.deleteConfig(id);
+    await this.configWriter.delete(id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('configs/:id/activate')
   async activateConfig(@Param('id') id: string) {
-    return this.samlService.activateConfig(id);
+    return this.configWriter.activate(id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('configs/test')
   async testConfig(@Body() dto: TestSAMLConfigDto) {
-    return this.samlService.testConfig(dto.configId);
+    return this.samlAuthenticator.testConfig(dto.configId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('configs/:id/metadata')
   async getMetadata(@Param('id') id: string) {
-    const config = await this.samlService.getConfig(id);
-    const metadata = this.samlService.generateMetadata(config);
+    const config = await this.configReader.getById(id);
+    const metadata = this.samlConfigService.generateMetadata(config);
     return { metadata };
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('active-config')
   async getActiveConfig() {
-    return this.samlService.getActiveConfig();
+    return this.configReader.getActive();
   }
 }

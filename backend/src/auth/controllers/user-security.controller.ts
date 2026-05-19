@@ -1,4 +1,11 @@
-import { Body, Controller, Get, Patch, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
@@ -14,7 +21,8 @@ import { UpdateNotificationPreferencesDto } from '../../users/dto/update-notific
  * contract (single merged payload) is preserved so existing clients keep
  * working unchanged.
  */
-interface CombinedSecuritySettingsDto extends UpdateSessionPreferencesDto, UpdateNotificationPreferencesDto {}
+interface CombinedSecuritySettingsDto
+  extends UpdateSessionPreferencesDto, UpdateNotificationPreferencesDto {}
 
 interface CombinedSecuritySettingsResponse {
   readonly userId: string;
