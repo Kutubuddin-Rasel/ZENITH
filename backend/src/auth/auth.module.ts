@@ -1,128 +1,79 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 
-import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { TwoFactorAuthService } from './services/two-factor-auth.service';
-import { TwoFactorAuthController } from './controllers/two-factor-auth.controller';
-import { SAMLService } from './services/saml.service';
-import { SAMLController } from './controllers/saml.controller';
-import { CookieService } from './services/cookie.service';
-import { PasswordService } from './services/password.service';
-import { PasswordPolicyService } from './services/password-policy.service';
-import { PasswordBreachService } from './services/password-breach.service';
-import { TokenBlacklistService } from './services/token-blacklist.service';
-import { SessionsService } from './sessions.service';
-import { SessionsController } from './sessions.controller';
-import { UserPasswordService } from './services/users/user-password.service';
-import { UserLifecycleService } from './services/users/user-lifecycle.service';
-import { SessionPreferencesService } from './services/users/session-preferences.service';
-import { UserPasswordController } from './controllers/user-password.controller';
-import { UserSecurityController } from './controllers/user-security.controller';
-import { LoginHistoryService } from './login-history/login-history.service';
-import { LoginHistoryController } from './login-history/login-history.controller';
 
-// **Guards** and **Strategies**
-import { LocalStrategy } from './strategies/local.strategy';
-import { JwtStrategy } from './strategies/jwt.strategy';
-import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
-import { LocalAuthGuard } from './guards/local-auth.guard';
+// Step 5 — Five focused domain sub-modules; the aggregator owns nothing
+// but the cross-cutting `AuthController` and the public export contract.
+import { AuthCoreModule } from './modules/auth-core.module';
+import { LocalAuthModule } from './modules/local-auth.module';
+import { SamlAuthModule } from './modules/saml-auth.module';
+import { TwoFactorAuthModule } from './modules/two-factor-auth.module';
+import { SessionsModule } from './modules/sessions.module';
+
+// Guards re-exported as part of the auth public surface.
 import { ProjectRoleGuard } from './guards/project-role.guard';
 import { StatelessCsrfGuard } from './guards/csrf.guard';
 
-// **Entities**
-import { TwoFactorAuth } from './entities/two-factor-auth.entity';
-import { SAMLConfig } from './entities/saml-config.entity';
-import { UserSession } from './entities/user-session.entity';
-import { SessionPolicy } from './entities/session-policy.entity';
-import { LoginHistory } from './login-history/entities/login-history.entity';
-import { User } from '../users/entities/user.entity';
+// Token re-exports — the canonical contract the rest of the app depends on.
+import {
+  ACCOUNT_LOCKOUT_POLICY_TOKEN,
+  AUTHENTICATOR_TOKEN,
+  SAML_CONFIG_READER_TOKEN,
+  SAML_CONFIG_WRITER_TOKEN,
+  SAML_IDENTITY_PROVISIONER_TOKEN,
+  SAML_STRATEGY_FACTORY_TOKEN,
+  TOKEN_ISSUER_TOKEN,
+  TOKEN_REVOKER_TOKEN,
+  TOKEN_VERIFIER_TOKEN,
+  TWO_FACTOR_ADMIN_SERVICE_TOKEN,
+  TWO_FACTOR_BACKUP_CODE_SERVICE_TOKEN,
+  TWO_FACTOR_RECOVERY_SERVICE_TOKEN,
+  TWO_FACTOR_SECRET_STORE_TOKEN,
+  TWO_FACTOR_VERIFIER_TOKEN,
+} from './constants/auth.tokens';
 
-import { UsersModule } from '../users/users.module';
-// REFACTORED: InvitesModule no longer needs forwardRef - cycle is broken
-import { InvitesModule } from '../invites/invites.module';
-// REMOVED: MembershipModule import - using ProjectCoreModule (global) for ProjectMembersService
-import { CacheModule } from '../cache/cache.module';
-import { OrganizationsModule } from '../organizations/organizations.module';
-import { OnboardingModule } from '../onboarding/onboarding.module';
-import { AuditModule } from '../audit/audit.module';
-
+/**
+ * Step 5 — Aggregator `AuthModule`.
+ *
+ * Composes the five focused sub-modules into a single bounded context.
+ * The aggregator itself holds **no providers** beyond the cross-cutting
+ * `AuthController`; every concrete service lives inside its owning
+ * sub-module.
+ *
+ * EXPORT LOCKDOWN: this surface MUST stay limited to ISP tokens and the
+ * two re-usable guards. Concrete classes (TokenService, LoginCoordinator,
+ * SAMLAuthenticator, etc.) are sealed behind the sub-module boundary —
+ * external modules consume the interfaces via the tokens.
+ */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      TwoFactorAuth,
-      SAMLConfig,
-      UserSession,
-      SessionPolicy,
-      LoginHistory,
-      User,
-    ]),
-    EventEmitterModule.forRoot(),
-    UsersModule,
-    OrganizationsModule,
-    OnboardingModule,
-    AuditModule, // Required for TwoFactorAuthService security event logging
-    PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (cfg: ConfigService) => ({
-        secret: cfg.get<string>('JWT_SECRET')!,
-        signOptions: { expiresIn: '1h' },
-      }),
-    }),
-    // REFACTORED: No more forwardRef - InvitesModule cycle is broken via core modules
-    InvitesModule,
-    // REFACTORED: Removed MembershipModule - ProjectCoreModule is global
-    CacheModule,
+    AuthCoreModule,
+    LocalAuthModule,
+    SamlAuthModule,
+    TwoFactorAuthModule,
+    SessionsModule,
   ],
-  providers: [
-    AuthService,
-    TwoFactorAuthService,
-    SAMLService,
-    CookieService,
-    PasswordService,
-    PasswordPolicyService,
-    PasswordBreachService,
-    TokenBlacklistService,
-    SessionsService,
-    // Step 3 — auth-owned user lifecycle (extracted from UsersService).
-    UserPasswordService,
-    UserLifecycleService,
-    // Step 4 — sibling services relocated from UsersModule.
-    SessionPreferencesService,
-    LoginHistoryService,
-    LocalStrategy,
-    JwtStrategy,
-    JwtRefreshStrategy,
-    ProjectRoleGuard,
-    StatelessCsrfGuard,
-    { provide: 'LOCAL_GUARD', useClass: LocalAuthGuard },
-  ],
-  controllers: [
-    AuthController,
-    TwoFactorAuthController,
-    SAMLController,
-    SessionsController,
-    UserPasswordController,
-    UserSecurityController,
-    LoginHistoryController,
-  ],
+  controllers: [AuthController],
   exports: [
-    AuthService,
-    TwoFactorAuthService,
-    SAMLService,
-    CookieService,
-    PasswordBreachService,
-    PasswordPolicyService,
-    SessionsService,
-    UserPasswordService,
-    SessionPreferencesService,
-    LoginHistoryService,
+    // ── Core ────────────────────────────────────────────────────────
+    ACCOUNT_LOCKOUT_POLICY_TOKEN,
+    TOKEN_ISSUER_TOKEN,
+    TOKEN_VERIFIER_TOKEN,
+    TOKEN_REVOKER_TOKEN,
+    // ── Local strategy ──────────────────────────────────────────────
+    AUTHENTICATOR_TOKEN,
+    // ── SAML ────────────────────────────────────────────────────────
+    SAML_CONFIG_READER_TOKEN,
+    SAML_CONFIG_WRITER_TOKEN,
+    SAML_IDENTITY_PROVISIONER_TOKEN,
+    SAML_STRATEGY_FACTORY_TOKEN,
+    // ── Two-Factor ──────────────────────────────────────────────────
+    TWO_FACTOR_SECRET_STORE_TOKEN,
+    TWO_FACTOR_VERIFIER_TOKEN,
+    TWO_FACTOR_BACKUP_CODE_SERVICE_TOKEN,
+    TWO_FACTOR_RECOVERY_SERVICE_TOKEN,
+    TWO_FACTOR_ADMIN_SERVICE_TOKEN,
+    // ── Guards (re-usable auth surface). ────────────────────────────
     ProjectRoleGuard,
     StatelessCsrfGuard,
   ],
