@@ -4,7 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Attachment } from './entities/attachment.entity';
 import { AttachmentHistory } from './entities/attachment-history.entity';
 import { IssuesService } from '../issues/issues.service';
-import { ProjectMembersService } from '../membership/project-members/project-members.service';
+import { PROJECT_MEMBER_QUERY_TOKEN } from '../membership/constants/membership.tokens';
 import { ReleasesService } from '../releases/releases.service';
 import { SprintsService } from '../sprints/sprints.service';
 import { CommentsService } from '../comments/comments.service';
@@ -34,7 +34,7 @@ describe('AttachmentsService', () => {
         { provide: getRepositoryToken(Attachment), useValue: mockRepo },
         { provide: getRepositoryToken(AttachmentHistory), useValue: mockRepo },
         { provide: IssuesService, useValue: mockIssuesService },
-        { provide: ProjectMembersService, useValue: mockMembersService },
+        { provide: PROJECT_MEMBER_QUERY_TOKEN, useValue: mockMembersService },
         { provide: ReleasesService, useValue: mockReleasesService },
         { provide: SprintsService, useValue: mockSprintsService },
         { provide: CommentsService, useValue: mockCommentsService },

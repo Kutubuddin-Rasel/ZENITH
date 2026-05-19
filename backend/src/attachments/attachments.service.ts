@@ -1,5 +1,6 @@
 // src/attachments/attachments.service.ts
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -9,7 +10,8 @@ import { Repository } from 'typeorm';
 import { Attachment } from './entities/attachment.entity';
 import { AttachmentHistory } from './entities/attachment-history.entity';
 import { IssuesService } from '../issues/issues.service';
-import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
+import { PROJECT_MEMBER_QUERY_TOKEN } from 'src/membership/constants/membership.tokens';
+import type { IProjectMemberQuery } from 'src/membership/interfaces/membership.interfaces';
 import { ReleasesService } from '../releases/releases.service';
 import { SprintsService } from '../sprints/sprints.service';
 import { CommentsService } from '../comments/comments.service';
@@ -25,7 +27,8 @@ export class AttachmentsService {
     @InjectRepository(AttachmentHistory)
     private historyRepo: Repository<AttachmentHistory>,
     private issuesService: IssuesService,
-    private membersService: ProjectMembersService,
+    @Inject(PROJECT_MEMBER_QUERY_TOKEN)
+    private membersService: IProjectMemberQuery,
     private releasesService: ReleasesService,
     private sprintsService: SprintsService,
     private commentsService: CommentsService,
