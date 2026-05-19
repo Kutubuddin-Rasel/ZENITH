@@ -4,8 +4,6 @@ import {
   Logger,
   BadRequestException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { ApiKey } from './entities/api-key.entity';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { AuditService } from '../audit/services/audit.service';
@@ -16,6 +14,7 @@ import {
 import { SYSTEM_TENANT_ID } from '../audit/audit.constants';
 import * as bcrypt from 'bcrypt';
 import { generateSecureToken, TokenPrefix } from '../common/utils/token.util';
+import { AbstractApiKeyRepository } from './repositories/abstract/api-key.repository.abstract';
 
 // =============================================================================
 // ACTOR CONTEXT (For PCI-DSS Compliant Audit Logging)
@@ -48,9 +47,8 @@ export class ApiKeysService {
   private readonly DEFAULT_ROTATION_GRACE_HOURS = 24;
 
   constructor(
-    @InjectRepository(ApiKey)
-    private apiKeyRepo: Repository<ApiKey>,
-    private auditService: AuditService,
+    private readonly apiKeyRepo: AbstractApiKeyRepository,
+    private readonly auditService: AuditService,
   ) {}
 
   // ===========================================================================
@@ -65,7 +63,7 @@ export class ApiKeysService {
     const keyPrefix = plainKey.substring(0, 12);
     const keyHash = await bcrypt.hash(plainKey, 10);
 
-    const apiKey = this.apiKeyRepo.create({
+    const apiKey = this.apiKeyRepo.createEntity({
       name: dto.name,
       keyHash,
       keyPrefix,
@@ -109,9 +107,7 @@ export class ApiKeysService {
     id: string,
     reason?: string,
   ): Promise<void> {
-    const key = await this.apiKeyRepo.findOne({
-      where: { id, userId: actor.userId },
-    });
+    const key = await this.apiKeyRepo.findOneByIdForUser(id, actor.userId);
 
     if (!key) {
       throw new NotFoundException('API key not found');
@@ -148,9 +144,7 @@ export class ApiKeysService {
     id: string,
     updates: { name?: string; scopes?: string[] },
   ): Promise<ApiKey> {
-    const key = await this.apiKeyRepo.findOne({
-      where: { id, userId: actor.userId },
-    });
+    const key = await this.apiKeyRepo.findOneByIdForUser(id, actor.userId);
 
     if (!key) {
       throw new NotFoundException('API key not found');
@@ -225,9 +219,10 @@ export class ApiKeysService {
     const gracePeriod = gracePeriodHours ?? this.DEFAULT_ROTATION_GRACE_HOURS;
 
     // Step 1: Fetch and verify old key
-    const oldKey = await this.apiKeyRepo.findOne({
-      where: { id, userId: actor.userId, isActive: true },
-    });
+    const oldKey = await this.apiKeyRepo.findOneActiveByIdForUser(
+      id,
+      actor.userId,
+    );
 
     if (!oldKey) {
       throw new NotFoundException('API key not found or not active');
@@ -249,7 +244,7 @@ export class ApiKeysService {
     const revokeAt = new Date(Date.now() + gracePeriod * 60 * 60 * 1000);
 
     // Step 4: Clone attributes (WHITELIST approach)
-    const newKey = this.apiKeyRepo.create({
+    const newKey = this.apiKeyRepo.createEntity({
       name: oldKey.name,
       scopes: [...oldKey.scopes],
       projectId: oldKey.projectId,
@@ -321,10 +316,7 @@ export class ApiKeysService {
 
     const keyPrefix = plainKey.substring(0, 12);
 
-    const keys = await this.apiKeyRepo.find({
-      where: { keyPrefix, isActive: true },
-      relations: ['user', 'project'],
-    });
+    const keys = await this.apiKeyRepo.findByKeyPrefixActive(keyPrefix);
 
     for (const key of keys) {
       const isMatch = await bcrypt.compare(plainKey, key.keyHash);
@@ -376,10 +368,8 @@ export class ApiKeysService {
           return null;
         }
 
-        // Update last used
-        this.apiKeyRepo
-          .update(key.id, { lastUsedAt: new Date() })
-          .catch(() => {});
+        // Update last used (best-effort — never block the hot path on this).
+        this.apiKeyRepo.updateLastUsed(key.id, new Date()).catch(() => {});
         return key;
       }
     }
@@ -408,14 +398,11 @@ export class ApiKeysService {
   // ===========================================================================
 
   async findAll(userId: string): Promise<ApiKey[]> {
-    return this.apiKeyRepo.find({
-      where: { userId },
-      order: { createdAt: 'DESC' },
-    });
+    return this.apiKeyRepo.findAllByUserId(userId);
   }
 
   async findOne(id: string, userId: string): Promise<ApiKey | null> {
-    return this.apiKeyRepo.findOne({ where: { id, userId } });
+    return this.apiKeyRepo.findOneByIdForUser(id, userId);
   }
 
   // ===========================================================================

@@ -10,6 +10,10 @@ import { AuditModule } from '../audit/audit.module';
 import { CacheModule } from '../cache/cache.module';
 import { AccessControlModule } from '../access-control/access-control.module';
 
+// Step 2 — Repository inversion (DIP).
+import { AbstractApiKeyRepository } from './repositories/abstract/api-key.repository.abstract';
+import { PostgresApiKeyRepository } from './repositories/postgres/postgres-api-key.repository';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([ApiKey]),
@@ -19,7 +23,14 @@ import { AccessControlModule } from '../access-control/access-control.module';
     AccessControlModule, // For IpResolutionService (IP allowlist checking)
   ],
   controllers: [ApiKeysController],
-  providers: [ApiKeysService, ApiKeyGuard, ApiKeyCleanupService],
+  providers: [
+    // DIP — abstract repository bound to the Postgres implementation.
+    // Sole owner of `@InjectRepository(ApiKey)` from this commit forward.
+    { provide: AbstractApiKeyRepository, useClass: PostgresApiKeyRepository },
+    ApiKeysService,
+    ApiKeyGuard,
+    ApiKeyCleanupService,
+  ],
   exports: [ApiKeysService, ApiKeyGuard], // Export for use in other modules
 })
 export class ApiKeysModule {}

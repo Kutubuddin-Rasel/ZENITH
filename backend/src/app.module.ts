@@ -14,7 +14,6 @@ import { LoggingModule } from './common/logging/logging.module';
 import { CorrelationMiddleware } from './common/middleware/correlation.middleware';
 // Core Infrastructure Modules
 import { CoreEntitiesModule } from './core/entities/core-entities.module';
-import { ProjectCoreModule } from './core/membership/project-core.module';
 import { UsersCoreModule } from './core/users/users-core.module';
 import { AuthCoreModule } from './core/auth/auth-core.module';
 import { TenantModule } from './core/tenant/tenant.module';
@@ -26,6 +25,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { InvitesModule } from './invites/invites.module';
 import { MembershipModule } from './membership/membership.module';
+import { StorageModule } from './storage/storage.module';
 import { ProjectsModule } from './projects/projects.module';
 import { IssuesModule } from './issues/issues.module';
 import { SprintsModule } from './sprints/sprints.module';
@@ -155,7 +155,6 @@ import {
     // They are marked @Global or provide APP_GUARD/APP_INTERCEPTOR bindings.
     // =========================================================================
     CoreEntitiesModule,
-    ProjectCoreModule,
     UsersCoreModule,
     AuthCoreModule,
     TenantModule,
@@ -188,6 +187,7 @@ import {
     AuthModule,
     InvitesModule,
     MembershipModule,
+    StorageModule,
     ApiKeysModule,
 
     // --- Project Management ---
