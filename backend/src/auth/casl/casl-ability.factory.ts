@@ -5,12 +5,17 @@ import {
   ExtractSubjectType,
   InferSubjects,
 } from '@casl/ability';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { User } from '../../users/entities/user.entity';
 import { Issue } from '../../issues/entities/issue.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { Comment } from '../../comments/entities/comment.entity';
-import { RBACService } from '../../rbac/rbac.service';
+import {
+  IPermissionPolicyService,
+  IRoleQueryService,
+  RBAC_PERMISSION_POLICY_TOKEN,
+  RBAC_ROLE_QUERY_TOKEN,
+} from '../../rbac';
 
 export enum Action {
   Manage = 'manage',
@@ -32,13 +37,20 @@ export type AppAbility = PureAbility<[Action, Subjects]>;
  * Creates CASL abilities for users based on database-backed RBAC.
  *
  * ARCHITECTURE (NIST AC-3 Compliant):
- * - Fetches permissions dynamically from RBACService
- * - Supports custom roles (not limited to hardcoded enums)
- * - Backward compatible via RBACService.getRoleByLegacyEnum()
+ *  - Fetches permissions dynamically through the ISP policy surface
+ *    (`IPermissionPolicyService`) — never through a concrete service.
+ *  - Supports custom roles (not limited to hardcoded enums).
+ *  - Backward-compatible legacy-enum lookups go through
+ *    `IRoleQueryService.findByLegacyEnum` (returns DTO).
  */
 @Injectable()
 export class CaslAbilityFactory {
-  constructor(private readonly rbacService: RBACService) {}
+  constructor(
+    @Inject(RBAC_PERMISSION_POLICY_TOKEN)
+    private readonly policy: IPermissionPolicyService,
+    @Inject(RBAC_ROLE_QUERY_TOKEN)
+    private readonly roleQuery: IRoleQueryService,
+  ) {}
 
   /**
    * Create CASL abilities for a user with a specific role
@@ -83,7 +95,7 @@ export class CaslAbilityFactory {
     let roleId: string | null = null;
 
     if (legacyRoleName) {
-      const role = await this.rbacService.getRoleByLegacyEnum(legacyRoleName);
+      const role = await this.roleQuery.findByLegacyEnum(legacyRoleName);
       roleId = role?.id ?? null;
     }
 
@@ -99,7 +111,7 @@ export class CaslAbilityFactory {
     roleId: string,
     user: User,
   ): Promise<void> {
-    const permissions = await this.rbacService.getRolePermissions(roleId);
+    const permissions = await this.policy.resolveRolePermissions(roleId);
 
     // Map permission strings to CASL abilities
     for (const permString of permissions) {

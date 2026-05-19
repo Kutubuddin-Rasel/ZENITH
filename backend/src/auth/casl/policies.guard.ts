@@ -8,7 +8,8 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AppAbility, CaslAbilityFactory } from './casl-ability.factory';
-import { ProjectMembersService } from '../../membership/project-members/project-members.service';
+import { PROJECT_MEMBER_QUERY_TOKEN } from '../../membership/constants/membership.tokens';
+import type { IProjectMemberQuery } from '../../membership/interfaces/membership.interfaces';
 import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
 import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import { Request } from 'express';
@@ -34,7 +35,8 @@ export class PoliciesGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private caslAbilityFactory: CaslAbilityFactory,
-    private projectMembersService: ProjectMembersService,
+    @Inject(PROJECT_MEMBER_QUERY_TOKEN)
+    private projectMembersService: IProjectMemberQuery,
     @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
   ) {}
 
