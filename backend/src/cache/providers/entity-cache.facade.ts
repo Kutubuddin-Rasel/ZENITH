@@ -3,11 +3,7 @@ import {
   CACHE_INVALIDATOR_TOKEN,
   CACHE_STORE_TOKEN,
 } from '../constants/cache.tokens';
-import {
-  CachedIssue,
-  CachedProject,
-  CachedUser,
-} from '../cache.interfaces';
+import { CachedIssue, CachedProject, CachedUser } from '../cache.interfaces';
 import {
   ICacheInvalidator,
   ICacheStore,
@@ -79,10 +75,9 @@ export class EntityCacheFacade implements IEntityCache {
   }
 
   async getCachedIssues(projectId: string): Promise<CachedIssue[]> {
-    const result = await this.store.get<CachedIssue[]>(
-      `issues:${projectId}`,
-      { namespace: 'issues' },
-    );
+    const result = await this.store.get<CachedIssue[]>(`issues:${projectId}`, {
+      namespace: 'issues',
+    });
     return result ?? [];
   }
 

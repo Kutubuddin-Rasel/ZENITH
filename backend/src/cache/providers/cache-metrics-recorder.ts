@@ -30,7 +30,9 @@ export class CacheMetricsRecorder {
       });
 
     this.missesCounter =
-      (register.getSingleMetric('cache_misses_total') as Counter<'namespace'>) ??
+      (register.getSingleMetric(
+        'cache_misses_total',
+      ) as Counter<'namespace'>) ??
       new Counter({
         name: 'cache_misses_total',
         help: 'Total number of cache misses',
