@@ -8,7 +8,8 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
-import { ProjectMembersService } from '../../membership/project-members/project-members.service';
+import { PROJECT_MEMBER_QUERY_TOKEN } from '../../membership/constants/membership.tokens';
+import type { IProjectMemberQuery } from '../../membership/interfaces/membership.interfaces';
 import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
 import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import { REQUIRED_PROJECT_ROLES_KEY } from '../decorators/require-project-role.decorator';
@@ -35,7 +36,8 @@ export class ProjectRoleGuard implements CanActivate {
 
   constructor(
     private reflector: Reflector,
-    private projectMembersService: ProjectMembersService,
+    @Inject(PROJECT_MEMBER_QUERY_TOKEN)
+    private projectMembersService: IProjectMemberQuery,
     @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
   ) {}
 
@@ -51,19 +53,22 @@ export class ProjectRoleGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<Request>();
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { user?: JwtRequestUser }>();
 
-    // Extract user and project from request
+    const user = request.user;
+    const userId = user?.userId;
 
-    const userId = (request.user as any)?.userId;
-
-    const projectId =
-      request.params?.id ||
-      request.params?.projectId ||
-      (request.body as Record<string, any>)?.projectId;
+    const body = (request.body ?? {}) as { projectId?: string };
+    const params = (request.params ?? {}) as {
+      id?: string;
+      projectId?: string;
+    };
+    const projectId: string | undefined =
+      params.id ?? params.projectId ?? body.projectId;
 
     // SUPER ADMIN BYPASS: Allow super admins to bypass project role checks
-    const user = request.user as unknown as JwtRequestUser;
     if (user?.isSuperAdmin) {
       this.logger.debug('Super Admin bypass for ProjectRoleGuard');
       return true;
@@ -87,8 +92,8 @@ export class ProjectRoleGuard implements CanActivate {
       // Cache miss - fetch from database
       this.logger.debug(`Cache MISS for ${cacheKey}`);
       userRole = (await this.projectMembersService.getUserRole(
-        projectId as string,
-        userId as string,
+        projectId,
+        userId,
       )) as ProjectRole;
 
       // Store in cache for future requests
