@@ -1,67 +1,31 @@
 import {
-  Controller,
-  Get,
-  Param,
-  Post,
-  Body,
-  Patch,
-  Delete,
   BadRequestException,
-  Query,
-  UseGuards,
-  Request,
-  CanActivate,
-  ExecutionContext,
+  Body,
+  Controller,
+  Delete,
   ForbiddenException,
-  Injectable,
-  UseInterceptors,
-  UploadedFile,
+  Get,
   HttpCode,
   HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Request,
+  UseGuards,
 } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { v4 as uuidv4 } from 'uuid';
+
 import { UsersService } from './users.service';
-import { UserSecuritySettingsService } from './user-security-settings.service';
-import {
-  LoginHistoryService,
-  LoginHistoryEntry,
-} from './login-history.service';
 import { User } from './entities/user.entity';
-import {
-  CreateUserDto,
-  UpdateUserDto,
-  ChangePasswordDto,
-} from './dto/create-user.dto';
-import { LoginHistoryQueryDto } from './dto/login-history-query.dto';
-import { UpdateUserSecuritySettingsDto } from './dto/user-security-settings.dto';
+import { CreateUserDto, UpdateUserDto } from './dto/create-user.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
+import { SuperAdminGuard } from 'src/core/auth/guards/super-admin.guard';
 import { AuthenticatedRequest } from 'src/common/types/authenticated-request.interface';
 import { CsrfGuard, RequireCsrf } from 'src/security/csrf/csrf.guard';
 
-@Injectable()
-export class SuperAdminGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
-    const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    if (req.user?.isSuperAdmin) {
-      return true;
-    }
-    throw new ForbiddenException('Only Super Admins can access this resource');
-  }
-}
-
 @Controller('users')
 export class UsersController {
-  constructor(
-    private readonly usersService: UsersService,
-    private readonly userSecuritySettingsService: UserSecuritySettingsService,
-    private readonly projectMembersService: ProjectMembersService,
-    private readonly loginHistoryService: LoginHistoryService,
-  ) {}
+  constructor(private readonly usersService: UsersService) {}
 
   // GET /users (scoped to current user's organization)
   @UseGuards(JwtAuthGuard, SuperAdminGuard)
@@ -93,38 +57,14 @@ export class UsersController {
     );
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Get('me/project-memberships')
-  async getMyProjectMemberships(
-    @Param() params,
-    @Body() body,
-    @Query() query,
-    @Request() req: { user: { userId: string } },
-  ) {
-    // req.user.userId is set by JwtAuthGuard
-    return this.projectMembersService.listMembershipsForUser(
-      (req.user as { userId: string }).userId,
-    );
-  }
-
-  // ============ USER SECURITY SETTINGS ============
-
-  // GET /users/me/security-settings - Get current user's security preferences
-  @UseGuards(JwtAuthGuard)
-  @Get('me/security-settings')
-  async getSecuritySettings(@Request() req: AuthenticatedRequest) {
-    return this.userSecuritySettingsService.getOrCreate(req.user.userId);
-  }
-
-  // PATCH /users/me/security-settings - Update current user's security preferences
-  @UseGuards(JwtAuthGuard)
-  @Patch('me/security-settings')
-  async updateSecuritySettings(
-    @Request() req: AuthenticatedRequest,
-    @Body() dto: UpdateUserSecuritySettingsDto,
-  ) {
-    return this.userSecuritySettingsService.update(req.user.userId, dto);
-  }
+  // ===========================================================================
+  // SECURITY SETTINGS (relocated)
+  //
+  // `/users/me/security-settings` (GET & PATCH) is served by
+  // `UserSecurityController` in the auth module, which fans the request out
+  // to `SessionPreferencesService` (auth) and `NotificationPreferencesService`
+  // (users). The HTTP contract is unchanged.
+  // ===========================================================================
 
   // ===========================================================================
   // EMAIL VERIFICATION (PUBLIC — no auth guard)
@@ -156,28 +96,25 @@ export class UsersController {
   }
 
   // ===========================================================================
-  // LOGIN HISTORY (Authenticated)
+  // LOGIN HISTORY (relocated)
+  //
+  // `/users/me/login-history` is served by `LoginHistoryController` in the
+  // auth module, alongside the recording side-effect.
   // ===========================================================================
 
-  /**
-   * GET /users/me/login-history?limit=20
-   *
-   * Returns paginated login history for the currently authenticated user.
-   * Ordered by timestamp DESC (most recent first).
-   * Uses the IDX_login_history_user_timestamp composite index.
-   *
-   * HTTP STATUS CODES:
-   * - 200: Login history entries returned
-   * - 401: Not authenticated
-   */
-  @UseGuards(JwtAuthGuard)
-  @Get('me/login-history')
-  async getLoginHistory(
-    @Request() req: AuthenticatedRequest,
-    @Query() query: LoginHistoryQueryDto,
-  ): Promise<ReadonlyArray<LoginHistoryEntry>> {
-    return this.loginHistoryService.getHistory(req.user.userId, query.limit);
-  }
+  // ===========================================================================
+  // PROJECT MEMBERSHIPS (relocated)
+  //
+  // `/users/me/project-memberships` is served by
+  // `UserProjectMembershipsController` in the membership module.
+  // ===========================================================================
+
+  // ===========================================================================
+  // AVATAR UPLOAD (relocated)
+  //
+  // `POST /users/me/avatar` is served by `AvatarController` in the storage
+  // module, which owns the multer/diskStorage configuration.
+  // ===========================================================================
 
   // GET /users/available (scoped to current user's organization)
   @UseGuards(JwtAuthGuard, SuperAdminGuard)
@@ -237,49 +174,19 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<User> {
-    // Only allow self-update or SuperAdmin
     if (req.user.userId !== id && !req.user.isSuperAdmin) {
       throw new ForbiddenException('You can only update your own profile');
     }
     return this.usersService.update(id, dto);
   }
 
-  /**
-   * PATCH /users/:id/password
-   *
-   * Change password for a user. Only the user themselves or Super Admin can change.
-   *
-   * REQUEST LIFECYCLE:
-   *   1. ThrottlerGuard (APP_GUARD) → 100 req/min global
-   *   2. @Throttle override    → 5 req/hour for this endpoint specifically
-   *   3. JwtAuthGuard           → Validate JWT, extract userId
-   *   4. CsrfGuard              → Validate CSRF token (double-submit cookie)
-   *   5. Controller             → Authorization check (self or SuperAdmin)
-   *   6. UsersService           → PasswordPolicyService → BreachCheck → Argon2id
-   *
-   * CSRF REQUIRED: Critical security operation
-   * RATE LIMITED: 5 attempts per hour to prevent brute-force on currentPassword
-   */
-  @UseGuards(JwtAuthGuard, CsrfGuard)
-  @Throttle({ default: { limit: 5, ttl: 3600000 } }) // 5 per hour
-  @Patch(':id/password')
-  @RequireCsrf()
-  async changePassword(
-    @Param('id') id: string,
-    @Body() dto: ChangePasswordDto,
-    @Request() req: AuthenticatedRequest,
-  ): Promise<{ success: boolean; revokedSessions?: number }> {
-    // Only the user themselves or Super Admin can change password
-    if (req.user.userId !== id && !req.user.isSuperAdmin) {
-      throw new ForbiddenException('You can only change your own password');
-    }
-    return this.usersService.changePassword(
-      id,
-      dto,
-      req.user.isSuperAdmin,
-      req.sessionID, // Preserve current session after password change
-    );
-  }
+  // ===========================================================================
+  // PASSWORD ROTATION
+  //
+  // `PATCH /users/:id/password` is served by `UserPasswordController`
+  // (auth module) so that `UsersModule` can sever its dependency on
+  // `AuthModule`. The HTTP contract is unchanged.
+  // ===========================================================================
 
   // GET /users/:id (MOVED TO BOTTOM TO PREVENT ROUTE CONFLICTS)
   @UseGuards(JwtAuthGuard, SuperAdminGuard)
@@ -302,51 +209,9 @@ export class UsersController {
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<{ success: boolean }> {
-    // Only allow self-delete or SuperAdmin
     if (req.user.userId !== id && !req.user.isSuperAdmin) {
       throw new ForbiddenException('You can only delete your own account');
     }
     return this.usersService.deleteAccount(id);
-  }
-
-  // POST /users/me/avatar - Upload avatar for current user
-  @UseGuards(JwtAuthGuard)
-  @Post('me/avatar')
-  @UseInterceptors(
-    FileInterceptor('avatar', {
-      storage: diskStorage({
-        destination: join(process.cwd(), 'uploads', 'avatars'),
-        filename: (_req, file, cb) => {
-          const uniqueName = `${uuidv4()}${extname(file.originalname)}`;
-          cb(null, uniqueName);
-        },
-      }),
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-      fileFilter: (_req, file, cb) => {
-        if (!file.mimetype.match(/^image\/(jpeg|jpg|png)$/)) {
-          cb(
-            new BadRequestException('Only JPG and PNG files are allowed'),
-            false,
-          );
-        } else {
-          cb(null, true);
-        }
-      },
-    }),
-  )
-  async uploadAvatar(
-    @UploadedFile() file: Express.Multer.File,
-    @Request() req: AuthenticatedRequest,
-  ): Promise<{ success: boolean; avatarUrl: string }> {
-    // Generate URL for the uploaded file
-    const avatarUrl = `/uploads/avatars/${file.filename}`;
-
-    // Update user's avatarUrl
-    await this.usersService.update(req.user.userId, { avatarUrl });
-
-    return {
-      success: true,
-      avatarUrl,
-    };
   }
 }

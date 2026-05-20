@@ -2,19 +2,13 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ForbiddenException,
-  Inject,
-  forwardRef,
 } from '@nestjs/common';
-import { User } from './entities/user.entity';
-import * as argon2 from 'argon2';
-import { ChangePasswordDto } from './dto/create-user.dto';
-import { AuditLogsService } from '../audit/audit-logs.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import { v4 as uuidv4 } from 'uuid';
-import { SessionsService } from '../auth/sessions.service';
-import { PasswordBreachService } from '../auth/services/password-breach.service';
-import { PasswordPolicyService } from '../auth/services/password-policy.service';
+
+import { User } from './entities/user.entity';
+import { AuditLogsService } from '../audit/audit-logs.service';
 
 // SOLID Refactor (Step 3): Depend on the abstract User repository token (DIP).
 import { UserRepository } from '../database/repositories/user.repository';
@@ -22,6 +16,10 @@ import {
   UserSearchRow,
   UserWithMemberships,
 } from '../database/interfaces/repository.interfaces';
+import {
+  USER_DELETED_EVENT,
+  UserDeletedEvent,
+} from '../core/events/payloads/user-deleted.event';
 
 @Injectable()
 export class UsersService {
@@ -29,12 +27,7 @@ export class UsersService {
     private readonly userRepo: UserRepository,
     private readonly auditLogsService: AuditLogsService,
     private readonly cls: ClsService,
-    @Inject(forwardRef(() => SessionsService))
-    private readonly sessionsService: SessionsService,
-    @Inject(forwardRef(() => PasswordBreachService))
-    private readonly passwordBreachService: PasswordBreachService,
-    @Inject(forwardRef(() => PasswordPolicyService))
-    private readonly passwordPolicyService: PasswordPolicyService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /** Create a new user */
@@ -99,25 +92,14 @@ export class UsersService {
    * 3. Already verified user (idempotent — returns success)
    * 4. Expired token (past emailVerificationExpiry)
    * 5. Happy path: mark verified, clear token + expiry
-   *
-   * SECURITY:
-   * - emailVerificationToken has `select: false` on the entity, so we must
-   *   use createQueryBuilder with addSelect to fetch it.
-   * - Token is cleared atomically after verification to prevent replay.
-   *
-   * @param token - The hex token from the verification URL
-   * @returns Object with success status and message
    */
   async verifyEmail(
     token: string,
   ): Promise<{ success: boolean; message: string }> {
-    // Gate 1: Malformed token — our tokens are 64 hex chars (32 bytes)
     if (!token || token.length !== 64) {
       throw new BadRequestException('Invalid verification token format');
     }
 
-    // emailVerificationToken is `select: false` on the entity — the abstract
-    // repo encapsulates the addSelect dance.
     const user = await this.userRepo.findByVerificationToken(token);
 
     if (!user) {
@@ -126,17 +108,14 @@ export class UsersService {
       );
     }
 
-    // Gate 2: Already verified (idempotent — don't error)
     if (user.emailVerified) {
       return { success: true, message: 'Email is already verified' };
     }
 
-    // Gate 3: Token expired (OWASP: 24h max for email verification)
     if (
       user.emailVerificationExpiry &&
       user.emailVerificationExpiry < new Date()
     ) {
-      // Clear the expired token so it can't be retried
       user.emailVerificationToken = null;
       user.emailVerificationExpiry = null;
       await this.userRepo.save(user);
@@ -146,13 +125,11 @@ export class UsersService {
       );
     }
 
-    // Happy path: mark verified, clear token + expiry atomically
     user.emailVerified = true;
     user.emailVerificationToken = null;
     user.emailVerificationExpiry = null;
     await this.userRepo.save(user);
 
-    // Audit: EMAIL_VERIFIED
     await this.auditLogsService.log({
       event_uuid: uuidv4(),
       timestamp: new Date(),
@@ -214,116 +191,30 @@ export class UsersService {
     return this.userRepo.findUnassigned(organizationId);
   }
 
-  /** Change a user's password */
-  async changePassword(
-    id: string,
-    dto: ChangePasswordDto,
-    isSuperAdmin: boolean,
-    currentSessionId?: string, // Session to preserve (optional)
-  ): Promise<{ success: boolean; revokedSessions?: number }> {
-    const user = await this.findOneById(id);
-    // If not super admin, verify current password
-    if (!isSuperAdmin) {
-      if (!dto.currentPassword)
-        throw new BadRequestException('Current password required');
-      const valid = await argon2.verify(user.passwordHash, dto.currentPassword);
-      if (!valid) throw new ForbiddenException('Current password is incorrect');
-    }
-    // Layer 1: Password policy validation (NIST 800-63B + zxcvbn entropy)
-    const policyResult = this.passwordPolicyService.validate(dto.newPassword, [
-      user.email,
-      user.name,
-    ]);
-    if (!policyResult.isAcceptable) {
-      throw new BadRequestException(policyResult.feedback.join(' '));
-    }
-    if (dto.newPassword !== dto.confirmNewPassword) {
-      throw new BadRequestException(
-        'New password and confirmation do not match',
-      );
-    }
-
-    // Check password against known breaches (HIBP API - k-anonymity)
-    const breachCheck = await this.passwordBreachService.checkPassword(
-      dto.newPassword,
-    );
-    if (breachCheck.isBreached) {
-      throw new BadRequestException(
-        this.passwordBreachService.getBreachMessage(breachCheck.breachCount),
-      );
-    }
-
-    // Use Argon2id for new password hash
-    user.passwordHash = await argon2.hash(dto.newPassword, {
-      type: argon2.argon2id,
-      memoryCost: 65536,
-      timeCost: 3,
-      parallelism: 4,
-    });
-
-    // INCREMENT passwordVersion (for JWT invalidation)
-    user.passwordVersion = (user.passwordVersion || 1) + 1;
-    await this.userRepo.save(user);
-
-    // REVOKE all sessions except current (Phase 2 - Session Invalidation)
-    let revokedSessions = 0;
-    if (currentSessionId) {
-      revokedSessions = await this.sessionsService.revokeAllExceptCurrent(
-        id,
-        currentSessionId,
-      );
-    } else {
-      // If no session ID provided, revoke ALL sessions
-      revokedSessions = await this.sessionsService.revokeAllSessions(id);
-    }
-
-    // Audit: PASSWORD_CHANGE (Severity: HIGH)
-    await this.auditLogsService.log({
-      event_uuid: uuidv4(),
-      timestamp: new Date(),
-      tenant_id: user.organizationId || 'unknown',
-      actor_id: id,
-      resource_type: 'User',
-      resource_id: id,
-      action_type: 'UPDATE',
-      action: 'PASSWORD_CHANGE',
-      metadata: {
-        severity: 'HIGH',
-        newPasswordVersion: user.passwordVersion,
-        revokedSessions,
-        preservedCurrentSession: !!currentSessionId,
-        requestId: this.cls.get<string>('requestId'),
-      },
-    });
-
-    return { success: true, revokedSessions };
-  }
-
-  /** Delete a user's account (soft-delete: deactivate and anonymize) */
+  /**
+   * Soft-delete and anonymise a user account (GDPR-compliant).
+   *
+   * The users module owns ONLY the domain-level anonymisation (PII strip,
+   * deactivation, audit). Auth-secret wiping and session revocation are
+   * handled out-of-band by `UserLifecycleService` via `USER_DELETED_EVENT`.
+   */
   async deleteAccount(id: string): Promise<{ success: boolean }> {
     const user = await this.findOneById(id);
     const originalEmail = user.email;
     const originalName = user.name;
+    const organizationId = user.organizationId ?? null;
+    const requestId = this.cls.get<string>('requestId') ?? null;
 
-    // Soft-delete: deactivate and anonymize user data for GDPR compliance
     user.isActive = false;
     user.name = 'Deleted User';
     user.email = `deleted-${user.id}@deleted.local`;
     user.avatarUrl = undefined;
-    user.hashedRefreshToken = undefined;
-    user.passwordHash = ''; // Invalidate password
-    // Clear email verification data (GDPR: no PII retention)
-    user.emailVerified = false;
-    user.emailVerificationToken = null;
-    user.emailVerificationExpiry = null;
-
     await this.userRepo.save(user);
 
-    // Audit: USER_DELETED (Severity: CRITICAL)
     await this.auditLogsService.log({
       event_uuid: uuidv4(),
       timestamp: new Date(),
-      tenant_id: user.organizationId || 'unknown',
+      tenant_id: organizationId || 'unknown',
       actor_id: id,
       resource_type: 'User',
       resource_id: id,
@@ -333,9 +224,19 @@ export class UsersService {
         severity: 'CRITICAL',
         originalEmail,
         originalName,
-        requestId: this.cls.get<string>('requestId'),
+        requestId,
       },
     });
+
+    const event: UserDeletedEvent = {
+      userId: id,
+      originalEmail,
+      originalName,
+      organizationId,
+      requestId,
+      deletedAt: new Date(),
+    };
+    this.eventEmitter.emit(USER_DELETED_EVENT, event);
 
     return { success: true };
   }
