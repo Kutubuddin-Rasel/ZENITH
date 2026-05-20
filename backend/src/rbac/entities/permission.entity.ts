@@ -50,11 +50,4 @@ export class Permission {
 
   @CreateDateColumn()
   createdAt: Date;
-
-  /**
-   * Get the permission string in format "resource:action"
-   */
-  get permissionString(): string {
-    return `${this.resource}:${this.action}`;
-  }
 }

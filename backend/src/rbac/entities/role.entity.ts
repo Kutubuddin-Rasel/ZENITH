@@ -123,10 +123,14 @@ export class Role {
   // ===========================================================================
 
   /**
-   * Permissions assigned directly to this role (not inherited)
-   * Uses ManyToMany relationship with automatic join table
+   * Permissions assigned directly to this role (not inherited).
+   *
+   * Loaded explicitly via the repository layer — `eager: true` was
+   * removed in Step 2 of the RBAC refactor so callers must opt in
+   * (`findByIdWithPermissions`, etc.). Domain helpers that previously
+   * lived on this entity now live in `rbac/domain/role.domain.ts`.
    */
-  @ManyToMany(() => Permission, { eager: true })
+  @ManyToMany(() => Permission)
   @JoinTable({
     name: 'role_permissions',
     joinColumn: { name: 'roleId', referencedColumnName: 'id' },
@@ -139,33 +143,4 @@ export class Role {
 
   @UpdateDateColumn()
   updatedAt: Date;
-
-  // ===========================================================================
-  // HELPER METHODS
-  // ===========================================================================
-
-  /**
-   * Check if this role has a specific permission (direct only, not inherited)
-   */
-  hasPermission(resource: string, action: string): boolean {
-    return (
-      this.permissions?.some(
-        (p) => p.resource === resource && p.action === action,
-      ) ?? false
-    );
-  }
-
-  /**
-   * Get all direct permission strings for this role (not inherited)
-   */
-  getPermissionStrings(): string[] {
-    return this.permissions?.map((p) => p.permissionString) ?? [];
-  }
-
-  /**
-   * Check if this role has a parent (is part of a hierarchy)
-   */
-  hasParent(): boolean {
-    return this.parentRoleId !== null;
-  }
 }
