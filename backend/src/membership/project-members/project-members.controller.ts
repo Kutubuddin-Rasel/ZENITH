@@ -14,35 +14,50 @@
  *
  * ROLE HIERARCHY ENFORCEMENT:
  *   On mutations that assign roles (POST, PATCH), the controller resolves
- *   the actor's project role via getUserRole() and passes it to the service.
- *   The service enforces canManageRole() — prevents privilege escalation.
+ *   the actor's project role via `IProjectMemberQuery.getUserRole()` and
+ *   passes it to the command service. The command service delegates the
+ *   actual hierarchy check to `IProjectMemberPolicy` — prevents privilege
+ *   escalation.
  *
  * ROUTES:
  *   GET    /projects/:projectId/members            — List project members
  *   POST   /projects/:projectId/members            — Add member (CSRF + hierarchy)
- *   DELETE /projects/:projectId/members/:userId     — Remove member (CSRF)
- *   PATCH  /projects/:projectId/members/:userId     — Update role (CSRF + hierarchy)
+ *   DELETE /projects/:projectId/members/:userId    — Remove member (CSRF)
+ *   PATCH  /projects/:projectId/members/:userId    — Update role (CSRF + hierarchy)
  *
- * @see ProjectMembersService for business logic
- * @see StatefulCsrfGuard for CSRF validation implementation
- * @see role-hierarchy.ts for privilege escalation prevention
+ * ARCHITECTURE — Step 3 ISP wiring
+ * --------------------------------
+ *   - Reads  → `PROJECT_MEMBER_QUERY_TOKEN`   (IProjectMemberQuery)
+ *   - Writes → `PROJECT_MEMBER_COMMAND_TOKEN` (IProjectMemberCommand)
+ *
+ *   The concrete `ProjectMembersService` god-class was deleted; this
+ *   controller never imports a concrete persistence class.
  */
 
 import {
-  Controller,
-  Post,
-  Delete,
-  Get,
-  Param,
   Body,
-  UseGuards,
-  Patch,
-  Req,
+  Controller,
+  Delete,
   ForbiddenException,
+  Get,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
-import { ProjectMembersService } from './project-members.service';
 import { ProjectRole } from '../enums/project-role.enum';
-import { ProjectMember } from '../entities/project-member.entity';
+import {
+  PROJECT_MEMBER_COMMAND_TOKEN,
+  PROJECT_MEMBER_QUERY_TOKEN,
+} from '../constants/membership.tokens';
+import type {
+  IProjectMemberCommand,
+  IProjectMemberQuery,
+  ProjectMemberSummary,
+  ProjectMemberWithUser,
+} from '../interfaces/membership.interfaces';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../../auth/decorators/require-permission.decorator';
@@ -51,44 +66,28 @@ import { AddMemberDto } from '../dto/add-member.dto';
 import { UpdateMemberRoleDto } from '../dto/update-member-role.dto';
 import { JwtRequestUser } from '../../auth/types/jwt-request-user.interface';
 
-// =============================================================================
-// TYPES
-// =============================================================================
-
-/** Typed Express request after JWT authentication */
 interface AuthenticatedRequest {
   readonly user: JwtRequestUser;
 }
 
-// =============================================================================
-// CONTROLLER
-// =============================================================================
-
 @Controller('projects/:projectId/members')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class ProjectMembersController {
-  constructor(private readonly pmService: ProjectMembersService) {}
+  constructor(
+    @Inject(PROJECT_MEMBER_QUERY_TOKEN)
+    private readonly memberQuery: IProjectMemberQuery,
+    @Inject(PROJECT_MEMBER_COMMAND_TOKEN)
+    private readonly memberCommand: IProjectMemberCommand,
+  ) {}
 
-  /**
-   * GET /projects/:projectId/members
-   * List all members of a project with user details.
-   *
-   * No CSRF required — read-only endpoint.
-   */
   @RequirePermission('members:view')
   @Get()
-  async list(@Param('projectId') projectId: string): Promise<ProjectMember[]> {
-    return this.pmService.listMembers(projectId);
+  async list(
+    @Param('projectId') projectId: string,
+  ): Promise<readonly ProjectMemberWithUser[]> {
+    return this.memberQuery.listMembers(projectId);
   }
 
-  /**
-   * POST /projects/:projectId/members
-   * Add an existing user to the project with a specified role.
-   *
-   * SECURITY:
-   * - CSRF: frontend must include x-csrf-token header
-   * - Role Hierarchy: actor's project role must be >= the assigned role
-   */
   @RequirePermission('members:add')
   @RequireCsrf()
   @Post()
@@ -96,27 +95,17 @@ export class ProjectMembersController {
     @Param('projectId') projectId: string,
     @Body() dto: AddMemberDto,
     @Req() req: AuthenticatedRequest,
-  ): Promise<ProjectMember> {
+  ): Promise<ProjectMemberSummary> {
     const actorRole = await this.resolveActorRole(projectId, req.user.userId);
 
-    return this.pmService.addMemberToProject(
-      {
-        projectId,
-        userId: dto.userId,
-        roleName: dto.roleName as ProjectRole,
-      },
+    return this.memberCommand.addMember({
+      projectId,
+      userId: dto.userId,
+      roleName: dto.roleName as ProjectRole,
       actorRole,
-    );
+    });
   }
 
-  /**
-   * DELETE /projects/:projectId/members/:userId
-   * Remove a member from the project.
-   *
-   * SECURITY:
-   * - CSRF: frontend must include x-csrf-token header
-   * - Permission: requires members:remove
-   */
   @RequirePermission('members:remove')
   @RequireCsrf()
   @Delete(':userId')
@@ -124,18 +113,10 @@ export class ProjectMembersController {
     @Param('projectId') projectId: string,
     @Param('userId') userId: string,
   ): Promise<{ message: string }> {
-    await this.pmService.removeMemberFromProject(projectId, userId);
+    await this.memberCommand.removeMember(projectId, userId);
     return { message: 'Member removed' };
   }
 
-  /**
-   * PATCH /projects/:projectId/members/:userId
-   * Update a member's role in the project.
-   *
-   * SECURITY:
-   * - CSRF: frontend must include x-csrf-token header
-   * - Role Hierarchy: actor's project role must be >= the new target role
-   */
   @RequirePermission('members:add')
   @RequireCsrf()
   @Patch(':userId')
@@ -144,34 +125,28 @@ export class ProjectMembersController {
     @Param('userId') userId: string,
     @Body() dto: UpdateMemberRoleDto,
     @Req() req: AuthenticatedRequest,
-  ): Promise<ProjectMember> {
+  ): Promise<ProjectMemberSummary> {
     const actorRole = await this.resolveActorRole(projectId, req.user.userId);
 
-    return this.pmService.updateMemberRole(
+    return this.memberCommand.updateMemberRole({
       projectId,
       userId,
-      dto.roleName as ProjectRole,
+      newRole: dto.roleName as ProjectRole,
       actorRole,
-    );
+    });
   }
 
-  // ===========================================================================
-  // PRIVATE: Actor Role Resolution
-  // ===========================================================================
-
   /**
-   * Resolve the acting user's role in the target project.
+   * Resolve the acting user's role in the target project so the command
+   * service can run role-hierarchy enforcement via `IProjectMemberPolicy`.
    *
-   * This enables role hierarchy enforcement — the service can verify
-   * that the actor has sufficient authority to assign the target role.
-   *
-   * @throws ForbiddenException if the actor is not a member of the project
+   * @throws ForbiddenException when the actor is not a member.
    */
   private async resolveActorRole(
     projectId: string,
     actorUserId: string,
   ): Promise<ProjectRole> {
-    const role = await this.pmService.getUserRole(projectId, actorUserId);
+    const role = await this.memberQuery.getUserRole(projectId, actorUserId);
     if (!role) {
       throw new ForbiddenException(
         'You must be a member of this project to manage memberships',

@@ -8,7 +8,6 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Project } from '../../projects/entities/project.entity';
-import { Role } from '../../rbac/entities/role.entity';
 
 import { ProjectRole } from '../enums/project-role.enum';
 
@@ -44,13 +43,19 @@ export class ProjectMember {
   roleName: ProjectRole;
 
   /**
-   * Dynamic RBAC: Reference to Role entity
-   * Null until migration populates it based on roleName
+   * Dynamic RBAC: Scalar foreign key to `roles.id`.
+   *
+   * The `@ManyToOne(() => Role)` navigation property was removed in the
+   * membership Step 2 refactor — `ProjectMember` is the membership
+   * aggregate root and must not compile-time import RBAC entities
+   * (cross-aggregate boundary). The FK column and its
+   * `IDX_project_member_role_id` index remain; the
+   * `ON DELETE SET NULL` cascade is enforced by Postgres at the table
+   * level (created by the original migration), not by the ORM.
+   *
+   * Consumers needing the joined Role aggregate go through the RBAC
+   * module's `IRoleQueryService` using this `roleId`.
    */
   @Column({ type: 'uuid', nullable: true })
   roleId: string | null;
-
-  @ManyToOne(() => Role, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'roleId' })
-  role: Role | null;
 }

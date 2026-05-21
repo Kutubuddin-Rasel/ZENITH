@@ -1,17 +1,24 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProjectMembersController } from './project-members.controller';
-import { ProjectMembersService } from './project-members.service';
 import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
-import { Reflector } from '@nestjs/core';
+import {
+  PROJECT_MEMBER_COMMAND_TOKEN,
+  PROJECT_MEMBER_QUERY_TOKEN,
+} from '../constants/membership.tokens';
 
 describe('ProjectMembersController', () => {
   let controller: ProjectMembersController;
 
-  const mockService = {
-    addMemberToProject: jest.fn(),
-    removeMemberFromProject: jest.fn(),
+  const mockQuery = {
     listMembers: jest.fn(),
     getUserRole: jest.fn(),
+    getMemberRoleDetails: jest.fn(),
+    listMembershipsForUser: jest.fn(),
+  };
+
+  const mockCommand = {
+    addMember: jest.fn(),
+    removeMember: jest.fn(),
     updateMemberRole: jest.fn(),
   };
 
@@ -19,10 +26,8 @@ describe('ProjectMembersController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProjectMembersController],
       providers: [
-        {
-          provide: ProjectMembersService,
-          useValue: mockService,
-        },
+        { provide: PROJECT_MEMBER_QUERY_TOKEN, useValue: mockQuery },
+        { provide: PROJECT_MEMBER_COMMAND_TOKEN, useValue: mockCommand },
       ],
     })
       .overrideGuard(PermissionsGuard)
