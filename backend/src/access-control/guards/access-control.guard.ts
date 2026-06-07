@@ -6,8 +6,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AccessControlService } from '../access-control.service';
-import { IpResolutionService } from '../services/ip-resolution.service';
+import {
+  IAccessChecker,
+  IClientIpResolver,
+} from '../interfaces/access-control.interfaces';
 import { Request, Response } from 'express';
 
 /**
@@ -25,8 +27,8 @@ export class AccessControlGuard implements CanActivate {
   private readonly logger = new Logger(AccessControlGuard.name);
 
   constructor(
-    private accessControlService: AccessControlService,
-    private ipResolutionService: IpResolutionService,
+    private readonly accessChecker: IAccessChecker,
+    private readonly ipResolver: IClientIpResolver,
     private reflector: Reflector,
   ) {}
 
@@ -45,7 +47,7 @@ export class AccessControlGuard implements CanActivate {
 
     // Get client IP address using secure resolution
     // This handles trusted proxy validation and X-Forwarded-For parsing
-    const ipAddress = this.ipResolutionService.getClientIp(request);
+    const ipAddress = this.ipResolver.getClientIp(request);
 
     // Get user information from request
     const user = (request as unknown as Record<string, unknown>).user as
@@ -68,7 +70,7 @@ export class AccessControlGuard implements CanActivate {
 
     try {
       // Check access control
-      const result = await this.accessControlService.checkAccess(
+      const result = await this.accessChecker.checkAccess(
         ipAddress,
         userId,
         request.headers['user-agent'],
