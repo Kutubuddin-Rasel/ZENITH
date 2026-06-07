@@ -21,7 +21,7 @@ node_modules/
 .idea/
 *.swp
 *.swo
-
+graphify*
 # Project Specific
 docs/
 .agent/
