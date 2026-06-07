@@ -40,9 +40,9 @@ import { RevisionsModule } from './revisions/revisions.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ReportsModule } from './reports/reports.module';
 import { AuditLogsModule } from './audit/audit-logs.module';
-import { EncryptionModule } from './encryption/encryption.module';
-import { SessionModule } from './session/session.module';
-import { AccessControlModule } from './access-control/access-control.module';
+import { EncryptionModule } from './encryption';
+import { SessionModule } from './session';
+import { AccessControlModule } from './access-control';
 import { CacheModule } from './cache/cache.module';
 import { DatabaseModule } from './database/database.module';
 import { PerformanceModule } from './performance/performance.module';
@@ -77,7 +77,7 @@ import { ScheduledTasksModule } from './scheduled-tasks/scheduled-tasks.module';
 import { HealthModule } from './health/health.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { HttpMetricsMiddleware } from './metrics/http-metrics.middleware';
-import { CsrfModule } from './security/csrf/csrf.module';
+import { CsrfModule } from './security/csrf';
 
 import {
   appConfig,

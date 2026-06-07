@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import { CACHE_HEALTH_TOKEN } from './cache/constants/cache.tokens';
 
 describe('AppController', () => {
   let appController: AppController;
@@ -27,6 +28,13 @@ describe('AppController', () => {
         AppService,
         { provide: DataSource, useValue: mockDataSource },
         { provide: ConfigService, useValue: mockConfigService },
+        {
+          provide: CACHE_HEALTH_TOKEN,
+          useValue: {
+            ping: jest.fn().mockResolvedValue('PONG'),
+            isHealthy: jest.fn().mockReturnValue(true),
+          },
+        },
       ],
     }).compile();
 
