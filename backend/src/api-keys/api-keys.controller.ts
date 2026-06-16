@@ -9,46 +9,57 @@ import {
   UseGuards,
   Req,
   Query,
+  Inject,
+  NotFoundException,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { ApiKeysService, ActorContext } from './api-keys.service';
+import {
+  API_KEY_COMMAND_TOKEN,
+  API_KEY_QUERY_TOKEN,
+} from './constants/api-keys.tokens';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
+import {
+  ActorContext,
+  IApiKeyCommand,
+  IApiKeyQuery,
+} from './interfaces/api-keys.interfaces';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 /**
  * API Keys Controller
  *
- * Manages the lifecycle of API keys with full audit trail support.
- * All mutation endpoints extract ActorContext (IP, User Agent) for PCI-DSS compliance.
+ * Depends ONLY on the ISP tokens `API_KEY_COMMAND_TOKEN` and
+ * `API_KEY_QUERY_TOKEN` — never on a concrete service class. The
+ * concrete bindings live in `api-keys.module.ts` and can be swapped
+ * (e.g., for a CQRS in-memory test harness) without touching the
+ * controller.
  */
 @Controller('api-keys')
 @UseGuards(JwtAuthGuard)
 export class ApiKeysController {
-  constructor(private readonly apiKeysService: ApiKeysService) {}
+  constructor(
+    @Inject(API_KEY_COMMAND_TOKEN)
+    private readonly commands: IApiKeyCommand,
+    @Inject(API_KEY_QUERY_TOKEN)
+    private readonly queries: IApiKeyQuery,
+  ) {}
 
-  /**
-   * Extract actor context from request for audit logging.
-   * This ensures all mutations are traceable to WHO, FROM WHERE.
-   */
   private getActorContext(req: Request): ActorContext {
-    const user = req.user as { id: string } | undefined;
-
+    const user = req.user as
+      | { id: string; organizationId?: string }
+      | undefined;
     return {
       userId: user?.id || 'unknown',
+      organizationId: user?.organizationId,
       ipAddress: this.getClientIp(req),
       userAgent: req.headers['user-agent'] || undefined,
       sessionId: req.headers['x-session-id'] as string | undefined,
     };
   }
 
-  /**
-   * Extract client IP from request.
-   * Uses X-Forwarded-For if available (for proxied requests).
-   */
   private getClientIp(req: Request): string {
     const forwardedFor = req.headers['x-forwarded-for'];
     if (forwardedFor) {
-      // Take the first (client) IP from the chain
       const ips = Array.isArray(forwardedFor)
         ? forwardedFor[0]
         : forwardedFor.split(',')[0];
@@ -57,19 +68,13 @@ export class ApiKeysController {
     return req.socket?.remoteAddress || req.ip || 'unknown';
   }
 
-  /**
-   * Create a new API key
-   *
-   * POST /api-keys
-   */
   @Post()
   async create(@Req() req: Request, @Body() createApiKeyDto: CreateApiKeyDto) {
     const actor = this.getActorContext(req);
-    const result = await this.apiKeysService.create(actor, createApiKeyDto);
+    const result = await this.commands.create(actor, createApiKeyDto);
 
-    // Return the plain key (only shown once) and the API key entity
     return {
-      key: result.key,
+      key: result.plainKey,
       apiKey: {
         id: result.apiKey.id,
         name: result.apiKey.name,
@@ -82,22 +87,22 @@ export class ApiKeysController {
     };
   }
 
-  /**
-   * List all API keys for the current user
-   *
-   * GET /api-keys
-   */
   @Get()
   findAll(@Req() req: Request) {
     const user = req.user as { id: string };
-    return this.apiKeysService.findAll(user.id);
+    return this.queries.findAllForUser(user.id);
   }
 
-  /**
-   * Revoke (delete) an API key
-   *
-   * DELETE /api-keys/:id
-   */
+  @Get(':id')
+  async findOne(@Req() req: Request, @Param('id') id: string) {
+    const user = req.user as { id: string };
+    const summary = await this.queries.findOneForUser(id, user.id);
+    if (!summary) {
+      throw new NotFoundException('API key not found');
+    }
+    return summary;
+  }
+
   @Delete(':id')
   async revoke(
     @Req() req: Request,
@@ -105,15 +110,10 @@ export class ApiKeysController {
     @Query('reason') reason?: string,
   ) {
     const actor = this.getActorContext(req);
-    await this.apiKeysService.revoke(actor, id, reason);
+    await this.commands.revoke(actor, id, reason);
     return { message: 'API key revoked successfully' };
   }
 
-  /**
-   * Update API key metadata (name, scopes)
-   *
-   * PATCH /api-keys/:id
-   */
   @Patch(':id')
   async update(
     @Req() req: Request,
@@ -121,19 +121,9 @@ export class ApiKeysController {
     @Body() updates: { name?: string; scopes?: string[] },
   ) {
     const actor = this.getActorContext(req);
-    return this.apiKeysService.update(actor, id, updates);
+    return this.commands.update(actor, id, updates);
   }
 
-  /**
-   * Rotate an API key (zero-downtime migration)
-   *
-   * Creates a new key with identical settings, schedules old key for revocation.
-   *
-   * POST /api-keys/:id/rotate
-   *
-   * Query params:
-   * - gracePeriodHours: Hours before old key expires (default: 24)
-   */
   @Post(':id/rotate')
   async rotate(
     @Req() req: Request,
@@ -145,26 +135,25 @@ export class ApiKeysController {
       ? parseInt(gracePeriodHoursStr, 10)
       : undefined;
 
-    const result = await this.apiKeysService.rotateKey(
-      actor,
+    const result = await this.commands.rotate(actor, {
       id,
       gracePeriodHours,
-    );
+    });
+    const effectiveGrace = gracePeriodHours ?? 24;
 
     return {
       newKey: {
-        key: result.newKey.key, // Only shown once!
+        key: result.plainKey,
         id: result.newKey.id,
         keyPrefix: result.newKey.keyPrefix,
         name: result.newKey.name,
       },
       oldKeyRevocation: {
-        keyId: result.oldKeyRevocation.keyId,
-        keyPrefix: result.oldKeyRevocation.keyPrefix,
+        keyId: result.oldKeyRevocation.id,
         revokedAt: result.oldKeyRevocation.revokedAt,
-        gracePeriodHours: result.oldKeyRevocation.gracePeriodHours,
+        gracePeriodHours: effectiveGrace,
       },
-      message: result.message,
+      message: `Key rotated successfully. Old key will be revoked in ${effectiveGrace} hours.`,
     };
   }
 }
