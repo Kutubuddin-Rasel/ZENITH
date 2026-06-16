@@ -73,10 +73,7 @@ export class PostgresApiKeyRepository extends AbstractApiKeyRepository {
     return this.apiKeyRepo.findOne({ where: { id } });
   }
 
-  async findOneByIdForUser(
-    id: string,
-    userId: string,
-  ): Promise<ApiKey | null> {
+  async findOneByIdForUser(id: string, userId: string): Promise<ApiKey | null> {
     return this.apiKeyRepo.findOne({ where: { id, userId } });
   }
 

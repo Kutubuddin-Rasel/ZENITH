@@ -390,10 +390,7 @@ export type ApiKeyAuditMetadata = Readonly<
  */
 export interface IApiKeyAuditLogger {
   /** `API_KEY_CREATED` — severity HIGH. */
-  logCreated(
-    actor: ActorContext,
-    key: ApiKeySummary,
-  ): Promise<void>;
+  logCreated(actor: ActorContext, key: ApiKeySummary): Promise<void>;
 
   /** `API_KEY_REVOKED` — severity HIGH. */
   logRevoked(
@@ -435,10 +432,7 @@ export interface IApiKeyAuditLogger {
   ): Promise<void>;
 
   /** `API_KEY_EXPIRED` — severity MEDIUM. */
-  logExpired(
-    key: ValidatedApiKey,
-    ctx: ApiKeyValidationContext,
-  ): Promise<void>;
+  logExpired(key: ValidatedApiKey, ctx: ApiKeyValidationContext): Promise<void>;
 
   /** `API_KEY_IP_DENIED` — severity HIGH (potential exfiltration). */
   logIpDenied(
@@ -446,4 +440,37 @@ export interface IApiKeyAuditLogger {
     deniedIp: string,
     ctx: ApiKeyValidationContext,
   ): Promise<void>;
+
+  /**
+   * `API_KEY_VALIDATION_FAILED` — severity HIGH. Emitted by the cleanup
+   * cron's rate-limit anomaly detector when a key exceeds the
+   * violation threshold inside the rolling 24-hour window. Distinct
+   * from `logValidationFailed` because the cron carries richer
+   * per-key context (the legacy `apiKey.rateLimit`, the violation
+   * count, the threshold) that the hot-path validator does not have.
+   */
+  logRateLimitAnomaly(args: {
+    readonly keyId: string;
+    readonly userId: string;
+    readonly organizationId: string | null;
+    readonly keyPrefix: string;
+    readonly rateLimit: number;
+    readonly violations: number;
+    readonly threshold: number;
+  }): Promise<void>;
+
+  /**
+   * `CLEANUP_JOB_COMPLETED` — severity LOW on success, HIGH on failure.
+   * Job-orchestration metadata emitted at the end of every cleanup
+   * cron tick. Routed through this logger (not `AuditService` direct)
+   * so the audit service stays the SOLE consumer of `AuditService`
+   * inside the module. `error` is set iff the job failed.
+   */
+  logCleanupSummary(stats: {
+    readonly purgedCount: number;
+    readonly notifiedCount: number;
+    readonly anomalies: number;
+    readonly durationMs: number;
+    readonly error?: string;
+  }): Promise<void>;
 }
