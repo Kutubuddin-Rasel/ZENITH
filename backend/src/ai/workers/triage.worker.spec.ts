@@ -3,6 +3,7 @@ import { TriageWorker } from './triage.worker';
 import { OpenAiService } from '../services/openai.service';
 import { EmbeddingsService } from '../services/embeddings.service';
 import { SuggestionsService } from '../services/suggestions.service';
+import { PIISanitizerService } from '../services/pii-sanitizer.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Issue, IssuePriority } from '../../issues/entities/issue.entity'; // Import IssuePriority
 import { Job } from 'bullmq';
@@ -47,6 +48,12 @@ describe('TriageWorker', () => {
         {
           provide: SuggestionsService,
           useValue: suggestionsService,
+        },
+        {
+          provide: PIISanitizerService,
+          useValue: {
+            sanitize: jest.fn((text: string) => ({ sanitized: text })),
+          },
         },
       ],
     }).compile();

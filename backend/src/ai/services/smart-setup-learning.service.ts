@@ -121,10 +121,9 @@ export class SmartSetupLearningService {
   ): Promise<TemplatePreference[]> {
     try {
       const cacheKey = `${LEARNING_CONFIG.PREFERENCE_KEY_PREFIX}:${userId}`;
-      const cached = await this.cacheStore.get<TemplatePreference[]>(
-        cacheKey,
-        { namespace: LEARNING_CONFIG.CACHE_NAMESPACE },
-      );
+      const cached = await this.cacheStore.get<TemplatePreference[]>(cacheKey, {
+        namespace: LEARNING_CONFIG.CACHE_NAMESPACE,
+      });
 
       if (cached) {
         return cached;
