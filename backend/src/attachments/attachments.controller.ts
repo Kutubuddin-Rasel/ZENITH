@@ -10,26 +10,39 @@ import {
   UploadedFile,
   UseInterceptors,
   Res,
+  Inject,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { Express } from 'express';
-import { Response } from 'express';
-import { AttachmentsService } from './attachments.service';
+import { Express, Response } from 'express';
+import {
+  ATTACHMENT_COMMAND_TOKEN,
+  ATTACHMENT_QUERY_TOKEN,
+  FILE_STORAGE_PROVIDER,
+} from './constants/attachments.tokens';
+import type {
+  AttachmentContext,
+  IAttachmentCommand,
+  IAttachmentQuery,
+  IStoragePort,
+  UploadedFileMeta,
+} from './interfaces/attachments.interfaces';
 import { VirusScanningService } from './services/virus-scanning.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
-import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
-import { attachmentFileFilter } from './config/file-filter.config';
-import { safeFilenameCallback } from './config/filename-sanitizer.config';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf';
 import { validateFileMagicNumber } from './config/magic-number-validator.config';
+import { attachmentUploadInterceptor } from './config/attachment-upload.interceptor';
+import { resolveSafeFilePath } from './config/path-security.config';
 import * as fs from 'fs';
-import * as path from 'path';
 
 /**
  * AttachmentsController - Multi-target file uploads
+ *
+ * Thin HTTP adapter over the attachments CQRS ports. Each route maps its parent
+ * param to an `AttachmentContext` `target` and dispatches through
+ * `ATTACHMENT_QUERY_TOKEN` / `ATTACHMENT_COMMAND_TOKEN` — the controller no
+ * longer knows about TypeORM, the `uploads/` directory, or how files are stored.
  *
  * CSRF Protection: Uploads and deletes require x-csrf-token header.
  * MIME Filtering: Only allowed file types accepted.
@@ -38,45 +51,55 @@ import * as path from 'path';
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class AttachmentsController {
   constructor(
-    private svc: AttachmentsService,
-    private virusScanner: VirusScanningService,
+    @Inject(ATTACHMENT_QUERY_TOKEN)
+    private readonly query: IAttachmentQuery,
+    @Inject(ATTACHMENT_COMMAND_TOKEN)
+    private readonly command: IAttachmentCommand,
+    @Inject(FILE_STORAGE_PROVIDER)
+    private readonly storage: IStoragePort,
+    private readonly virusScanner: VirusScanningService,
   ) {}
 
-  // Project-level attachments (general project files)
+  /**
+   * Run the stateless security pre-checks (magic-number + ClamAV) and normalize
+   * the Multer file into the storage-agnostic `UploadedFileMeta` the command
+   * port understands. Centralized so every upload route shares one pipeline.
+   */
+  private async prepareUpload(
+    file: Express.Multer.File,
+    userId: string,
+  ): Promise<UploadedFileMeta> {
+    // SECURITY: claimed MIME must match the file's real magic number.
+    await validateFileMagicNumber(file.path, file.mimetype);
+    // SECURITY: scan for viruses/malware before it is ever persisted.
+    await this.virusScanner.scanFile(file.path, userId);
+    return {
+      filename: file.filename,
+      filepath: file.path,
+      originalName: file.originalname,
+      fileSize: file.size,
+      mimeType: file.mimetype,
+    };
+  }
+
+  // ───────────────────────────── Project ──────────────────────────────
   @RequireCsrf()
   @RequirePermission('attachments:create')
   @Post('projects/:projectId/attachments')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: safeFilenameCallback,
-      }),
-      fileFilter: attachmentFileFilter,
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
-  )
+  @UseInterceptors(attachmentUploadInterceptor())
   async uploadProject(
     @Param('projectId') projectId: string,
     @UploadedFile() file: Express.Multer.File,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const { filename, path: filepath } = file;
-
-    // SECURITY: Validate magic number matches claimed MIME type
-    await validateFileMagicNumber(filepath, file.mimetype);
-
-    // SECURITY: Scan file for viruses/malware
-    await this.virusScanner.scanFile(filepath, req.user.userId);
-
-    return this.svc.createForProject(
+    const ctx: AttachmentContext = {
+      target: 'project',
       projectId,
-      req.user.userId,
-      filename,
-      filepath,
-      file.originalname,
-      file.size,
-      file.mimetype,
+      userId: req.user.userId,
+    };
+    return this.command.createForTarget(
+      ctx,
+      await this.prepareUpload(file, req.user.userId),
     );
   }
 
@@ -86,7 +109,11 @@ export class AttachmentsController {
     @Param('projectId') projectId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.findAllForProject(projectId, req.user.userId);
+    return this.query.listForTarget({
+      target: 'project',
+      projectId,
+      userId: req.user.userId,
+    });
   }
 
   @RequirePermission('attachments:view')
@@ -95,7 +122,7 @@ export class AttachmentsController {
     @Param('projectId') projectId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.getHistory(projectId, req.user.userId);
+    return this.query.getHistory(projectId, req.user.userId);
   }
 
   @RequireCsrf()
@@ -106,43 +133,33 @@ export class AttachmentsController {
     @Param('attachmentId') attachmentId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.removeForProject(projectId, attachmentId, req.user.userId);
+    await this.command.removeForTarget(
+      { target: 'project', projectId, userId: req.user.userId },
+      attachmentId,
+    );
     return { message: 'Attachment deleted' };
   }
 
+  // ────────────────────────────── Issue ───────────────────────────────
   @RequireCsrf()
   @RequirePermission('attachments:create')
   @Post('projects/:projectId/issues/:issueId/attachments')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: safeFilenameCallback,
-      }),
-      fileFilter: attachmentFileFilter,
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
-  )
+  @UseInterceptors(attachmentUploadInterceptor())
   async uploadIssue(
     @Param('projectId') projectId: string,
     @Param('issueId') issueId: string,
     @UploadedFile() file: Express.Multer.File,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const { filename, path: filepath } = file;
-
-    // SECURITY: Validate magic number matches claimed MIME type
-    await validateFileMagicNumber(filepath, file.mimetype);
-
-    // SECURITY: Scan file for viruses/malware
-    await this.virusScanner.scanFile(filepath, req.user.userId);
-
-    return this.svc.createForIssue(
+    const ctx: AttachmentContext = {
+      target: 'issue',
       projectId,
-      issueId,
-      req.user.userId,
-      filename,
-      filepath,
+      parentId: issueId,
+      userId: req.user.userId,
+    };
+    return this.command.createForTarget(
+      ctx,
+      await this.prepareUpload(file, req.user.userId),
     );
   }
 
@@ -153,7 +170,12 @@ export class AttachmentsController {
     @Param('issueId') issueId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.findAllForIssue(projectId, issueId, req.user.userId);
+    return this.query.listForTarget({
+      target: 'issue',
+      projectId,
+      parentId: issueId,
+      userId: req.user.userId,
+    });
   }
 
   @RequireCsrf()
@@ -165,48 +187,38 @@ export class AttachmentsController {
     @Param('attachmentId') attachmentId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.removeForIssue(
-      projectId,
-      issueId,
+    await this.command.removeForTarget(
+      {
+        target: 'issue',
+        projectId,
+        parentId: issueId,
+        userId: req.user.userId,
+      },
       attachmentId,
-      req.user.userId,
     );
     return { message: 'Attachment deleted' };
   }
 
+  // ───────────────────────────── Release ──────────────────────────────
   @RequireCsrf()
   @RequirePermission('attachments:create')
   @Post('projects/:projectId/releases/:releaseId/attachments')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: safeFilenameCallback,
-      }),
-      fileFilter: attachmentFileFilter,
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
-  )
+  @UseInterceptors(attachmentUploadInterceptor())
   async uploadRelease(
     @Param('projectId') projectId: string,
     @Param('releaseId') releaseId: string,
     @UploadedFile() file: Express.Multer.File,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const { filename, path: filepath } = file;
-
-    // SECURITY: Validate magic number matches claimed MIME type
-    await validateFileMagicNumber(filepath, file.mimetype);
-
-    // SECURITY: Scan file for viruses/malware
-    await this.virusScanner.scanFile(filepath, req.user.userId);
-
-    return this.svc.createForRelease(
+    const ctx: AttachmentContext = {
+      target: 'release',
       projectId,
-      releaseId,
-      req.user.userId,
-      filename,
-      filepath,
+      parentId: releaseId,
+      userId: req.user.userId,
+    };
+    return this.command.createForTarget(
+      ctx,
+      await this.prepareUpload(file, req.user.userId),
     );
   }
 
@@ -217,7 +229,12 @@ export class AttachmentsController {
     @Param('releaseId') releaseId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.findAllForRelease(projectId, releaseId, req.user.userId);
+    return this.query.listForTarget({
+      target: 'release',
+      projectId,
+      parentId: releaseId,
+      userId: req.user.userId,
+    });
   }
 
   @RequireCsrf()
@@ -229,49 +246,38 @@ export class AttachmentsController {
     @Param('attachmentId') attachmentId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.removeForRelease(
-      projectId,
-      releaseId,
+    await this.command.removeForTarget(
+      {
+        target: 'release',
+        projectId,
+        parentId: releaseId,
+        userId: req.user.userId,
+      },
       attachmentId,
-      req.user.userId,
     );
     return { message: 'Attachment deleted' };
   }
 
-  // Sprint attachments
+  // ────────────────────────────── Sprint ──────────────────────────────
   @RequireCsrf()
   @RequirePermission('attachments:create')
   @Post('projects/:projectId/sprints/:sprintId/attachments')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: safeFilenameCallback,
-      }),
-      fileFilter: attachmentFileFilter,
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
-  )
+  @UseInterceptors(attachmentUploadInterceptor())
   async uploadSprint(
     @Param('projectId') projectId: string,
     @Param('sprintId') sprintId: string,
     @UploadedFile() file: Express.Multer.File,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const { filename, path: filepath } = file;
-
-    // SECURITY: Validate magic number matches claimed MIME type
-    await validateFileMagicNumber(filepath, file.mimetype);
-
-    // SECURITY: Scan file for viruses/malware
-    await this.virusScanner.scanFile(filepath, req.user.userId);
-
-    return this.svc.createForSprint(
+    const ctx: AttachmentContext = {
+      target: 'sprint',
       projectId,
-      sprintId,
-      req.user.userId,
-      filename,
-      filepath,
+      parentId: sprintId,
+      userId: req.user.userId,
+    };
+    return this.command.createForTarget(
+      ctx,
+      await this.prepareUpload(file, req.user.userId),
     );
   }
 
@@ -282,7 +288,12 @@ export class AttachmentsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.findAllForSprint(projectId, sprintId, req.user.userId);
+    return this.query.listForTarget({
+      target: 'sprint',
+      projectId,
+      parentId: sprintId,
+      userId: req.user.userId,
+    });
   }
 
   @RequireCsrf()
@@ -294,29 +305,23 @@ export class AttachmentsController {
     @Param('attachmentId') attachmentId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.removeForSprint(
-      projectId,
-      sprintId,
+    await this.command.removeForTarget(
+      {
+        target: 'sprint',
+        projectId,
+        parentId: sprintId,
+        userId: req.user.userId,
+      },
       attachmentId,
-      req.user.userId,
     );
     return { message: 'Attachment deleted' };
   }
 
-  // Comment attachments
+  // ───────────────────────────── Comment ──────────────────────────────
   @RequireCsrf()
   @RequirePermission('attachments:create')
   @Post('projects/:projectId/issues/:issueId/comments/:commentId/attachments')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: safeFilenameCallback,
-      }),
-      fileFilter: attachmentFileFilter,
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
-  )
+  @UseInterceptors(attachmentUploadInterceptor())
   async uploadComment(
     @Param('projectId') projectId: string,
     @Param('issueId') issueId: string,
@@ -324,21 +329,16 @@ export class AttachmentsController {
     @UploadedFile() file: Express.Multer.File,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const { filename, path: filepath } = file;
-
-    // SECURITY: Validate magic number matches claimed MIME type
-    await validateFileMagicNumber(filepath, file.mimetype);
-
-    // SECURITY: Scan file for viruses/malware
-    await this.virusScanner.scanFile(filepath, req.user.userId);
-
-    return this.svc.createForComment(
+    const ctx: AttachmentContext = {
+      target: 'comment',
       projectId,
       issueId,
-      commentId,
-      req.user.userId,
-      filename,
-      filepath,
+      parentId: commentId,
+      userId: req.user.userId,
+    };
+    return this.command.createForTarget(
+      ctx,
+      await this.prepareUpload(file, req.user.userId),
     );
   }
 
@@ -350,12 +350,13 @@ export class AttachmentsController {
     @Param('commentId') commentId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.findAllForComment(
+    return this.query.listForTarget({
+      target: 'comment',
       projectId,
       issueId,
-      commentId,
-      req.user.userId,
-    );
+      parentId: commentId,
+      userId: req.user.userId,
+    });
   }
 
   @RequireCsrf()
@@ -370,16 +371,20 @@ export class AttachmentsController {
     @Param('attachmentId') attachmentId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.removeForComment(
-      projectId,
-      issueId,
-      commentId,
+    await this.command.removeForTarget(
+      {
+        target: 'comment',
+        projectId,
+        issueId,
+        parentId: commentId,
+        userId: req.user.userId,
+      },
       attachmentId,
-      req.user.userId,
     );
     return { message: 'Attachment deleted' };
   }
 
+  // ───────────────────────────── Download ─────────────────────────────
   @RequirePermission('attachments:view')
   @Get('projects/:projectId/attachments/:attachmentId/download')
   async downloadAttachment(
@@ -388,19 +393,17 @@ export class AttachmentsController {
     @Request() req: { user: JwtRequestUser },
     @Res() res: Response,
   ) {
-    const attachment = await this.svc.findForProject(projectId, attachmentId);
-    if (!attachment) {
-      return res.status(404).send('Attachment not found');
-    }
+    // findForDownload enforces project membership ITSELF — replacing the legacy
+    // `svc['membersService']` private-field reach whose result was discarded.
+    const attachment = await this.query.findForDownload(
+      { target: 'project', projectId, userId: req.user.userId },
+      attachmentId,
+    );
 
-    // Verify user is a member of the project
-    await this.svc['membersService'].getUserRole(projectId, req.user.userId);
-
-    // SECURITY: Use jail-checked path resolution (Path Traversal Defense)
-    const { resolveSafeFilePath } =
-      await import('./config/path-security.config');
+    // Resolve the byte location through the storage port (presigned URL for S3,
+    // local path for disk); then jail-check the local path before streaming.
+    await this.storage.getDownloadUrl(attachment.filename);
     const filePath = resolveSafeFilePath(attachment.filename);
-
     if (!fs.existsSync(filePath)) {
       return res.status(404).send('File not found');
     }
@@ -413,8 +416,6 @@ export class AttachmentsController {
     if (attachment.mimeType) {
       res.setHeader('Content-Type', attachment.mimeType);
     }
-
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
+    fs.createReadStream(filePath).pipe(res);
   }
 }
