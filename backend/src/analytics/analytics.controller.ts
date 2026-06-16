@@ -1,22 +1,27 @@
 import {
   Controller,
   Get,
+  Inject,
   Param,
   Query,
   UseGuards,
   Request,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { CycleTimeService } from './services/cycle-time.service';
 import {
-  SprintRiskService,
+  CYCLE_TIME_QUERY_TOKEN,
+  SPRINT_RISK_QUERY_TOKEN,
+  STALLED_ISSUES_QUERY_TOKEN,
+  HISTORICAL_METRICS_QUERY_TOKEN,
+} from './constants/analytics.tokens';
+import type {
+  ICycleTimeQuery,
+  ISprintRiskQuery,
+  IStalledIssuesQuery,
+  IHistoricalMetricsQuery,
   SprintRiskResult,
-} from './services/sprint-risk.service';
-import { AnalyticsJobsService } from './services/analytics-jobs.service';
-import {
-  HistoricalMetricsService,
   HistoricalMetricPoint,
-} from './services/historical-metrics.service';
+} from './interfaces/analytics.interfaces';
 import { HistoricalMetricsQueryDto } from './dto/historical-metrics-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
@@ -26,10 +31,14 @@ import { JwtAuthenticatedRequest } from '../auth/interface/jwt-authenticated-req
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AnalyticsController {
   constructor(
-    private readonly cycleTimeService: CycleTimeService,
-    private readonly sprintRiskService: SprintRiskService,
-    private readonly analyticsJobsService: AnalyticsJobsService,
-    private readonly historicalMetricsService: HistoricalMetricsService,
+    @Inject(CYCLE_TIME_QUERY_TOKEN)
+    private readonly cycleTimeService: ICycleTimeQuery,
+    @Inject(SPRINT_RISK_QUERY_TOKEN)
+    private readonly sprintRiskService: ISprintRiskQuery,
+    @Inject(STALLED_ISSUES_QUERY_TOKEN)
+    private readonly stalledIssuesService: IStalledIssuesQuery,
+    @Inject(HISTORICAL_METRICS_QUERY_TOKEN)
+    private readonly historicalMetricsService: IHistoricalMetricsQuery,
   ) {}
 
   @Get('cycle-time')
@@ -59,7 +68,7 @@ export class AnalyticsController {
 
   @Get('stalled-issues')
   async getStalledIssues(@Param('projectId', ParseUUIDPipe) projectId: string) {
-    return this.analyticsJobsService.getStalledIssues(projectId);
+    return this.stalledIssuesService.getStalledIssues(projectId);
   }
 
   /**
