@@ -242,7 +242,9 @@ export class ProjectIntelligenceService {
     private readonly aiProvider: AIProviderService,
     @InjectRepository(ProjectTemplate)
     private readonly templateRepo: Repository<ProjectTemplate>,
-    @Optional() @Inject(CACHE_STORE_TOKEN) private readonly cacheStore?: ICacheStore,
+    @Optional()
+    @Inject(CACHE_STORE_TOKEN)
+    private readonly cacheStore?: ICacheStore,
     // New Intelligent Smart Setup services
     @Optional() private conversationManager?: ConversationManagerService,
     @Optional() private semanticExtractor?: SemanticExtractorService,
@@ -790,8 +792,7 @@ export class ProjectIntelligenceService {
     // Check cache first
     const cacheKey = `ai:project:${this.hashRequest(request)}`;
     if (this.cacheStore) {
-      const cached =
-        await this.cacheStore.get<ProjectRecommendation>(cacheKey);
+      const cached = await this.cacheStore.get<ProjectRecommendation>(cacheKey);
       if (cached) {
         this.logger.debug('Returning cached project recommendation');
         return cached;

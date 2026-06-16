@@ -29,7 +29,9 @@ const CONVERSATION_CONFIG = {
 export class ConversationManagerService {
   private readonly logger = new Logger(ConversationManagerService.name);
 
-  constructor(@Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore) {}
+  constructor(
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
+  ) {}
 
   /**
    * Get or create a conversation context
