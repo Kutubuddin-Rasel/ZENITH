@@ -1,57 +1,27 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { API_KEY_AUDIT_TOKEN } from '../constants/api-keys.tokens';
 import { ApiKey } from '../entities/api-key.entity';
-import { AuditService } from '../../audit/services/audit.service';
 import {
-  AuditEventType,
-  AuditSeverity,
-} from '../../audit/entities/audit-log.entity';
-import { SYSTEM_TENANT_ID } from '../../audit/audit.constants';
+  API_KEY_EVENTS,
+  ApiKeyPurgedEvent,
+  ApiKeyUnusedDetectedEvent,
+} from '../events/api-keys-events';
+import { IApiKeyAuditLogger } from '../interfaces/api-keys.interfaces';
 import { AbstractApiKeyRepository } from '../repositories/abstract/api-key.repository.abstract';
-
-// =============================================================================
-// CONFIGURATION
-// =============================================================================
+import { toSummary } from './api-key.mapper';
 
 const CLEANUP_CONFIG = {
-  /**
-   * Batch size for DELETE operations.
-   * Prevents table locks and transaction log overflow.
-   */
   BATCH_SIZE: 1000,
-
-  /**
-   * Sleep between batches (ms).
-   * Allows other queries to execute.
-   */
   BATCH_SLEEP_MS: 100,
-
-  /**
-   * Days after revokeAt before hard delete.
-   * Gives time for key to fully expire and be rotated.
-   */
   PURGE_AFTER_DAYS: 30,
-
-  /**
-   * Days of inactivity before flagging as unused.
-   */
   UNUSED_THRESHOLD_DAYS: 90,
-
-  /**
-   * Daily cap for unused key notifications.
-   * Prevents email spam blocks.
-   */
   DAILY_NOTIFICATION_CAP: 1000,
-
-  /**
-   * Rate limit violations threshold for anomaly detection.
-   */
   RATE_LIMIT_VIOLATION_THRESHOLD: 1000,
 } as const;
 
-// =============================================================================
-// SERVICE
-// =============================================================================
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class ApiKeyCleanupService {
@@ -59,12 +29,10 @@ export class ApiKeyCleanupService {
 
   constructor(
     private readonly apiKeyRepo: AbstractApiKeyRepository,
-    private readonly auditService: AuditService,
+    @Inject(API_KEY_AUDIT_TOKEN)
+    private readonly audit: IApiKeyAuditLogger,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
-
-  // ===========================================================================
-  // CRON SCHEDULE: Daily at 03:00 UTC (Low Traffic)
-  // ===========================================================================
 
   @Cron('0 3 * * *', { name: 'api-key-cleanup', timeZone: 'UTC' })
   async runDailyCleanup(): Promise<void> {
@@ -72,30 +40,16 @@ export class ApiKeyCleanupService {
     const startTime = Date.now();
 
     try {
-      // Job A: Purge expired/rotated keys
       const purgedCount = await this.purgeExpiredKeys();
-
-      // Job B: Notify unused keys
       const notifiedCount = await this.notifyUnusedKeys();
-
-      // Job C: Anomaly detection
       const anomalies = await this.detectRateLimitAnomalies();
-
       const duration = Date.now() - startTime;
 
-      // Summary audit log
-      await this.auditService.log({
-        organizationId: SYSTEM_TENANT_ID,
-        eventType: AuditEventType.CLEANUP_JOB_COMPLETED,
-        severity: AuditSeverity.LOW,
-        description: 'Daily API key cleanup completed',
-        resourceType: 'api_key',
-        details: {
-          purgedCount,
-          notifiedCount,
-          anomaliesDetected: anomalies.length,
-          durationMs: duration,
-        },
+      await this.audit.logCleanupSummary({
+        purgedCount,
+        notifiedCount,
+        anomalies: anomalies.length,
+        durationMs: duration,
       });
 
       this.logger.log(
@@ -103,32 +57,16 @@ export class ApiKeyCleanupService {
       );
     } catch (error) {
       this.logger.error('API Key Cleanup Job Failed', error);
-
-      await this.auditService.log({
-        organizationId: SYSTEM_TENANT_ID,
-        eventType: AuditEventType.CLEANUP_JOB_COMPLETED,
-        severity: AuditSeverity.HIGH,
-        description: 'Daily API key cleanup FAILED',
-        resourceType: 'api_key',
-        details: {
-          error: error instanceof Error ? error.message : 'Unknown error',
-        },
+      await this.audit.logCleanupSummary({
+        purgedCount: 0,
+        notifiedCount: 0,
+        anomalies: 0,
+        durationMs: Date.now() - startTime,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
 
-  // ===========================================================================
-  // JOB A: Purge Expired Keys (Batch Deletion)
-  // ===========================================================================
-
-  /**
-   * Hard delete keys where revokeAt is 30+ days in the past.
-   *
-   * SAFETY FEATURES:
-   * - Batch deletion (1000 at a time)
-   * - Sleep between batches (release locks)
-   * - Audit logging before deletion
-   */
   async purgeExpiredKeys(): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - CLEANUP_CONFIG.PURGE_AFTER_DAYS);
@@ -140,30 +78,43 @@ export class ApiKeyCleanupService {
 
     while (true) {
       batchNumber++;
-
-      // Find batch of keys to delete (projection-narrowed — keyHash and
-      // relations are excluded by the abstract repository's Pick).
       const keysToDelete = await this.apiKeyRepo.findExpiredBefore(
         cutoffDate,
         CLEANUP_CONFIG.BATCH_SIZE,
       );
+      if (keysToDelete.length === 0) break;
 
-      if (keysToDelete.length === 0) {
-        break;
-      }
-
-      // Log keys being deleted (for audit trail)
       const keyIds = keysToDelete.map((k) => k.id);
-
-      // Perform batch delete
       await this.apiKeyRepo.batchDelete(keyIds);
       totalDeleted += keysToDelete.length;
+
+      for (const purged of keysToDelete) {
+        const event: ApiKeyPurgedEvent = {
+          key: {
+            id: purged.id,
+            name: '',
+            keyPrefix: purged.keyPrefix,
+            userId: purged.userId,
+            projectId: null,
+            scopes: [],
+            lastUsedAt: null,
+            expiresAt: null,
+            rateLimit: 0,
+            allowedIps: null,
+            revokeAt: purged.revokeAt ?? null,
+            rotatedToKeyId: null,
+            isActive: false,
+            createdAt: new Date(0),
+            updatedAt: new Date(0),
+          },
+          timestamp: new Date(),
+        };
+        this.eventEmitter.emit(API_KEY_EVENTS.PURGED, event);
+      }
 
       this.logger.debug(
         `Batch ${batchNumber}: Deleted ${keysToDelete.length} keys`,
       );
-
-      // Sleep to release locks and allow other queries
       await this.sleep(CLEANUP_CONFIG.BATCH_SLEEP_MS);
     }
 
@@ -172,57 +123,38 @@ export class ApiKeyCleanupService {
         `Purged ${totalDeleted} expired keys in ${batchNumber} batches`,
       );
     }
-
     return totalDeleted;
   }
 
-  // ===========================================================================
-  // JOB B: Notify Unused Keys
-  // ===========================================================================
-
-  /**
-   * Find and notify users about unused API keys.
-   *
-   * CRITERIA for "Unused":
-   * 1. Key is at least 90 days old (not a new user)
-   * 2. Key hasn't been used in 90+ days (OR never used)
-   * 3. User hasn't been notified yet (prevent spam)
-   *
-   * SAFETY:
-   * - Daily cap of 1000 notifications
-   * - Marks key as notified to prevent duplicate emails
-   */
   async notifyUnusedKeys(): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(
       cutoffDate.getDate() - CLEANUP_CONFIG.UNUSED_THRESHOLD_DAYS,
     );
 
-    // Find unused keys that haven't been notified. The
-    // `(lastUsedAt IS NULL OR lastUsedAt < cutoff)` clause and the
-    // `createdAt ASC` ordering live inside the Postgres adapter so
-    // this layer stays query-shape-free.
     const unusedKeys = await this.apiKeyRepo.findUnusedCandidates(
       cutoffDate,
       CLEANUP_CONFIG.DAILY_NOTIFICATION_CAP,
     );
 
-    if (unusedKeys.length === 0) {
-      return 0;
-    }
-
+    if (unusedKeys.length === 0) return 0;
     this.logger.log(`Found ${unusedKeys.length} unused keys to notify`);
 
     let notified = 0;
+    const now = new Date();
 
     for (const key of unusedKeys) {
       try {
-        // Send notification (mock)
         await this.sendUnusedKeyNotification(key);
+        await this.apiKeyRepo.markUnusedNotified(key.id, now);
 
-        // Mark as notified
-        key.unusedNotifiedAt = new Date();
-        await this.apiKeyRepo.save(key);
+        const summary = toSummary({ ...key, unusedNotifiedAt: now });
+        const event: ApiKeyUnusedDetectedEvent = {
+          key: summary,
+          daysUnused: this.daysSince(key.lastUsedAt ?? key.createdAt),
+          timestamp: now,
+        };
+        this.eventEmitter.emit(API_KEY_EVENTS.UNUSED_DETECTED, event);
 
         notified++;
       } catch (error) {
@@ -235,51 +167,17 @@ export class ApiKeyCleanupService {
     return notified;
   }
 
-  /**
-   * Send notification to user about unused key.
-   * MOCK IMPLEMENTATION - Replace with actual email/notification service.
-   * Note: Returns Promise for interface compatibility, but current impl is sync.
-   */
   private sendUnusedKeyNotification(key: ApiKey): Promise<void> {
-    // TODO: Integrate with notification service / email queue
-    // Example:
-    // await this.notificationService.send({
-    //   userId: key.userId,
-    //   type: 'UNUSED_API_KEY',
-    //   data: {
-    //     keyName: key.name,
-    //     keyPrefix: key.keyPrefix,
-    //     lastUsed: key.lastUsedAt,
-    //     created: key.createdAt,
-    //   },
-    // });
-
     this.logger.debug(
       `[MOCK] Notification sent for unused key: ${key.keyPrefix}... (user: ${key.userId})`,
     );
     return Promise.resolve();
   }
 
-  // ===========================================================================
-  // JOB C: Rate Limit Anomaly Detection
-  // ===========================================================================
-
-  /**
-   * Detect API keys with excessive rate limit violations.
-   *
-   * FLAGS keys with >1000 violations in 24 hours as potentially:
-   * - Compromised (attacker brute-forcing)
-   * - Misconfigured (needs higher limit)
-   * - Abusive (potential ToS violation)
-   */
   async detectRateLimitAnomalies(): Promise<
     { keyId: string; violations: number }[]
   > {
     const anomalies: { keyId: string; violations: number }[] = [];
-
-    // Get all active keys (projection-narrowed to the fields the
-    // detector actually consumes — the abstract repository's Pick
-    // makes accidental over-fetch a compile error).
     const activeKeys = await this.apiKeyRepo.findAllActive();
 
     const now = Date.now();
@@ -287,28 +185,19 @@ export class ApiKeyCleanupService {
 
     for (const key of activeKeys) {
       try {
-        // Check rate limit violations from Redis
-        // We look for blocked requests in the last 24 hours
         const violationCount = await this.getViolationCount(key.id, oneDayAgo);
 
         if (violationCount > CLEANUP_CONFIG.RATE_LIMIT_VIOLATION_THRESHOLD) {
           anomalies.push({ keyId: key.id, violations: violationCount });
 
-          // Log security event
-          await this.auditService.log({
-            organizationId: SYSTEM_TENANT_ID,
-            eventType: AuditEventType.API_KEY_VALIDATION_FAILED,
-            severity: AuditSeverity.HIGH,
-            description: `Rate limit anomaly detected: ${violationCount} violations in 24h`,
-            resourceType: 'api_key',
-            resourceId: key.id,
+          await this.audit.logRateLimitAnomaly({
+            keyId: key.id,
             userId: key.userId,
-            details: {
-              keyPrefix: key.keyPrefix,
-              violations: violationCount,
-              rateLimit: key.rateLimit,
-              threshold: CLEANUP_CONFIG.RATE_LIMIT_VIOLATION_THRESHOLD,
-            },
+            organizationId: null,
+            keyPrefix: key.keyPrefix,
+            rateLimit: key.rateLimit,
+            violations: violationCount,
+            threshold: CLEANUP_CONFIG.RATE_LIMIT_VIOLATION_THRESHOLD,
           });
 
           this.logger.warn(
@@ -316,7 +205,6 @@ export class ApiKeyCleanupService {
           );
         }
       } catch (error) {
-        // Don't fail the whole job for one key
         this.logger.debug(`Error checking violations for ${key.id}: ${error}`);
       }
     }
@@ -326,57 +214,31 @@ export class ApiKeyCleanupService {
         `Detected ${anomalies.length} keys with rate limit anomalies`,
       );
     }
-
     return anomalies;
   }
 
-  /**
-   * Get rate limit violation count for a key.
-   * SIMPLIFIED: In real implementation, this would query Redis or a metrics store.
-   * Note: Returns Promise for interface compatibility, but current impl is sync.
-   */
   private getViolationCount(_keyId: string, _since: number): Promise<number> {
-    // TODO: Implement actual violation tracking
-    // Options:
-    // 1. Store violations in Redis: INCR violation:{keyId}:{date}
-    // 2. Query from metrics (Prometheus, DataDog)
-    // 3. Parse audit logs
-
-    // For now, return 0 (no anomalies detected)
     return Promise.resolve(0);
   }
-
-  // ===========================================================================
-  // HELPERS
-  // ===========================================================================
 
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  // ===========================================================================
-  // MANUAL TRIGGER (For Testing/Admin)
-  // ===========================================================================
+  private daysSince(date: Date | null | undefined): number {
+    if (!date) return CLEANUP_CONFIG.UNUSED_THRESHOLD_DAYS;
+    return Math.floor((Date.now() - date.getTime()) / MS_PER_DAY);
+  }
 
-  /**
-   * Manually trigger cleanup job.
-   * Useful for testing or admin-initiated cleanup.
-   */
   async manualCleanup(): Promise<{
     purgedCount: number;
     notifiedCount: number;
     anomalies: number;
   }> {
     this.logger.log('Manual cleanup triggered');
-
     const purgedCount = await this.purgeExpiredKeys();
     const notifiedCount = await this.notifyUnusedKeys();
     const anomalies = await this.detectRateLimitAnomalies();
-
-    return {
-      purgedCount,
-      notifiedCount,
-      anomalies: anomalies.length,
-    };
+    return { purgedCount, notifiedCount, anomalies: anomalies.length };
   }
 }
