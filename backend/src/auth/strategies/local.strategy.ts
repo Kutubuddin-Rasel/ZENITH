@@ -1,35 +1,41 @@
 // src/auth/strategies/local.strategy.ts
 import { Strategy } from 'passport-local';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { AuthService } from '../auth.service';
+import { Inject, Injectable } from '@nestjs/common';
+
+import { AUTHENTICATOR_TOKEN } from '../constants/auth.tokens';
+import {
+  AuthPrincipal,
+  IAuthenticator,
+  LocalCredentials,
+} from '../interfaces/core.interfaces';
 
 /**
- * LocalStrategy - Username/Password Authentication
+ * LocalStrategy — Passport adapter for email + password.
  *
- * Handles the initial login step using email + password credentials.
- * On success, returns the validated user object.
- * On failure, throws UnauthorizedException with a generic message.
+ * Delegates 100% of validation logic to the injected
+ * {@link IAuthenticator} (bound to {@link LocalCredentialAuthenticator} via
+ * {@link AUTHENTICATOR_TOKEN}). The adapter is responsible only for
+ * mapping Passport's positional arguments into the {@link LocalCredentials}
+ * shape and surfacing the principal back to the guard.
  *
- * SECURITY: Error message is intentionally vague to prevent
- * user enumeration attacks (don't reveal if email exists).
+ * SECURITY: The authenticator throws `UnauthorizedException` on any
+ * failure mode (bad creds, locked account, inactive user) — the generic
+ * 401 prevents user-enumeration via differential error responses.
  */
 @Injectable()
 export class LocalStrategy extends PassportStrategy(Strategy) {
-  constructor(private authService: AuthService) {
-    // Tell passport-local to look for an "email" field rather than "username"
+  constructor(
+    @Inject(AUTHENTICATOR_TOKEN)
+    private readonly authenticator: IAuthenticator<
+      LocalCredentials,
+      AuthPrincipal
+    >,
+  ) {
     super({ usernameField: 'email' });
   }
 
-  async validate(email: string, password: string) {
-    const user = await this.authService.validateUser(email, password);
-
-    // SECURITY FIX: Throw explicit exception instead of returning null
-    // This ensures consistent error handling and proper audit logging
-    if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
-
-    return user;
+  async validate(email: string, password: string): Promise<AuthPrincipal> {
+    return this.authenticator.authenticate({ email, password });
   }
 }

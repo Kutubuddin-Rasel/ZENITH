@@ -12,7 +12,7 @@ import { Throttle } from '@nestjs/throttler';
 import { ChangePasswordDto } from '../../users/dto/create-user.dto';
 import { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import { CsrfGuard, RequireCsrf } from '../../security/csrf/csrf.guard';
+import { CsrfGuard, RequireCsrf } from '../../security/csrf';
 import {
   ChangePasswordResult,
   UserPasswordService,

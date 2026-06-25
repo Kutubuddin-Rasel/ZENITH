@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
-import { CacheService } from '../../cache/cache.service';
-
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 /**
  * Password Breach Detection Service
  *
@@ -27,7 +27,9 @@ export class PasswordBreachService {
   private readonly CACHE_TTL_SECONDS = 86400; // 24 hours
   private readonly API_TIMEOUT_MS = 5000; // 5 second timeout
 
-  constructor(private readonly cacheService: CacheService) {}
+  constructor(
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
+  ) {}
 
   /**
    * Check if a password has been exposed in known data breaches.
@@ -59,7 +61,7 @@ export class PasswordBreachService {
 
       // Step 3: Check cache first (for safe passwords)
       const cacheKey = `hibp:${prefix}:${suffix}`;
-      const cachedResult = await this.cacheService.get<{
+      const cachedResult = await this.cacheStore.get<{
         isBreached: boolean;
         breachCount: number;
       }>(cacheKey, { namespace: 'security' });
@@ -89,7 +91,7 @@ export class PasswordBreachService {
 
       // Step 6: Cache the result
       // Cache both safe and breached passwords to reduce API calls
-      await this.cacheService.set(
+      await this.cacheStore.set(
         cacheKey,
         { isBreached: result.isBreached, breachCount: result.breachCount },
         { ttl: this.CACHE_TTL_SECONDS, namespace: 'security' },
