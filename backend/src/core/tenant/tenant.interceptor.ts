@@ -1,56 +1,59 @@
 /**
- * TenantMiddleware - Extracts tenant context from JWT
+ * TenantInterceptor — request-time tenant binding (Step 3 DIP cleanup).
  *
- * This middleware runs on every request and:
- * 1. Extracts the user from the request (set by JWT auth)
- * 2. Reads the organizationId from the user
- * 3. Stores it in TenantContext for use throughout the request
- *
- * This is an interceptor (not middleware) because we need
- * access to the parsed JWT user which is set after auth guards run.
+ * Resolves the inbound request's tenant identity through the
+ * abstract `ITenantIdentityResolver` and binds it via
+ * `ITenantContextWriter`. The interceptor itself no longer reads
+ * `request.user.organizationId` directly — that piece of JWT
+ * payload knowledge is owned by `JwtTenantIdentityResolver` (default
+ * binding for `TENANT_IDENTITY_RESOLVER_TOKEN`). Swap the resolver
+ * to support header-based / session-based authentication without
+ * modifying this class.
  */
 
 import {
-  Injectable,
-  NestInterceptor,
-  ExecutionContext,
   CallHandler,
+  ExecutionContext,
+  Inject,
+  Injectable,
   Logger,
+  NestInterceptor,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { TenantContext } from './tenant-context.service';
-
-export interface RequestWithUser {
-  user?: {
-    id: string;
-    email: string;
-    organizationId?: string;
-    isSuperAdmin?: boolean;
-  };
-}
+import type { Request } from 'express';
+import type { Observable } from 'rxjs';
+import {
+  TENANT_CONTEXT_WRITER_TOKEN,
+  TENANT_IDENTITY_RESOLVER_TOKEN,
+} from './constants/tenant.tokens';
+import type {
+  ITenantContextWriter,
+  ITenantIdentityResolver,
+} from './interfaces/tenant.interfaces';
 
 @Injectable()
 export class TenantInterceptor implements NestInterceptor {
   private readonly logger = new Logger(TenantInterceptor.name);
 
-  constructor(private readonly tenantContext: TenantContext) {}
+  constructor(
+    @Inject(TENANT_IDENTITY_RESOLVER_TOKEN)
+    private readonly identityResolver: ITenantIdentityResolver,
+    @Inject(TENANT_CONTEXT_WRITER_TOKEN)
+    private readonly contextWriter: ITenantContextWriter,
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const request = context.switchToHttp().getRequest<RequestWithUser>();
-    const user = request.user;
+    if (context.getType() !== 'http') {
+      return next.handle();
+    }
 
-    if (user?.organizationId) {
-      // Set tenant context from JWT
-      this.tenantContext.setTenantId(user.organizationId);
-      this.logger.debug(
-        `Tenant context set: ${user.organizationId} for user ${user.id}`,
-      );
-    } else if (user?.isSuperAdmin) {
-      // Super admins may operate without a specific tenant
-      // They can use @BypassTenantScope if needed
-      this.logger.debug(
-        `Super admin request without tenant context: ${user.id}`,
-      );
+    const request = context.switchToHttp().getRequest<Request>();
+    const identity = this.identityResolver.resolve(request);
+
+    if (identity.tenantId) {
+      this.contextWriter.setTenantId(identity.tenantId);
+      this.logger.debug(`Tenant context set: ${identity.tenantId}`);
+    } else if (identity.isPrivileged) {
+      this.logger.debug('Privileged principal request without tenant context');
     }
 
     return next.handle();

@@ -1,56 +1,51 @@
 /**
- * TenantRepositoryFactory - Creates TenantRepository instances
+ * TenantRepositoryFactory — assembles `TenantRepository` instances
+ * (SOLID Refactor Step 2).
  *
- * This factory simplifies creating tenant-aware repositories in services.
- * It wraps any TypeORM Repository with automatic tenant filtering.
+ * The factory is now a pure assembler: it injects the four
+ * decomposed providers (query filter, write guard, RLS session
+ * manager, unsafe-manager gate) and bundles them into the thin
+ * `TenantRepository` adapter. No business logic lives here.
  *
- * Features:
- * - Automatic tenant filtering (organizationId)
- * - Automatic soft-delete filtering (deletedAt IS NULL)
- * - Soft delete/restore methods for supported entities
+ * BREAKING CHANGE — DOMAIN SCRUB
+ *   The implicit `'organizationId'` default has been removed from
+ *   every factory entry point. Callers must pass the tenant column
+ *   name explicitly so that infrastructure no longer encodes a piece
+ *   of the domain schema. Three call sites were migrated alongside
+ *   this change (`projects`, `sprints`, `issues`).
  *
  * Usage:
  *   constructor(
  *     private readonly tenantRepoFactory: TenantRepositoryFactory,
- *     @InjectRepository(Issue) private readonly issueRepo: Repository<Issue>,
+ *     @InjectRepository(Issue) issueRepo: Repository<Issue>,
  *   ) {
- *     this.tenantIssueRepo = tenantRepoFactory.create(issueRepo);
+ *     this.tenantIssueRepo = tenantRepoFactory.create(issueRepo, 'organizationId');
  *   }
- *
- *   // Then use tenantIssueRepo.find() - automatically filtered by tenant!
  */
 
 import { Injectable } from '@nestjs/common';
-import { Repository, ObjectLiteral } from 'typeorm';
-import { TenantContext } from './tenant-context.service';
+import type { ObjectLiteral, Repository } from 'typeorm';
+import { TenantQueryFilter } from './repository/tenant-query.filter';
+import { TenantWriteGuard } from './repository/tenant-write.guard';
+import { TenantRlsSessionManager } from './repository/tenant-rls-session.manager';
+import { UnsafeManagerGate } from './repository/unsafe-manager.gate';
+import type {
+  SoftDeletableEntity,
+  TenantAwareEntity,
+} from './interfaces/tenant-aware-entity.interface';
 import {
   TenantRepository,
-  TenantAwareEntity,
-  SoftDeletableEntity,
+  TenantRepositoryProviders,
 } from './tenant.repository';
 
 /**
- * Extended TenantRepository with soft delete capabilities
+ * Extended TenantRepository with soft-delete capabilities.
  */
 export interface SoftDeletableTenantRepository<
   T extends SoftDeletableEntity,
 > extends TenantRepository<T> {
-  /**
-   * Soft delete an entity by setting deletedAt timestamp
-   * @param id - Entity ID to soft delete
-   * @param deletedBy - Optional user ID who performed the delete
-   */
   softDelete(id: string, deletedBy?: string): Promise<void>;
-
-  /**
-   * Restore a soft-deleted entity by clearing deletedAt
-   * @param id - Entity ID to restore
-   */
   restore(id: string): Promise<void>;
-
-  /**
-   * Find entities including soft-deleted ones (for admin/audit)
-   */
   findWithDeleted(
     options?: Parameters<TenantRepository<T>['find']>[0],
   ): Promise<T[]>;
@@ -58,60 +53,66 @@ export interface SoftDeletableTenantRepository<
 
 @Injectable()
 export class TenantRepositoryFactory {
-  constructor(private readonly tenantContext: TenantContext) {}
+  private readonly providers: TenantRepositoryProviders;
 
-  /**
-   * Create a tenant-aware repository wrapper
-   *
-   * @param repository - The TypeORM repository to wrap
-   * @param tenantField - The field name that contains organizationId (default: 'organizationId')
-   * @returns A TenantRepository that auto-filters by tenant and soft-delete
-   */
-  create<T extends TenantAwareEntity>(
-    repository: Repository<T>,
-    tenantField: keyof T | string = 'organizationId',
-  ): TenantRepository<T> {
-    return new TenantRepository<T>(repository, this.tenantContext, tenantField);
+  constructor(
+    queryFilter: TenantQueryFilter,
+    writeGuard: TenantWriteGuard,
+    rlsSessionManager: TenantRlsSessionManager,
+    unsafeManagerGate: UnsafeManagerGate,
+  ) {
+    this.providers = {
+      queryFilter,
+      writeGuard,
+      rlsSessionManager,
+      unsafeManagerGate,
+    };
   }
 
   /**
-   * Create a tenant-aware repository with explicit soft-delete support
+   * Wrap a TypeORM repository with the tenant-aware adapter.
    *
-   * Use this for entities that have deletedAt column (e.g., Project)
-   * Returns an extended repository with softDelete/restore/findWithDeleted methods
+   * @param repository  - The TypeORM repository to wrap.
+   * @param tenantField - REQUIRED. The column on the entity that holds
+   *                      the tenant id (e.g. `'organizationId'`).
+   *                      Required by design — see file header.
+   */
+  create<T extends TenantAwareEntity>(
+    repository: Repository<T>,
+    tenantField: keyof T | string,
+  ): TenantRepository<T> {
+    return new TenantRepository<T>(repository, this.providers, tenantField);
+  }
+
+  /**
+   * Wrap a repository for an entity that supports soft-delete,
+   * exposing the supplemental `softDelete` / `restore` /
+   * `findWithDeleted` helpers.
    *
-   * @param repository - The TypeORM repository to wrap
-   * @param tenantField - The field name that contains organizationId
-   * @returns A SoftDeletableTenantRepository with additional soft delete methods
+   * @param tenantField - REQUIRED. The column on the entity that
+   *                      holds the tenant id.
    */
   createWithSoftDelete<T extends SoftDeletableEntity>(
     repository: Repository<T>,
-    tenantField: keyof T | string = 'organizationId',
+    tenantField: keyof T | string,
   ): SoftDeletableTenantRepository<T> {
     const baseRepo = new TenantRepository<T>(
       repository,
-      this.tenantContext,
+      this.providers,
       tenantField,
     );
 
-    // Extend with soft delete methods
     const extendedRepo = Object.assign(baseRepo, {
-      /**
-       * Soft delete - sets deletedAt instead of hard delete
-       */
       async softDelete(id: string, deletedBy?: string): Promise<void> {
         await repository.update(
           id as never,
           {
             deletedAt: new Date(),
-            deletedBy: deletedBy || null,
+            deletedBy: deletedBy ?? null,
           } as never,
         );
       },
 
-      /**
-       * Restore soft-deleted entity
-       */
       async restore(id: string): Promise<void> {
         await repository.update(
           id as never,
@@ -122,14 +123,9 @@ export class TenantRepositoryFactory {
         );
       },
 
-      /**
-       * Find including soft-deleted records (bypasses deletedAt filter)
-       * Useful for admin panels and audit trails
-       */
       async findWithDeleted(
         options?: Parameters<typeof baseRepo.find>[0],
       ): Promise<T[]> {
-        // Access the underlying repository directly to bypass soft-delete filter
         return repository.find(options);
       },
     });
@@ -138,37 +134,28 @@ export class TenantRepositoryFactory {
   }
 
   /**
-   * Create a tenant-aware repository that filters through a relation
+   * Wrap a repository where the tenant id lives on a related entity
+   * (e.g. `Issue → Project → organizationId`).
    *
-   * For entities like Issue that link to Project which has organizationId,
-   * use this method with a join path.
-   *
-   * Example: For Issue → Project → organizationId
-   *   createWithJoin(issueRepo, 'project', 'organizationId')
-   *
-   * Note: This requires the query to include the relation join.
-   * Consider using the QueryBuilder approach for such entities.
+   * @param relationName - The relation alias used in joins.
+   * @param tenantField  - REQUIRED. The column on the related entity
+   *                       that holds the tenant id.
    */
   createWithJoin<T extends ObjectLiteral>(
     repository: Repository<T>,
     relationName: string,
-    tenantField: string = 'organizationId',
+    tenantField: string,
   ): TenantRepository<T> {
-    // For join-based filtering, the caller must ensure the relation is joined
-    // The tenantField will be applied as relation.tenantField
     const joinedField = `${relationName}.${tenantField}`;
-    return new TenantRepository<T>(
-      repository,
-      this.tenantContext,
-      joinedField as keyof T,
+    return new TenantRepository<T & TenantAwareEntity>(
+      repository as Repository<T & TenantAwareEntity>,
+      this.providers,
+      joinedField as keyof (T & TenantAwareEntity),
     );
   }
 
   /**
-   * Check if an entity supports soft delete
-   *
-   * @param repository - The repository to check
-   * @returns true if entity has deletedAt column
+   * True when the entity has a `deletedAt` column.
    */
   hasSoftDeleteSupport<T extends ObjectLiteral>(
     repository: Repository<T>,
