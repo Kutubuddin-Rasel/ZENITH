@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { CacheService } from '../../cache/cache.service';
-
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 /**
  * Token Blacklist Service
  *
@@ -27,7 +27,9 @@ export class TokenBlacklistService {
   private readonly logger = new Logger(TokenBlacklistService.name);
   private readonly NAMESPACE = 'token_blacklist';
 
-  constructor(private readonly cacheService: CacheService) {}
+  constructor(
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
+  ) {}
 
   /**
    * Add a token to the blacklist.
@@ -50,8 +52,8 @@ export class TokenBlacklistService {
       }
 
       // Add to blacklist with exact TTL
-      // Using CacheService.set which internally uses Redis SET with EX
-      await this.cacheService.set(
+      // Using cache.set which internally uses Redis SET with EX
+      await this.cacheStore.set(
         `blacklist:${jti}`,
         '1', // Minimal value - we only care about key existence
         {
@@ -87,7 +89,7 @@ export class TokenBlacklistService {
         return false;
       }
 
-      const result = await this.cacheService.get(`blacklist:${jti}`, {
+      const result = await this.cacheStore.get(`blacklist:${jti}`, {
         namespace: this.NAMESPACE,
       });
 

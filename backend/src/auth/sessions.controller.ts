@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { SessionsService } from './sessions.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { CsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
+import { CsrfGuard, RequireCsrf } from '../security/csrf';
 
 interface AuthRequest {
   user: {

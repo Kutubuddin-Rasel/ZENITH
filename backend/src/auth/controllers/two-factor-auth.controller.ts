@@ -17,7 +17,7 @@ import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { Public } from '../decorators/public.decorator';
-import { CsrfGuard, RequireCsrf } from '../../security/csrf/csrf.guard';
+import { CsrfGuard, RequireCsrf } from '../../security/csrf';
 import { Verify2FADto, VerifyLogin2FADto } from '../dto/two-factor-auth.dto';
 import {
   TWO_FACTOR_ADMIN_SERVICE_TOKEN,
