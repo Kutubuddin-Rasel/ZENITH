@@ -12,10 +12,17 @@
  * This is a compliance requirement for SOC 2.
  */
 
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { AuditLogsService } from '../../audit/audit-logs.service';
-import { v4 as uuidv4 } from 'uuid';
+import { BYPASS_AUDIT_WRITER_TOKEN } from './constants/tenant.tokens';
+import type {
+  BypassAuditContext as BypassAuditContextContract,
+  IBypassAuditWriter,
+  ITenantBypassController,
+  ITenantContextReader,
+  ITenantContextWriter,
+  TenantAuditEvent as TenantAuditEventContract,
+} from './interfaces/tenant.interfaces';
 
 export const TENANT_ID_KEY = 'tenantId';
 export const BYPASS_TENANT_KEY = 'bypassTenant';
@@ -31,32 +38,33 @@ export const TenantAuditEvents = {
   BYPASS_ENABLED: 'TENANT_BYPASS_ENABLED',
   /** Tenant isolation bypass was disabled */
   BYPASS_DISABLED: 'TENANT_BYPASS_DISABLED',
-} as const;
+} as const satisfies Record<string, TenantAuditEventContract>;
 
-export type TenantAuditEvent =
-  (typeof TenantAuditEvents)[keyof typeof TenantAuditEvents];
+/**
+ * Re-export of the contract-layer event union for backward compatibility
+ * with existing consumers that import `TenantAuditEvent` from this file.
+ */
+export type TenantAuditEvent = TenantAuditEventContract;
 
 /**
  * Bypass context for audit logging (Phase 1)
  *
- * This interface is NOT exported to enforce usage through the service methods.
+ * Local alias of the contract-layer type so the existing private
+ * helpers continue to compile without exporting the structure.
  */
-interface BypassAuditContext {
-  /** User ID performing the bypass (e.g., 'u-123' or 'system:scheduler') */
-  userId: string;
-  /** Justification for the bypass operation */
-  reason: string;
-  /** Optional tenant ID that is being bypassed */
-  tenantId?: string;
-}
+type BypassAuditContext = BypassAuditContextContract;
 
 @Injectable()
-export class TenantContext {
+export class TenantContext
+  implements ITenantContextReader, ITenantContextWriter, ITenantBypassController
+{
   private readonly logger = new Logger(TenantContext.name);
 
   constructor(
     private readonly cls: ClsService,
-    @Optional() private readonly auditLogsService?: AuditLogsService,
+    @Optional()
+    @Inject(BYPASS_AUDIT_WRITER_TOKEN)
+    private readonly bypassAuditWriter?: IBypassAuditWriter,
   ) {}
 
   /**
@@ -174,33 +182,14 @@ export class TenantContext {
     action: TenantAuditEvent,
     context: BypassAuditContext,
   ): Promise<void> {
-    if (!this.auditLogsService) {
-      this.logger.debug('AuditLogsService not available, skipping audit log');
+    if (!this.bypassAuditWriter) {
+      this.logger.debug(
+        'IBypassAuditWriter not bound, skipping bypass audit log',
+      );
       return;
     }
 
-    try {
-      await this.auditLogsService.log({
-        event_uuid: uuidv4(),
-        timestamp: new Date(),
-        tenant_id: context.tenantId || 'system',
-        actor_id: context.userId,
-        resource_type: 'TenantContext',
-        resource_id: 'bypass_scope',
-        action_type: 'UPDATE',
-        action,
-        metadata: {
-          severity: 'HIGH',
-          reason: context.reason,
-          bypassState: action === TenantAuditEvents.BYPASS_ENABLED,
-        },
-      });
-    } catch (error: unknown) {
-      // FAIL-OPEN: Log error but don't block the bypass operation
-      this.logger.error(
-        `Failed to log bypass audit event:`,
-        error instanceof Error ? error.message : 'Unknown error',
-      );
-    }
+    // Adapter owns AuditLogEvent shape construction and fail-open semantics.
+    await this.bypassAuditWriter.recordBypass(action, context);
   }
 }
