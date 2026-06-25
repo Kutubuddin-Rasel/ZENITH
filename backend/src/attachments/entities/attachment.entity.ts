@@ -20,6 +20,11 @@ import { Project } from '../../projects/entities/project.entity';
 @Index('IDX_attachment_project_id', ['projectId'])
 @Index('IDX_attachment_uploaded_by', ['uploaderId'])
 @Index('IDX_attachment_created_at', ['createdAt'])
+// DSA: the sprint/release/comment list paths were seq-scans — these three
+// FK columns back `findByTarget(column, value)` with an index lookup.
+@Index('IDX_attachment_sprint_id', ['sprintId'])
+@Index('IDX_attachment_release_id', ['releaseId'])
+@Index('IDX_attachment_comment_id', ['commentId'])
 export class Attachment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
