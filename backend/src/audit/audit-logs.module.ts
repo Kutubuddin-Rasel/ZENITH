@@ -10,6 +10,12 @@ import { CIRCUIT_AUDIT_LOGGER_TOKEN } from '../circuit-breaker/constants/circuit
 import { BYPASS_AUDIT_WRITER_TOKEN } from '../core/tenant/constants/tenant.tokens';
 import { RBAC_AUDIT_EMITTER_TOKEN } from '../rbac';
 
+// SOLID Refactor (issues Step 2b): capability-owner side of the issues →
+// audit inversion. The `AuditPort` contract is issues-owned; binding the
+// adapter here gives the port the same @Global reach `AuditLogsService` has.
+import { AuditPort } from '../issues';
+import { IssueAuditAdapter } from './adapters/issue-audit.adapter';
+
 /**
  * AuditLogs Module
  *
@@ -48,12 +54,14 @@ import { RBAC_AUDIT_EMITTER_TOKEN } from '../rbac';
       provide: RBAC_AUDIT_EMITTER_TOKEN,
       useClass: RbacAuditEmitterAdapter,
     },
+    { provide: AuditPort, useClass: IssueAuditAdapter },
   ],
   exports: [
     AuditLogsService,
     CIRCUIT_AUDIT_LOGGER_TOKEN,
     BYPASS_AUDIT_WRITER_TOKEN,
     RBAC_AUDIT_EMITTER_TOKEN,
+    AuditPort,
   ],
 })
 export class AuditLogsModule {}

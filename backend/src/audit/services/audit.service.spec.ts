@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuditService } from './audit.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { getQueueToken } from '@nestjs/bullmq';
 import { AuditLog, AuditEventType } from '../entities/audit-log.entity';
 import { User } from '../../users/entities/user.entity';
+import { SECURITY_ALERTS_QUEUE } from '../security-alerts/security-alerts.constants';
 import { LessThan } from 'typeorm';
 
 describe('AuditService', () => {
@@ -38,6 +40,12 @@ describe('AuditService', () => {
         AuditService,
         { provide: getRepositoryToken(AuditLog), useValue: mockRepo },
         { provide: getRepositoryToken(User), useValue: mockRepo },
+        // Tenant-isolation refactor: `log()` enqueues security alerts for
+        // HIGH/CRITICAL events via BullMQ. The queue is fire-and-forget.
+        {
+          provide: getQueueToken(SECURITY_ALERTS_QUEUE),
+          useValue: { add: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 
@@ -51,6 +59,7 @@ describe('AuditService', () => {
       auditRepo.save.mockResolvedValue(mockLog);
 
       await service.log({
+        organizationId: 'org-1',
         eventType: AuditEventType.LOGIN_SUCCESS,
         description: 'Login',
         userEmail: 'test@example.com',
@@ -68,6 +77,7 @@ describe('AuditService', () => {
   describe('getAuditLogs', () => {
     it('should filter logs', async () => {
       const result = await service.getAuditLogs({
+        organizationId: 'org-1',
         userIds: ['u1'],
         eventTypes: [AuditEventType.LOGIN_SUCCESS],
       });
