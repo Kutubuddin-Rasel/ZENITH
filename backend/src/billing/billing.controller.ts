@@ -13,7 +13,7 @@ import { BillingService } from './billing.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 import { Request } from 'express';
-import { RequireCsrf } from '../security/csrf/csrf.guard';
+import { RequireCsrf } from '../security/csrf';
 
 @Controller('billing')
 export class BillingController {
