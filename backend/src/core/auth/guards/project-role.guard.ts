@@ -1,14 +1,17 @@
 import {
-  Injectable,
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Inject,
+  Injectable,
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
-import { ProjectMembersService } from '../../../membership/project-members/project-members.service';
-import { CacheService } from '../../../cache/cache.service';
+import { PROJECT_MEMBER_QUERY_TOKEN } from '../../../membership/constants/membership.tokens';
+import type { IProjectMemberQuery } from '../../../membership/interfaces/membership.interfaces';
+import { CACHE_STORE_TOKEN } from '../../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../../cache/interfaces/cache.interfaces';
 import { ProjectRole } from '../../../membership/enums/project-role.enum';
 
 export const REQUIRED_PROJECT_ROLES_KEY = 'required_project_roles';
@@ -33,8 +36,9 @@ export class ProjectRoleGuard implements CanActivate {
 
   constructor(
     private reflector: Reflector,
-    private projectMembersService: ProjectMembersService,
-    private cacheService: CacheService,
+    @Inject(PROJECT_MEMBER_QUERY_TOKEN)
+    private projectMembersService: IProjectMemberQuery,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -72,7 +76,7 @@ export class ProjectRoleGuard implements CanActivate {
     const projectIdStr = Array.isArray(projectId) ? projectId[0] : projectId;
 
     const cacheKey = `project_role:${projectIdStr}:${userId}`;
-    let userRole = await this.cacheService.get<ProjectRole>(cacheKey);
+    let userRole = await this.cacheStore.get<ProjectRole>(cacheKey);
 
     if (!userRole) {
       userRole = (await this.projectMembersService.getUserRole(
@@ -81,7 +85,7 @@ export class ProjectRoleGuard implements CanActivate {
       )) as ProjectRole;
 
       if (userRole) {
-        await this.cacheService.set(cacheKey, userRole, {
+        await this.cacheStore.set(cacheKey, userRole, {
           ttl: this.CACHE_TTL,
         });
       }

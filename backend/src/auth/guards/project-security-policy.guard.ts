@@ -7,7 +7,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ProjectSecurityPolicyService } from '../../projects/project-security-policy.service';
+import {
+  PROJECT_SECURITY_POLICY_TOKEN,
+  type IProjectSecurityPolicyQuery,
+} from '../../projects';
 import { TWO_FACTOR_SECRET_STORE_TOKEN } from '../constants/auth.tokens';
 import { I2FASecretStore } from '../interfaces/two-factor.interfaces';
 
@@ -67,7 +70,8 @@ export class ProjectSecurityPolicyGuard implements CanActivate {
   private readonly logger = new Logger(ProjectSecurityPolicyGuard.name);
 
   constructor(
-    private readonly policyService: ProjectSecurityPolicyService,
+    @Inject(PROJECT_SECURITY_POLICY_TOKEN)
+    private readonly policyService: IProjectSecurityPolicyQuery,
     @Inject(TWO_FACTOR_SECRET_STORE_TOKEN)
     private readonly twoFactorSecretStore: I2FASecretStore,
     private readonly reflector: Reflector,

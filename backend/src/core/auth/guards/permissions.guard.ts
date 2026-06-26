@@ -1,14 +1,22 @@
 import {
-  Injectable,
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Inject,
+  Injectable,
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ProjectMembersService } from '../../../membership/project-members/project-members.service';
-import { CacheService } from '../../../cache/cache.service';
-import { RBACService } from '../../../rbac/rbac.service';
+import { PROJECT_MEMBER_QUERY_TOKEN } from '../../../membership/constants/membership.tokens';
+import type { IProjectMemberQuery } from '../../../membership/interfaces/membership.interfaces';
+import { CACHE_STORE_TOKEN } from '../../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../../cache/interfaces/cache.interfaces';
+import {
+  IPermissionPolicyService,
+  IRoleQueryService,
+  RBAC_PERMISSION_POLICY_TOKEN,
+  RBAC_ROLE_QUERY_TOKEN,
+} from '../../../rbac';
 import { AuditLogsService } from '../../../audit/audit-logs.service';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -38,9 +46,13 @@ export class PermissionsGuard implements CanActivate {
 
   constructor(
     private reflector: Reflector,
-    private projectMembersService: ProjectMembersService,
-    private cacheService: CacheService,
-    private rbacService: RBACService,
+    @Inject(PROJECT_MEMBER_QUERY_TOKEN)
+    private projectMembersService: IProjectMemberQuery,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
+    @Inject(RBAC_PERMISSION_POLICY_TOKEN)
+    private readonly policy: IPermissionPolicyService,
+    @Inject(RBAC_ROLE_QUERY_TOKEN)
+    private readonly roleQuery: IRoleQueryService,
     private auditLogsService: AuditLogsService,
   ) {}
 
@@ -155,7 +167,7 @@ export class PermissionsGuard implements CanActivate {
   ): Promise<boolean> {
     // Check cache for roleId first
     const cacheKey = `project_role_id:${projectId}:${userId}`;
-    let roleId = await this.cacheService.get<string>(cacheKey);
+    let roleId = await this.cacheStore.get<string>(cacheKey);
     let roleName: string | undefined;
 
     if (!roleId) {
@@ -183,7 +195,7 @@ export class PermissionsGuard implements CanActivate {
       roleId = roleDetails.roleId ?? null;
       if (!roleId) {
         // Backward compatibility: resolve roleId from legacy roleName
-        const legacyRole = await this.rbacService.getRoleByLegacyEnum(
+        const legacyRole = await this.roleQuery.findByLegacyEnum(
           roleDetails.roleName,
         );
         roleId = legacyRole?.id ?? null;
@@ -206,11 +218,11 @@ export class PermissionsGuard implements CanActivate {
       }
 
       // Cache the resolved roleId
-      await this.cacheService.set(cacheKey, roleId, { ttl: this.CACHE_TTL });
+      await this.cacheStore.set(cacheKey, roleId, { ttl: this.CACHE_TTL });
     }
 
-    // Check permission via RBACService (has its own cache layer)
-    const permissions = await this.rbacService.getRolePermissions(roleId);
+    // Check permission via the policy surface (Redis-backed cache layer)
+    const permissions = await this.policy.resolveRolePermissions(roleId);
 
     if (permissions.includes(requiredPerm)) {
       this.logger.debug(
@@ -227,7 +239,7 @@ export class PermissionsGuard implements CanActivate {
       roleId,
       roleName,
       requiredPermission: requiredPerm,
-      grantedPermissions: permissions,
+      grantedPermissions: [...permissions],
       reason: `Role lacks required permission: ${requiredPerm}`,
       clientIp,
     });
