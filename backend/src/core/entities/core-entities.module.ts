@@ -5,7 +5,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { Issue } from '../../issues/entities/issue.entity';
-import { ProjectMember } from '../../membership/entities/project-member.entity';
 
 /**
  * CoreEntitiesModule
@@ -16,10 +15,19 @@ import { ProjectMember } from '../../membership/entities/project-member.entity';
  *
  * Being @Global means any module can inject these repositories without
  * explicitly importing this module.
+ *
+ * Aggregate boundaries
+ * --------------------
+ * `ProjectMember` was removed from this global registration in the
+ * membership Step 2 refactor. It belongs to the membership aggregate
+ * and its persistence is sealed inside `MembershipModule` —
+ * `PostgresProjectMemberRepository` is the sole
+ * `@InjectRepository(ProjectMember)` site, and external reads go
+ * through `PROJECT_MEMBER_QUERY_TOKEN`.
  */
 @Global()
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Project, Issue, ProjectMember])],
+  imports: [TypeOrmModule.forFeature([User, Project, Issue])],
   exports: [TypeOrmModule],
 })
 export class CoreEntitiesModule {}
