@@ -1,6 +1,16 @@
 // src/backlog/dto/backlog-query.dto.ts
 import { Type } from 'class-transformer';
 import { IsOptional, IsInt, Min, Max } from 'class-validator';
+import {
+  BacklogPaginationMeta,
+  PaginatedBacklogResponse,
+} from '../interfaces/backlog.interfaces';
+
+// Canonical home for these response contracts is now
+// `interfaces/backlog.interfaces.ts` (the ISP layer). Re-exported here so
+// existing importers (the legacy `BacklogService`) keep compiling through
+// the strangler-fig window.
+export type { BacklogPaginationMeta, PaginatedBacklogResponse };
 
 /**
  * Backlog-specific pagination defaults
@@ -37,26 +47,6 @@ export class BacklogQueryDto {
     message: `Limit cannot exceed ${BACKLOG_PAGINATION.MAX_LIMIT}`,
   })
   limit?: number = BACKLOG_PAGINATION.DEFAULT_LIMIT;
-}
-
-/**
- * Pagination metadata for backlog response
- */
-export interface BacklogPaginationMeta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-}
-
-/**
- * Paginated backlog response
- */
-export interface PaginatedBacklogResponse<T> {
-  data: T[];
-  meta: BacklogPaginationMeta;
 }
 
 /**
