@@ -8,27 +8,44 @@ import {
   Query,
   UseGuards,
   Request,
+  Inject,
 } from '@nestjs/common';
-import { BacklogService } from './backlog.service';
 import { MoveBacklogItemDto } from './dto/move-backlog-item.dto';
 import { ReorderBacklogItemsDto } from './dto/reorder-backlog-items.dto';
 import { BacklogQueryDto } from './dto/backlog-query.dto';
+import {
+  BACKLOG_QUERY_TOKEN,
+  BACKLOG_ORDERING_TOKEN,
+} from './constants/backlog.tokens';
+import type {
+  IBacklogQuery,
+  IBacklogOrdering,
+} from './interfaces/backlog.interfaces';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
-import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf';
 
 /**
  * BacklogController - Manages backlog item ordering
  *
  * CSRF Protection: All mutations require x-csrf-token header.
  * Attack Vector: "Silent Sabotage" - priority manipulation via malicious site.
+ *
+ * Step 3: injects the ISP tokens (`IBacklogQuery` / `IBacklogOrdering`)
+ * instead of the concrete `BacklogService` (now deleted) — the controller
+ * depends only on the sealed contract surface.
  */
 @Controller('projects/:projectId/backlog')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class BacklogController {
-  constructor(private backlogSvc: BacklogService) {}
+  constructor(
+    @Inject(BACKLOG_QUERY_TOKEN)
+    private readonly backlogQuery: IBacklogQuery,
+    @Inject(BACKLOG_ORDERING_TOKEN)
+    private readonly backlogOrdering: IBacklogOrdering,
+  ) {}
 
   /**
    * View backlog with pagination (GET - no CSRF required)
@@ -40,7 +57,7 @@ export class BacklogController {
     @Query() query: BacklogQueryDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.backlogSvc.getBacklog(projectId, req.user.userId, query);
+    return this.backlogQuery.getBacklog(projectId, req.user.userId, query);
   }
 
   /**
@@ -55,7 +72,7 @@ export class BacklogController {
     @Body() dto: MoveBacklogItemDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.backlogSvc.moveItem(projectId, req.user.userId, dto);
+    return this.backlogOrdering.moveItem(projectId, req.user.userId, dto);
   }
 
   /**
@@ -70,7 +87,7 @@ export class BacklogController {
     @Body() dto: ReorderBacklogItemsDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.backlogSvc.reorderItems(
+    return this.backlogOrdering.reorderItems(
       projectId,
       req.user.userId,
       dto.issueIds,
