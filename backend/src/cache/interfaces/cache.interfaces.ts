@@ -1,8 +1,4 @@
-import {
-  CachedIssue,
-  CachedProject,
-  CachedUser,
-} from '../cache.interfaces';
+import { CachedIssue, CachedProject, CachedUser } from '../cache.interfaces';
 
 /**
  * Cache Service Contracts (Cache Module — DIP/ISP foundation, Step 2 surface).
@@ -139,11 +135,7 @@ export interface ICacheSortedSet {
  * conventions for User/Project/Issue caching.
  */
 export interface IEntityCache {
-  cacheUser(
-    userId: string,
-    user: CachedUser,
-    ttl?: number,
-  ): Promise<boolean>;
+  cacheUser(userId: string, user: CachedUser, ttl?: number): Promise<boolean>;
   getCachedUser(userId: string): Promise<CachedUser | null>;
   cacheProject(
     projectId: string,
@@ -162,14 +154,15 @@ export interface IEntityCache {
 }
 
 /**
- * ICacheService — transitional façade union.
+ * ICacheService — composite façade union of every segregated interface.
  *
- * Composes every segregated interface so the legacy `CacheService` consumers
- * can migrate one at a time during Step 3 without churning every call site.
- * NEW code MUST inject the narrowest interface it needs, not this façade.
+ * Retained for tooling that genuinely needs the full surface (e.g., generic
+ * test doubles). Production code MUST inject the narrowest segregated
+ * contract instead — never this façade.
  */
 export interface ICacheService
-  extends ICacheStore,
+  extends
+    ICacheStore,
     ICacheInvalidator,
     ICacheList,
     ICacheHealth,
