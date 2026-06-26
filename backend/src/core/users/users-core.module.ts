@@ -3,6 +3,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../../users/entities/user.entity';
 import { UsersService } from '../../users/users.service';
 
+// SOLID Refactor (issues Step 2b): capability-owner side of the issues →
+// users inversion. The `UserLookupPort` contract is declared in
+// `issues/ports/user-lookup.port.ts` (consumer-owned); binding the adapter
+// here gives the port the same @Global reach `UsersService` already has, so
+// `issues.module` needs no new import.
+import { UserLookupPort } from '../../issues';
+import { UserLookupAdapter } from '../../users/adapters/user-lookup.adapter';
+
 /**
  * UsersCoreModule
  *
@@ -17,7 +25,10 @@ import { UsersService } from '../../users/users.service';
 @Global()
 @Module({
   imports: [TypeOrmModule.forFeature([User])],
-  providers: [UsersService],
-  exports: [UsersService],
+  providers: [
+    UsersService,
+    { provide: UserLookupPort, useClass: UserLookupAdapter },
+  ],
+  exports: [UsersService, UserLookupPort],
 })
 export class UsersCoreModule {}
