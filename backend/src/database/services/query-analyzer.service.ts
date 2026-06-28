@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import { QueryCacheService } from './query-cache.service';
 import {
   QueryAnalysisResult,
@@ -18,7 +19,7 @@ import {
 @Injectable()
 export class QueryAnalyzerService {
   constructor(
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
     private readonly queryCache: QueryCacheService,
   ) {}
 
@@ -38,7 +39,7 @@ export class QueryAnalyzerService {
     const startTime = Date.now();
     const cacheKey = this.queryCache.buildCacheKey(qb, options);
 
-    const cached = await this.cacheService.get<T[]>(cacheKey);
+    const cached = await this.cacheStore.get<T[]>(cacheKey);
     const cacheHit = cached !== null;
 
     const result: T[] =

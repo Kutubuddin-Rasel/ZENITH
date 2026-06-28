@@ -7,7 +7,7 @@
  * @module database/helpers/safe-query.helper
  */
 
-import { TenantContext } from '../../core/tenant/tenant-context.service';
+import type { ITenantContextReader } from '../../core/tenant/interfaces/tenant.interfaces';
 
 /**
  * Tables that have direct organizationId column
@@ -74,7 +74,7 @@ const PROJECT_LINKED_TABLES = [
 export function withTenantScope(
   tableName: string,
   alias: string,
-  tenantContext: TenantContext,
+  tenantContext: ITenantContextReader,
 ): string {
   const tenantId = tenantContext.getTenantId();
 
@@ -124,7 +124,7 @@ export function withTenantScope(
 export function tenantJoin(
   tableName: string,
   alias: string,
-  tenantContext: TenantContext,
+  tenantContext: ITenantContextReader,
 ): string {
   const tenantId = tenantContext.getTenantId();
 
@@ -164,7 +164,7 @@ export function tenantJoin(
  */
 export function directTenantWhere(
   alias: string,
-  tenantContext: TenantContext,
+  tenantContext: ITenantContextReader,
 ): string {
   const tenantId = tenantContext.getTenantId();
   if (!tenantId) return '';

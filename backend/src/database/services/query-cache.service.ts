@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import * as crypto from 'crypto';
 
-import { CacheService } from '../../cache/cache.service';
+import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
+import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 import { QueryOptions } from './query-optimizer.types';
 
 /**
@@ -15,7 +16,9 @@ import { QueryOptions } from './query-optimizer.types';
 export class QueryCacheService {
   private readonly logger = new Logger(QueryCacheService.name);
 
-  constructor(private readonly cacheService: CacheService) {}
+  constructor(
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
+  ) {}
 
   async optimizeQuery<T extends ObjectLiteral>(
     qb: SelectQueryBuilder<T>,
@@ -25,7 +28,7 @@ export class QueryCacheService {
     const finalCacheKey = cacheKey ?? this.buildCacheKey(qb, options);
 
     if (useCache) {
-      const cached = await this.cacheService.get<T[]>(finalCacheKey);
+      const cached = await this.cacheStore.get<T[]>(finalCacheKey);
       if (cached) {
         this.logger.debug(`Cache hit for key: ${finalCacheKey}`);
         return cached;
@@ -39,7 +42,7 @@ export class QueryCacheService {
     this.logger.debug(`Query executed in ${Date.now() - startTime}ms`);
 
     if (useCache && result.length > 0) {
-      await this.cacheService.set(finalCacheKey, result, { ttl: cacheTtl });
+      await this.cacheStore.set(finalCacheKey, result, { ttl: cacheTtl });
     }
     return result;
   }
@@ -54,7 +57,7 @@ export class QueryCacheService {
       : this.buildCacheKey(qb, options, 'count');
 
     if (useCache) {
-      const cached = await this.cacheService.get<number>(finalCacheKey);
+      const cached = await this.cacheStore.get<number>(finalCacheKey);
       if (cached !== null) return cached;
     }
 
@@ -66,7 +69,7 @@ export class QueryCacheService {
 
     const count = parseInt(raw.count, 10);
     if (useCache) {
-      await this.cacheService.set(finalCacheKey, count, { ttl: cacheTtl });
+      await this.cacheStore.set(finalCacheKey, count, { ttl: cacheTtl });
     }
     return count;
   }
