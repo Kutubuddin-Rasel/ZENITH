@@ -6,6 +6,7 @@ import {
   IIssueReader,
   IIssueWriter,
   IssueFilters,
+  IssueMoveResult,
   KanbanCard,
 } from '../interfaces/repository.interfaces';
 import { BaseRepository } from './base.repository';
@@ -50,4 +51,26 @@ export abstract class IssueRepository
 
   /** Board-shaped projection of all non-archived issues in a project. */
   abstract findKanbanCards(projectId: string): Promise<KanbanCard[]>;
+
+  /**
+   * Bulk-reorder issues within a single kanban column.
+   * See `IIssueWriter.bulkReorderInColumn` for the full contract.
+   */
+  abstract bulkReorderInColumn(
+    projectId: string,
+    status: string,
+    orderedIssueIds: readonly string[],
+  ): Promise<void>;
+
+  /**
+   * Move an issue between workflow statuses + update backlog order.
+   * See `IIssueWriter.moveToStatus` for the full contract.
+   */
+  abstract moveToStatus(
+    projectId: string,
+    issueId: string,
+    toStatusId: string,
+    toStatusName: string,
+    newOrder: number,
+  ): Promise<IssueMoveResult | null>;
 }

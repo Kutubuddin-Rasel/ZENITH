@@ -14,6 +14,7 @@ import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity
 import { Issue } from '../../../issues/entities/issue.entity';
 import {
   IssueFilters,
+  IssueMoveResult,
   KanbanCard,
 } from '../../interfaces/repository.interfaces';
 import { IssueRepository } from '../issue.repository';
@@ -274,5 +275,93 @@ export class TypeOrmIssueRepository extends IssueRepository {
 
   async restore(id: string): Promise<void> {
     await this.repo.restore(id);
+  }
+
+  /**
+   * Bulk-reorder issues within a single kanban column.
+   *
+   * Extracted verbatim from the legacy `boards.service.ts:716-739` so Step 2
+   * preserves runtime behavior exactly. Filters on (projectId, status) so
+   * cross-project / cross-column writes are impossible even if a malicious
+   * orderedIssueIds list is supplied.
+   *
+   * @RAW_QUERY_AUDIT: Fully parameterized — no string interpolation.
+   * Tenant isolation: `projectId` in WHERE ensures only issues belonging to
+   * the supplied project are updated. Column scope: `i.status = $columnId`
+   * matches the legacy string column (the boards orderingService passes the
+   * column NAME today, not a statusId — preserved to match on-disk semantics).
+   */
+  async bulkReorderInColumn(
+    projectId: string,
+    status: string,
+    orderedIssueIds: readonly string[],
+  ): Promise<void> {
+    if (orderedIssueIds.length === 0) return;
+
+    if (orderedIssueIds.length > 5000) {
+      throw new Error(
+        'TypeOrmIssueRepository.bulkReorderInColumn: max 5000 issues per call.',
+      );
+    }
+
+    const params: (string | number)[] = [];
+    const placeholders: string[] = [];
+
+    orderedIssueIds.forEach((id, idx) => {
+      params.push(id, idx);
+      const n = params.length;
+      placeholders.push(`($${n - 1}::uuid, $${n}::int)`);
+    });
+
+    const projectIdParamIndex = params.length + 1;
+    const statusParamIndex = params.length + 2;
+    params.push(projectId, status);
+
+    await this.repo.query(
+      `UPDATE issues AS i
+       SET "backlogOrder" = v."order"
+       FROM (VALUES ${placeholders.join(', ')}) AS v(id, "order")
+       WHERE i.id = v.id
+       AND i."projectId" = $${projectIdParamIndex}
+       AND i.status = $${statusParamIndex}`,
+      params,
+    );
+  }
+
+  /**
+   * Move an issue between workflow statuses and update its backlog order.
+   *
+   * Encapsulates the read-modify-save flow that previously lived inline at
+   * `boards.service.ts:637-650` alongside a DIP-violating
+   * `dataSource.getRepository(WorkflowStatus)` call. The caller now resolves
+   * the WorkflowStatus via `WorkflowLookupPort` before invoking this method.
+   *
+   * Atomicity note: today this uses a single `repo.save(issue)` round-trip —
+   * a TypeORM-generated UPDATE statement is already atomic at the row level.
+   * Wrapping in an explicit transaction would only matter if additional row
+   * mutations join this flow later (e.g., audit row write).
+   *
+   * @returns `null` if the issue does not exist (caller raises NotFound).
+   */
+  async moveToStatus(
+    projectId: string,
+    issueId: string,
+    toStatusId: string,
+    toStatusName: string,
+    newOrder: number,
+  ): Promise<IssueMoveResult | null> {
+    const issue = await this.repo.findOne({
+      where: { id: issueId, projectId },
+    });
+    if (!issue) return null;
+
+    const prevStatusId = issue.statusId ?? null;
+
+    issue.statusId = toStatusId;
+    issue.status = toStatusName;
+    issue.backlogOrder = newOrder;
+
+    const saved = await this.repo.save(issue);
+    return { issue: saved, prevStatusId };
   }
 }

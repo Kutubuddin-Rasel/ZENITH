@@ -56,6 +56,16 @@ export class TypeOrmBoardRepository extends BoardRepository {
     });
   }
 
+  findScopedWithColumnsAndProject(
+    projectId: string,
+    boardId: string,
+  ): Promise<Board | null> {
+    return this.repo.findOne({
+      where: { id: boardId, projectId },
+      relations: ['columns', 'project'],
+    });
+  }
+
   count(where?: FindOptionsWhere<Board>): Promise<number> {
     return this.repo.count({ where });
   }
