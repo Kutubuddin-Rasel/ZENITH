@@ -16,6 +16,8 @@ import { User } from '../../users/entities/user.entity';
 @Index('IDX_comment_issue_id', ['issueId'])
 @Index('IDX_comment_user_id', ['authorId'])
 @Index('IDX_comment_created_at', ['createdAt'])
+// covers WHERE issueId ORDER BY createdAt,id — serves BOTH offset (no sort) and keyset seek
+@Index('IDX_comment_issue_created_id', ['issueId', 'createdAt', 'id'])
 @Index('IDX_comment_content_search', { synchronize: false }) // GIN index placeholder
 export class Comment {
   @PrimaryGeneratedColumn('uuid')
