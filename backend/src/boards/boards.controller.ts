@@ -1,45 +1,80 @@
 // src/boards/boards.controller.ts
 import {
-  Controller,
-  Post,
-  Get,
-  Patch,
-  Delete,
-  Param,
   Body,
+  Controller,
+  Delete,
+  Get,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Request,
   UseGuards,
   UseInterceptors,
-  Request,
 } from '@nestjs/common';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
-import { BoardsService } from './boards.service';
-import { UsersService } from '../users/users.service';
+
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RequirePermission } from '../auth/decorators/require-permission.decorator';
+import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
+import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
+import { RequireCsrf, StatefulCsrfGuard } from '../security/csrf';
+
+import {
+  BOARD_COLUMN_COMMAND_TOKEN,
+  BOARD_COMMAND_TOKEN,
+  BOARD_ORDERING_COMMAND_TOKEN,
+  BOARD_QUERY_TOKEN,
+} from './constants/boards.tokens';
 import { CreateBoardDto } from './dto/create-board.dto';
 import { UpdateBoardDto } from './dto/update-board.dto';
 import { CreateColumnDto } from './dto/create-column.dto';
 import { UpdateColumnDto } from './dto/update-column.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
-import { RequirePermission } from '../auth/decorators/require-permission.decorator';
-import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
-import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
+import type {
+  IBoardColumnCommand,
+  IBoardCommand,
+  IBoardOrderingCommand,
+  IBoardQuery,
+} from './interfaces/boards.interfaces';
 
+/**
+ * Boards HTTP transport.
+ *
+ * SOLID Refactor (Step 3 commit 6): the controller injects the four
+ * ISP-segregated tokens instead of the concrete `BoardsService` god
+ * class. Each route's dependency surface is now precisely the
+ * interface it needs — read routes touch `IBoardQuery`, lifecycle
+ * routes touch `IBoardCommand`, column sub-aggregate routes touch
+ * `IBoardColumnCommand`, drag-and-drop routes touch
+ * `IBoardOrderingCommand`. The four bindings happen to resolve to
+ * distinct service instances after the Step 3 decomposition, but
+ * the controller doesn't know or care — it depends only on the
+ * abstract contracts.
+ *
+ * Auth/Org plumbing simplification: pre-Step-3 the controller made
+ * an extra round-trip through `UsersService.findOneById` on every
+ * request to fetch the user's `organizationId`. That field is
+ * already on the JWT (`JwtRequestUser.organizationId`), so the
+ * lookup is dead weight and the dependency on `UsersService` is
+ * removed. A private helper `extractOrg(req)` keeps the access
+ * pattern uniform across routes.
+ */
 @Controller('projects/:projectId/boards')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class BoardsController {
   constructor(
-    private svc: BoardsService,
-    private readonly usersService: UsersService,
+    @Inject(BOARD_QUERY_TOKEN)
+    private readonly query: IBoardQuery,
+    @Inject(BOARD_COMMAND_TOKEN)
+    private readonly command: IBoardCommand,
+    @Inject(BOARD_COLUMN_COMMAND_TOKEN)
+    private readonly columnCommand: IBoardColumnCommand,
+    @Inject(BOARD_ORDERING_COMMAND_TOKEN)
+    private readonly ordering: IBoardOrderingCommand,
   ) {}
 
-  /**
-   * Helper: Get user's organization ID
-   */
-  private async getUserOrganization(
-    userId: string,
-  ): Promise<string | undefined> {
-    const user = await this.usersService.findOneById(userId);
-    return user.organizationId;
+  private extractOrg(req: { user: JwtRequestUser }): string | undefined {
+    return req.user.organizationId;
   }
 
   @RequirePermission('boards:create')
@@ -50,8 +85,12 @@ export class BoardsController {
     @Body() dto: CreateBoardDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    return this.svc.create(projectId, req.user.userId, dto, orgId);
+    return this.command.create(
+      projectId,
+      req.user.userId,
+      dto,
+      this.extractOrg(req),
+    );
   }
 
   /**
@@ -66,13 +105,11 @@ export class BoardsController {
     @Param('projectId') projectId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    return this.svc.findAll(projectId, req.user.userId, orgId);
+    return this.query.findAll(projectId, req.user.userId, this.extractOrg(req));
   }
 
   /**
    * CACHED: Get single board by ID
-   * Uses 5-second micro-cache to prevent duplicate queries.
    */
   @RequirePermission('boards:view')
   @UseInterceptors(CacheInterceptor)
@@ -83,17 +120,16 @@ export class BoardsController {
     @Param('boardId') boardId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    return this.svc.findOne(projectId, boardId, req.user.userId, orgId);
+    return this.query.findOne(
+      projectId,
+      boardId,
+      req.user.userId,
+      this.extractOrg(req),
+    );
   }
 
   /**
-   * OPTIMIZED + CACHED: Get board with slim issues
-   *
-   * Returns board + columns + issues with selective fields only.
-   * Excludes heavy fields: description, metadata, embedding.
-   * Uses 5-second micro-cache for standup refresh storms.
-   *
+   * OPTIMIZED + CACHED: Get board with slim issues.
    * This is the PRIMARY endpoint for Kanban board views.
    */
   @RequirePermission('boards:view')
@@ -105,12 +141,11 @@ export class BoardsController {
     @Param('boardId') boardId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    return this.svc.findOneWithIssues(
+    return this.query.findOneWithIssues(
       projectId,
       boardId,
       req.user.userId,
-      orgId,
+      this.extractOrg(req),
     );
   }
 
@@ -123,8 +158,13 @@ export class BoardsController {
     @Body() dto: UpdateBoardDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    return this.svc.update(projectId, boardId, req.user.userId, dto, orgId);
+    return this.command.update(
+      projectId,
+      boardId,
+      req.user.userId,
+      dto,
+      this.extractOrg(req),
+    );
   }
 
   @RequirePermission('boards:delete')
@@ -135,8 +175,12 @@ export class BoardsController {
     @Param('boardId') boardId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    await this.svc.remove(projectId, boardId, req.user.userId, orgId);
+    await this.command.remove(
+      projectId,
+      boardId,
+      req.user.userId,
+      this.extractOrg(req),
+    );
     return { message: 'Board deleted' };
   }
 
@@ -151,8 +195,13 @@ export class BoardsController {
     @Body() dto: CreateColumnDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    return this.svc.addColumn(projectId, boardId, req.user.userId, dto, orgId);
+    return this.columnCommand.addColumn(
+      projectId,
+      boardId,
+      req.user.userId,
+      dto,
+      this.extractOrg(req),
+    );
   }
 
   @RequirePermission('columns:update')
@@ -165,14 +214,13 @@ export class BoardsController {
     @Body() dto: UpdateColumnDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    return this.svc.updateColumn(
+    return this.columnCommand.updateColumn(
       projectId,
       boardId,
       columnId,
       req.user.userId,
       dto,
-      orgId,
+      this.extractOrg(req),
     );
   }
 
@@ -185,20 +233,20 @@ export class BoardsController {
     @Param('columnId') columnId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    await this.svc.removeColumn(
+    await this.columnCommand.removeColumn(
       projectId,
       boardId,
       columnId,
       req.user.userId,
-      orgId,
+      this.extractOrg(req),
     );
     return { message: 'Column deleted' };
   }
 
   /**
-   * Move an issue between columns (drag-and-drop)
-   * RELATIONAL STATUS: Now accepts statusId (UUID) instead of column name strings.
+   * Move an issue between columns (drag-and-drop).
+   * RELATIONAL STATUS: accepts `statusId` (UUID) — column-name
+   * strings are no longer accepted at the transport layer.
    */
   @RequirePermission('boards:update')
   @RequireCsrf()
@@ -209,20 +257,19 @@ export class BoardsController {
     @Body()
     body: {
       issueId: string;
-      statusId: string; // The target WorkflowStatus UUID
+      statusId: string;
       newOrder: number;
     },
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    await this.svc.moveIssue(
+    await this.ordering.moveIssue(
       projectId,
       boardId,
       body.issueId,
       body.statusId,
       body.newOrder,
       req.user.userId,
-      orgId,
+      this.extractOrg(req),
     );
     return { message: 'Issue moved' };
   }
@@ -237,14 +284,13 @@ export class BoardsController {
     @Body() body: { columnId: string; orderedIssueIds: string[] },
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    await this.svc.reorderIssues(
+    await this.ordering.reorderIssues(
       projectId,
       boardId,
       body.columnId,
       body.orderedIssueIds,
       req.user.userId,
-      orgId,
+      this.extractOrg(req),
     );
     return { message: 'Issues reordered' };
   }
@@ -259,13 +305,12 @@ export class BoardsController {
     @Body() body: { orderedColumnIds: string[] },
     @Request() req: { user: JwtRequestUser },
   ) {
-    const orgId = await this.getUserOrganization(req.user.userId);
-    await this.svc.reorderColumns(
+    await this.ordering.reorderColumns(
       projectId,
       boardId,
       body.orderedColumnIds,
       req.user.userId,
-      orgId,
+      this.extractOrg(req),
     );
     return { message: 'Columns reordered' };
   }
