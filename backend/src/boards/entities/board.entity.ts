@@ -12,11 +12,14 @@ import {
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { BoardColumn } from './board-column.entity';
+import { BoardType } from '../enums/board-type.enum';
 
-export enum BoardType {
-  KANBAN = 'kanban',
-  SCRUM = 'scrum',
-}
+// SOLID Refactor (Step 1): BoardType lives in `boards/enums/board-type.enum.ts`
+// so the sealed barrel can export it without exposing this entity.
+// Re-exported here to keep every legacy import site
+// (`dto/create-board.dto.ts`, `boards.service.ts`, `gateways/board.gateway.ts`,
+// any sprints/test fixtures) binary-compatible — no call-site churn in Step 1.
+export { BoardType };
 
 @Entity({ name: 'boards' })
 @Index('IDX_board_project_id', ['projectId'])
