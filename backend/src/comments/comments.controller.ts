@@ -10,17 +10,27 @@ import {
   Query,
   UseGuards,
   Request,
+  Inject,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { CommentsService } from './comments.service';
+import {
+  COMMENT_QUERY_TOKEN,
+  COMMENT_COMMAND_TOKEN,
+} from './constants/comments.tokens';
+import type {
+  ICommentQuery,
+  ICommentCommand,
+  PaginatedComments,
+  KeysetComments,
+} from './interfaces/comments.interfaces';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
-import { PaginationQueryDto, PaginatedCommentsDto } from './dto/pagination.dto';
+import { PaginationQueryDto } from './dto/pagination.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
-import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf';
 
 /**
  * CommentsController - Handles comment CRUD for issues.
@@ -32,7 +42,10 @@ import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
 @Controller('projects/:projectId/issues/:issueId/comments')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class CommentsController {
-  constructor(private svc: CommentsService) {}
+  constructor(
+    @Inject(COMMENT_QUERY_TOKEN) private readonly query: ICommentQuery,
+    @Inject(COMMENT_COMMAND_TOKEN) private readonly command: ICommentCommand,
+  ) {}
 
   // RATE LIMITING: 10 comments per minute per client
   @Throttle({ default: { limit: 10, ttl: 60000 } })
@@ -45,7 +58,7 @@ export class CommentsController {
     @Body() dto: CreateCommentDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.create(projectId, issueId, req.user.userId, dto);
+    return this.command.create(projectId, issueId, req.user.userId, dto);
   }
 
   @RequirePermission('comments:view')
@@ -55,8 +68,21 @@ export class CommentsController {
     @Param('issueId') issueId: string,
     @Query() pagination: PaginationQueryDto,
     @Request() req: { user: JwtRequestUser },
-  ): Promise<PaginatedCommentsDto> {
-    return this.svc.findAll(projectId, issueId, req.user.userId, pagination);
+  ): Promise<PaginatedComments | KeysetComments> {
+    // Opt-in keyset/seek pagination when a cursor is supplied; offset is the
+    // back-compat default (preserves the existing PaginatedCommentsDto shape).
+    return pagination.cursor !== undefined
+      ? this.query.findAllKeyset(
+          projectId,
+          issueId,
+          req.user.userId,
+          pagination.limit,
+          pagination.cursor,
+        )
+      : this.query.findAll(projectId, issueId, req.user.userId, {
+          page: pagination.page,
+          limit: pagination.limit,
+        });
   }
 
   @RequireCsrf()
@@ -69,7 +95,13 @@ export class CommentsController {
     @Body() dto: UpdateCommentDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.update(projectId, issueId, commentId, req.user.userId, dto);
+    return this.command.update(
+      projectId,
+      issueId,
+      commentId,
+      req.user.userId,
+      dto,
+    );
   }
 
   @RequireCsrf()
@@ -81,7 +113,7 @@ export class CommentsController {
     @Param('commentId') commentId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.remove(projectId, issueId, commentId, req.user.userId);
+    await this.command.remove(projectId, issueId, commentId, req.user.userId);
     return { message: 'Comment deleted' };
   }
 }
