@@ -21,4 +21,13 @@ export abstract class BoardRepository
     projectId: string,
     options?: FindManyOptions<Board>,
   ): Promise<Board[]>;
+
+  /**
+   * Canonical board-read with `columns` + `project` eagerly loaded.
+   * See `IBoardReader.findScopedWithColumnsAndProject` for the full contract.
+   */
+  abstract findScopedWithColumnsAndProject(
+    projectId: string,
+    boardId: string,
+  ): Promise<Board | null>;
 }

@@ -9,10 +9,12 @@ import { Readable } from 'stream';
 import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 
 import { Issue } from '../../issues/entities/issue.entity';
+import { IssueLink } from '../../issues/entities/issue-link.entity';
 import { WorkLog } from '../../issues/entities/work-log.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { User } from '../../users/entities/user.entity';
 import { Board } from '../../boards/entities/board.entity';
+import { BoardColumn } from '../../boards/entities/board-column.entity';
 
 /**
  * Role-segregated repository interfaces (ISP).
@@ -56,6 +58,24 @@ export interface KanbanCard {
   status: string;
   statusId: string | null;
   backlogOrder: number;
+}
+
+/**
+ * Result of `IssueRepository.moveToStatus` — returns BOTH the post-mutation
+ * issue and the `prevStatusId` so the caller (`BoardOrderingService.moveIssue`)
+ * can populate the realtime gateway event without an extra round-trip.
+ *
+ * Encapsulates the read-modify-save flow previously inlined in
+ * `BoardsService.moveIssue` (DIP severity CRITICAL — `boards.service.ts:625`
+ * reached across the workflows aggregate boundary via
+ * `dataSource.getRepository(WorkflowStatus)` to keep `Issue.status` in sync
+ * with `Issue.statusId`).
+ */
+export interface IssueMoveResult {
+  /** The Issue row AFTER the status/order mutation. */
+  readonly issue: Issue;
+  /** `statusId` BEFORE the mutation — required by the gateway broadcast. */
+  readonly prevStatusId: string | null;
 }
 
 /** Currency-safe billable aggregate computed in NUMERIC at the DB layer. */
@@ -134,6 +154,51 @@ export interface IIssueWriter {
   saveMany(data: DeepPartial<Issue>[], options?: SaveOptions): Promise<Issue[]>;
   update(id: string, patch: QueryDeepPartialEntity<Issue>): Promise<void>;
   remove(entity: Issue): Promise<Issue>;
+  /**
+   * Bulk-reorder issues within a single kanban column.
+   *
+   * Encapsulates the parameterized VALUES-based UPDATE that previously lived
+   * inline at `boards.service.ts:731`. Filters on (projectId, status) so
+   * cross-project / cross-column writes are impossible even if a malicious
+   * orderedIssueIds list is supplied.
+   *
+   * @param projectId       Tenant scope — REQUIRED. Filtered in WHERE.
+   * @param status          Column-name match for the legacy string status
+   *                        column. Currently the caller passes the column
+   *                        name (e.g. `"To Do"`), NOT a statusId. The contract
+   *                        intentionally accepts the string to match today's
+   *                        on-disk semantics; the relational-status migration
+   *                        will eventually swap this to `statusId`.
+   * @param orderedIssueIds Issues in their target order. `[]` is a no-op.
+   *                        Implementations MUST cap the length (today: 5000)
+   *                        to stay under PostgreSQL's 65k parameter limit.
+   */
+  bulkReorderInColumn(
+    projectId: string,
+    status: string,
+    orderedIssueIds: readonly string[],
+  ): Promise<void>;
+  /**
+   * Move an issue between workflow statuses and update its backlog order.
+   *
+   * Atomically updates `statusId` (relational source of truth), `status`
+   * (legacy string mirror), and `backlogOrder`. Returns the post-mutation
+   * `Issue` plus the `prevStatusId` so callers can build realtime broadcast
+   * payloads without a second read.
+   *
+   * Replaces the inlined read-modify-save at `boards.service.ts:637-650`,
+   * which was paired with an out-of-aggregate
+   * `dataSource.getRepository(WorkflowStatus)` lookup that DIP forbids.
+   *
+   * @returns `null` if the issue does not exist (caller raises NotFound).
+   */
+  moveToStatus(
+    projectId: string,
+    issueId: string,
+    toStatusId: string,
+    toStatusName: string,
+    newOrder: number,
+  ): Promise<IssueMoveResult | null>;
 }
 
 // =============================================================================
@@ -267,6 +332,30 @@ export interface IUserWriter {
 // =============================================================================
 // Board
 // =============================================================================
+// =============================================================================
+// IssueLink (Tier-1 as of Step 2 — issue-link sub-aggregate)
+// =============================================================================
+
+export interface IIssueLinkReader {
+  findById(id: string): Promise<IssueLink | null>;
+  findOne(options: FindOneOptions<IssueLink>): Promise<IssueLink | null>;
+  findMany(options?: FindManyOptions<IssueLink>): Promise<IssueLink[]>;
+  /** Links where the issue is EITHER source OR target (both relations loaded). */
+  findForIssue(issueId: string): Promise<IssueLink[]>;
+  count(where?: FindOptionsWhere<IssueLink>): Promise<number>;
+  exists(where: FindOptionsWhere<IssueLink>): Promise<boolean>;
+}
+
+export interface IIssueLinkWriter {
+  create(data: DeepPartial<IssueLink>): IssueLink;
+  save(data: DeepPartial<IssueLink>, options?: SaveOptions): Promise<IssueLink>;
+  saveMany(
+    data: DeepPartial<IssueLink>[],
+    options?: SaveOptions,
+  ): Promise<IssueLink[]>;
+  remove(entity: IssueLink): Promise<IssueLink>;
+}
+
 export interface IBoardReader {
   findById(id: string): Promise<Board | null>;
   findOne(options: FindOneOptions<Board>): Promise<Board | null>;
@@ -275,6 +364,22 @@ export interface IBoardReader {
     projectId: string,
     options?: FindManyOptions<Board>,
   ): Promise<Board[]>;
+  /**
+   * Canonical board-read with columns + project eagerly loaded.
+   *
+   * Encapsulates the relation-loading pattern duplicated at
+   * `boards.service.ts:194` and `:259`. Filters on `projectId` so a board id
+   * leaked across tenants cannot bypass tenant isolation when paired with the
+   * org-level `Project.organizationId` check the caller performs.
+   *
+   * `relations: ['columns', 'project']` is intentional — `project` is needed
+   * by the caller for the org tenant check; loading it here saves a second
+   * round-trip and keeps the org check at a single call site in the service.
+   */
+  findScopedWithColumnsAndProject(
+    projectId: string,
+    boardId: string,
+  ): Promise<Board | null>;
   count(where?: FindOptionsWhere<Board>): Promise<number>;
   exists(where: FindOptionsWhere<Board>): Promise<boolean>;
 }
@@ -285,4 +390,59 @@ export interface IBoardWriter {
   saveMany(data: DeepPartial<Board>[], options?: SaveOptions): Promise<Board[]>;
   update(id: string, patch: QueryDeepPartialEntity<Board>): Promise<void>;
   remove(entity: Board): Promise<Board>;
+}
+
+// =============================================================================
+// BoardColumn (Tier-1 in Step 2 — promoted from the legacy
+// `@InjectRepository(BoardColumn)` injection that violated DIP)
+// =============================================================================
+export interface IBoardColumnReader {
+  findById(id: string): Promise<BoardColumn | null>;
+  findOne(options: FindOneOptions<BoardColumn>): Promise<BoardColumn | null>;
+  findMany(options?: FindManyOptions<BoardColumn>): Promise<BoardColumn[]>;
+  /** All columns belonging to a single board, ordered left-to-right. */
+  findByBoard(boardId: string): Promise<BoardColumn[]>;
+  /**
+   * Lookup a single column scoped by `(boardId, columnId)`.
+   *
+   * The board filter is mandatory — without it a malicious caller with a
+   * column id from a different board could read/update it. Returns `null`
+   * when no row matches (caller raises NotFound).
+   */
+  findOneByBoard(
+    boardId: string,
+    columnId: string,
+  ): Promise<BoardColumn | null>;
+  count(where?: FindOptionsWhere<BoardColumn>): Promise<number>;
+  exists(where: FindOptionsWhere<BoardColumn>): Promise<boolean>;
+}
+
+export interface IBoardColumnWriter {
+  create(data: DeepPartial<BoardColumn>): BoardColumn;
+  save(
+    data: DeepPartial<BoardColumn>,
+    options?: SaveOptions,
+  ): Promise<BoardColumn>;
+  saveMany(
+    data: DeepPartial<BoardColumn>[],
+    options?: SaveOptions,
+  ): Promise<BoardColumn[]>;
+  update(id: string, patch: QueryDeepPartialEntity<BoardColumn>): Promise<void>;
+  remove(entity: BoardColumn): Promise<BoardColumn>;
+  /**
+   * Bulk-reorder the columns of a single board.
+   *
+   * Encapsulates the parameterized VALUES-based UPDATE that previously lived
+   * inline at `boards.service.ts:587`. Filters on `boardId` so cross-board
+   * writes are impossible even with a malicious orderedColumnIds list.
+   *
+   * @param boardId            Tenant scope — REQUIRED. Filtered in WHERE.
+   * @param orderedColumnIds   Columns in their target order. `[]` is a no-op.
+   *                           Implementations MUST cap the length (today: 5000)
+   *                           to stay under PostgreSQL's 65k parameter limit.
+   */
+  bulkReorder(
+    boardId: string,
+    orderedColumnIds: readonly string[],
+  ): Promise<void>;
 }
