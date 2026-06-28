@@ -1,6 +1,6 @@
 // src/comments/dto/pagination.dto.ts
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min, Max } from 'class-validator';
+import { IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Comment } from '../entities/comment.entity';
 
@@ -8,6 +8,7 @@ import { Comment } from '../entities/comment.entity';
  * PAGINATION: Offset-based pagination for comments
  * - Default: page 1, limit 20
  * - Hard limit: 100 items per request (DoS protection)
+ * - Opt-in keyset/seek mode: pass `?cursor=<nextCursor>` for O(log N) paging.
  */
 export class PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Page number (1-indexed)', default: 1 })
@@ -24,6 +25,14 @@ export class PaginationQueryDto {
   @Max(100, { message: 'Limit cannot exceed 100 items per request' })
   @IsOptional()
   limit: number = 20;
+
+  @ApiPropertyOptional({
+    description:
+      'Keyset cursor; when present, O(log N) seek pagination is used instead of offset',
+  })
+  @IsOptional()
+  @IsString()
+  cursor?: string;
 }
 
 /**
@@ -58,4 +67,19 @@ export class PaginatedCommentsDto {
 
   @ApiProperty({ type: PaginationMeta, description: 'Pagination metadata' })
   meta: PaginationMeta;
+}
+
+/**
+ * Keyset (seek) response wrapper for comments. `nextCursor` is an opaque token
+ * to pass back as `?cursor=` for the next page, or `null` when the thread ends.
+ */
+export class KeysetCommentsDto {
+  @ApiProperty({ type: [Comment], description: 'Array of comments' })
+  data: Comment[];
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Opaque cursor for the next page, or null when exhausted',
+  })
+  nextCursor: string | null;
 }
