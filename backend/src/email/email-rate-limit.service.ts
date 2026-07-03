@@ -1,8 +1,14 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
-import { CacheService } from '../cache/cache.service';
-
+import { CACHE_COUNTER_TOKEN } from '../cache/constants/cache.tokens';
+import { ICacheCounter } from '../cache/interfaces/cache.interfaces';
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -65,7 +71,7 @@ export class EmailRateLimitService {
   private readonly windowSeconds: number;
 
   constructor(
-    private readonly cacheService: CacheService,
+    @Inject(CACHE_COUNTER_TOKEN) private readonly cacheCounter: ICacheCounter,
     private readonly configService: ConfigService,
   ) {
     this.maxPerWindow =
@@ -90,7 +96,7 @@ export class EmailRateLimitService {
    * Throws TooManyRequestsException (429) if the recipient has exceeded
    * their rate limit for the current window.
    *
-   * FAIL-OPEN: If Redis is unavailable (CacheService.incr returns 0),
+   * FAIL-OPEN: If Redis is unavailable (cache.incr returns 0),
    * the email is allowed through with a warning log. This prevents
    * Redis outages from blocking legitimate email sends.
    *
@@ -127,7 +133,7 @@ export class EmailRateLimitService {
    */
   async getRemainingQuota(recipientEmail: string): Promise<number> {
     const key = this.buildRateLimitKey(recipientEmail);
-    const currentCount = await this.cacheService.getCounter(key, {
+    const currentCount = await this.cacheCounter.getCounter(key, {
       namespace: RATE_LIMIT_NAMESPACE,
     });
 
@@ -150,12 +156,12 @@ export class EmailRateLimitService {
     const key = this.buildRateLimitKey(recipientEmail);
 
     // Atomic increment with TTL on first set (fixed window)
-    const currentCount = await this.cacheService.incr(key, {
+    const currentCount = await this.cacheCounter.incr(key, {
       ttl: this.windowSeconds,
       namespace: RATE_LIMIT_NAMESPACE,
     });
 
-    // FAIL-OPEN: CacheService.incr() returns 0 when Redis is unavailable.
+    // FAIL-OPEN: cache.incr() returns 0 when Redis is unavailable.
     // We treat this as "under limit" to avoid blocking legitimate emails.
     if (currentCount === 0) {
       this.logger.warn(

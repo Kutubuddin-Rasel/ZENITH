@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EmailRateLimitService } from './email-rate-limit.service';
-import { CacheService } from '../cache/cache.service';
+import { CACHE_COUNTER_TOKEN } from '../cache/constants/cache.tokens';
 
 describe('EmailRateLimitService', () => {
   let service: EmailRateLimitService;
@@ -30,7 +30,7 @@ describe('EmailRateLimitService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EmailRateLimitService,
-        { provide: CacheService, useValue: mockCacheService },
+        { provide: CACHE_COUNTER_TOKEN, useValue: mockCacheService },
         { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
@@ -147,8 +147,8 @@ describe('EmailRateLimitService', () => {
   // ==========================================================================
 
   describe('fail-open when Redis is unavailable', () => {
-    it('should allow email when CacheService.incr returns 0 (Redis down)', async () => {
-      // CacheService returns 0 on Redis connection failures
+    it('should allow email when cache counter returns 0 (Redis down)', async () => {
+      // ICacheCounter returns 0 on Redis connection failures
       cacheService.incr.mockResolvedValue(0);
 
       // Should NOT throw — fail-open behavior

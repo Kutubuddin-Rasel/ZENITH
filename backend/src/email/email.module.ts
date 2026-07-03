@@ -6,8 +6,9 @@ import { EmailProcessor } from './email.processor';
 import { EmailTemplateService } from './email-template.service';
 import { S3StorageProvider } from '../attachments/storage/providers/s3-storage.provider';
 
+import { CacheModule } from '../cache/cache.module';
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, CacheModule],
   providers: [
     EmailService,
     EmailRateLimitService,
