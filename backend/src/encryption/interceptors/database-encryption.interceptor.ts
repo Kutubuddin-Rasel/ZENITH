@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NestInterceptor,
   ExecutionContext,
@@ -8,13 +9,17 @@ import {
 import { Request } from 'express';
 import { Observable } from 'rxjs';
 import { tap, map } from 'rxjs/operators';
-import { EncryptionService } from '../encryption.service';
+import { SymmetricCipher } from '../interfaces/encryption.interfaces';
+import { SYMMETRIC_CIPHER_TOKEN } from '../tokens/encryption.tokens';
 
 @Injectable()
 export class DatabaseEncryptionInterceptor implements NestInterceptor {
   private readonly logger = new Logger(DatabaseEncryptionInterceptor.name);
 
-  constructor(private encryptionService: EncryptionService) {}
+  constructor(
+    @Inject(SYMMETRIC_CIPHER_TOKEN)
+    private readonly cipher: SymmetricCipher,
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<Request>();
@@ -51,10 +56,7 @@ export class DatabaseEncryptionInterceptor implements NestInterceptor {
       const sensitiveFields = this.getSensitiveFields(request.url);
 
       if (sensitiveFields.length > 0) {
-        request.body = this.encryptionService.encryptObject(
-          body,
-          sensitiveFields,
-        );
+        request.body = this.cipher.encryptObject(body, sensitiveFields);
         this.logger.debug(
           `Encrypted sensitive fields: ${sensitiveFields.join(', ')}`,
         );
@@ -123,7 +125,7 @@ export class DatabaseEncryptionInterceptor implements NestInterceptor {
             encryptedData.iv &&
             encryptedData.tag
           ) {
-            const result = this.encryptionService.decrypt(
+            const result = this.cipher.decrypt(
               encryptedData.encrypted,
               encryptedData.iv,
               encryptedData.tag,
