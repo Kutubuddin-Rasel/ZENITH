@@ -60,7 +60,7 @@ import {
   SyncSlackMessagesDto,
   SendSlackNotificationDto,
 } from '../dto/sync.dto';
-import { SuperAdminGuard } from '../../auth/guards/super-admin.guard';
+import { SuperAdminGuard } from '../../core/auth/guards/super-admin.guard';
 import { ConfigService } from '@nestjs/config';
 import { GitHubAppService } from '../services/github-app.service';
 import { Logger } from '@nestjs/common';

@@ -32,7 +32,7 @@ import { IntegrationController } from './controllers/integration.controller';
 import { IntegrationMarketplaceController } from './controllers/integration-marketplace.controller';
 import { OAuthController } from './controllers/oauth.controller';
 import { AuthModule } from '../auth/auth.module';
-import { AccessControlModule } from '../access-control/access-control.module';
+import { AccessControlModule } from '../access-control';
 import { UsersModule } from '../users/users.module';
 import { IssuesModule } from '../issues/issues.module';
 import { ProjectsModule } from '../projects/projects.module';

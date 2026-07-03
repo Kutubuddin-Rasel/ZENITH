@@ -2,7 +2,10 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Integration, IntegrationStatus } from '../entities/integration.entity';
-import { ALERT_DISPATCHER_TOKEN, FAILURE_TRACKER_TOKEN } from '../../common/constants/alerting.tokens';
+import {
+  ALERT_DISPATCHER_TOKEN,
+  FAILURE_TRACKER_TOKEN,
+} from '../../common/constants/alerting.tokens';
 import {
   AlertSeverity,
   type AlertPayload,
@@ -33,9 +36,7 @@ const STALE_SYNC_THRESHOLD_MS = 24 * 60 * 60 * 1000;
  * `IntegrationsModule`.
  */
 @Injectable()
-export class IntegrationAlertService
-  implements IIntegrationAlertOrchestrator
-{
+export class IntegrationAlertService implements IIntegrationAlertOrchestrator {
   private readonly logger = new Logger(IntegrationAlertService.name);
 
   constructor(
