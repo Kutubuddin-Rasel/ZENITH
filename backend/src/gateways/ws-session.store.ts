@@ -33,7 +33,9 @@ const WS_SESSION_NAMESPACE = 'ws-sessions';
 export class WsSessionStore {
   private readonly logger = new Logger(WsSessionStore.name);
 
-  constructor(@Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore) {}
+  constructor(
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
+  ) {}
 
   /**
    * Track a room subscription for a user.

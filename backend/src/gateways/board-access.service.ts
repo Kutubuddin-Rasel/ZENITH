@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Board } from '../boards/entities/board.entity';
-import { ProjectMembersService } from '../membership/project-members/project-members.service';
+import { PROJECT_MEMBER_QUERY_TOKEN } from '../membership/constants/membership.tokens';
+import type { IProjectMemberQuery } from '../membership/interfaces/membership.interfaces';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 
 /**
@@ -48,7 +49,8 @@ export class BoardAccessService {
   constructor(
     @InjectRepository(Board)
     private readonly boardRepo: Repository<Board>,
-    private readonly projectMembersService: ProjectMembersService,
+    @Inject(PROJECT_MEMBER_QUERY_TOKEN)
+    private readonly projectMembersService: IProjectMemberQuery,
   ) {}
 
   /**

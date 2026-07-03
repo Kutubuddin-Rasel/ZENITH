@@ -9,6 +9,13 @@ import { WsSessionStore } from './ws-session.store';
 import { WsJwtGuard } from './guards/ws-jwt.guard';
 import { WsExceptionFilter } from './filters/ws-exception.filter';
 
+// SOLID Refactor (issues Step 2b): capability-owner side of the issues →
+// realtime inversion. The `IssueBroadcastPort` contract is issues-owned;
+// binding the adapter in this @Global module lets issues fan board events out
+// without injecting `BoardGateway`/`BoardRepository` directly.
+import { IssueBroadcastPort } from '../issues';
+import { IssueBroadcastAdapter } from './adapters/issue-broadcast.adapter';
+
 import { CacheModule } from '../cache/cache.module';
 /**
  * GatewaysModule
@@ -20,7 +27,8 @@ import { CacheModule } from '../cache/cache.module';
  * - WsExceptionFilter: Structured error responses for WS clients
  * - WsJwtGuard: Handshake-level JWT validation
  *
- * NOTE: ProjectMembersService is injected via global ProjectCoreModule.
+ * NOTE: BoardAccessService injects PROJECT_MEMBER_QUERY_TOKEN from the
+ * global MembershipModule.
  * Board entity is registered here for BoardAccessService's repo injection.
  */
 @Global()
@@ -44,7 +52,13 @@ import { CacheModule } from '../cache/cache.module';
     WsSessionStore,
     WsJwtGuard,
     WsExceptionFilter,
+    { provide: IssueBroadcastPort, useClass: IssueBroadcastAdapter },
   ],
-  exports: [BoardGateway, BoardAccessService, WsSessionStore],
+  exports: [
+    BoardGateway,
+    BoardAccessService,
+    WsSessionStore,
+    IssueBroadcastPort,
+  ],
 })
 export class GatewaysModule {}
