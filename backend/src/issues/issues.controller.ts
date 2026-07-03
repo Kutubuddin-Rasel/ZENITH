@@ -10,6 +10,7 @@ import {
   Request,
   Query,
   Header,
+  Inject,
   StreamableFile,
   UseInterceptors,
   UploadedFile,
@@ -19,8 +20,6 @@ import {
 import { LinkType } from './entities/issue-link.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Transform } from 'stream';
-import { IssuesService, WorkLogsService } from './issues.service';
-import { UsersService } from '../users/users.service';
 import { CreateIssueDto } from './dto/create-issue.dto';
 import { UpdateIssueDto } from './dto/update-issue.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -37,27 +36,46 @@ import { UpdateWorkLogDto } from './dto/update-work-log.dto';
 import { PoliciesGuard, CheckPolicies } from '../auth/casl/policies.guard';
 import { Action } from '../auth/casl/casl-ability.factory';
 import { Issue } from './entities/issue.entity';
-import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+
+// SOLID Refactor (Step 3): the controller is HTTP-only and depends on the
+// ISP tokens, never the concrete services. Deep imports of the in-module
+// token/interface files are intentional (the sealed barrel is for EXTERNAL
+// consumers; Step 4).
+import {
+  ISSUE_COMMAND_TOKEN,
+  ISSUE_IMPORT_TOKEN,
+  ISSUE_LINK_TOKEN,
+  ISSUE_QUERY_TOKEN,
+  ISSUE_TRANSITION_TOKEN,
+  WORKLOG_COMMAND_TOKEN,
+  WORKLOG_QUERY_TOKEN,
+} from './constants/issues.tokens';
+import type {
+  IIssueCommand,
+  IIssueImport,
+  IIssueLinkCommand,
+  IIssueQuery,
+  IIssueTransition,
+  IWorkLogCommand,
+  IWorkLogQuery,
+} from './interfaces/issues.interfaces';
 
 @Controller('projects/:projectId/issues')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class IssuesController {
   constructor(
-    private readonly issuesService: IssuesService,
-    private readonly workLogsService: WorkLogsService,
-    private readonly usersService: UsersService,
+    @Inject(ISSUE_QUERY_TOKEN) private readonly query: IIssueQuery,
+    @Inject(ISSUE_COMMAND_TOKEN) private readonly command: IIssueCommand,
+    @Inject(ISSUE_TRANSITION_TOKEN)
+    private readonly transition: IIssueTransition,
+    @Inject(ISSUE_LINK_TOKEN) private readonly links: IIssueLinkCommand,
+    @Inject(ISSUE_IMPORT_TOKEN) private readonly importer: IIssueImport,
+    @Inject(WORKLOG_QUERY_TOKEN) private readonly worklogQuery: IWorkLogQuery,
+    @Inject(WORKLOG_COMMAND_TOKEN)
+    private readonly worklogCommand: IWorkLogCommand,
   ) {}
-
-  /**
-   * Helper: Get user's organization ID
-   */
-  private async getUserOrganization(
-    userId: string,
-  ): Promise<string | undefined> {
-    const user = await this.usersService.findOneById(userId);
-    return user.organizationId;
-  }
 
   @CheckPolicies((ability) => ability.can(Action.Create, Issue))
   @UseGuards(JwtAuthGuard, PoliciesGuard)
@@ -69,8 +87,7 @@ export class IssuesController {
     @Request() req: { user: JwtRequestUser },
   ) {
     const reporterId = req.user.userId;
-    // orgId removed as per cleanup
-    return this.issuesService.create(projectId, reporterId, dto);
+    return this.command.create(projectId, reporterId, dto);
   }
 
   @RequirePermission('issues:view')
@@ -103,7 +120,7 @@ export class IssuesController {
     if (label) filters.label = label;
     if (sort) filters.sort = sort;
     if (includeArchived) filters.includeArchived = includeArchived === 'true';
-    return this.issuesService.findAll(projectId, userId, filters);
+    return this.query.findAll(projectId, userId, filters);
   }
 
   @Get('export')
@@ -114,10 +131,7 @@ export class IssuesController {
     @Param('projectId') projectId: string,
     @Request() req: { user: JwtRequestUser },
   ): Promise<StreamableFile> {
-    const stream = await this.issuesService.getIssuesStream(
-      projectId,
-      req.user.userId,
-    );
+    const stream = await this.query.getIssuesStream(projectId, req.user.userId);
 
     interface IssueExportRow {
       issue_id: string;
@@ -206,11 +220,7 @@ export class IssuesController {
     file: Express.Multer.File,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.issuesService.importIssues(
-      projectId,
-      file.buffer,
-      req.user.userId,
-    );
+    return this.importer.importIssues(projectId, file.buffer, req.user.userId);
   }
 
   @RequirePermission('issues:view')
@@ -220,7 +230,7 @@ export class IssuesController {
     @Param('id') id: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.issuesService.findOne(projectId, id, req.user.userId);
+    return this.query.findOne(projectId, id, req.user.userId);
   }
 
   @RequirePermission('issues:update')
@@ -232,12 +242,7 @@ export class IssuesController {
     @Body('status') status: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.issuesService.updateStatus(
-      projectId,
-      id,
-      status,
-      req.user.userId,
-    );
+    return this.transition.updateStatus(projectId, id, status, req.user.userId);
   }
 
   /**
@@ -253,7 +258,7 @@ export class IssuesController {
     @Body() dto: MoveIssueDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.issuesService.moveIssue(projectId, id, req.user.userId, dto);
+    return this.transition.moveIssue(projectId, id, req.user.userId, dto);
   }
 
   @RequireCsrf()
@@ -266,7 +271,7 @@ export class IssuesController {
     @Body() updateIssueDto: UpdateIssueDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.issuesService.update(
+    return this.command.update(
       projectId,
       issueId,
       req.user.userId,
@@ -283,7 +288,7 @@ export class IssuesController {
     @Param('issueId') issueId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.issuesService.remove(projectId, issueId, req.user.userId);
+    return this.command.remove(projectId, issueId, req.user.userId);
   }
 
   @RequirePermission('issues:delete')
@@ -294,7 +299,7 @@ export class IssuesController {
     @Param('id') id: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.issuesService.archive(projectId, id, req.user.userId);
+    return this.command.archive(projectId, id, req.user.userId);
   }
 
   @RequirePermission('issues:delete')
@@ -305,7 +310,7 @@ export class IssuesController {
     @Param('id') id: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.issuesService.unarchive(projectId, id, req.user.userId);
+    return this.command.unarchive(projectId, id, req.user.userId);
   }
 
   @RequirePermission('issues:view')
@@ -315,7 +320,7 @@ export class IssuesController {
     @Param('id') id: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.issuesService.getLinks(projectId, id, req.user.userId);
+    return this.query.getLinks(projectId, id, req.user.userId);
   }
 
   @RequirePermission('issues:update')
@@ -327,7 +332,7 @@ export class IssuesController {
     @Body() body: { targetIssueId: string; type: LinkType },
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.issuesService.addLink(
+    return this.links.addLink(
       projectId,
       id,
       body.targetIssueId,
@@ -345,7 +350,7 @@ export class IssuesController {
     @Param('linkId') linkId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.issuesService.removeLink(projectId, linkId, req.user.userId);
+    await this.links.removeLink(projectId, linkId, req.user.userId);
     return { message: 'Link removed' };
   }
 
@@ -358,7 +363,7 @@ export class IssuesController {
     @Body() body: { labels: string[] },
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.issuesService.updateLabels(
+    return this.command.updateLabels(
       projectId,
       id,
       body.labels,
@@ -372,7 +377,7 @@ export class IssuesController {
     @Param('projectId') projectId: string,
     @Param('issueId') issueId: string,
   ) {
-    return this.workLogsService.listWorkLogs(projectId, issueId);
+    return this.worklogQuery.listWorkLogs(projectId, issueId);
   }
 
   @RequirePermission('issues:update')
@@ -384,7 +389,7 @@ export class IssuesController {
     @Request() req: { user: { userId: string } },
     @Body() dto: CreateWorkLogDto,
   ) {
-    return this.workLogsService.addWorkLog(
+    return this.worklogCommand.addWorkLog(
       projectId,
       issueId,
       req.user.userId,
@@ -404,7 +409,7 @@ export class IssuesController {
     @Param('workLogId') workLogId: string,
     @Request() req: { user: { userId: string } },
   ) {
-    return this.workLogsService.deleteWorkLog(
+    return this.worklogCommand.deleteWorkLog(
       projectId,
       issueId,
       workLogId,
@@ -422,7 +427,7 @@ export class IssuesController {
     @Request() req: { user: { userId: string } },
     @Body() dto: UpdateWorkLogDto,
   ) {
-    return this.workLogsService.updateWorkLog(
+    return this.worklogCommand.updateWorkLog(
       projectId,
       issueId,
       workLogId,
