@@ -10,9 +10,13 @@ import { ENCRYPTION_SERVICE_TOKEN } from '../../common/constants/encryption.toke
 import type { IEncryptionService } from '../../common/interfaces/encryption.interfaces';
 import { BaseIntegrationService } from './base-integration.service';
 import { UsersService } from '../../users/users.service';
-import { ProjectsService } from '../../projects/projects.service';
-import { IssuesService } from '../../issues/issues.service';
-import { IssueType, IssuePriority } from '../../issues/entities/issue.entity';
+import { PROJECT_QUERY_TOKEN, type IProjectQuery } from '../../projects';
+import {
+  ISSUE_COMMAND_TOKEN,
+  type IIssueCommand,
+  IssueType,
+  IssuePriority,
+} from '../../issues';
 
 export interface SlackMessage {
   channel: string;
@@ -181,8 +185,9 @@ export class SlackIntegrationService extends BaseIntegrationService {
     @Inject(ENCRYPTION_SERVICE_TOKEN)
     encryptionService: IEncryptionService,
     private readonly usersService: UsersService,
-    private readonly projectsService: ProjectsService,
-    private readonly issuesService: IssuesService,
+    @Inject(PROJECT_QUERY_TOKEN)
+    private readonly projectsQuery: IProjectQuery,
+    @Inject(ISSUE_COMMAND_TOKEN) private readonly issuesService: IIssueCommand,
   ) {
     super(
       integrationRepo,
@@ -646,7 +651,7 @@ export class SlackIntegrationService extends BaseIntegrationService {
       }
 
       // 2. Find Project
-      const project = await this.projectsService.findByKey(projectKey);
+      const project = await this.projectsQuery.findByKey(projectKey);
       if (!project) {
         return {
           response_type: 'ephemeral',
@@ -952,7 +957,7 @@ export class SlackIntegrationService extends BaseIntegrationService {
       }
 
       // Find project
-      const project = await this.projectsService.findByKey(projectKey);
+      const project = await this.projectsQuery.findByKey(projectKey);
       if (!project) {
         return {
           response_action: 'errors',

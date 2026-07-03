@@ -183,8 +183,11 @@ export interface GitHubWebhookPayload {
 }
 
 import { UsersService } from '../../users/users.service';
-import { IssuesService } from '../../issues/issues.service';
-import { IssueType } from '../../issues/entities/issue.entity';
+import {
+  ISSUE_COMMAND_TOKEN,
+  type IIssueCommand,
+  IssueType,
+} from '../../issues';
 import { GitHubIssueLinkService } from './github-issue-link.service';
 
 @Injectable()
@@ -205,7 +208,7 @@ export class GitHubIntegrationService extends BaseIntegrationService {
     @Inject(ENCRYPTION_SERVICE_TOKEN)
     encryptionService: IEncryptionService,
     private readonly usersService: UsersService,
-    private readonly issuesService: IssuesService,
+    @Inject(ISSUE_COMMAND_TOKEN) private readonly issuesService: IIssueCommand,
     private readonly issueLinkService: GitHubIssueLinkService,
   ) {
     super(

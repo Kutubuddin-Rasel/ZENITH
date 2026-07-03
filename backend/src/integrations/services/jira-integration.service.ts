@@ -97,8 +97,12 @@ export interface JiraWebhookPayload {
 }
 
 import { UsersService } from '../../users/users.service';
-import { IssuesService } from '../../issues/issues.service';
-import { IssuePriority, IssueType } from '../../issues/entities/issue.entity';
+import {
+  ISSUE_COMMAND_TOKEN,
+  type IIssueCommand,
+  IssuePriority,
+  IssueType,
+} from '../../issues';
 
 @Injectable()
 export class JiraIntegrationService extends BaseIntegrationService {
@@ -118,7 +122,7 @@ export class JiraIntegrationService extends BaseIntegrationService {
     @Inject(ENCRYPTION_SERVICE_TOKEN)
     encryptionService: IEncryptionService,
     private readonly usersService: UsersService,
-    private readonly issuesService: IssuesService,
+    @Inject(ISSUE_COMMAND_TOKEN) private readonly issuesService: IIssueCommand,
   ) {
     super(
       integrationRepo,
