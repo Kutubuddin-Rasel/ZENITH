@@ -1,19 +1,20 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import { IssuesService } from '../issues/issues.service';
-import { SprintsService } from '../sprints/sprints.service';
-import { NotificationsService } from '../notifications/notifications.service';
-import { ProjectsService } from '../projects/projects.service';
-import { Issue, IssueStatus } from '../issues/entities/issue.entity';
+import { ISSUE_QUERY_TOKEN, type IIssueQuery, type IssueView } from '../issues';
+import { SPRINT_SNAPSHOT_TOKEN, type ISprintSnapshot } from '../sprints';
+import { PROJECT_QUERY_TOKEN, type IProjectQuery } from '../projects';
+import { IssueStatus } from '../issues/entities/issue.entity';
 import {
-  Notification,
+  NOTIFICATION_INBOX_TOKEN,
   NotificationStatus,
-} from '../notifications/entities/notification.entity';
+  type INotificationInbox,
+  type NotificationView,
+} from '../notifications';
 import { UsersService } from '../users/users.service';
 
 export interface DashboardData {
-  assignedIssues: Issue[];
+  assignedIssues: IssueView[];
   activeSprints: any[];
   unreadNotificationsCount: number;
   recentActivity: any[];
@@ -27,10 +28,13 @@ export class DashboardService {
 
   constructor(
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
-    private readonly issuesService: IssuesService,
-    private readonly sprintsService: SprintsService,
-    private readonly notificationsService: NotificationsService,
-    private readonly projectsService: ProjectsService,
+    @Inject(ISSUE_QUERY_TOKEN) private readonly issuesService: IIssueQuery,
+    @Inject(SPRINT_SNAPSHOT_TOKEN)
+    private readonly sprintsService: ISprintSnapshot,
+    @Inject(NOTIFICATION_INBOX_TOKEN)
+    private readonly notificationsInbox: INotificationInbox,
+    @Inject(PROJECT_QUERY_TOKEN)
+    private readonly projectsQuery: IProjectQuery,
     private readonly usersService: UsersService,
   ) {}
 
@@ -61,14 +65,14 @@ export class DashboardService {
    */
   private async fetchDashboardData(userId: string): Promise<DashboardData> {
     const user = await this.usersService.findOneById(userId);
-    const projects = await this.projectsService.findAllForUser(
+    const projects = await this.projectsQuery.findForUser(
       userId,
       user?.isSuperAdmin || false,
     );
 
     // N+1 Query Pattern: Loop through projects to find assigned issues
     // This is the EXPENSIVE part we're caching
-    const assignedIssues: Issue[] = [];
+    const assignedIssues: IssueView[] = [];
     for (const project of projects) {
       const issues = await this.issuesService.findAll(project.id, userId, {
         assigneeId: userId,
@@ -87,14 +91,13 @@ export class DashboardService {
 
     // TODO: Performance concern - fetches ALL sprints, filters client-side
     // Consider adding findActiveSprintsForProjects() method for efficiency
-    const activeSprints =
-      await this.sprintsService.findAllActiveSystemWide_UNSAFE();
+    const activeSprints = await this.sprintsService.findAllActiveSystemWide();
     const myActiveSprints = activeSprints.filter((s) =>
       projects.some((p) => p.id === s.projectId),
     );
 
-    const notifications: Notification[] =
-      await this.notificationsService.listForUser(
+    const notifications: NotificationView[] =
+      await this.notificationsInbox.listForUser(
         userId,
         NotificationStatus.UNREAD,
       );

@@ -1,5 +1,6 @@
 // src/custom-fields/custom-fields.service.ts
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -11,7 +12,8 @@ import { CustomFieldDefinition } from './entities/custom-field-definition.entity
 import { CustomFieldValue } from './entities/custom-field-value.entity';
 import { CreateCustomFieldDto } from './dto/create-custom-field.dto';
 import { UpdateCustomFieldDto } from './dto/update-custom-field.dto';
-import { ProjectMembersService } from '../membership/project-members/project-members.service';
+import { PROJECT_MEMBER_QUERY_TOKEN } from '../membership/constants/membership.tokens';
+import type { IProjectMemberQuery } from '../membership/interfaces/membership.interfaces';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 import { AuditLogsService } from '../audit/audit-logs.service';
 
@@ -37,7 +39,8 @@ export class CustomFieldsService {
     private definitionsRepository: Repository<CustomFieldDefinition>,
     @InjectRepository(CustomFieldValue)
     private valuesRepository: Repository<CustomFieldValue>,
-    private membersService: ProjectMembersService,
+    @Inject(PROJECT_MEMBER_QUERY_TOKEN)
+    private membersService: IProjectMemberQuery,
     private readonly auditLogsService: AuditLogsService,
   ) {}
 
