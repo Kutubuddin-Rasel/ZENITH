@@ -1,9 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { EncryptionService, EncryptionContext } from '../encryption.service';
+import {
+  EncryptionContext,
+  KeyProvider,
+  SymmetricCipher,
+} from '../interfaces/encryption.interfaces';
+import {
+  KEY_PROVIDER_TOKEN,
+  SYMMETRIC_CIPHER_TOKEN,
+} from '../tokens/encryption.tokens';
 
 /**
  * Legacy EncryptedFile interface (for backward compatibility).
@@ -84,8 +92,11 @@ export class FileEncryptionService {
   private readonly uploadPath: string;
 
   constructor(
-    private configService: ConfigService,
-    private encryptionService: EncryptionService,
+    private readonly configService: ConfigService,
+    @Inject(KEY_PROVIDER_TOKEN)
+    private readonly keys: KeyProvider,
+    @Inject(SYMMETRIC_CIPHER_TOKEN)
+    private readonly cipher: SymmetricCipher,
   ) {
     this.uploadPath =
       this.configService.get<string>('UPLOAD_PATH') || './uploads';
@@ -114,10 +125,10 @@ export class FileEncryptionService {
     const dekHex = dek.toString('hex');
 
     // Get the derived file wrapper key (HKDF-derived)
-    const fileWrapperKey = this.encryptionService.getFileWrapperKey();
+    const fileWrapperKey = this.keys.getFileWrapperKey();
 
     // Encrypt DEK with file wrapper KEK (not raw master key)
-    const result = this.encryptionService.encrypt(
+    const result = this.cipher.encrypt(
       dekHex,
       fileWrapperKey.toString('hex'),
       context,
@@ -147,9 +158,9 @@ export class FileEncryptionService {
     context?: EncryptionContext,
   ): Buffer {
     // Get the derived file wrapper key (HKDF-derived)
-    const fileWrapperKey = this.encryptionService.getFileWrapperKey();
+    const fileWrapperKey = this.keys.getFileWrapperKey();
 
-    const result = this.encryptionService.decrypt(
+    const result = this.cipher.decrypt(
       wrappedKey,
       wrappedKeyIv,
       wrappedKeyTag,
