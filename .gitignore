@@ -3,9 +3,10 @@
 **/.DS_Store
 *.log
 npm-debug.log*
-yarn-error.log*
 yarn-debug.log*
+yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
 # Environment Variables
 .env
@@ -18,26 +19,40 @@ node_modules/
 
 # IDEs & Editors
 .vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 .idea/
+.project
+.classpath
+.settings/
 *.swp
 *.swo
-graphify*
-# Project Specific
-docs/
+.c9/
+
+# AI Agents & Assistants
+.agents/
 .agent/
+.cursor/
+.gemini/
+.leankg/
+.claudeignore
+graphify-out/
 skills-lock.json
 
 # Test & Coverage
 coverage/
 junit.xml
 
-# Build Artifacts
+# Build Artifacts & Caches
 dist/
 dist-*/
+build/
+.cache/
+.eslintcache
+*.tsbuildinfo
 
-.agent/
-.agents/
-.cursor/
-.gemini/
-.github/
+# Project Specific
+docs/
 .docs/

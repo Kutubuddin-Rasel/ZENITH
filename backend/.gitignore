@@ -1,56 +1,48 @@
-# compiled output
-/dist
-/node_modules
-/build
-.npm*
+# Dependency directories
+node_modules/
+jspm_packages/
+.npm/
+
+# Build output
+dist/
+build/
+out/
+lib/
+*.tsbuildinfo
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
-pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 lerna-debug.log*
 
-# OS
+# OS Files
 .DS_Store
+Thumbs.db
+*.swp
 
-# Tests
-/coverage
-/.nyc_output
+# Testing
+coverage/
+.nyc_output/
+
+# Environment Variables
+.env
+.env.*
+!.env.example
 
 # IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
-
-# IDE - VSCode
+.idea/
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# dotenv environment variable files
-.env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
-
-# temp directory
-.temp
-.tmp
-
-#audit-reports
-./src/audit-reports
-
-# Runtime data
-pids
+# Runtime & Process
+pids/
 *.pid
 *.seed
 *.pid.lock
@@ -58,15 +50,14 @@ pids
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
+# Temp directories
+.temp/
+.tmp/
 
-# Uploads directory (user uploaded files)
-/uploads
+# Uploads & Reports
+uploads/
+/src/audit-reports/
 
-# Build cache
-*.tsbuildinfo
-
-# Cookies/session debug files
-cookies_*.txt
-
-# Stray files (shouldn't be in root)
+# Stray files
 /main.ts
+cookies_*.txt
