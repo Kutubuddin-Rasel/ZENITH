@@ -17,7 +17,7 @@ import { WorkflowDesignerService } from '../services/workflow-designer.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../../auth/decorators/require-permission.decorator';
-import { StatefulCsrfGuard, RequireCsrf } from '../../security/csrf/csrf.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../../security/csrf';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Workflow } from '../entities/workflow.entity';

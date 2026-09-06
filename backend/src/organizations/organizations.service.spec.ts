@@ -1,166 +1,87 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConflictException } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { OrganizationRepository } from './repositories/abstract/organization.repository.abstract';
 import { Organization } from './entities/organization.entity';
-import {
-  OrganizationInvitation,
-  InvitationStatus,
-} from './entities/organization-invitation.entity';
-import { UsersService } from '../users/users.service';
-import { EmailService } from '../email/email.service';
-import {
-  ConflictException,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
 
+// Step 3 (invites extraction): invitation workflow (`inviteUser`/`validateInvite`)
+// moved to `InvitationService`. `OrganizationsService` is now pure org CRUD over
+// the abstract `OrganizationRepository` (DIP token) — these specs cover only that.
 describe('OrganizationsService', () => {
   let service: OrganizationsService;
-  let orgRepo: any;
-  let inviteRepo: any;
-  let usersService: any;
-  let emailService: any;
+  let orgRepo: jest.Mocked<OrganizationRepository>;
 
   const mockOrg = {
     id: 'org-1',
     name: 'Test Org',
     slug: 'test-org',
-  };
-
-  const mockInvite = {
-    id: 'invite-1',
-    organizationId: 'org-1',
-    email: 'test@example.com',
-    token: 'valid-token',
-    status: InvitationStatus.PENDING,
-    expiresAt: new Date(Date.now() + 86400000), // +1 day
-  };
+  } as Organization;
 
   beforeEach(async () => {
-    const mockOrgRepo = {
+    const mockOrgRepo: Partial<jest.Mocked<OrganizationRepository>> = {
+      findOne: jest.fn(),
+      findBySlug: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
-      findOne: jest.fn(),
-    };
-
-    const mockInviteRepo = {
-      create: jest.fn(),
-      save: jest.fn(),
-      findOne: jest.fn(),
-      remove: jest.fn(),
-      update: jest.fn(),
-      find: jest.fn(),
-    };
-
-    const mockUsersService = {
-      findOneByEmail: jest.fn(),
-      findOneById: jest.fn(),
-      update: jest.fn(),
-    };
-
-    const mockEmailService = {
-      sendInvitationEmail: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrganizationsService,
-        { provide: getRepositoryToken(Organization), useValue: mockOrgRepo },
-        {
-          provide: getRepositoryToken(OrganizationInvitation),
-          useValue: mockInviteRepo,
-        },
-        { provide: UsersService, useValue: mockUsersService },
-        { provide: EmailService, useValue: mockEmailService },
+        { provide: OrganizationRepository, useValue: mockOrgRepo },
       ],
     }).compile();
 
     service = module.get<OrganizationsService>(OrganizationsService);
-    orgRepo = module.get(getRepositoryToken(Organization));
-    inviteRepo = module.get(getRepositoryToken(OrganizationInvitation));
-    usersService = module.get(UsersService);
-    emailService = module.get(EmailService);
+    orgRepo = module.get(OrganizationRepository);
   });
 
   describe('create', () => {
-    it('should create organization with slug', async () => {
-      orgRepo.findOne.mockResolvedValue(null); // No existing slug
-      orgRepo.create.mockReturnValue(mockOrg);
+    it('should create organization with generated slug', async () => {
+      orgRepo.findBySlug.mockResolvedValue(null); // slug free
+      orgRepo.create.mockResolvedValue(mockOrg);
       orgRepo.save.mockResolvedValue(mockOrg);
 
       const result = await service.create({ name: 'Test Org' });
 
       expect(result).toEqual(mockOrg);
+      expect(orgRepo.findBySlug).toHaveBeenCalledWith('test-org');
       expect(orgRepo.create).toHaveBeenCalledWith({
         name: 'Test Org',
         slug: 'test-org',
       });
+      expect(orgRepo.save).toHaveBeenCalledWith(mockOrg);
     });
 
-    it('should throw conflict if slug exists', async () => {
-      orgRepo.findOne.mockResolvedValue(mockOrg);
+    it('should throw conflict if slug already exists', async () => {
+      orgRepo.findBySlug.mockResolvedValue(mockOrg);
 
       await expect(service.create({ name: 'Test Org' })).rejects.toThrow(
         ConflictException,
       );
+      expect(orgRepo.create).not.toHaveBeenCalled();
     });
   });
 
-  describe('inviteUser', () => {
-    it('should create invite and send email', async () => {
-      usersService.findOneByEmail.mockResolvedValue(null); // User not in org
-      inviteRepo.findOne.mockResolvedValue(null); // No pending invite
-      inviteRepo.create.mockReturnValue(mockInvite);
-      inviteRepo.save.mockResolvedValue(mockInvite);
+  describe('findOne', () => {
+    it('should delegate to the repository', async () => {
       orgRepo.findOne.mockResolvedValue(mockOrg);
-      usersService.findOneById.mockResolvedValue({
-        id: 'inviter-1',
-        name: 'Inviter',
-      });
 
-      const result = await service.inviteUser(
-        'org-1',
-        'test@example.com',
-        'Member',
-        'inviter-1',
-      );
+      const result = await service.findOne('org-1');
 
-      expect(result.token).toBeDefined();
-      expect(emailService.sendInvitationEmail).toHaveBeenCalled();
-    });
-
-    it('should throw conflict if user already in org', async () => {
-      usersService.findOneByEmail.mockResolvedValue({
-        id: 'u1',
-        organizationId: 'org-1',
-      });
-
-      await expect(
-        service.inviteUser('org-1', 'test@example.com', 'Member', 'inviter-1'),
-      ).rejects.toThrow(ConflictException);
+      expect(result).toEqual(mockOrg);
+      expect(orgRepo.findOne).toHaveBeenCalledWith('org-1');
     });
   });
 
-  describe('validateInvite', () => {
-    it('should return invite if valid', async () => {
-      inviteRepo.findOne.mockResolvedValue(mockInvite);
-      const result = await service.validateInvite('valid-token');
-      expect(result).toEqual(mockInvite);
-    });
+  describe('findBySlug', () => {
+    it('should delegate to the repository', async () => {
+      orgRepo.findBySlug.mockResolvedValue(mockOrg);
 
-    it('should throw if expired', async () => {
-      const expiredInvite = {
-        ...mockInvite,
-        expiresAt: new Date(Date.now() - 1000),
-      };
-      inviteRepo.findOne.mockResolvedValue(expiredInvite);
+      const result = await service.findBySlug('test-org');
 
-      await expect(service.validateInvite('valid-token')).rejects.toThrow(
-        BadRequestException,
-      );
-      expect(inviteRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ status: InvitationStatus.EXPIRED }),
-      );
+      expect(result).toEqual(mockOrg);
+      expect(orgRepo.findBySlug).toHaveBeenCalledWith('test-org');
     });
   });
 });

@@ -1,26 +1,23 @@
 /**
  * Organization Settings Service
  *
- * ARCHITECTURE:
- * Follows the same "getOrCreate + update" pattern as UserSecuritySettingsService.
- * Settings are lazily created on first access with sensible defaults.
- * This avoids migration backfill — no existing orgs need a settings row.
+ * DIP REFACTOR (Step 2): @InjectRepository replaced with
+ * OrganizationSettingsRepository abstract class.
  *
- * DOMAIN HELPER:
- * isEmailDomainAllowed() is exposed for OrganizationsService to enforce
- * domain restrictions during invite creation.
+ * ARCHITECTURE:
+ * Follows the "getOrCreate + update" pattern. Settings are lazily
+ * created on first access with sensible defaults.
  *
  * @see UserSecuritySettingsService for the pattern reference
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import {
   OrganizationSettings,
   ProjectVisibility,
 } from './entities/organization-settings.entity';
 import { UpdateOrganizationSettingsDto } from './dto/update-organization-settings.dto';
+import { OrganizationSettingsRepository } from './repositories/abstract/organization-settings.repository.abstract';
 
 // =============================================================================
 // DEFAULTS
@@ -46,28 +43,14 @@ const ORGANIZATION_SETTINGS_DEFAULTS: Omit<
 export class OrganizationSettingsService {
   private readonly logger = new Logger(OrganizationSettingsService.name);
 
-  constructor(
-    @InjectRepository(OrganizationSettings)
-    private readonly settingsRepo: Repository<OrganizationSettings>,
-  ) {}
+  constructor(private readonly settingsRepo: OrganizationSettingsRepository) {}
 
   // ===========================================================================
   // GET OR CREATE (Lazy Initialization)
   // ===========================================================================
 
-  /**
-   * Get organization settings, creating default settings if none exist.
-   *
-   * PATTERN: Lazy initialization — avoids migration backfill.
-   * First access for an org creates a default row.
-   *
-   * @param organizationId - UUID of the organization
-   * @returns OrganizationSettings (existing or newly created)
-   */
   async getOrCreate(organizationId: string): Promise<OrganizationSettings> {
-    let settings = await this.settingsRepo.findOne({
-      where: { organizationId },
-    });
+    let settings = await this.settingsRepo.findOne(organizationId);
 
     if (!settings) {
       this.logger.log(
@@ -88,30 +71,18 @@ export class OrganizationSettingsService {
   // UPDATE
   // ===========================================================================
 
-  /**
-   * Update organization settings with partial data.
-   *
-   * VALIDATION: DTO validators handle type/range checks.
-   * This method handles the merge + save.
-   *
-   * @param organizationId - UUID of the organization
-   * @param dto - Partial settings update
-   * @returns Updated OrganizationSettings
-   */
   async update(
     organizationId: string,
     dto: UpdateOrganizationSettingsDto,
   ): Promise<OrganizationSettings> {
     const settings = await this.getOrCreate(organizationId);
 
-    // Apply only the fields that were provided
     if (dto.logoUrl !== undefined) settings.logoUrl = dto.logoUrl;
     if (dto.timezone !== undefined) settings.timezone = dto.timezone;
     if (dto.defaultProjectVisibility !== undefined) {
       settings.defaultProjectVisibility = dto.defaultProjectVisibility;
     }
     if (dto.allowedEmailDomains !== undefined) {
-      // Normalize: lowercase, deduplicate
       settings.allowedEmailDomains = [
         ...new Set(dto.allowedEmailDomains.map((d) => d.toLowerCase())),
       ];
@@ -125,31 +96,19 @@ export class OrganizationSettingsService {
   // DOMAIN HELPERS (Used by OrganizationsService)
   // ===========================================================================
 
-  /**
-   * Check if an email is allowed by the organization's domain restrictions.
-   *
-   * RULES:
-   * - Empty allowedEmailDomains = all emails allowed (no restriction)
-   * - Non-empty = email domain must match one of the allowed domains
-   *
-   * @param organizationId - UUID of the organization
-   * @param email - Email address to check
-   * @returns true if the email is allowed
-   */
   async isEmailDomainAllowed(
     organizationId: string,
     email: string,
   ): Promise<boolean> {
     const settings = await this.getOrCreate(organizationId);
 
-    // No restrictions configured — all emails allowed
     if (settings.allowedEmailDomains.length === 0) {
       return true;
     }
 
     const emailDomain = email.split('@')[1]?.toLowerCase();
     if (!emailDomain) {
-      return false; // Malformed email
+      return false;
     }
 
     return settings.allowedEmailDomains.includes(emailDomain);

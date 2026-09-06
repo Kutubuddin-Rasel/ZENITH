@@ -29,6 +29,30 @@ import { WorkflowDesignerController } from './controllers/workflow-designer.cont
 import { WorkflowTemplatesController } from './controllers/workflow-templates.controller';
 import { WorkflowAnalyticsController } from './controllers/workflow-analytics.controller';
 
+// SOLID Refactor (boards Step 2): capability-owner side of the
+// `WorkflowLookupPort` inversion. The port is declared in
+// `boards/ports/workflow-lookup.port.ts` (consumer-owned); this module binds
+// the TypeORM-backed adapter so `BoardOrderingService.moveIssue` (Step 3) can
+// resolve a `WorkflowStatus` without reaching across the workflows aggregate
+// boundary via `dataSource.getRepository(WorkflowStatus)` (DIP CRITICAL).
+// Sealed-barrel consumption (Step 4): `WorkflowLookupPort` is part
+// of the public surface that `boards/index.ts` re-exports. Deep
+// imports into `boards/ports/*` are banned by `no-restricted-imports`.
+import { WorkflowLookupPort } from '../boards';
+import { WorkflowLookupAdapter } from './adapters/workflow-lookup.adapter';
+
+// SOLID Refactor (issues Step 2b): capability-owner side of the issues →
+// workflows inversion. Both ports are issues-owned (declared in
+// `issues/ports/workflow-lookup.port.ts`); WorkflowsModule (imported by
+// `issues.module`) binds the adapters and re-exports the tokens — the same
+// pattern it already uses for boards' `WorkflowLookupPort`.
+import {
+  WorkflowStatusLookupPort,
+  WorkflowTransitionPolicyPort,
+} from '../issues';
+import { WorkflowStatusLookupAdapter } from './adapters/workflow-status-lookup.adapter';
+import { WorkflowTransitionPolicyAdapter } from './adapters/workflow-transition-policy.adapter';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -52,6 +76,15 @@ import { WorkflowAnalyticsController } from './controllers/workflow-analytics.co
     WorkflowCategoriesService,
     WorkflowStatusesService,
     WorkflowTransitionsService,
+    { provide: WorkflowLookupPort, useClass: WorkflowLookupAdapter },
+    {
+      provide: WorkflowStatusLookupPort,
+      useClass: WorkflowStatusLookupAdapter,
+    },
+    {
+      provide: WorkflowTransitionPolicyPort,
+      useClass: WorkflowTransitionPolicyAdapter,
+    },
   ],
   controllers: [
     WorkflowsController,
@@ -69,6 +102,9 @@ import { WorkflowAnalyticsController } from './controllers/workflow-analytics.co
     WorkflowCategoriesService,
     WorkflowStatusesService,
     WorkflowTransitionsService,
+    WorkflowLookupPort,
+    WorkflowStatusLookupPort,
+    WorkflowTransitionPolicyPort,
     TypeOrmModule,
   ],
 })
