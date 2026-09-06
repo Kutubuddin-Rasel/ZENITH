@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
+import type { EntityManager } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { AuditLogsService } from '../../audit/audit-logs.service';
 import { AbstractProjectMemberRepository } from '../repositories/abstract/project-member.repository.abstract';
@@ -63,14 +64,17 @@ export class ProjectMemberCommandService implements IProjectMemberCommand {
   // Public command surface (IProjectMemberCommand)
   // ---------------------------------------------------------------------------
 
-  async addMember(command: AddMemberCommand): Promise<ProjectMemberSummary> {
+  async addMember(
+    command: AddMemberCommand,
+    manager?: EntityManager,
+  ): Promise<ProjectMemberSummary> {
     const { projectId, userId, roleName, actorRole } = command;
 
     if (actorRole) {
       this.policy.assertCanManageRole(actorRole, roleName);
     }
 
-    const existing = await this.repository.findOne(projectId, userId);
+    const existing = await this.repository.findOne(projectId, userId, manager);
 
     if (existing) {
       if (existing.roleName === roleName) {
@@ -80,7 +84,7 @@ export class ProjectMemberCommandService implements IProjectMemberCommand {
       // Idempotent re-add with a different role → role change.
       const oldRole = existing.roleName;
       existing.roleName = roleName;
-      const updated = await this.repository.save(existing);
+      const updated = await this.repository.save(existing, manager);
 
       await this.emitAuditLog({
         action: 'MEMBER_ROLE_CHANGED',
@@ -102,7 +106,7 @@ export class ProjectMemberCommandService implements IProjectMemberCommand {
     pm.projectId = projectId;
     pm.userId = userId;
     pm.roleName = roleName;
-    const saved = await this.repository.save(pm);
+    const saved = await this.repository.save(pm, manager);
 
     await this.emitAuditLog({
       action: 'MEMBER_ADDED',

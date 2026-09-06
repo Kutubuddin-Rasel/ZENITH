@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { ProjectMember } from '../../entities/project-member.entity';
 import { AbstractProjectMemberRepository } from '../abstract/project-member.repository.abstract';
 
@@ -37,8 +37,10 @@ export class PostgresProjectMemberRepository extends AbstractProjectMemberReposi
   async findOne(
     projectId: string,
     userId: string,
+    manager?: EntityManager,
   ): Promise<ProjectMember | null> {
-    return this.pmRepo.findOneBy({ projectId, userId });
+    const repo = manager ? manager.getRepository(ProjectMember) : this.pmRepo;
+    return repo.findOneBy({ projectId, userId });
   }
 
   async findByUser(userId: string): Promise<ProjectMember[]> {
@@ -65,8 +67,12 @@ export class PostgresProjectMemberRepository extends AbstractProjectMemberReposi
       .getMany();
   }
 
-  async save(pm: ProjectMember): Promise<ProjectMember> {
-    return this.pmRepo.save(pm);
+  async save(
+    pm: ProjectMember,
+    manager?: EntityManager,
+  ): Promise<ProjectMember> {
+    const repo = manager ? manager.getRepository(ProjectMember) : this.pmRepo;
+    return repo.save(pm);
   }
 
   async remove(pm: ProjectMember): Promise<void> {

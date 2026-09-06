@@ -164,8 +164,17 @@ export interface IProjectMemberCommand {
    * if a membership already exists with a different role, the role
    * is updated and a `member.role_changed` event is emitted instead
    * of `member.added`.
+   *
+   * Transactional callers (`ProjectCommandService.create`) MAY pass
+   * an `EntityManager` so the membership insert participates in the
+   * surrounding `dataSource.transaction(...)` block. When omitted,
+   * the implementation uses its own injected repository as before
+   * (legacy callers stay binary-compatible).
    */
-  addMember(command: AddMemberCommand): Promise<ProjectMemberSummary>;
+  addMember(
+    command: AddMemberCommand,
+    manager?: import('typeorm').EntityManager,
+  ): Promise<ProjectMemberSummary>;
 
   /**
    * Remove a user from a project. Throws if the user is not a member.

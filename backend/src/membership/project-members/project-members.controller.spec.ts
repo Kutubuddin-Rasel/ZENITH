@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProjectMembersController } from './project-members.controller';
 import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
+import { StatefulCsrfGuard } from '../../security/csrf';
 import {
   PROJECT_MEMBER_COMMAND_TOKEN,
   PROJECT_MEMBER_QUERY_TOKEN,
@@ -30,6 +31,8 @@ describe('ProjectMembersController', () => {
         { provide: PROJECT_MEMBER_COMMAND_TOKEN, useValue: mockCommand },
       ],
     })
+      .overrideGuard(StatefulCsrfGuard)
+      .useValue({ canActivate: () => true })
       .overrideGuard(PermissionsGuard)
       .useValue({ canActivate: () => true })
       .compile();

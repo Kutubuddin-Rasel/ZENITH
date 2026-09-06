@@ -6,7 +6,7 @@ import { ProjectMembersController } from './project-members/project-members.cont
 import { UserProjectMembershipsController } from './controllers/user-project-memberships.controller';
 import { MembershipRoleUsageProbeAdapter } from './adapters/membership-role-usage-probe.adapter';
 import { AuditLogsModule } from '../audit/audit-logs.module';
-import { CsrfModule } from '../security/csrf/csrf.module';
+import { CsrfModule } from '../security/csrf';
 import { MEMBERSHIP_ROLE_USAGE_PROBE_TOKEN } from '../rbac';
 
 // Step 2 — Repository inversion (DIP)

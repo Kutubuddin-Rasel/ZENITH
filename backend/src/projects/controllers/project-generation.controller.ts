@@ -34,7 +34,7 @@ import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
-import { StatefulCsrfGuard, RequireCsrf } from '../../security/csrf/csrf.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../../security/csrf';
 import { JwtRequestUser } from '../../auth/types/jwt-request-user.interface';
 import { GenerateProjectFromTextDto } from '../dto/generate-project-from-text.dto';
 import {

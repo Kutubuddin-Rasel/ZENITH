@@ -1,3 +1,5 @@
+import type { EntityManager } from 'typeorm';
+
 import { ProjectMember } from '../../entities/project-member.entity';
 
 /**
@@ -25,10 +27,19 @@ import { ProjectMember } from '../../entities/project-member.entity';
  *  - `countByRoleId`                 → scalar count (RBAC usage probe)
  */
 export abstract class AbstractProjectMemberRepository {
-  /** Find a single membership row by composite PK, or `null`. */
+  /**
+   * Find a single membership row by composite PK, or `null`.
+   *
+   * `manager` (optional) routes the read through a transactional
+   * `EntityManager` so callers participating in a parent
+   * `dataSource.transaction(...)` block see uncommitted writes from
+   * the same transaction. When omitted, the implementation uses its
+   * own injected repository.
+   */
   abstract findOne(
     projectId: string,
     userId: string,
+    manager?: EntityManager,
   ): Promise<ProjectMember | null>;
 
   /**
@@ -44,8 +55,17 @@ export abstract class AbstractProjectMemberRepository {
    */
   abstract listByProjectWithUser(projectId: string): Promise<ProjectMember[]>;
 
-  /** Persist a membership row (insert or update by composite PK). */
-  abstract save(pm: ProjectMember): Promise<ProjectMember>;
+  /**
+   * Persist a membership row (insert or update by composite PK).
+   *
+   * `manager` (optional) — see `findOne` above. Used by transactional
+   * callers (`ProjectCommandService.create`) so a project + ownership
+   * membership succeed-or-fail together.
+   */
+  abstract save(
+    pm: ProjectMember,
+    manager?: EntityManager,
+  ): Promise<ProjectMember>;
 
   /** Hard-delete a membership row. */
   abstract remove(pm: ProjectMember): Promise<void>;

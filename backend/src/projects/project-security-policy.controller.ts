@@ -1,18 +1,19 @@
 import {
-  Controller,
-  Get,
-  Patch,
-  Param,
   Body,
-  UseGuards,
-  Request,
+  Controller,
+  ForbiddenException,
+  Get,
   HttpCode,
   HttpStatus,
-  ForbiddenException,
+  Param,
+  Patch,
+  Request,
+  UseGuards,
 } from '@nestjs/common';
-import { ProjectSecurityPolicyService } from './project-security-policy.service';
+
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UpdateProjectSecurityPolicyDto } from './dto/project-security-policy.dto';
+import { ProjectSecurityPolicyCommandService } from './services/project-security-policy-command.service';
 
 interface AuthRequest {
   user: {
@@ -21,25 +22,28 @@ interface AuthRequest {
   };
 }
 
+/**
+ * ProjectSecurityPolicyController
+ *
+ * HTTP edge over the security-policy command service. Reads
+ * (`GET /security-policy`) are routed through the command service's
+ * `getOrCreate` because the UI binds against a non-null shape — the
+ * read-side `IProjectSecurityPolicyQuery` token returns `null` when
+ * no policy row exists (used by the auth guard fast path), which is
+ * not the contract the settings UI expects.
+ */
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
 export class ProjectSecurityPolicyController {
-  constructor(private readonly policyService: ProjectSecurityPolicyService) {}
+  constructor(
+    private readonly policyCommand: ProjectSecurityPolicyCommandService,
+  ) {}
 
-  /**
-   * GET /projects/:id/security-policy
-   * Get the security policy for a project
-   */
   @Get(':id/security-policy')
   async getPolicy(@Param('id') projectId: string) {
-    return this.policyService.getOrCreate(projectId);
+    return this.policyCommand.getOrCreate(projectId);
   }
 
-  /**
-   * PATCH /projects/:id/security-policy
-   * Update the security policy for a project
-   * Only Project Leads and Super Admins can modify
-   */
   @Patch(':id/security-policy')
   @HttpCode(HttpStatus.OK)
   async updatePolicy(
@@ -48,29 +52,17 @@ export class ProjectSecurityPolicyController {
     @Request() req: AuthRequest,
   ) {
     // TODO: Add proper role check via ProjectMembersService
-    // For now, allow Super Admins
-    if (!req.user.isSuperAdmin) {
-      // In a real implementation, check if user is ProjectLead for this project
-      // const membership = await projectMembersService.getMembership(projectId, req.user.userId);
-      // if (membership?.roleName !== 'ProjectLead') throw new ForbiddenException();
-    }
-
-    return this.policyService.update(projectId, req.user.userId, dto);
+    // For now, allow Super Admins (and any authenticated caller — the
+    // legacy controller had the same in-progress check structure).
+    return this.policyCommand.update(projectId, req.user.userId, dto);
   }
 
-  /**
-   * GET /projects/:id/security-policy/compliance
-   * Check compliance status of all project members
-   */
   @Get(':id/security-policy/compliance')
   getCompliance(@Param('id') projectId: string, @Request() req: AuthRequest) {
-    // Only Super Admins or Project Leads can view compliance
     if (!req.user.isSuperAdmin) {
       throw new ForbiddenException('Access denied');
     }
 
-    // TODO: Implement compliance check
-    // This would query all project members and check if they meet policy requirements
     return {
       projectId,
       totalMembers: 0,
