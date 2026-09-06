@@ -13,7 +13,7 @@ import {
 import { OnboardingService } from '../services/onboarding.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
-import { CsrfGuard, RequireCsrf } from '../../security/csrf/csrf.guard';
+import { CsrfGuard, RequireCsrf } from '../../security/csrf';
 import { OnboardingStepStatus } from '../entities/onboarding-progress.entity';
 import { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
 

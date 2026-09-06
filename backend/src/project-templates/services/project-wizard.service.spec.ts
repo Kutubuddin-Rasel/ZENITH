@@ -3,9 +3,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ProjectWizardService } from './project-wizard.service';
 import { ProjectTemplate } from '../entities/project-template.entity';
 import { UserPreferences } from '../../user-preferences/entities/user-preferences.entity';
-import { ProjectsService } from '../../projects/projects.service';
-import { BoardsService } from '../../boards/boards.service';
-import { SprintsService } from '../../sprints/sprints.service';
+import { PROJECT_COMMAND_TOKEN, PROJECT_QUERY_TOKEN } from '../../projects';
+import { BoardSeedPort } from '../../boards';
+import { SPRINT_COMMAND_TOKEN } from '../../sprints';
 import { DataSource } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 
@@ -21,10 +21,8 @@ describe('ProjectWizardService', () => {
   let mockPreferencesRepo: {
     findOne: jest.Mock;
   };
-  let mockProjectsService: {
-    create: jest.Mock;
-    findByKey: jest.Mock;
-  };
+  let mockProjectCommand: { create: jest.Mock };
+  let mockProjectQuery: { findByKey: jest.Mock };
 
   beforeEach(async () => {
     mockTemplateRepo = {
@@ -39,12 +37,10 @@ describe('ProjectWizardService', () => {
       findOne: jest.fn(),
     };
 
-    mockProjectsService = {
-      create: jest.fn(),
-      findByKey: jest.fn().mockResolvedValue(null),
-    };
+    mockProjectCommand = { create: jest.fn() };
+    mockProjectQuery = { findByKey: jest.fn().mockResolvedValue(null) };
 
-    const mockBoardsService = { create: jest.fn() };
+    const mockBoardSeed = { seed: jest.fn() };
     const mockSprintsService = { create: jest.fn() };
     const mockDataSource = { transaction: jest.fn() };
     const mockProjectRepo = { findOne: jest.fn() };
@@ -61,15 +57,19 @@ describe('ProjectWizardService', () => {
           useValue: mockPreferencesRepo,
         },
         {
-          provide: ProjectsService,
-          useValue: mockProjectsService,
+          provide: PROJECT_QUERY_TOKEN,
+          useValue: mockProjectQuery,
         },
         {
-          provide: BoardsService,
-          useValue: mockBoardsService,
+          provide: PROJECT_COMMAND_TOKEN,
+          useValue: mockProjectCommand,
         },
         {
-          provide: SprintsService,
+          provide: BoardSeedPort,
+          useValue: mockBoardSeed,
+        },
+        {
+          provide: SPRINT_COMMAND_TOKEN,
           useValue: mockSprintsService,
         },
         {

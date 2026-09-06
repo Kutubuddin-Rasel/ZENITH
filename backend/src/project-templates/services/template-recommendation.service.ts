@@ -36,7 +36,9 @@ export class TemplateRecommendationService {
     private templateRepo: Repository<ProjectTemplate>,
     @InjectRepository(UserPreferences)
     private preferencesRepo: Repository<UserPreferences>,
-    @Optional() @Inject(CACHE_STORE_TOKEN) private readonly cacheStore?: ICacheStore,
+    @Optional()
+    @Inject(CACHE_STORE_TOKEN)
+    private readonly cacheStore?: ICacheStore,
   ) {}
 
   /**

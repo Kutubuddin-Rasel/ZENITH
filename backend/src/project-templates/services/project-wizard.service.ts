@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   Inject,
-  forwardRef,
   Logger,
   Optional,
 } from '@nestjs/common';
@@ -16,10 +15,18 @@ import {
   ProjectMethodology,
 } from '../entities/project-template.entity';
 import { UserPreferences } from '../../user-preferences/entities/user-preferences.entity';
-import { ProjectsService } from '../../projects/projects.service';
+import {
+  PROJECT_COMMAND_TOKEN,
+  PROJECT_QUERY_TOKEN,
+  type IProjectCommand,
+  type IProjectQuery,
+} from '../../projects';
 import { CreateProjectDto } from '../../projects/dto/create-project.dto';
-import { BoardsService } from '../../boards/boards.service';
-import { SprintsService } from '../../sprints/sprints.service';
+// Sealed-barrel consumption (Step 4): `BoardSeedPort` and `BoardType`
+// flow through `boards/index.ts` — no direct reach into
+// `boards/ports/*` or `boards/enums/*`.
+import { BoardSeedPort, BoardType } from '../../boards';
+import { SPRINT_COMMAND_TOKEN, type ISprintCommand } from '../../sprints';
 import { Project } from '../../projects/entities/project.entity';
 import { ProjectIntelligenceService } from '../../ai/services/project-intelligence.service';
 import { TemplateScorerService } from '../../ai/services/template-scorer.service';
@@ -75,14 +82,23 @@ export class ProjectWizardService {
     private preferencesRepo: Repository<UserPreferences>,
     @InjectRepository(Project)
     private projectRepo: Repository<Project>,
-    private projectsService: ProjectsService,
-    @Inject(forwardRef(() => BoardsService))
-    private boardsService: BoardsService,
-    @Inject(forwardRef(() => SprintsService))
-    private sprintsService: SprintsService,
+    @Inject(PROJECT_QUERY_TOKEN)
+    private projectsQuery: IProjectQuery,
+    @Inject(PROJECT_COMMAND_TOKEN)
+    private projectsCommand: IProjectCommand,
+    // SOLID Refactor (Step 3 commit 8): seed-only port replaces
+    // `forwardRef(() => BoardsService)`. The typed `BoardSeedSpec`
+    // closes the legacy `CreateBoardDto.columns?: any[]` leak — the
+    // `as any` cast that used to sit on this call site is now a
+    // compile error if a future caller drops a field.
+    private readonly boardSeed: BoardSeedPort,
+    @Inject(SPRINT_COMMAND_TOKEN)
+    private sprintsService: ISprintCommand,
     private dataSource: DataSource,
     @Optional() private projectIntelligence?: ProjectIntelligenceService,
-    @Optional() @Inject(CACHE_STORE_TOKEN) private readonly cacheStore?: ICacheStore,
+    @Optional()
+    @Inject(CACHE_STORE_TOKEN)
+    private readonly cacheStore?: ICacheStore,
     @Optional() private templateScorer?: TemplateScorerService,
     // NEW: Unified template application service
     @Optional() private templateApplicationService?: TemplateApplicationService,
@@ -475,7 +491,14 @@ export class ProjectWizardService {
         key: projectKey,
       };
 
-      const project = await this.projectsService.create(userId, projectData);
+      const project = await this.projectsCommand.create({
+        actorUserId: userId,
+        name: projectData.name,
+        key: projectData.key,
+        description: projectData.description,
+        templateId: projectData.templateId,
+        leadUserId: projectData.projectLeadId,
+      });
 
       // Apply template configuration using unified service
       if (this.templateApplicationService) {
@@ -505,7 +528,7 @@ export class ProjectWizardService {
     let key = this.generateProjectKey(projectName);
     let attempts = 0;
     // Check for global uniqueness (pass no organizationId to findByKey)
-    while ((await this.projectsService.findByKey(key)) !== null) {
+    while ((await this.projectsQuery.findByKey(key)) !== null) {
       if (attempts++ > 10) {
         throw new Error(
           'Failed to generate unique project key after multiple attempts',
@@ -571,12 +594,14 @@ export class ProjectWizardService {
               `Creating board "${boardConfig.name}" with columns: ${columns.map((c) => c.name).join(', ')}`,
             );
 
-            await this.boardsService.create(projectId, userId, {
+            await this.boardSeed.seed({
+              projectId,
+              actorUserId: userId,
               name: boardConfig.name,
-              type: boardConfig.type as 'kanban' | 'scrum',
+              type: boardConfig.type as BoardType,
               description: `${boardConfig.type.charAt(0).toUpperCase() + boardConfig.type.slice(1)} board for ${template.name}`,
               columns,
-            } as any);
+            });
           }
         }
 

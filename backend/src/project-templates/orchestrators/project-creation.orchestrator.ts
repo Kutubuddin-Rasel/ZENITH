@@ -11,7 +11,6 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
-import { ProjectMembersService } from '../../membership/project-members/project-members.service';
 import { ProjectRole } from '../../membership/enums/project-role.enum';
 import { TemplateApplicationService } from '../services/template-application.service';
 import { WizardDtoMapper } from '../mappers/wizard-dto.mapper';
@@ -48,7 +47,6 @@ export class ProjectCreationOrchestrator {
 
   constructor(
     private readonly dataSource: DataSource,
-    private readonly membershipService: ProjectMembersService,
     @Inject(forwardRef(() => TemplateApplicationService))
     private readonly templateApplicationService: TemplateApplicationService,
     private readonly wizardDtoMapper: WizardDtoMapper,

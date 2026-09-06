@@ -10,13 +10,7 @@
  * This service ensures consistent template application across all flows.
  */
 
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  Inject,
-  forwardRef,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
@@ -25,10 +19,12 @@ import {
   ProjectMethodology,
 } from '../entities/project-template.entity';
 import { WorkflowStatusesService } from '../../workflows/services/workflow-statuses.service';
-import { BoardsService } from '../../boards/boards.service';
-import { SprintsService } from '../../sprints/sprints.service';
-import { CreateBoardDto } from '../../boards/dto/create-board.dto';
-import { BoardType } from '../../boards/entities/board.entity';
+// Sealed-barrel consumption (Step 4): the seed port and `BoardType`
+// are exported from `boards/index.ts`. Deep imports into
+// `boards/ports/*` / `boards/enums/*` are banned by
+// `no-restricted-imports`.
+import { BoardSeedPort, BoardType } from '../../boards';
+import { SPRINT_COMMAND_TOKEN, type ISprintCommand } from '../../sprints';
 
 /**
  * Template config structure (from ProjectTemplate)
@@ -101,10 +97,16 @@ export class TemplateApplicationService {
     @InjectRepository(ProjectTemplate)
     private readonly templateRepo: Repository<ProjectTemplate>,
     private readonly workflowStatusesService: WorkflowStatusesService,
-    @Inject(forwardRef(() => BoardsService))
-    private readonly boardsService: BoardsService,
-    @Inject(forwardRef(() => SprintsService))
-    private readonly sprintsService: SprintsService,
+    // SOLID Refactor (Step 3 commit 8): inject the seed-only port
+    // instead of `forwardRef(() => BoardsService)`. The port is owned
+    // by `boards` (consumer-owned, capability-binding side) and bound
+    // via `useExisting: BoardCommandService` — so the cycle that the
+    // `forwardRef` papered over is gone at the type level. The
+    // `BoardsModule` import is also removed from
+    // `project-templates.module.ts` in this commit.
+    private readonly boardSeed: BoardSeedPort,
+    @Inject(SPRINT_COMMAND_TOKEN)
+    private readonly sprintsService: ISprintCommand,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -502,13 +504,14 @@ export class TemplateApplicationService {
       ];
 
       try {
-        const defaultBoardDto: CreateBoardDto = {
+        await this.boardSeed.seed({
+          projectId,
+          actorUserId: userId,
           name: 'Main Board',
           type: BoardType.KANBAN,
           description: 'Default project board',
           columns: defaultColumns,
-        };
-        await this.boardsService.create(projectId, userId, defaultBoardDto);
+        });
         this.logger.log('Created default board');
       } catch (error) {
         this.logger.warn('Failed to create default board', error);
@@ -520,18 +523,18 @@ export class TemplateApplicationService {
       const columns = boardConfig.columns.map((col) => ({
         name: col.name,
         order: col.order,
-        // Link to status if available
         statusId: statusMap.get(col.status || col.name),
       }));
 
       try {
-        const configBoardDto: CreateBoardDto = {
+        await this.boardSeed.seed({
+          projectId,
+          actorUserId: userId,
           name: boardConfig.name,
           type: boardConfig.type as BoardType,
           description: `${boardConfig.type.charAt(0).toUpperCase() + boardConfig.type.slice(1)} board`,
           columns,
-        };
-        await this.boardsService.create(projectId, userId, configBoardDto);
+        });
         this.logger.log(`Created board "${boardConfig.name}"`);
       } catch (error) {
         this.logger.warn(`Failed to create board "${boardConfig.name}"`, error);
