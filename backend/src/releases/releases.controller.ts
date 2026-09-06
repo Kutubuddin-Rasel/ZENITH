@@ -12,10 +12,22 @@ import {
   Request,
   UseInterceptors,
   UploadedFile,
+  Inject,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { ReleasesService } from './releases.service';
+import {
+  RELEASE_QUERY_TOKEN,
+  RELEASE_COMMAND_TOKEN,
+  RELEASE_DEPLOYMENT_TOKEN,
+  RELEASE_NOTES_TOKEN,
+} from './constants/releases.tokens';
+import type {
+  IReleaseQuery,
+  IReleaseCommand,
+  IReleaseDeployment,
+  IReleaseNotes,
+} from './interfaces/releases.interfaces';
 import { CreateReleaseDto } from './dto/create-release.dto';
 import { UpdateReleaseDto } from './dto/update-release.dto';
 import { AssignIssueDto } from './dto/assign-issue.dto';
@@ -24,7 +36,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
-import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf';
 import {
   releaseFileFilter,
   releaseFilenameCallback,
@@ -35,13 +47,21 @@ import { PaginatedReleasesQueryDto } from './dto/paginated-releases-query.dto';
 /**
  * ReleasesController - Manages SDLC release lifecycle
  *
- * CSRF Protection: All mutations require x-csrf-token header.
- * Critical endpoints (triggerDeploy, createRollback) have highest security impact.
+ * Thin HTTP adapter: depends only on the segregated release tokens
+ * (query/command/deployment/notes), never a concrete service. CSRF Protection:
+ * all mutations require x-csrf-token. Critical endpoints (triggerDeploy,
+ * createRollback) carry the highest security impact.
  */
 @Controller('projects/:projectId/releases')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class ReleasesController {
-  constructor(private svc: ReleasesService) {}
+  constructor(
+    @Inject(RELEASE_QUERY_TOKEN) private readonly query: IReleaseQuery,
+    @Inject(RELEASE_COMMAND_TOKEN) private readonly command: IReleaseCommand,
+    @Inject(RELEASE_DEPLOYMENT_TOKEN)
+    private readonly deployment: IReleaseDeployment,
+    @Inject(RELEASE_NOTES_TOKEN) private readonly notes: IReleaseNotes,
+  ) {}
 
   @RequireCsrf()
   @RequirePermission('releases:create')
@@ -51,7 +71,7 @@ export class ReleasesController {
     @Body() dto: CreateReleaseDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.create(projectId, req.user.userId, dto);
+    return this.command.create(projectId, req.user.userId, dto);
   }
 
   @RequirePermission('releases:view')
@@ -61,7 +81,7 @@ export class ReleasesController {
     @Query() query: PaginatedReleasesQueryDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.findAllPaginated(projectId, req.user.userId, query);
+    return this.query.findAllPaginated(projectId, req.user.userId, query);
   }
 
   @RequirePermission('releases:view')
@@ -71,7 +91,7 @@ export class ReleasesController {
     @Param('releaseId') releaseId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.findOne(projectId, releaseId, req.user.userId);
+    return this.query.findOne(projectId, releaseId, req.user.userId);
   }
 
   @RequireCsrf()
@@ -83,7 +103,7 @@ export class ReleasesController {
     @Body() dto: UpdateReleaseDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.update(projectId, releaseId, req.user.userId, dto);
+    return this.command.update(projectId, releaseId, req.user.userId, dto);
   }
 
   @RequireCsrf()
@@ -94,7 +114,7 @@ export class ReleasesController {
     @Param('releaseId') releaseId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.remove(projectId, releaseId, req.user.userId);
+    await this.command.remove(projectId, releaseId, req.user.userId);
     return { message: 'Release deleted' };
   }
 
@@ -108,7 +128,7 @@ export class ReleasesController {
     @Param('releaseId') releaseId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.archive(projectId, releaseId, req.user.userId);
+    return this.command.archive(projectId, releaseId, req.user.userId);
   }
 
   // ==================== Issues ====================
@@ -120,7 +140,7 @@ export class ReleasesController {
     @Param('releaseId') releaseId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.getIssues(projectId, releaseId, req.user.userId);
+    return this.query.getIssues(projectId, releaseId, req.user.userId);
   }
 
   @RequireCsrf()
@@ -132,7 +152,7 @@ export class ReleasesController {
     @Body() dto: AssignIssueDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.assignIssue(projectId, releaseId, req.user.userId, dto);
+    return this.command.assignIssue(projectId, releaseId, req.user.userId, dto);
   }
 
   @RequireCsrf()
@@ -144,7 +164,12 @@ export class ReleasesController {
     @Body() dto: UnassignIssueDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.unassignIssue(projectId, releaseId, req.user.userId, dto);
+    await this.command.unassignIssue(
+      projectId,
+      releaseId,
+      req.user.userId,
+      dto,
+    );
     return { message: 'Issue unassigned from release' };
   }
 
@@ -157,7 +182,12 @@ export class ReleasesController {
     @Body() dto: UnassignIssueDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.unassignIssue(projectId, releaseId, req.user.userId, dto);
+    await this.command.unassignIssue(
+      projectId,
+      releaseId,
+      req.user.userId,
+      dto,
+    );
     return { message: 'Issue unassigned from release' };
   }
 
@@ -170,7 +200,7 @@ export class ReleasesController {
     @Param('releaseId') releaseId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.getAttachments(projectId, releaseId, req.user.userId);
+    return this.query.getAttachments(projectId, releaseId, req.user.userId);
   }
 
   @RequireCsrf()
@@ -196,7 +226,7 @@ export class ReleasesController {
     @UploadedFile() file: Express.Multer.File,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.addAttachment(projectId, releaseId, req.user.userId, {
+    return this.command.addAttachment(projectId, releaseId, req.user.userId, {
       filename: file.originalname,
       filepath: `/uploads/releases/${file.filename}`,
       mimeType: file.mimetype,
@@ -213,7 +243,7 @@ export class ReleasesController {
     @Param('attachmentId') attachmentId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.deleteAttachment(
+    await this.command.deleteAttachment(
       projectId,
       releaseId,
       attachmentId,
@@ -231,7 +261,11 @@ export class ReleasesController {
     @Param('releaseId') releaseId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.generateReleaseNotes(projectId, releaseId, req.user.userId);
+    return this.notes.generateReleaseNotes(
+      projectId,
+      releaseId,
+      req.user.userId,
+    );
   }
 
   @RequireCsrf()
@@ -242,7 +276,7 @@ export class ReleasesController {
     @Param('releaseId') releaseId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.generateAndSaveReleaseNotes(
+    return this.command.generateAndSaveReleaseNotes(
       projectId,
       releaseId,
       req.user.userId,
@@ -258,7 +292,7 @@ export class ReleasesController {
     @Request() req: { user: JwtRequestUser },
   ) {
     // Default to patch bump
-    return this.svc.suggestNextVersion(projectId, req.user.userId, 'patch');
+    return this.query.suggestNextVersion(projectId, req.user.userId, 'patch');
   }
 
   @RequirePermission('releases:view')
@@ -268,7 +302,7 @@ export class ReleasesController {
     @Param('bumpType') bumpType: 'major' | 'minor' | 'patch',
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.suggestNextVersion(projectId, req.user.userId, bumpType);
+    return this.query.suggestNextVersion(projectId, req.user.userId, bumpType);
   }
 
   // ==================== Git Integration ====================
@@ -280,7 +314,7 @@ export class ReleasesController {
     @Param('releaseId') releaseId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.getGitInfo(projectId, releaseId, req.user.userId);
+    return this.query.getGitInfo(projectId, releaseId, req.user.userId);
   }
 
   @RequireCsrf()
@@ -299,7 +333,7 @@ export class ReleasesController {
     },
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.linkGit(projectId, releaseId, req.user.userId, dto);
+    return this.command.linkGit(projectId, releaseId, req.user.userId, dto);
   }
 
   // ==================== Deployments ====================
@@ -313,7 +347,7 @@ export class ReleasesController {
     @Body() dto: { webhookId?: string },
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.triggerDeploy(
+    return this.deployment.triggerDeploy(
       projectId,
       releaseId,
       dto.webhookId || '',
@@ -331,7 +365,7 @@ export class ReleasesController {
     @Param('otherReleaseId') otherReleaseId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.compareReleases(
+    return this.query.compareReleases(
       projectId,
       releaseId,
       otherReleaseId,
@@ -348,7 +382,7 @@ export class ReleasesController {
     @Body() dto: { newVersionName?: string },
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.svc.createRollback(
+    return this.command.createRollback(
       projectId,
       releaseId,
       req.user.userId,

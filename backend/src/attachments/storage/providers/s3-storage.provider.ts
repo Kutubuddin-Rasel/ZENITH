@@ -155,17 +155,29 @@ export class S3StorageProvider implements IFileStorageProvider {
   }
 
   /**
-   * Get presigned download URL (expires in 15 minutes by default).
-   * Prevents long-lived link sharing.
+   * Get presigned download URL. Prevents long-lived link sharing.
+   *
+   * @param key        Object key.
+   * @param ttlSeconds Optional explicit lifetime. Omit to use
+   *   `AWS_S3_PRESIGNED_EXPIRATION` (default 900 s / 15 min) — the right choice
+   *   for interactive downloads, where the user clicks immediately.
+   *
+   *   Callers that PROMISE a lifetime to the recipient must pass it explicitly:
+   *   the scheduled-report email tells the reader "valid for 48 hours", and
+   *   silently signing for 15 minutes made that copy a lie. Widening this method
+   *   (rather than `IFileStorageProvider`) keeps the fix local — the shared
+   *   interface, and therefore every `attachments` consumer, is untouched.
+   *
+   * @see email/ports/download-link.port.ts
    */
-  async getDownloadUrl(key: string): Promise<string> {
+  async getDownloadUrl(key: string, ttlSeconds?: number): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: this.bucket,
       Key: key,
     });
 
     return getSignedUrl(this.s3Client, command, {
-      expiresIn: this.presignedUrlExpiration,
+      expiresIn: ttlSeconds ?? this.presignedUrlExpiration,
     });
   }
 
