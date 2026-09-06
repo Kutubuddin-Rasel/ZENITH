@@ -9,9 +9,27 @@ import {
   Delete,
   UseGuards,
   Request,
+  Inject,
 } from '@nestjs/common';
-import { SprintsService } from './sprints.service';
 import { UsersService } from '../users/users.service';
+// SOLID Refactor (Step 3): the controller injects the ISP tokens, not
+// the concrete `SprintsService`. Each endpoint depends only on the
+// surface it actually calls (query / command / lifecycle / membership /
+// metrics) — the god class is no longer referenced here.
+import {
+  SPRINT_QUERY_TOKEN,
+  SPRINT_COMMAND_TOKEN,
+  SPRINT_LIFECYCLE_TOKEN,
+  SPRINT_MEMBERSHIP_TOKEN,
+  SPRINT_METRICS_TOKEN,
+} from './constants/sprints.tokens';
+import type {
+  ISprintQuery,
+  ISprintCommand,
+  ISprintLifecycle,
+  ISprintMembership,
+  ISprintMetrics,
+} from './interfaces/sprints.interfaces';
 import { CreateSprintDto } from './dto/create-sprint.dto';
 import { UpdateSprintDto } from './dto/update-sprint.dto';
 import { AddIssueToSprintDto } from './dto/add-issue.dto';
@@ -24,7 +42,7 @@ import { RequireProjectRole } from '../auth/decorators/require-project-role.deco
 import { Query } from '@nestjs/common';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 import { ProjectRoleGuard } from '../auth/guards/project-role.guard';
-import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf';
 
 /**
  * SprintsController - Manages sprint lifecycle.
@@ -36,7 +54,16 @@ import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard, ProjectRoleGuard)
 export class SprintsController {
   constructor(
-    private readonly sprintsService: SprintsService,
+    @Inject(SPRINT_QUERY_TOKEN)
+    private readonly sprintQuery: ISprintQuery,
+    @Inject(SPRINT_COMMAND_TOKEN)
+    private readonly sprintCommand: ISprintCommand,
+    @Inject(SPRINT_LIFECYCLE_TOKEN)
+    private readonly sprintLifecycle: ISprintLifecycle,
+    @Inject(SPRINT_MEMBERSHIP_TOKEN)
+    private readonly sprintMembership: ISprintMembership,
+    @Inject(SPRINT_METRICS_TOKEN)
+    private readonly sprintMetrics: ISprintMetrics,
     private readonly usersService: UsersService,
   ) {}
 
@@ -59,7 +86,7 @@ export class SprintsController {
     @Body() dto: CreateSprintDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.sprintsService.create(projectId, req.user.userId, dto);
+    return this.sprintCommand.create(projectId, req.user.userId, dto);
   }
 
   @RequirePermission('sprints:view')
@@ -69,7 +96,7 @@ export class SprintsController {
     @Request() req: { user: JwtRequestUser },
     @Query('active') active?: string,
   ) {
-    return this.sprintsService.findAll(
+    return this.sprintQuery.findAll(
       projectId,
       req.user.userId,
       active === 'true',
@@ -83,7 +110,7 @@ export class SprintsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.sprintsService.findOne(projectId, sprintId, req.user.userId);
+    return this.sprintQuery.findOne(projectId, sprintId, req.user.userId);
   }
 
   @RequirePermission('sprints:update')
@@ -96,12 +123,7 @@ export class SprintsController {
     @Body() dto: UpdateSprintDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.sprintsService.update(
-      projectId,
-      sprintId,
-      req.user.userId,
-      dto,
-    );
+    return this.sprintCommand.update(projectId, sprintId, req.user.userId, dto);
   }
 
   @RequirePermission('sprints:update')
@@ -114,7 +136,7 @@ export class SprintsController {
     @Body('nextSprintId') nextSprintId: string | undefined,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.sprintsService.archive(
+    return this.sprintLifecycle.archive(
       projectId,
       sprintId,
       req.user.userId,
@@ -131,7 +153,7 @@ export class SprintsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.sprintsService.remove(projectId, sprintId, req.user.userId);
+    await this.sprintCommand.remove(projectId, sprintId, req.user.userId);
     return { message: 'Sprint deleted' };
   }
 
@@ -145,7 +167,7 @@ export class SprintsController {
     @Body() dto: AddIssueToSprintDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.sprintsService.addIssue(
+    return this.sprintMembership.addIssue(
       projectId,
       sprintId,
       req.user.userId,
@@ -163,7 +185,7 @@ export class SprintsController {
     @Body() dto: RemoveIssueFromSprintDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.sprintsService.removeIssue(
+    await this.sprintMembership.removeIssue(
       projectId,
       sprintId,
       req.user.userId,
@@ -179,7 +201,7 @@ export class SprintsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.sprintsService.getSprintIssues(
+    return this.sprintQuery.getSprintIssues(
       projectId,
       sprintId,
       req.user.userId,
@@ -195,11 +217,7 @@ export class SprintsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.sprintsService.startSprint(
-      projectId,
-      sprintId,
-      req.user.userId,
-    );
+    return this.sprintCommand.startSprint(projectId, sprintId, req.user.userId);
   }
 
   @RequirePermission('sprints:view')
@@ -209,11 +227,7 @@ export class SprintsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.sprintsService.getBurndown(
-      projectId,
-      sprintId,
-      req.user.userId,
-    );
+    return this.sprintMetrics.getBurndown(projectId, sprintId, req.user.userId);
   }
 
   @RequirePermission('sprints:view')
@@ -222,7 +236,7 @@ export class SprintsController {
     @Param('projectId') projectId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.sprintsService.getVelocity(projectId, req.user.userId);
+    return this.sprintMetrics.getVelocity(projectId, req.user.userId);
   }
 
   @RequirePermission('sprints:view')
@@ -232,6 +246,6 @@ export class SprintsController {
     @Param('sprintId') sprintId: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    return this.sprintsService.getBurnup(projectId, sprintId, req.user.userId);
+    return this.sprintMetrics.getBurnup(projectId, sprintId, req.user.userId);
   }
 }

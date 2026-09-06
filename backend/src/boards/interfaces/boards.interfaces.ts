@@ -58,6 +58,7 @@ import type { CreateBoardDto } from '../dto/create-board.dto';
 import type { UpdateBoardDto } from '../dto/update-board.dto';
 import type { CreateColumnDto } from '../dto/create-column.dto';
 import type { UpdateColumnDto } from '../dto/update-column.dto';
+import type { ProjectRole } from '../../membership/enums/project-role.enum';
 
 // ===========================================================================
 // Value-Object Views (DTOs) — zero TypeORM coupling
@@ -411,4 +412,80 @@ export interface IBoardOrderingCommand {
     userId: string,
     organizationId?: string,
   ): Promise<void>;
+}
+
+// ===========================================================================
+// Realtime Authorization Surface — room-level access for the WS transport
+// ===========================================================================
+
+/**
+ * Result of a board access validation check.
+ *
+ * RELOCATED verbatim from `gateways/board-access.service.ts`. Returns a rich
+ * object rather than a boolean so the caller can log the specific denial
+ * reason for security auditing and echo the role back in a join ack.
+ */
+export interface BoardAccessResult {
+  /** Whether the user is authorized to access the board */
+  granted: boolean;
+
+  /** User's role in the project (only present when granted) */
+  role?: ProjectRole;
+
+  /** Project that owns the board (only present when board exists) */
+  projectId?: string;
+
+  /** Machine-readable denial reason for structured logging */
+  reason?: 'board_not_found' | 'not_member';
+}
+
+/**
+ * `IBoardAccess` — narrow read surface for WebSocket room authorization.
+ *
+ * WHY A NEW CONTRACT INSTEAD OF WIDENING `IBoardQuery` (ISP): every
+ * `IBoardQuery` method demands `projectId + userId`, enforces membership
+ * itself, and returns a heavy projection (columns, issues). The WS transport
+ * has only a `boardId` — resolving its project is the whole question — and
+ * needs the answer on every join and every reconnect. Bolting a cheap lookup
+ * onto a heavy read interface would force every `IBoardQuery` implementation
+ * to grow a method none of its HTTP callers want.
+ *
+ * WHY IT LIVES IN `boards` AND NOT IN `gateways`: this is a board-domain read.
+ * The implementation holds `Repository<Board>`, and Level 3 (transport) may
+ * never execute raw TypeORM. The gateway consumes it through
+ * `BOARD_ACCESS_TOKEN` and stays a pure transport.
+ *
+ * SECURITY: implementations MUST use the anti-enumeration pattern — the caller
+ * receives the same generic denial for "board does not exist" and "not a
+ * member", while `reason` carries the truth to the audit log only.
+ */
+export interface IBoardAccess {
+  /**
+   * Authorize one user against one board. The hot path for `joinBoard`.
+   */
+  validateAccess(userId: string, boardId: string): Promise<BoardAccessResult>;
+
+  /**
+   * Batch form for reconnect. Implementations MUST resolve the whole set in
+   * ONE board lookup plus one membership resolution per DISTINCT project,
+   * regardless of how many boards are asked about — the per-room loop it
+   * replaces cost two serial round trips per room, inside the handshake.
+   *
+   * @returns a map keyed by the requested `boardId`. Every input id is
+   *   present in the result, including denied ones.
+   */
+  validateAccessBatch(
+    userId: string,
+    boardIds: readonly string[],
+  ): Promise<ReadonlyMap<string, BoardAccessResult>>;
+
+  /**
+   * Board ids owned by a project.
+   *
+   * System-initiated fan-out (a domain event broadcasting to every board room
+   * of a project) — there is NO acting user, so there is deliberately no
+   * membership check here. Room membership is already gated at join time; a
+   * socket can only receive this broadcast if it passed `validateAccess`.
+   */
+  listBoardIdsForProject(projectId: string): Promise<readonly string[]>;
 }

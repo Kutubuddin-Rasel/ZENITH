@@ -8,12 +8,14 @@ import { WorkflowsModule } from '../workflows/workflows.module';
 
 import { BoardsController } from './boards.controller';
 import {
+  BOARD_ACCESS_TOKEN,
   BOARD_COLUMN_COMMAND_TOKEN,
   BOARD_COMMAND_TOKEN,
   BOARD_ORDERING_COMMAND_TOKEN,
   BOARD_QUERY_TOKEN,
 } from './constants/boards.tokens';
 import { BoardSeedPort } from './ports/board-seed.port';
+import { BoardAccessService } from './services/board-access.service';
 import { BoardAuthzService } from './services/board-authz.service';
 import { BoardColumnCommandService } from './services/board-column-command.service';
 import { BoardCommandService } from './services/board-command.service';
@@ -64,6 +66,10 @@ const TOKEN_PROVIDERS: Provider[] = [
     useExisting: BoardColumnCommandService,
   },
   { provide: BOARD_ORDERING_COMMAND_TOKEN, useExisting: BoardOrderingService },
+  // Room-level WS authorization, consumed by the @Global GatewaysModule.
+  // The service moved here from `gateways/` so the raw `BoardRepository`
+  // read lives in Level 4 where it is legal; the gateway keeps a contract.
+  { provide: BOARD_ACCESS_TOKEN, useExisting: BoardAccessService },
   // BoardSeedPort is satisfied by `BoardCommandService` (which extends the
   // abstract port). One-way cycle break — the adapter lives inside boards,
   // so `ProjectTemplatesModule` consumes a plain `BoardsModule` import.
@@ -85,6 +91,7 @@ const TOKEN_PROVIDERS: Provider[] = [
     WorkflowsModule,
   ],
   providers: [
+    BoardAccessService,
     BoardAuthzService,
     BoardQueryService,
     BoardColumnCommandService,
@@ -99,6 +106,8 @@ const TOKEN_PROVIDERS: Provider[] = [
     BOARD_COMMAND_TOKEN,
     BOARD_COLUMN_COMMAND_TOKEN,
     BOARD_ORDERING_COMMAND_TOKEN,
+    // Consumed by GatewaysModule for WebSocket room authorization.
+    BOARD_ACCESS_TOKEN,
     // Outbound port re-export so `project-templates` resolves the port
     // without depending on the concrete `BoardCommandService` class.
     BoardSeedPort,

@@ -45,6 +45,16 @@ export const BOARD_ORDERING_COMMAND_TOKEN = Symbol(
   'BOARD_ORDERING_COMMAND_TOKEN',
 );
 
+/**
+ * `IBoardAccess` — room-level authorization for the WebSocket transport.
+ *
+ * Consumed by the @Global `GatewaysModule`, which is Level 3 and therefore
+ * forbidden from touching TypeORM. This token is what lets `BoardAccessService`
+ * live here (where `Repository<Board>` is legal) while the gateway keeps only
+ * a contract. See `IBoardAccess` for why it is not folded into `IBoardQuery`.
+ */
+export const BOARD_ACCESS_TOKEN = Symbol('BOARD_ACCESS_TOKEN');
+
 // ---------------------------------------------------------------------------
 // Token type aliases — handy when typing test fixtures / providers.
 // ---------------------------------------------------------------------------
@@ -53,3 +63,4 @@ export type BoardQueryToken = typeof BOARD_QUERY_TOKEN;
 export type BoardCommandToken = typeof BOARD_COMMAND_TOKEN;
 export type BoardColumnCommandToken = typeof BOARD_COLUMN_COMMAND_TOKEN;
 export type BoardOrderingCommandToken = typeof BOARD_ORDERING_COMMAND_TOKEN;
+export type BoardAccessToken = typeof BOARD_ACCESS_TOKEN;

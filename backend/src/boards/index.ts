@@ -107,3 +107,19 @@ export * from './constants/boards.tokens';
 export * from './enums/board-type.enum';
 export * from './ports/workflow-lookup.port';
 export * from './ports/board-seed.port';
+
+/**
+ * Realtime surface (gateways refactor, Step 1).
+ *
+ * `BoardRealtimePort` is the third outbound port and follows the same
+ * ownership rule as `WorkflowLookupPort`: boards owns the CONTRACT, the
+ * @Global `GatewaysModule` binds the adapter and re-exports the abstract
+ * class. It replaces `BoardOrderingService`'s deep import of the concrete
+ * `BoardGateway` — the last un-inverted realtime edge in the codebase.
+ *
+ * The payload interfaces travel with it (relocated from
+ * `gateways/dto/board-events.dto.ts`) because they describe board domain
+ * events; the gateway only transports them.
+ */
+export * from './ports/board-realtime.port';
+export * from './interfaces/board-events.interfaces';
