@@ -45,6 +45,40 @@
       3. Injection: `constructor(private readonly userRepo: UserRepository)` // No @Inject() decorator needed!
     </action>
   </principle>
+
+  <infrastructure_lifecycle>
+    <objective>
+      Ensure NestJS lifecycle components isolate cross-cutting infrastructure concerns away from core domain logic.
+    </objective>
+    <component name="Guards">
+      <rules>
+        - Strictly for authentication, session verification, and identity context binding.
+        - Must not perform downstream business mutations.
+      </rules>
+      <action>Inject abstraction-backed authentication providers to verify identities, appending the resolved identity cleanly to the execution context request object.</action>
+    </component>
+    <component name="Pipes">
+      <rules>
+        - Strictly for primitive parsing (e.g., ParseUUIDPipe) and structural DTO validation via class-validator.
+        - Zero database or cross-module network queries are permitted inside a Pipe.
+      </rules>
+      <action>Execute data validation at the absolute boundary of the network layer. If a payload fails validation, short-circuit immediately before triggering controller execution.</action>
+    </component>
+    <component name="Interceptors">
+      <rules>
+        - Strictly for global response serialization, execution timing, performance logging, or broad transactional context caching.
+        - Do not place domain-specific logic or mutations inside an interceptor's intercept pipeline.
+      </rules>
+    </component>
+    <component name="Exception Filters">
+      <rules>
+        - Catch all untamed infrastructure, database, and domain exceptions at the application perimeter.
+        - Mapping layer: Convert internal domain errors into standardized, sanitized client-facing JSON structures with accurate HTTP status codes.
+      </rules>
+      <action>Keep services pure. Services must throw generic or domain-specific exceptions. The Exception Filter is uniquely responsible for translating those exceptions into HTTP specs.</action>
+    </component>
+  </infrastructure_lifecycle>
+
   <definition_of_done>
     Before finalizing any refactor, verify:
     1. Are there any direct repository injections in the Service? (If yes, apply DIP).

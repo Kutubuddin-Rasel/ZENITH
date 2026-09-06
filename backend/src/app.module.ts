@@ -39,6 +39,7 @@ import { WatchersModule } from './watchers/watchers.module';
 import { RevisionsModule } from './revisions/revisions.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ReportsModule } from './reports/reports.module';
+import { EmailModule } from './email/email.module';
 import { AuditLogsModule } from './audit/audit-logs.module';
 import { EncryptionModule } from './encryption';
 import { SessionModule } from './session';
@@ -207,6 +208,12 @@ import {
     WatchersModule,
     RevisionsModule,
     NotificationsModule,
+    // Registered explicitly, not just pulled in transitively by reports /
+    // notifications: this module owns the email worker and the invitation /
+    // verification / 2FA-recovery event listeners. Reaching it only through a
+    // consumer's import graph meant a refactor elsewhere could silently stop
+    // every outbound email from booting.
+    EmailModule,
 
     // --- Taxonomy & Organization ---
     TaxonomyModule,

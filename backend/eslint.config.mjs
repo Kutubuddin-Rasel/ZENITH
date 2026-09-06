@@ -401,6 +401,69 @@ const NOTIFICATIONS_DEEP_IMPORT_PATTERNS = [
   },
 ];
 
+/**
+ * Email module — sealed barrel enforcement (Step 3).
+ *
+ * The FINAL Level-3 module to be sealed, closing the chain
+ * (`projects` → `boards` → `issues` → `sprints` → `backlog` → `analytics` →
+ * `reports` → `comments` → `attachments` → `releases` → `notifications` →
+ * `email`). The `EmailService` producer was deleted; its surface now lives
+ * behind two segregated tokens. External consumers MUST import from
+ * `'<rel>/email'` (the barrel at `src/email/index.ts`). Public surface:
+ *   - `interfaces/email.interfaces` (ISP contracts + job payloads + view types)
+ *   - `constants/email.tokens`      (DI tokens)
+ *   - `ports/download-link.port`    (outbound: presigned artifact links)
+ *
+ * FULL SEAL — no entity exception. Unlike `issues`/`boards`/`sprints`, this
+ * module owns no TypeORM entity, so nothing needs to stay deep-importable for
+ * persistence registration.
+ *
+ * `email.module` is unrestricted: `app.module`, `reports.module`, and
+ * `notifications.module` import the class symbol for NestJS DI membership.
+ * Runtime capability still flows exclusively through the tokens — the
+ * module-class import grants membership, not service access.
+ *
+ * NB: `templates/**` is banned as a matter of form. They are build ASSETS
+ * (copied to dist via nest-cli.json), never importable modules; the pattern
+ * exists so nobody tries to `readFileSync` another module's .hbs.
+ *
+ * Override below re-allows deep imports inside `src/email/**` itself; the rule
+ * targets only cross-module reach.
+ */
+const EMAIL_DEEP_IMPORT_PATTERNS = [
+  {
+    group: [
+      // Producer + internal collaborators — bound behind the ISP tokens.
+      '**/email/services/**',
+      '**/email/services',
+      // The deleted god class — banned so it can never be re-created as a target.
+      '**/email/email.service',
+      // Superseded legacy payload file — contracts now live in `interfaces/`.
+      '**/email/email.interfaces',
+      // Per-job-name composition strategies — resolved through the registry.
+      '**/email/composers/**',
+      // Vendor + storage seams (Resend / S3 presign) — internal bindings.
+      '**/email/adapters/**',
+      // Event plumbing, not injection targets.
+      '**/email/listeners/**',
+      // Pure helpers (outbound link policy, subject sanitisation).
+      '**/email/utils/**',
+      // Build assets, not modules.
+      '**/email/templates/**',
+      // BullMQ worker + internal collaborators — entry points, not targets.
+      '**/email/email.processor',
+      '**/email/email-template.service',
+      '**/email/email-rate-limit.service',
+      // Constants / interfaces / ports go through the barrel.
+      '**/email/constants/**',
+      '**/email/interfaces/**',
+      '**/email/ports/**',
+    ],
+    message:
+      "Email is a sealed Level 3 module — import from '<rel>/email' (the barrel) instead. Public surface: the DI tokens (EMAIL_DISPATCH_TOKEN / EMAIL_SENDER_TOKEN), the ISP interfaces (IEmailDispatch / IEmailSender) + their command specs, and the DownloadLinkPort. The producer, worker, composers, transport, templates, and listeners are internal (no deep imports). The module class is the lone exception (use the direct '/email/email.module' path for DI membership).",
+  },
+];
+
 export default tseslint.config(
   {
     ignores: ['eslint.config.mjs'],
@@ -454,6 +517,7 @@ export default tseslint.config(
             ...ATTACHMENTS_DEEP_IMPORT_PATTERNS,
             ...RELEASES_DEEP_IMPORT_PATTERNS,
             ...NOTIFICATIONS_DEEP_IMPORT_PATTERNS,
+            ...EMAIL_DEEP_IMPORT_PATTERNS,
           ],
         },
       ],
@@ -476,6 +540,7 @@ export default tseslint.config(
       'src/attachments/**/*.ts',
       'src/releases/**/*.ts',
       'src/notifications/**/*.ts',
+      'src/email/**/*.ts',
     ],
     rules: {
       '@typescript-eslint/no-restricted-imports': 'off',
