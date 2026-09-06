@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 import { CACHE_COUNTER_TOKEN } from '../cache/constants/cache.tokens';
 import { ICacheCounter } from '../cache/interfaces/cache.interfaces';
+import { IEmailRateLimiter } from './interfaces/email.interfaces';
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -65,7 +66,7 @@ interface RateLimitResult {
  * @see OWASP Email Security Cheat Sheet
  */
 @Injectable()
-export class EmailRateLimitService {
+export class EmailRateLimitService implements IEmailRateLimiter {
   private readonly logger = new Logger(EmailRateLimitService.name);
   private readonly maxPerWindow: number;
   private readonly windowSeconds: number;
@@ -103,7 +104,7 @@ export class EmailRateLimitService {
    * @param recipientEmail - The email address of the intended recipient
    * @throws HttpException with status 429 if rate limit exceeded
    */
-  async checkRateLimit(recipientEmail: string): Promise<void> {
+  async check(recipientEmail: string): Promise<void> {
     const result = await this.evaluateRateLimit(recipientEmail);
 
     if (!result.allowed) {
@@ -131,15 +132,28 @@ export class EmailRateLimitService {
    * @param recipientEmail - The email address to check quota for
    * @returns Number of remaining sends allowed (0 if exhausted, -1 if Redis unavailable)
    */
-  async getRemainingQuota(recipientEmail: string): Promise<number> {
-    const key = this.buildRateLimitKey(recipientEmail);
-    const currentCount = await this.cacheCounter.getCounter(key, {
-      namespace: RATE_LIMIT_NAMESPACE,
-    });
+  async remaining(recipientEmail: string): Promise<number> {
+    const nowSeconds = Date.now() / 1000;
+    const bucket = Math.floor(nowSeconds / this.windowSeconds);
+    const baseKey = this.buildRateLimitKey(recipientEmail);
+
+    // Read-only: must NOT increment, and must use the same weighted estimate as
+    // `check` or the two would disagree about the same recipient.
+    const currentCount = await this.cacheCounter.getCounter(
+      `${baseKey}:${bucket}`,
+      { namespace: RATE_LIMIT_NAMESPACE },
+    );
+
+    const estimate = await this.estimateUsage(
+      baseKey,
+      bucket,
+      nowSeconds,
+      currentCount,
+    );
 
     // getCounter returns 0 for both "no sends yet" and "Redis down"
     // In both cases, returning full quota is the correct fail-open behavior
-    return Math.max(0, this.maxPerWindow - currentCount);
+    return Math.max(0, Math.floor(this.maxPerWindow - estimate));
   }
 
   // ==========================================================================
@@ -153,13 +167,16 @@ export class EmailRateLimitService {
   private async evaluateRateLimit(
     recipientEmail: string,
   ): Promise<RateLimitResult> {
-    const key = this.buildRateLimitKey(recipientEmail);
+    const nowSeconds = Date.now() / 1000;
+    const bucket = Math.floor(nowSeconds / this.windowSeconds);
+    const baseKey = this.buildRateLimitKey(recipientEmail);
 
-    // Atomic increment with TTL on first set (fixed window)
-    const currentCount = await this.cacheCounter.incr(key, {
-      ttl: this.windowSeconds,
-      namespace: RATE_LIMIT_NAMESPACE,
-    });
+    // Atomic increment on the CURRENT bucket. TTL is 2× the window so the
+    // bucket survives long enough to serve as "previous" for the next one.
+    const currentCount = await this.cacheCounter.incr(
+      `${baseKey}:${bucket}`,
+      { ttl: this.windowSeconds * 2, namespace: RATE_LIMIT_NAMESPACE },
+    );
 
     // FAIL-OPEN: cache.incr() returns 0 when Redis is unavailable.
     // We treat this as "under limit" to avoid blocking legitimate emails.
@@ -175,15 +192,66 @@ export class EmailRateLimitService {
       };
     }
 
-    const allowed = currentCount <= this.maxPerWindow;
-    const remaining = Math.max(0, this.maxPerWindow - currentCount);
+    const estimate = await this.estimateUsage(
+      baseKey,
+      bucket,
+      nowSeconds,
+      currentCount,
+    );
 
     return {
-      allowed,
-      currentCount,
+      allowed: estimate <= this.maxPerWindow,
+      currentCount: Math.ceil(estimate),
       limit: this.maxPerWindow,
-      remaining,
+      remaining: Math.max(0, Math.floor(this.maxPerWindow - estimate)),
     };
+  }
+
+  /**
+   * Weighted two-bucket sliding-window estimate.
+   *
+   * WHY NOT THE FIXED WINDOW THIS REPLACES: a fixed window resets hard on the
+   * boundary, so a sender could land `maxPerWindow` at 11:59:59 and another
+   * full `maxPerWindow` at 12:00:00 — 2× the configured limit inside two
+   * seconds. For an anti-email-bombing control that is the whole ballgame.
+   *
+   * The approximation: assume the previous bucket's sends were spread evenly,
+   * and count the fraction of it still inside the trailing window.
+   *
+   *   t=0.00 into window → previous bucket counts 100%
+   *   t=0.75 into window → previous bucket counts  25%
+   *
+   * COST: O(1), two Redis round trips, two integer keys per recipient. A true
+   * sliding LOG (sorted set of timestamps) would be exact but costs O(n) memory
+   * per recipient and needs `zremrangebyscore`/`zcard`, which `ICacheSortedSet`
+   * does not expose.
+   *
+   * ⛔ `ICacheCounter.incrWithRollingWindow` is NOT the tool for this despite
+   * the name — it pipelines INCR+EXPIRE, refreshing the TTL on every hit, so a
+   * steady sender's key never expires and they are locked out permanently.
+   *
+   * ponytail: weighted approximation assumes uniform arrival within the
+   * previous bucket. Worst case it over-admits when a burst sat at the very
+   * start of that bucket. Upgrade to a sorted-set sliding log if exactness
+   * ever matters more than two integer keys.
+   */
+  private async estimateUsage(
+    baseKey: string,
+    bucket: number,
+    nowSeconds: number,
+    currentCount: number,
+  ): Promise<number> {
+    const previousCount = await this.cacheCounter.getCounter(
+      `${baseKey}:${bucket - 1}`,
+      { namespace: RATE_LIMIT_NAMESPACE },
+    );
+
+    if (previousCount <= 0) return currentCount;
+
+    const elapsedInWindow = nowSeconds % this.windowSeconds;
+    const previousWeight = 1 - elapsedInWindow / this.windowSeconds;
+
+    return currentCount + previousCount * previousWeight;
   }
 
   /**
@@ -194,8 +262,8 @@ export class EmailRateLimitService {
    * - SHA256 hash prevents Redis key injection from specially crafted emails
    *   (e.g., emails containing ":" or newline characters)
    *
-   * Key format: `ratelimit:{sha256hash}`
-   * Full key with namespace: `email:ratelimit:{sha256hash}`
+   * Key format: `ratelimit:{sha256hash}` — the caller appends `:{bucket}`.
+   * Full key with namespace: `email:ratelimit:{sha256hash}:{bucket}`
    */
   private buildRateLimitKey(email: string): string {
     const normalized = email.toLowerCase().trim();

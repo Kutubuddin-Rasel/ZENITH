@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as Handlebars from 'handlebars';
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { IEmailTemplateRenderer } from './interfaces/email.interfaces';
 
 // ============================================================================
 // EMAIL TEMPLATE SERVICE
@@ -24,7 +25,9 @@ import { join } from 'path';
 const TEMPLATES_DIR = join(__dirname, 'templates');
 
 @Injectable()
-export class EmailTemplateService implements OnModuleInit {
+export class EmailTemplateService
+  implements OnModuleInit, IEmailTemplateRenderer
+{
   private readonly logger = new Logger(EmailTemplateService.name);
 
   /** Cached compiled content templates (e.g., 'invitation' → compiled fn) */
@@ -37,6 +40,29 @@ export class EmailTemplateService implements OnModuleInit {
     this.loadPartials();
     this.loadLayout();
     this.loadTemplates();
+
+    // FAIL FAST (Step 1 / D1). Templates are build ASSETS, not compiled code:
+    // `nest build` only emits .ts→.js, so without the `assets` entry in
+    // nest-cli.json the .hbs files never reach `dist/email/templates` and
+    // TEMPLATES_DIR resolves to a directory that does not exist. The loaders
+    // below swallow that ENOENT as a warning, which previously left this map
+    // EMPTY and made every render() throw at job-processing time — i.e. 100%
+    // silent email loss in any compiled run, surfaced only as a boot warning.
+    // Crashing at boot is strictly better than dead-lettering every email.
+    if (this.templates.size === 0) {
+      throw new Error(
+        `No email templates loaded from ${TEMPLATES_DIR}. ` +
+          `If this is a compiled run, verify nest-cli.json copies ` +
+          `'email/templates/**/*.hbs' into dist.`,
+      );
+    }
+
+    if (!this.layoutTemplate) {
+      throw new Error(
+        `Email base layout missing at ${join(TEMPLATES_DIR, 'layouts', 'base.hbs')}. ` +
+          `Emails would render unwrapped, unstyled HTML.`,
+      );
+    }
 
     this.logger.log(
       `Email templates loaded: ${[...this.templates.keys()].join(', ')}`,
@@ -85,7 +111,7 @@ export class EmailTemplateService implements OnModuleInit {
   /**
    * Returns the list of available template names.
    */
-  getAvailableTemplates(): string[] {
+  available(): string[] {
     return [...this.templates.keys()];
   }
 
