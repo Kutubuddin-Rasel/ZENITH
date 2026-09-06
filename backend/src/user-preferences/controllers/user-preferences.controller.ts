@@ -10,7 +10,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { SmartDefaultsService } from '../services/smart-defaults.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { StatefulCsrfGuard, RequireCsrf } from '../../security/csrf/csrf.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../../security/csrf';
 import { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
 import { UserPreferencesData } from '../entities/user-preferences.entity';
 

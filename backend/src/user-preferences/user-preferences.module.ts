@@ -7,7 +7,6 @@ import { SmartDefaultsService } from './services/smart-defaults.service';
 import { SmartDefaultsController } from './controllers/smart-defaults.controller';
 import { UserPreferencesController } from './controllers/user-preferences.controller';
 import { ProjectTemplatesModule } from '../project-templates/project-templates.module';
-// REMOVED: MembershipModule - using ProjectCoreModule (global) for ProjectMembersService
 
 @Module({
   imports: [

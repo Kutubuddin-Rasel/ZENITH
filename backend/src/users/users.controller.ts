@@ -21,7 +21,7 @@ import { CreateUserDto, UpdateUserDto } from './dto/create-user.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { SuperAdminGuard } from 'src/core/auth/guards/super-admin.guard';
 import { AuthenticatedRequest } from 'src/common/types/authenticated-request.interface';
-import { CsrfGuard, RequireCsrf } from 'src/security/csrf/csrf.guard';
+import { CsrfGuard, RequireCsrf } from 'src/security/csrf';
 
 @Controller('users')
 export class UsersController {
