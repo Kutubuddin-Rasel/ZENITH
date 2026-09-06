@@ -1,10 +1,17 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
-import { Logger } from '@nestjs/common';
-import { NotificationsService } from '../notifications.service';
+import { Inject, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import {
+  INotificationInbox,
+  INotificationRouter,
+} from '../interfaces/notifications.interfaces';
+import {
+  NOTIFICATION_INBOX_TOKEN,
+  NOTIFICATION_ROUTER_TOKEN,
+} from '../constants/notifications.tokens';
 
 /**
  * Snooze Worker
@@ -15,7 +22,10 @@ export class SnoozeWorker extends WorkerHost {
   private readonly logger = new Logger(SnoozeWorker.name);
 
   constructor(
-    private readonly notificationsService: NotificationsService,
+    @Inject(NOTIFICATION_INBOX_TOKEN)
+    private readonly inbox: INotificationInbox,
+    @Inject(NOTIFICATION_ROUTER_TOKEN)
+    private readonly router: INotificationRouter,
     @InjectQueue('notifications') private readonly notificationQueue: Queue,
   ) {
     super();
@@ -29,8 +39,7 @@ export class SnoozeWorker extends WorkerHost {
     if (action === 'unsnooze') {
       this.logger.log(`Processing unsnooze for notification ${notificationId}`);
 
-      const notification =
-        await this.notificationsService.unsnooze(notificationId);
+      const notification = await this.router.unsnooze(notificationId);
       if (notification) {
         this.logger.log(`Unsnoozed notification ${notificationId}`);
       } else {
@@ -70,8 +79,7 @@ export class SnoozeWorker extends WorkerHost {
    */
   @Cron('*/5 * * * *')
   async checkDueSnoozedNotifications(): Promise<void> {
-    const dueNotifications =
-      await this.notificationsService.getDueSnoozedNotifications();
+    const dueNotifications = await this.inbox.getDueSnoozedNotifications();
 
     if (dueNotifications.length > 0) {
       this.logger.log(
@@ -79,7 +87,7 @@ export class SnoozeWorker extends WorkerHost {
       );
 
       for (const notification of dueNotifications) {
-        await this.notificationsService.unsnooze(notification.id);
+        await this.router.unsnooze(notification.id);
       }
     }
   }

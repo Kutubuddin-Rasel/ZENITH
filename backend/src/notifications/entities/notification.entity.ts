@@ -40,6 +40,7 @@ export enum DeliveryStatus {
 @Index('IDX_notification_created_at', ['createdAt']) // OPTIMIZED: Ordering
 @Index('IDX_notification_user_created', ['userId', 'createdAt']) // OPTIMIZED: User notifications with ordering
 @Index('IDX_notification_user_org', ['userId', 'organizationId']) // OPTIMIZED (Phase 6): Multi-tenant scoping
+@Index('IDX_notification_feed', ['userId', 'status', 'createdAt', 'id']) // OPTIMIZED (CQRS): covering index for the keyset feed (userId+status filter, (createdAt,id) seek)
 export class Notification {
   @PrimaryGeneratedColumn('uuid')
   id: string;

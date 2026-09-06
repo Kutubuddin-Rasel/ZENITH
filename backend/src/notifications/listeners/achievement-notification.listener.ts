@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { NotificationsService } from '../../notifications/notifications.service';
-import { NotificationType } from '../../notifications/entities/notification.entity';
+import { NotificationType } from '../entities/notification.entity';
+import { INotificationRouter } from '../interfaces/notifications.interfaces';
+import { NOTIFICATION_ROUTER_TOKEN } from '../constants/notifications.tokens';
 
 /**
  * Bridges gamification events into the Notifications subsystem.
@@ -18,7 +19,10 @@ import { NotificationType } from '../../notifications/entities/notification.enti
 export class AchievementNotificationListener {
   private readonly logger = new Logger(AchievementNotificationListener.name);
 
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    @Inject(NOTIFICATION_ROUTER_TOKEN)
+    private readonly router: INotificationRouter,
+  ) {}
 
   @OnEvent('achievement.unlocked')
   async handleAchievementUnlocked(payload: {
@@ -34,7 +38,7 @@ export class AchievementNotificationListener {
     unlockedAt: Date;
   }) {
     try {
-      await this.notificationsService.createMany(
+      await this.router.createMany(
         [payload.userId],
         `🏆 Achievement Unlocked: ${payload.achievement.name} (+${payload.achievement.xp} XP)`,
         {

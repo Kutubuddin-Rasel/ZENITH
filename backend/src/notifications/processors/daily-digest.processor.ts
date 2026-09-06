@@ -32,6 +32,11 @@ export class DailyDigestProcessor {
     // For now, let's just use the mock user IDs or pass the logic to the consumer if we want async.
     // But since we are here, let's just trigger for a known user for testing or loop.
 
+    // TODO(DSA): Redis-SET fan-out (SADD on stage / SMEMBERS drain / SREM on
+    // flush) is DEFERRED — the cache abstraction (ICacheStore/ICacheList/
+    // ICacheSortedSet) exposes no set primitive, and this refactor must not add
+    // new cache primitives. Revisit once a set port lands; until then the
+    // placeholder list below is unchanged (pre-existing non-functional mock).
     const userIds = ['user-1', 'user-2']; // Placeholder
 
     for (const userId of userIds) {

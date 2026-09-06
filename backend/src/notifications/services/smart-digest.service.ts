@@ -1,10 +1,16 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { CACHE_LIST_TOKEN, CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
-import { ICacheList, ICacheStore } from '../../cache/interfaces/cache.interfaces';
+import {
+  CACHE_LIST_TOKEN,
+  CACHE_STORE_TOKEN,
+} from '../../cache/constants/cache.tokens';
+import {
+  ICacheList,
+  ICacheStore,
+} from '../../cache/interfaces/cache.interfaces';
 import { NotificationType } from '../entities/notification.entity';
-import { NotificationsService } from '../notifications.service';
+import { NotificationCommandService } from './notification-command.service';
 
 export interface StagedNotification {
   message: string;
@@ -23,8 +29,8 @@ export class SmartDigestService {
   constructor(
     @Inject(CACHE_LIST_TOKEN) private readonly cacheList: ICacheList,
     @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
-    @Inject(forwardRef(() => NotificationsService))
-    private readonly notificationsService: NotificationsService,
+    @Inject(forwardRef(() => NotificationCommandService))
+    private readonly router: NotificationCommandService,
     @InjectQueue('notifications')
     private readonly notificationQueue: Queue,
   ) {}
@@ -107,11 +113,7 @@ export class SmartDigestService {
     const key = `notifications:staging:${userId}`;
     const debounceKey = `notifications:debounce:${userId}`;
 
-    const items = await this.cacheList.lrange<StagedNotification>(
-      key,
-      0,
-      -1,
-    );
+    const items = await this.cacheList.lrange<StagedNotification>(key, 0, -1);
 
     if (!items || items.length === 0) {
       // Clean up debounce key even if no items
@@ -145,7 +147,7 @@ export class SmartDigestService {
     }
 
     // Create Digest Notification
-    await this.notificationsService.createMany(
+    await this.router.createMany(
       [userId],
       summary,
       { type: 'digest', count: items.length },

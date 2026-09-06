@@ -10,11 +10,11 @@ import {
   Body,
   Post,
   ParseUUIDPipe,
+  Inject,
 } from '@nestjs/common';
-import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
-import { StatefulCsrfGuard } from '../security/csrf/csrf.guard';
+import { StatefulCsrfGuard } from '../security/csrf';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';
 import {
@@ -23,6 +23,14 @@ import {
 } from './entities/notification.entity';
 import { UpdateNotificationStatusDto } from './dto/update-notification-status.dto';
 import { CursorPaginationDto } from './dto/cursor-pagination.dto';
+import {
+  NOTIFICATION_INBOX_TOKEN,
+  NOTIFICATION_ROUTER_TOKEN,
+} from './constants/notifications.tokens';
+import {
+  INotificationInbox,
+  INotificationRouter,
+} from './interfaces/notifications.interfaces';
 
 /**
  * SECURITY (Phase 2): CSRF Protection
@@ -31,7 +39,12 @@ import { CursorPaginationDto } from './dto/cursor-pagination.dto';
 @Controller('notifications')
 @UseGuards(JwtAuthGuard, StatefulCsrfGuard, PermissionsGuard)
 export class NotificationsController {
-  constructor(private svc: NotificationsService) {}
+  constructor(
+    @Inject(NOTIFICATION_INBOX_TOKEN)
+    private readonly inbox: INotificationInbox,
+    @Inject(NOTIFICATION_ROUTER_TOKEN)
+    private readonly router: INotificationRouter,
+  ) {}
 
   /** Get current user's unread notifications (legacy) */
   @RequirePermission('notifications:view')
@@ -40,7 +53,7 @@ export class NotificationsController {
     @Request() req: { user: JwtRequestUser },
     @Query('status') status?: NotificationStatus,
   ) {
-    return this.svc.listForUser(req.user.userId, status);
+    return this.inbox.listForUser(req.user.userId, status);
   }
 
   /**
@@ -55,7 +68,7 @@ export class NotificationsController {
     @Query() query: CursorPaginationDto,
     @Query('status') status?: NotificationStatus,
   ) {
-    return this.svc.listForUserWithCursor(
+    return this.inbox.listForUserWithCursor(
       req.user.userId,
       status || NotificationStatus.UNREAD,
       query.cursor,
@@ -67,7 +80,7 @@ export class NotificationsController {
   @RequirePermission('notifications:view')
   @Get('all')
   async listAll(@Request() req: { user: JwtRequestUser }) {
-    return this.svc.listAllForUser(req.user.userId);
+    return this.inbox.listAllForUser(req.user.userId);
   }
 
   /** Mark one as read (Legacy) */
@@ -77,7 +90,7 @@ export class NotificationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.markStatus(req.user.userId, id, NotificationStatus.DONE);
+    await this.router.markStatus(req.user.userId, id, NotificationStatus.DONE);
     return { message: 'Marked read' };
   }
 
@@ -89,7 +102,7 @@ export class NotificationsController {
     @Body() dto: UpdateNotificationStatusDto,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.markStatus(req.user.userId, id, dto.status);
+    await this.router.markStatus(req.user.userId, id, dto.status);
     return { message: `Status updated to ${dto.status}` };
   }
 
@@ -97,7 +110,7 @@ export class NotificationsController {
   @RequirePermission('notifications:update')
   @Patch('read/all')
   async markAllRead(@Request() req: { user: JwtRequestUser }) {
-    await this.svc.archiveAll(req.user.userId);
+    await this.router.archiveAll(req.user.userId);
     return { message: 'Marked all as read' };
   }
 
@@ -105,7 +118,7 @@ export class NotificationsController {
   @RequirePermission('notifications:update')
   @Post('archive-all')
   async archiveAll(@Request() req: { user: JwtRequestUser }) {
-    await this.svc.archiveAll(req.user.userId);
+    await this.router.archiveAll(req.user.userId);
     return { message: 'All notifications archived' };
   }
 
@@ -113,7 +126,7 @@ export class NotificationsController {
   @RequirePermission('notifications:create')
   @Get('test')
   async testNotification(@Request() req: { user: JwtRequestUser }) {
-    await this.svc.createMany(
+    await this.router.createMany(
       [req.user.userId],
       'This is a test notification',
       { projectId: 'test-project', inviteId: 'test-invite' },
@@ -126,8 +139,8 @@ export class NotificationsController {
   @RequirePermission('notifications:view')
   @Get('debug')
   async debugNotifications(@Request() req: { user: JwtRequestUser }) {
-    const allNotifications = await this.svc.listAllForUser(req.user.userId);
-    const unreadNotifications = await this.svc.listForUser(req.user.userId);
+    const allNotifications = await this.inbox.listAllForUser(req.user.userId);
+    const unreadNotifications = await this.inbox.listForUser(req.user.userId);
 
     return {
       total: allNotifications.length,
@@ -159,7 +172,7 @@ export class NotificationsController {
     @Request() req: { user: JwtRequestUser },
   ) {
     const snoozeHours = hours || 1; // Default 1 hour
-    const notification = await this.svc.snooze(
+    const notification = await this.router.snooze(
       req.user.userId,
       id,
       snoozeHours,
@@ -180,7 +193,7 @@ export class NotificationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: { user: JwtRequestUser },
   ) {
-    await this.svc.archive(req.user.userId, id);
+    await this.router.archive(req.user.userId, id);
     return { message: 'Notification archived' };
   }
 }

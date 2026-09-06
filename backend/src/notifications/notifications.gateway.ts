@@ -11,6 +11,7 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AppConfig } from '../config/app.config';
+import { RealtimeTransportPort } from './ports/realtime-transport.port';
 
 /**
  * JWT payload interface for type safety
@@ -43,6 +44,7 @@ interface JwtPayload {
   },
 })
 export class NotificationsGateway
+  extends RealtimeTransportPort
   implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
   private readonly logger = new Logger(NotificationsGateway.name);
@@ -52,7 +54,9 @@ export class NotificationsGateway
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) {
+    super();
+  }
 
   /**
    * Log gateway initialization with configured origins
