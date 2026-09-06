@@ -1,5 +1,6 @@
 // src/taxonomy/taxonomy.service.ts
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -16,9 +17,10 @@ import { AssignLabelDto } from './dto/assign-label.dto';
 import { UnassignLabelDto } from './dto/unassign-label.dto';
 import { AssignComponentDto } from './dto/assign-component.dto';
 import { UnassignComponentDto } from './dto/unassign-component.dto';
-import { ProjectsService } from '../projects/projects.service';
-import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
-import { IssuesService } from '../issues/issues.service';
+import { PROJECT_QUERY_TOKEN, type IProjectQuery } from '../projects';
+import { PROJECT_MEMBER_QUERY_TOKEN } from 'src/membership/constants/membership.tokens';
+import type { IProjectMemberQuery } from 'src/membership/interfaces/membership.interfaces';
+import { ISSUE_QUERY_TOKEN, type IIssueQuery } from '../issues';
 import { UpdateComponentDto } from './dto/update-component.dto';
 import { CreateComponentDto } from './dto/create-component.dto';
 import { ProjectRole } from '../membership/enums/project-role.enum';
@@ -33,9 +35,11 @@ export class TaxonomyService {
     @InjectRepository(IssueLabel) private ilRepo: Repository<IssueLabel>,
     @InjectRepository(IssueComponent)
     private icRepo: Repository<IssueComponent>,
-    private projectsService: ProjectsService,
-    private membersService: ProjectMembersService,
-    private issuesService: IssuesService,
+    @Inject(PROJECT_QUERY_TOKEN)
+    private projectsQuery: IProjectQuery,
+    @Inject(PROJECT_MEMBER_QUERY_TOKEN)
+    private membersService: IProjectMemberQuery,
+    @Inject(ISSUE_QUERY_TOKEN) private issuesService: IIssueQuery,
     private auditLogsService: AuditLogsService,
   ) {}
 
@@ -46,7 +50,7 @@ export class TaxonomyService {
     userId: string,
     dto: CreateLabelDto,
   ): Promise<Label> {
-    await this.projectsService.findOneById(projectId);
+    await this.projectsQuery.findById(projectId);
     const role = await this.membersService.getUserRole(projectId, userId);
     if (role !== ProjectRole.PROJECT_LEAD) throw new ForbiddenException();
     const lbl = this.labelRepo.create({ projectId, name: dto.name });
@@ -76,7 +80,7 @@ export class TaxonomyService {
     limit: number = 50,
     search?: string,
   ): Promise<{ data: Label[]; total: number; page: number; limit: number }> {
-    await this.projectsService.findOneById(projectId);
+    await this.projectsQuery.findById(projectId);
     await this.membersService.getUserRole(projectId, userId);
 
     // Build where clause with optional search filter
@@ -175,7 +179,7 @@ export class TaxonomyService {
     userId: string,
     dto: CreateComponentDto,
   ): Promise<Component> {
-    await this.projectsService.findOneById(projectId);
+    await this.projectsQuery.findById(projectId);
     const role = await this.membersService.getUserRole(projectId, userId);
     if (role !== ProjectRole.PROJECT_LEAD) throw new ForbiddenException();
     const cmp = this.compRepo.create({ projectId, name: dto.name });
@@ -210,7 +214,7 @@ export class TaxonomyService {
     page: number;
     limit: number;
   }> {
-    await this.projectsService.findOneById(projectId);
+    await this.projectsQuery.findById(projectId);
     await this.membersService.getUserRole(projectId, userId);
 
     // Build where clause with optional search filter

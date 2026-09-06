@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { RevisionsController } from './revisions.controller';
 import { RevisionsService } from './revisions.service';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
+import { StatefulCsrfGuard } from '../security/csrf';
 
 describe('RevisionsController', () => {
   let controller: RevisionsController;
@@ -22,6 +23,8 @@ describe('RevisionsController', () => {
         },
       ],
     })
+      .overrideGuard(StatefulCsrfGuard)
+      .useValue({ canActivate: () => true })
       .overrideGuard(PermissionsGuard)
       .useValue({ canActivate: () => true })
       .compile();

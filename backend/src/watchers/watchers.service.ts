@@ -1,12 +1,13 @@
 // src/watchers/watchers.service.ts
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Watcher } from './entities/watcher.entity';
 // REFACTORED: Using direct repositories instead of services
 import { Project } from '../projects/entities/project.entity';
 import { Issue } from '../issues/entities/issue.entity';
-import { ProjectMembersService } from 'src/membership/project-members/project-members.service';
+import { PROJECT_MEMBER_QUERY_TOKEN } from 'src/membership/constants/membership.tokens';
+import type { IProjectMemberQuery } from 'src/membership/interfaces/membership.interfaces';
 import { NotificationsEmitter } from './events/notifications.events';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BatchWatchFailure, BatchWatchResult } from './dto/batch-watch.dto';
@@ -34,7 +35,8 @@ export class WatchersService {
     // REFACTORED: Direct repository injection instead of IssuesService
     @InjectRepository(Issue)
     private issueRepo: Repository<Issue>,
-    private membersService: ProjectMembersService,
+    @Inject(PROJECT_MEMBER_QUERY_TOKEN)
+    private membersService: IProjectMemberQuery,
     private notifications: NotificationsEmitter,
     // REFACTORED: Using EventEmitter2 instead of NotificationsService
     private eventEmitter: EventEmitter2,

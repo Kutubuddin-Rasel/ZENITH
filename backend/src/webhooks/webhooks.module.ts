@@ -6,13 +6,13 @@ import { WebhookDeliveryProcessor } from './webhook-delivery.processor';
 import { Webhook } from './entities/webhook.entity';
 import { WebhookLog } from './entities/webhook-log.entity';
 import { MembershipModule } from '../membership/membership.module';
-import { CsrfModule } from '../security/csrf/csrf.module';
+import { CsrfModule } from '../security/csrf';
 import { CommonSecurityModule } from '../common/submodules/security.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Webhook, WebhookLog]),
-    MembershipModule, // Provides ProjectMembersService for authorization
+    MembershipModule, // Provides PROJECT_MEMBER_QUERY_TOKEN for authorization (also @Global())
     CsrfModule, // Provides StatefulCsrfGuard for CSRF protection
     CommonSecurityModule, // Provides ENCRYPTION_SERVICE_TOKEN for secret encryption at rest
   ],

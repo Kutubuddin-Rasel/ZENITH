@@ -16,7 +16,6 @@ import { CapacityPlanningController } from './controllers/capacity-planning.cont
 import { ResourceAllocationController } from './controllers/resource-allocation.controller';
 import { ResourceAnalyticsController } from './controllers/resource-analytics.controller';
 import { SkillMatchingController } from './controllers/skill-matching.controller';
-import { ProjectsModule } from '../projects/projects.module';
 import { UsersModule } from '../users/users.module';
 
 @Module({
@@ -30,7 +29,6 @@ import { UsersModule } from '../users/users.module';
       Project,
       User,
     ]),
-    ProjectsModule,
     UsersModule,
   ],
   controllers: [

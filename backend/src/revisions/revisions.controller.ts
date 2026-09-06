@@ -15,7 +15,7 @@ import { RevisionsService } from './revisions.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
-import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf';
 import { JwtAuthenticatedRequest } from '../auth/interface/jwt-authenticated-request.interface';
 import { EntityType, Revision } from './entities/revision.entity';
 import { ObjectLiteral } from 'typeorm';

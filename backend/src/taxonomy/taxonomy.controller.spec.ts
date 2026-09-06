@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TaxonomyController } from './taxonomy.controller';
 import { TaxonomyService } from './taxonomy.service';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
+import { StatefulCsrfGuard } from '../security/csrf';
 
 describe('TaxonomyController', () => {
   let controller: TaxonomyController;
@@ -26,6 +27,8 @@ describe('TaxonomyController', () => {
         },
       ],
     })
+      .overrideGuard(StatefulCsrfGuard)
+      .useValue({ canActivate: () => true })
       .overrideGuard(PermissionsGuard)
       .useValue({ canActivate: () => true })
       .compile();

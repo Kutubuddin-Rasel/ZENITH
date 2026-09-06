@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { WatchersController } from './watchers.controller';
 import { WatchersService } from './watchers.service';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
+import { StatefulCsrfGuard } from '../security/csrf';
 
 describe('WatchersController', () => {
   let controller: WatchersController;
@@ -23,6 +24,8 @@ describe('WatchersController', () => {
         },
       ],
     })
+      .overrideGuard(StatefulCsrfGuard)
+      .useValue({ canActivate: () => true })
       .overrideGuard(PermissionsGuard)
       .useValue({ canActivate: () => true })
       .compile();

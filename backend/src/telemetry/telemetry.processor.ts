@@ -8,7 +8,12 @@ import {
   propagation,
   ROOT_CONTEXT,
 } from '@opentelemetry/api';
-import { IssuesService } from '../issues/issues.service';
+import {
+  ISSUE_QUERY_TOKEN,
+  ISSUE_TRANSITION_TOKEN,
+  type IIssueQuery,
+  type IIssueTransition,
+} from '../issues';
 import { CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
 import { ICacheStore } from '../cache/interfaces/cache.interfaces';
 import { TelemetryMetricsService } from './telemetry-metrics.service';
@@ -44,7 +49,9 @@ export class TelemetryProcessor extends WorkerHost {
   private readonly tracer = trace.getTracer('zenith-telemetry-worker');
 
   constructor(
-    private readonly issuesService: IssuesService,
+    @Inject(ISSUE_QUERY_TOKEN) private readonly issueQuery: IIssueQuery,
+    @Inject(ISSUE_TRANSITION_TOKEN)
+    private readonly issueTransition: IIssueTransition,
     @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
     private readonly telemetryMetrics: TelemetryMetricsService,
     private readonly aggregationService: TelemetryAggregationService,
@@ -114,8 +121,7 @@ export class TelemetryProcessor extends WorkerHost {
         }
 
         const sessionKey = `telemetry:session:${ticketId}:${userId}`;
-        const session =
-          await this.cacheStore.get<TelemetrySession>(sessionKey);
+        const session = await this.cacheStore.get<TelemetrySession>(sessionKey);
         const now = Date.now();
 
         if (!session) {
@@ -179,15 +185,11 @@ export class TelemetryProcessor extends WorkerHost {
     );
 
     try {
-      const issue = await this.issuesService.findOne(
-        projectId,
-        ticketId,
-        userId,
-      );
+      const issue = await this.issueQuery.findOne(projectId, ticketId, userId);
 
       if (issue.status !== 'In Progress') {
         this.logger.log(`Auto-transitioning ticket ${ticketId} to In Progress`);
-        await this.issuesService.updateStatus(
+        await this.issueTransition.updateStatus(
           projectId,
           ticketId,
           'In Progress',

@@ -6,7 +6,7 @@ import { WatchersService } from './watchers.service';
 import { WatchersController } from './watchers.controller';
 // REMOVED: ProjectsModule import - using CoreEntitiesModule (global)
 // REMOVED: IssuesModule import - WatchersService uses direct Issue repo from CoreEntitiesModule
-// REMOVED: MembershipModule import - using ProjectCoreModule (global)
+// MembershipModule is @Global() — query/command tokens reachable without explicit import.
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { NotificationsEmitter } from './events/notifications.events';
 // REMOVED: NotificationsModule - using event-driven architecture instead

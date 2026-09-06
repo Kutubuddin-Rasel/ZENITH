@@ -24,7 +24,8 @@ export class GamificationService implements OnModuleInit {
     private progressRepo: Repository<AchievementProgress>,
     private readonly eventEmitter: EventEmitter2,
     private readonly dataSource: DataSource,
-    @Inject(CACHE_SORTED_SET_TOKEN) private readonly cacheSortedSet: ICacheSortedSet,
+    @Inject(CACHE_SORTED_SET_TOKEN)
+    private readonly cacheSortedSet: ICacheSortedSet,
   ) {}
 
   async onModuleInit() {

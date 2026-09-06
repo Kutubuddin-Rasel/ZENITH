@@ -9,7 +9,7 @@ import {
 import { SyncLog, SyncStatus } from '../entities/sync-log.entity';
 import { ExternalData } from '../entities/external-data.entity';
 import { SearchIndex } from '../entities/search-index.entity';
-import { EncryptionService } from '../../common/services/encryption.service';
+import { ENCRYPTION_SERVICE_TOKEN } from '../../common/constants/encryption.tokens';
 import { RateLimitService } from './rate-limit.service';
 import { getQueueToken } from '@nestjs/bullmq';
 
@@ -60,7 +60,7 @@ describe('IntegrationService', () => {
         { provide: getRepositoryToken(SyncLog), useValue: mockRepo },
         { provide: getRepositoryToken(ExternalData), useValue: mockRepo },
         { provide: getRepositoryToken(SearchIndex), useValue: mockRepo },
-        { provide: EncryptionService, useValue: mockEncryptionService },
+        { provide: ENCRYPTION_SERVICE_TOKEN, useValue: mockEncryptionService },
         { provide: RateLimitService, useValue: mockRateLimitService },
         { provide: getQueueToken('integration-sync'), useValue: mockQueue },
       ],
@@ -70,7 +70,7 @@ describe('IntegrationService', () => {
     integrationRepo = module.get(getRepositoryToken(Integration));
     syncLogRepo = module.get(getRepositoryToken(SyncLog));
     syncQueue = module.get(getQueueToken('integration-sync'));
-    encryptionService = module.get(EncryptionService);
+    encryptionService = module.get(ENCRYPTION_SERVICE_TOKEN);
     rateLimitService = module.get(RateLimitService);
   });
 

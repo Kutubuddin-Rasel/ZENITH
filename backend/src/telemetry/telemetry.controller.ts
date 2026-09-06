@@ -15,7 +15,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { TelemetryService } from './telemetry.service';
 import { TelemetryAnalyticsService } from './telemetry-analytics.service';
-import { ApiKeyGuard } from '../api-keys/guards/api-key.guard';
+import { ApiKeyGuard } from '../api-keys';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 import {

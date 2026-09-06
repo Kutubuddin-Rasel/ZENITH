@@ -18,8 +18,9 @@ import { SearchIndex } from '../entities/search-index.entity';
 import { RateLimitService } from './rate-limit.service';
 import { TokenManagerService } from './token-manager.service';
 import { EncryptionService } from '../../common/services/encryption.service';
+import { ENCRYPTION_SERVICE_TOKEN } from '../../common/constants/encryption.tokens';
 import { UsersService } from '../../users/users.service';
-import { IssuesService } from '../../issues/issues.service';
+import { ISSUE_COMMAND_TOKEN } from '../../issues';
 import { GitHubIssueLinkService } from './github-issue-link.service';
 
 // Mock fetch globally
@@ -175,7 +176,7 @@ describe('GitHubIntegrationService', () => {
           },
         },
         {
-          provide: EncryptionService,
+          provide: ENCRYPTION_SERVICE_TOKEN,
           useValue: {
             decrypt: jest.fn(() => 'decrypted-token'),
             encrypt: jest.fn(() => 'encrypted-token'),
@@ -188,7 +189,7 @@ describe('GitHubIntegrationService', () => {
           },
         },
         {
-          provide: IssuesService,
+          provide: ISSUE_COMMAND_TOKEN,
           useValue: {
             create: jest.fn(),
           },
@@ -209,7 +210,7 @@ describe('GitHubIntegrationService', () => {
     searchIndexRepo = module.get(getRepositoryToken(SearchIndex));
     rateLimitService = module.get(RateLimitService);
     tokenManagerService = module.get(TokenManagerService);
-    encryptionService = module.get(EncryptionService);
+    encryptionService = module.get(ENCRYPTION_SERVICE_TOKEN);
   });
 
   afterEach(() => {

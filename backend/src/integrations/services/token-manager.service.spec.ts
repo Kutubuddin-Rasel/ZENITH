@@ -3,7 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { TokenManagerService } from './token-manager.service';
 import { IntegrationService } from './integration.service';
 import { OAuthService } from './oauth.service';
-import { EncryptionService } from '../../common/services/encryption.service';
+import { ENCRYPTION_SERVICE_TOKEN } from '../../common/constants/encryption.tokens';
 import { Integration, IntegrationType } from '../entities/integration.entity';
 
 describe('TokenManagerService', () => {
@@ -42,7 +42,7 @@ describe('TokenManagerService', () => {
         },
         { provide: IntegrationService, useValue: mockIntegrationService },
         { provide: OAuthService, useValue: mockOAuthService },
-        { provide: EncryptionService, useValue: mockEncryptionService },
+        { provide: ENCRYPTION_SERVICE_TOKEN, useValue: mockEncryptionService },
       ],
     }).compile();
 

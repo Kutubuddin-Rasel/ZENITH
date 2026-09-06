@@ -90,10 +90,7 @@ export class SearchService {
     const cacheKey = `search:${organizationId}:${userId}:global:${sanitizedQuery}:${page}:${limit}`;
     const cacheOpts = { namespace: SEARCH_CACHE_NAMESPACE };
 
-    const cached = await this.cacheStore.get<SearchResult>(
-      cacheKey,
-      cacheOpts,
-    );
+    const cached = await this.cacheStore.get<SearchResult>(cacheKey, cacheOpts);
     if (cached) {
       const totalHits =
         cached.issues.meta.total +

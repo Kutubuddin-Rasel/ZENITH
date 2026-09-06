@@ -15,7 +15,7 @@ import { CreateWebhookDto } from './dto/create-webhook.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { ProjectRoleGuard } from '../core/auth/guards/project-role.guard';
-import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf';
 import { RequireProjectRole } from '../auth/decorators/require-project-role.decorator';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 import { JwtRequestUser } from '../auth/types/jwt-request-user.interface';

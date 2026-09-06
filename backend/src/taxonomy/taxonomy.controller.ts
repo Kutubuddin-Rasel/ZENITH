@@ -21,7 +21,7 @@ import { UnassignComponentDto } from './dto/unassign-component.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
-import { StatefulCsrfGuard } from '../security/csrf/csrf.guard';
+import { StatefulCsrfGuard } from '../security/csrf';
 import { UpdateComponentDto } from './dto/update-component.dto';
 import { CreateComponentDto } from './dto/create-component.dto';
 import {

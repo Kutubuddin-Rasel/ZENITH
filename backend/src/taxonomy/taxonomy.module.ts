@@ -9,7 +9,6 @@ import { TaxonomyService } from './taxonomy.service';
 import { TaxonomyController } from './taxonomy.controller';
 import { ProjectsModule } from '../projects/projects.module';
 import { IssuesModule } from '../issues/issues.module';
-// REMOVED: MembershipModule - using ProjectCoreModule (global) for ProjectMembersService
 
 @Module({
   imports: [

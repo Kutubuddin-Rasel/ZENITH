@@ -39,9 +39,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-// TODO: Extract SuperAdminGuard to common/guards/ for cross-module reuse.
-// Currently defined in users.controller.ts — stable location, but not ideal.
-import { SuperAdminGuard } from '../users/users.controller';
+import { SuperAdminGuard } from '../core/auth/guards/super-admin.guard';
 import { AuthenticatedRequest } from '../common/types/authenticated-request.interface';
 import { PurgeAdminService } from './purge-admin.service';
 import {

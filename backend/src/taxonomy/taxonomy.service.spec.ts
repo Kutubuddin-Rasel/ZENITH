@@ -5,9 +5,10 @@ import { Label } from './entities/label.entity';
 import { Component } from './entities/component.entity';
 import { IssueLabel } from './entities/issue-label.entity';
 import { IssueComponent } from './entities/issue-component.entity';
-import { ProjectsService } from '../projects/projects.service';
-import { ProjectMembersService } from '../membership/project-members/project-members.service';
-import { IssuesService } from '../issues/issues.service';
+import { PROJECT_QUERY_TOKEN } from '../projects';
+import { PROJECT_MEMBER_QUERY_TOKEN } from '../membership/constants/membership.tokens';
+import { ISSUE_QUERY_TOKEN } from '../issues';
+import { AuditLogsService } from '../audit/audit-logs.service';
 
 describe('TaxonomyService', () => {
   let service: TaxonomyService;
@@ -21,9 +22,14 @@ describe('TaxonomyService', () => {
     remove: jest.fn(),
   };
 
-  const mockProjectsService = { findOneById: jest.fn() };
+  const mockProjectsQuery = {
+    findById: jest.fn(),
+    findByKey: jest.fn(),
+    findForUser: jest.fn(),
+  };
   const mockMembersService = { getUserRole: jest.fn() };
   const mockIssuesService = { findOne: jest.fn() };
+  const mockAuditLogsService = { log: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -33,9 +39,10 @@ describe('TaxonomyService', () => {
         { provide: getRepositoryToken(Component), useValue: mockRepo },
         { provide: getRepositoryToken(IssueLabel), useValue: mockRepo },
         { provide: getRepositoryToken(IssueComponent), useValue: mockRepo },
-        { provide: ProjectsService, useValue: mockProjectsService },
-        { provide: ProjectMembersService, useValue: mockMembersService },
-        { provide: IssuesService, useValue: mockIssuesService },
+        { provide: PROJECT_QUERY_TOKEN, useValue: mockProjectsQuery },
+        { provide: PROJECT_MEMBER_QUERY_TOKEN, useValue: mockMembersService },
+        { provide: ISSUE_QUERY_TOKEN, useValue: mockIssuesService },
+        { provide: AuditLogsService, useValue: mockAuditLogsService },
       ],
     }).compile();
 

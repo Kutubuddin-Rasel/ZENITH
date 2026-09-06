@@ -14,7 +14,8 @@ import { WebhookLog } from './entities/webhook-log.entity';
 import { CreateWebhookDto } from './dto/create-webhook.dto';
 import { OnEvent } from '@nestjs/event-emitter';
 import { generateHexToken } from '../common/utils/token.util';
-import { ProjectMembersService } from '../membership/project-members/project-members.service';
+import { PROJECT_MEMBER_QUERY_TOKEN } from '../membership/constants/membership.tokens';
+import type { IProjectMemberQuery } from '../membership/interfaces/membership.interfaces';
 import { ProjectRole } from '../membership/enums/project-role.enum';
 import { ENCRYPTION_SERVICE_TOKEN } from '../common/constants/encryption.tokens';
 import type { IEncryptionService } from '../common/interfaces/encryption.interfaces';
@@ -65,7 +66,8 @@ export class WebhooksService {
     private logRepo: Repository<WebhookLog>,
     @InjectQueue(WEBHOOK_DELIVERY_QUEUE)
     private readonly deliveryQueue: Queue<WebhookDeliveryJobData>,
-    private readonly projectMembersService: ProjectMembersService,
+    @Inject(PROJECT_MEMBER_QUERY_TOKEN)
+    private readonly projectMembersService: IProjectMemberQuery,
     @Inject(ENCRYPTION_SERVICE_TOKEN)
     private readonly encryptionService: IEncryptionService,
   ) {}

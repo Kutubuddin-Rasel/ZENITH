@@ -5,7 +5,7 @@ import { WatchersService } from './watchers.service';
 import { Watcher } from './entities/watcher.entity';
 import { Project } from '../projects/entities/project.entity';
 import { Issue } from '../issues/entities/issue.entity';
-import { ProjectMembersService } from '../membership/project-members/project-members.service';
+import { PROJECT_MEMBER_QUERY_TOKEN } from '../membership/constants/membership.tokens';
 import { NotificationsEmitter } from './events/notifications.events';
 
 describe('WatchersService', () => {
@@ -38,7 +38,7 @@ describe('WatchersService', () => {
         { provide: getRepositoryToken(Watcher), useValue: mockRepo },
         { provide: getRepositoryToken(Project), useValue: mockRepo },
         { provide: getRepositoryToken(Issue), useValue: mockRepo },
-        { provide: ProjectMembersService, useValue: mockMembersService },
+        { provide: PROJECT_MEMBER_QUERY_TOKEN, useValue: mockMembersService },
         { provide: NotificationsEmitter, useValue: mockNotifications },
         { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
