@@ -5,11 +5,21 @@ import {
   CallHandler,
   UnauthorizedException,
   Logger,
+  Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
-import { SessionService } from '../session.service';
+import {
+  SESSION_COMMAND_TOKEN,
+  SESSION_LIFECYCLE_TOKEN,
+  SESSION_QUERY_TOKEN,
+} from '../constants/session.tokens';
+import {
+  ISessionCommand,
+  ISessionLifecycle,
+  ISessionQuery,
+} from '../interfaces/session.interfaces';
 import { SessionStatus, Session } from '../entities/session.entity';
 import { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../../auth/decorators/public.decorator';
@@ -44,8 +54,11 @@ export class SessionInterceptor implements NestInterceptor {
   private readonly logger = new Logger(SessionInterceptor.name);
 
   constructor(
-    private sessionService: SessionService,
-    private reflector: Reflector,
+    @Inject(SESSION_QUERY_TOKEN) private readonly query: ISessionQuery,
+    @Inject(SESSION_LIFECYCLE_TOKEN)
+    private readonly lifecycle: ISessionLifecycle,
+    @Inject(SESSION_COMMAND_TOKEN) private readonly command: ISessionCommand,
+    private readonly reflector: Reflector,
   ) {}
 
   async intercept(
@@ -78,7 +91,7 @@ export class SessionInterceptor implements NestInterceptor {
     }
 
     // Validate session
-    const session = await this.sessionService.getSession(sessionId);
+    const session = await this.query.getSession(sessionId);
 
     if (!session) {
       throw new UnauthorizedException('Invalid or expired session');
@@ -96,7 +109,7 @@ export class SessionInterceptor implements NestInterceptor {
 
     // Check if session is expired
     if (new Date() > session.expiresAt) {
-      await this.sessionService.terminateSession(
+      await this.lifecycle.terminateSession(
         sessionId,
         'system',
         'Session expired',
@@ -105,7 +118,7 @@ export class SessionInterceptor implements NestInterceptor {
     }
 
     // Update session activity
-    await this.sessionService.updateSessionActivity(sessionId, request.ip);
+    await this.command.updateSessionActivity(sessionId, request.ip);
 
     // Add session info to request
     request.session = session;

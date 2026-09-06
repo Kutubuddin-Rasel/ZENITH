@@ -11,14 +11,29 @@ import {
   HttpStatus,
   Query,
   ParseUUIDPipe,
+  Inject,
 } from '@nestjs/common';
-import { SessionService } from './session.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
-import { CreateSessionData, SessionInfo } from './session.service';
+import {
+  SESSION_COMMAND_TOKEN,
+  SESSION_LIFECYCLE_TOKEN,
+  SESSION_QUERY_TOKEN,
+  SESSION_SECURITY_TOKEN,
+} from './constants/session.tokens';
+import {
+  CreateSessionData,
+  ISessionCommand,
+  ISessionLifecycle,
+  ISessionQuery,
+  ISessionSecurity,
+  SessionInfo,
+  SessionStats,
+} from './interfaces/session.interfaces';
+import { isSecureConnection } from './utils/secure-connection.util';
 import { AuthenticatedRequest } from '../common/types/authenticated-request.interface';
-import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf';
 
 // DTOs with strict validation
 import { TerminateSessionDto, LockSessionDto, SessionQueryDto } from './dto';
@@ -41,7 +56,13 @@ import { TerminateSessionDto, LockSessionDto, SessionQueryDto } from './dto';
 @Controller('sessions')
 @UseGuards(JwtAuthGuard, PermissionsGuard, StatefulCsrfGuard)
 export class SessionController {
-  constructor(private sessionService: SessionService) {}
+  constructor(
+    @Inject(SESSION_QUERY_TOKEN) private readonly query: ISessionQuery,
+    @Inject(SESSION_COMMAND_TOKEN) private readonly command: ISessionCommand,
+    @Inject(SESSION_LIFECYCLE_TOKEN)
+    private readonly lifecycle: ISessionLifecycle,
+    @Inject(SESSION_SECURITY_TOKEN) private readonly security: ISessionSecurity,
+  ) {}
 
   /**
    * Create a new session
@@ -56,13 +77,13 @@ export class SessionController {
     @Request() req: AuthenticatedRequest,
     @Body() createSessionData: CreateSessionData,
   ): Promise<{ sessionId: string; expiresAt: Date }> {
-    const session = await this.sessionService.createSession({
+    const session = await this.command.createSession({
       ...createSessionData,
       userId: req.user.userId,
       ipAddress: req.ip || '',
       userAgent: req.headers?.['user-agent'] || '',
       // Determine secure connection status from request headers/protocol
-      isSecure: this.sessionService.isSecureConnection(req),
+      isSecure: isSecureConnection(req),
     });
 
     return {
@@ -81,7 +102,7 @@ export class SessionController {
   async getMySessions(
     @Request() req: AuthenticatedRequest,
   ): Promise<SessionInfo[]> {
-    return this.sessionService.getUserSessions(req.user.userId);
+    return this.query.getUserSessions(req.user.userId);
   }
 
   /**
@@ -98,9 +119,7 @@ export class SessionController {
     page: number;
     limit: number;
   }> {
-    const sessions = await this.sessionService.getUserSessions(
-      query.userId || '',
-    );
+    const sessions = await this.query.getUserSessions(query.userId || '');
 
     return {
       sessions,
@@ -117,8 +136,8 @@ export class SessionController {
    */
   @Get('stats')
   @RequirePermission('session:read:stats')
-  async getSessionStats(): Promise<Record<string, unknown>> {
-    return this.sessionService.getSessionStats();
+  async getSessionStats(): Promise<SessionStats> {
+    return this.query.getSessionStats();
   }
 
   /**
@@ -139,7 +158,7 @@ export class SessionController {
     @Request() req: AuthenticatedRequest,
     @Body() dto: TerminateSessionDto,
   ): Promise<void> {
-    await this.sessionService.terminateSession(
+    await this.lifecycle.terminateSession(
       sessionId,
       req.user.userId,
       dto.reason,
@@ -163,7 +182,7 @@ export class SessionController {
     @Body() dto: TerminateSessionDto,
   ): Promise<{ terminatedCount: number }> {
     const exceptSessionId = dto.exceptCurrent ? req.sessionID : undefined;
-    const terminatedCount = await this.sessionService.terminateAllUserSessions(
+    const terminatedCount = await this.lifecycle.terminateAllUserSessions(
       req.user.userId,
       exceptSessionId,
       req.user.userId,
@@ -191,11 +210,7 @@ export class SessionController {
     @Body() dto: LockSessionDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<void> {
-    await this.sessionService.lockSession(
-      sessionId,
-      req.user.userId,
-      dto.reason,
-    );
+    await this.security.lockSession(sessionId, req.user.userId, dto.reason);
   }
 
   /**
@@ -209,7 +224,7 @@ export class SessionController {
   @RequirePermission('session:cleanup')
   @RequireCsrf()
   async cleanupExpiredSessions(): Promise<{ cleanedCount: number }> {
-    const cleanedCount = await this.sessionService.cleanupExpiredSessions();
+    const cleanedCount = await this.lifecycle.cleanupExpiredSessions();
     return { cleanedCount };
   }
 
@@ -226,11 +241,8 @@ export class SessionController {
   async refreshSession(
     @Request() req: AuthenticatedRequest,
   ): Promise<{ expiresAt: Date }> {
-    await this.sessionService.updateSessionActivity(
-      req.sessionID || '',
-      req.ip || '',
-    );
-    const session = await this.sessionService.getSession(req.sessionID || '');
+    await this.command.updateSessionActivity(req.sessionID || '', req.ip || '');
+    const session = await this.query.getSession(req.sessionID || '');
 
     return {
       expiresAt: session?.expiresAt || new Date(),
