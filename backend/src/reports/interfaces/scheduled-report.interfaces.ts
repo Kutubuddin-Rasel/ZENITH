@@ -7,22 +7,18 @@
  */
 
 // ---------------------------------------------------------------------------
-// Enums
+// Enums — unified onto the canonical contract layer (Step 3)
 // ---------------------------------------------------------------------------
 
-/** Supported export formats for scheduled reports */
-export enum ScheduledReportFormat {
-  PDF = 'pdf',
-  XLSX = 'xlsx',
-}
+// The scheduled pipeline shares the single source of truth now: the cron,
+// processor, job payload, and S3/job-id builders all speak `ReportType` /
+// `ReportFormat`. The previous `ScheduledReportType` (4 values) /
+// `ScheduledReportFormat` (2 values) enums are gone — their string literals
+// are a subset of the unified enums, so existing BullMQ payloads and S3 keys
+// stay byte-compatible. `cumulative-flow` and `csv` are now schedulable too.
+import { ReportType, ReportFormat } from './reports.interfaces';
 
-/** Report types that can be scheduled */
-export enum ScheduledReportType {
-  VELOCITY = 'velocity',
-  BURNDOWN = 'burndown',
-  EPIC_PROGRESS = 'epic-progress',
-  ISSUE_BREAKDOWN = 'issue-breakdown',
-}
+export { ReportType, ReportFormat } from './reports.interfaces';
 
 // ---------------------------------------------------------------------------
 // BullMQ Job Payload
@@ -50,10 +46,10 @@ export interface IScheduledReportJob {
   projectName: string;
 
   /** Report type to generate */
-  reportType: ScheduledReportType;
+  reportType: ReportType;
 
   /** Export format */
-  format: ScheduledReportFormat;
+  format: ReportFormat;
 
   /** ISO week string for deduplication (e.g., '2026-W09') */
   weekIdentifier: string;
@@ -76,7 +72,7 @@ export function buildReportS3Key(
   organizationId: string,
   projectId: string,
   date: string,
-  format: ScheduledReportFormat,
+  format: ReportFormat,
 ): string {
   return `reports/${organizationId}/${projectId}/weekly-${date}.${format}`;
 }
@@ -90,7 +86,7 @@ export function buildReportS3Key(
 export function buildJobId(
   projectId: string,
   weekIdentifier: string,
-  format: ScheduledReportFormat,
+  format: ReportFormat,
 ): string {
   return `scheduled-report:${projectId}:${weekIdentifier}:${format}`;
 }
@@ -103,12 +99,10 @@ export function buildJobId(
 export const SCHEDULED_REPORTS_QUEUE = 'scheduled-reports-queue';
 
 /** Default report formats to generate per project */
-export const DEFAULT_REPORT_FORMATS: ScheduledReportFormat[] = [
-  ScheduledReportFormat.PDF,
-];
+export const DEFAULT_REPORT_FORMATS: ReportFormat[] = [ReportFormat.PDF];
 
 /** Default report types to generate per project */
-export const DEFAULT_REPORT_TYPES: ScheduledReportType[] = [
-  ScheduledReportType.VELOCITY,
-  ScheduledReportType.ISSUE_BREAKDOWN,
+export const DEFAULT_REPORT_TYPES: ReportType[] = [
+  ReportType.VELOCITY,
+  ReportType.ISSUE_BREAKDOWN,
 ];

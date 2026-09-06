@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Inject,
   Param,
   UseGuards,
   Request,
@@ -11,30 +12,54 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { ReportsService } from './reports.service';
-import { ExcelExportService } from './services/excel-export.service';
-import { PdfExportService } from './services/pdf-export.service';
+import { ReportQueryService } from './services/report-query.service';
+import { REPORT_EXPORTER_TOKEN } from './constants/reports.tokens';
+import type {
+  IReportExporter,
+  ReportRequestContext,
+} from './interfaces/reports.interfaces';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from 'src/core/auth/guards/permissions.guard';
 import { RequirePermission } from 'src/auth/decorators/require-permission.decorator';
 import { AuthenticatedRequest } from 'src/common/types/authenticated-request.interface';
 import {
   ExportReportQueryDto,
-  ExportFormat,
+  ReportFormat,
   ReportType,
 } from './dto/export-report-query.dto';
 
+/** Per-format HTTP wire metadata for the unified export endpoint. */
+const EXPORT_WIRE: Record<ReportFormat, { contentType: string; ext: string }> =
+  {
+    [ReportFormat.PDF]: { contentType: 'application/pdf', ext: 'pdf' },
+    [ReportFormat.XLSX]: {
+      contentType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ext: 'xlsx',
+    },
+    [ReportFormat.CSV]: { contentType: 'text/csv', ext: 'csv' },
+  };
+
+/**
+ * Reports HTTP boundary — ZERO business logic.
+ *
+ * The five read endpoints delegate to the CQRS read facade
+ * (`ReportQueryService`) and return the raw domain shapes unchanged (no API
+ * surface churn). The unified export endpoint resolves the request context,
+ * sets the content headers, and hands off to `REPORT_EXPORTER_TOKEN`, whose
+ * O(1) registry dispatch replaces the legacy `{type}×{format}` switch ladders.
+ */
 @Controller('projects/:projectId/reports')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ReportsController {
   constructor(
-    private readonly reportsService: ReportsService,
-    private readonly excelExportService: ExcelExportService,
-    private readonly pdfExportService: PdfExportService,
+    private readonly reports: ReportQueryService,
+    @Inject(REPORT_EXPORTER_TOKEN)
+    private readonly exporter: IReportExporter,
   ) {}
 
   // ---------------------------------------------------------------------------
-  // Existing Report Endpoints (unchanged API surface)
+  // Read endpoints (raw JSON — unchanged API surface)
   // ---------------------------------------------------------------------------
 
   @Get('velocity')
@@ -43,7 +68,7 @@ export class ReportsController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.reportsService.getVelocity(projectId, req.user.userId);
+    return this.reports.getVelocity(this.context(projectId, req));
   }
 
   @Get('burndown')
@@ -53,7 +78,7 @@ export class ReportsController {
     @Request() req: AuthenticatedRequest,
     @Query('sprintId') sprintId?: string,
   ) {
-    return this.reportsService.getBurndown(projectId, req.user.id, sprintId);
+    return this.reports.getBurndown(this.context(projectId, req, { sprintId }));
   }
 
   @Get('cumulative-flow')
@@ -63,11 +88,8 @@ export class ReportsController {
     @Request() req: AuthenticatedRequest,
     @Query('days') days?: string,
   ) {
-    const daysNumber = days ? parseInt(days, 10) : 30;
-    return this.reportsService.getCumulativeFlow(
-      projectId,
-      req.user.id,
-      daysNumber,
+    return this.reports.getCumulativeFlow(
+      this.context(projectId, req, { days }),
     );
   }
 
@@ -77,7 +99,7 @@ export class ReportsController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.reportsService.getEpicProgress(projectId, req.user.userId);
+    return this.reports.getEpicProgress(this.context(projectId, req));
   }
 
   @Get('issue-breakdown')
@@ -86,30 +108,13 @@ export class ReportsController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.reportsService.getIssueBreakdown(projectId, req.user.id);
+    return this.reports.getIssueBreakdown(this.context(projectId, req));
   }
 
   // ---------------------------------------------------------------------------
-  // Export Endpoint
+  // Unified export endpoint (PDF / XLSX / CSV)
   // ---------------------------------------------------------------------------
 
-  /**
-   * Unified export endpoint — streams reports as XLSX or PDF.
-   *
-   * ARCHITECTURE:
-   * 1. Fetch report data (cached via ReportsService)
-   * 2. Generate export via ExcelExportService or PdfExportService
-   * 3. Pipe the resulting stream directly to HTTP response
-   *
-   * MEMORY SAFETY:
-   * - Excel: exceljs WorkbookWriter streams rows incrementally
-   * - PDF: PDFKit streams pages incrementally
-   * - Neither buffers the full file in memory
-   *
-   * CONNECTION SAFETY:
-   * Report data is fetched → DB connection released → export
-   * streaming operates on in-memory data. No live DB cursor.
-   */
   @Get(':type/export')
   @RequirePermission('projects:view')
   async exportReport(
@@ -119,179 +124,49 @@ export class ReportsController {
     @Query() query: ExportReportQueryDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    // Validate report type
     if (!Object.values(ReportType).includes(type as ReportType)) {
       throw new BadRequestException(
-        `Invalid report type: ${type}. Must be one of: ${Object.values(ReportType).join(', ')}`,
+        `Invalid report type: ${type}. Must be one of: ${Object.values(
+          ReportType,
+        ).join(', ')}`,
       );
     }
 
     const reportType = type as ReportType;
-    const userId = req.user.userId ?? req.user.id;
+    const wire = EXPORT_WIRE[query.format];
     const timestamp = new Date().toISOString().split('T')[0];
-    const filename = `zenith-${reportType}-${timestamp}`;
 
-    if (query.format === ExportFormat.XLSX) {
-      return this.generateExcelExport(
-        projectId,
-        reportType,
-        userId,
-        filename,
-        res,
-        query,
-      );
-    }
-
-    return this.generatePdfExport(
-      projectId,
-      reportType,
-      userId,
-      filename,
-      res,
-      query,
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Export Generators
-  // ---------------------------------------------------------------------------
-
-  private async generateExcelExport(
-    projectId: string,
-    reportType: ReportType,
-    userId: string,
-    filename: string,
-    res: Response,
-    query: ExportReportQueryDto,
-  ): Promise<StreamableFile> {
     res.set({
-      'Content-Type':
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="${filename}.xlsx"`,
+      'Content-Type': wire.contentType,
+      'Content-Disposition': `attachment; filename="zenith-${reportType}-${timestamp}.${wire.ext}"`,
     });
 
-    const stream = await this.getExcelStream(
-      projectId,
+    const stream = await this.exporter.export(
       reportType,
-      userId,
-      query,
+      query.format,
+      this.context(projectId, req, {
+        sprintId: query.sprintId,
+        days: query.days,
+      }),
     );
     return new StreamableFile(stream);
   }
 
-  private async generatePdfExport(
-    projectId: string,
-    reportType: ReportType,
-    userId: string,
-    filename: string,
-    res: Response,
-    query: ExportReportQueryDto,
-  ): Promise<StreamableFile> {
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}.pdf"`,
-    });
+  // ---------------------------------------------------------------------------
+  // Request → context mapping (transport plumbing, not business logic)
+  // ---------------------------------------------------------------------------
 
-    const stream = await this.getPdfStream(
+  private context(
+    projectId: string,
+    req: AuthenticatedRequest,
+    params: { sprintId?: string; days?: string } = {},
+  ): ReportRequestContext {
+    return {
       projectId,
-      reportType,
-      userId,
-      query,
-    );
-    return new StreamableFile(stream);
-  }
-
-  private async getExcelStream(
-    projectId: string,
-    reportType: ReportType,
-    userId: string,
-    query: ExportReportQueryDto,
-  ) {
-    switch (reportType) {
-      case ReportType.VELOCITY: {
-        const data = await this.reportsService.getVelocity(projectId, userId);
-        return this.excelExportService.generateVelocityExcel(data);
-      }
-      case ReportType.BURNDOWN: {
-        const data = await this.reportsService.getBurndown(
-          projectId,
-          userId,
-          query.sprintId,
-        );
-        return this.excelExportService.generateBurndownExcel(data);
-      }
-      case ReportType.EPIC_PROGRESS: {
-        const data = await this.reportsService.getEpicProgress(
-          projectId,
-          userId,
-        );
-        return this.excelExportService.generateEpicProgressExcel(data);
-      }
-      case ReportType.ISSUE_BREAKDOWN: {
-        const data = await this.reportsService.getIssueBreakdown(
-          projectId,
-          userId,
-        );
-        return this.excelExportService.generateIssueBreakdownExcel(data);
-      }
-      case ReportType.CUMULATIVE_FLOW: {
-        const days = query.days ? parseInt(query.days, 10) : 30;
-        const data = await this.reportsService.getCumulativeFlow(
-          projectId,
-          userId,
-          days,
-        );
-        return this.excelExportService.generateCumulativeFlowExcel(
-          data as Array<Record<string, number | string>>,
-        );
-      }
-    }
-  }
-
-  private async getPdfStream(
-    projectId: string,
-    reportType: ReportType,
-    userId: string,
-    query: ExportReportQueryDto,
-  ) {
-    switch (reportType) {
-      case ReportType.VELOCITY: {
-        const data = await this.reportsService.getVelocity(projectId, userId);
-        return this.pdfExportService.generateVelocityPdf(data);
-      }
-      case ReportType.BURNDOWN: {
-        const data = await this.reportsService.getBurndown(
-          projectId,
-          userId,
-          query.sprintId,
-        );
-        return this.pdfExportService.generateBurndownPdf(data);
-      }
-      case ReportType.EPIC_PROGRESS: {
-        const data = await this.reportsService.getEpicProgress(
-          projectId,
-          userId,
-        );
-        return this.pdfExportService.generateEpicProgressPdf(data);
-      }
-      case ReportType.ISSUE_BREAKDOWN: {
-        const data = await this.reportsService.getIssueBreakdown(
-          projectId,
-          userId,
-        );
-        return this.pdfExportService.generateIssueBreakdownPdf(data);
-      }
-      case ReportType.CUMULATIVE_FLOW: {
-        const days = query.days ? parseInt(query.days, 10) : 30;
-        const data = await this.reportsService.getCumulativeFlow(
-          projectId,
-          userId,
-          days,
-        );
-        return this.pdfExportService.generateCumulativeFlowPdf(
-          data as Array<Record<string, number | string>>,
-        );
-      }
-    }
+      userId: req.user.userId ?? req.user.id,
+      organizationId: req.user.organizationId,
+      sprintId: params.sprintId,
+      days: params.days ? parseInt(params.days, 10) : undefined,
+    };
   }
 }

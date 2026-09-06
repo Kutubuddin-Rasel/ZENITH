@@ -1,24 +1,21 @@
-import { Logger } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { Job } from 'bullmq';
-import { PassThrough } from 'stream';
-import { ReportsService } from '../reports.service';
-import { ExcelExportService } from '../services/excel-export.service';
-import { PdfExportService } from '../services/pdf-export.service';
-import { EmailService } from '../../email/email.service';
-import { ProjectMember } from '../../membership/entities/project-member.entity';
+import { EMAIL_DISPATCH_TOKEN } from '../../email';
+import type { IEmailDispatch } from '../../email';
 import { ProjectRole } from '../../membership/enums/project-role.enum';
+import { PROJECT_MEMBER_QUERY_TOKEN } from '../../membership/constants/membership.tokens';
+import type { IProjectMemberQuery } from '../../membership/interfaces/membership.interfaces';
 import {
   S3StorageProvider,
   StreamUploadOptions,
 } from '../../attachments/storage/providers/s3-storage.provider';
+import { REPORT_EXPORTER_TOKEN } from '../constants/reports.tokens';
+import { ReportType, ReportFormat } from '../interfaces/reports.interfaces';
+import type { IReportExporter } from '../interfaces/reports.interfaces';
 import {
   SCHEDULED_REPORTS_QUEUE,
   IScheduledReportJob,
-  ScheduledReportFormat,
-  ScheduledReportType,
   buildReportS3Key,
 } from '../interfaces/scheduled-report.interfaces';
 
@@ -27,18 +24,20 @@ import {
 // ---------------------------------------------------------------------------
 
 /** Content type mapping for export formats */
-const CONTENT_TYPE_MAP: Record<ScheduledReportFormat, string> = {
-  [ScheduledReportFormat.PDF]: 'application/pdf',
-  [ScheduledReportFormat.XLSX]:
+const CONTENT_TYPE_MAP: Record<ReportFormat, string> = {
+  [ReportFormat.PDF]: 'application/pdf',
+  [ReportFormat.XLSX]:
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  [ReportFormat.CSV]: 'text/csv',
 };
 
 /** Human-readable report type names for email subject */
-const REPORT_TYPE_LABELS: Record<ScheduledReportType, string> = {
-  [ScheduledReportType.VELOCITY]: 'Velocity',
-  [ScheduledReportType.BURNDOWN]: 'Burndown',
-  [ScheduledReportType.EPIC_PROGRESS]: 'Epic Progress',
-  [ScheduledReportType.ISSUE_BREAKDOWN]: 'Issue Breakdown',
+const REPORT_TYPE_LABELS: Record<ReportType, string> = {
+  [ReportType.VELOCITY]: 'Velocity',
+  [ReportType.BURNDOWN]: 'Burndown',
+  [ReportType.CUMULATIVE_FLOW]: 'Cumulative Flow',
+  [ReportType.EPIC_PROGRESS]: 'Epic Progress',
+  [ReportType.ISSUE_BREAKDOWN]: 'Issue Breakdown',
 };
 
 /** Presigned URL expiry for report downloads (in hours) */
@@ -55,13 +54,18 @@ const REPORT_URL_EXPIRY_HOURS = 48;
  * This processor runs in a BullMQ worker thread, completely decoupled
  * from the main API event loop. It:
  * 1. Receives job from `scheduled-reports-queue`
- * 2. Fetches report data via ReportsService (cached)
- * 3. Generates export stream via PDF/Excel service
- * 4. Pipes stream directly to S3/MinIO via `uploadStream()`
+ * 2. Delegates to `REPORT_EXPORTER_TOKEN.export()` — the single O(1) facade
+ *    that fetches the report (cached), shapes the canonical `ReportTable`, and
+ *    renders the requested format to a streaming `PassThrough`.
+ * 3. Pipes the stream directly to S3/MinIO via `uploadStream()`.
+ *
+ * TENANT CORRECTNESS:
+ * The worker has NO request scope, so the tenant is passed EXPLICITLY via
+ * `ctx.organizationId` (from the job payload) rather than read from CLS — the
+ * seam introduced in `ReportRequestContext`/`ReportQueryService`.
  *
  * MEMORY SAFETY:
- * - Report data: O(project_size) — bounded, cached
- * - Export stream: O(row_size) — PDFKit/ExcelJS stream incrementally
+ * - Export stream: O(row_size) — PDFKit/ExcelJS/CSV stream incrementally
  * - S3 upload: O(5MB) — multipart chunked by @aws-sdk/lib-storage
  *
  * FAULT TOLERANCE:
@@ -73,13 +77,13 @@ export class ScheduledReportsProcessor extends WorkerHost {
   private readonly logger = new Logger(ScheduledReportsProcessor.name);
 
   constructor(
-    private readonly reportsService: ReportsService,
-    private readonly excelExportService: ExcelExportService,
-    private readonly pdfExportService: PdfExportService,
+    @Inject(REPORT_EXPORTER_TOKEN)
+    private readonly exporter: IReportExporter,
     private readonly s3StorageProvider: S3StorageProvider,
-    private readonly emailService: EmailService,
-    @InjectRepository(ProjectMember)
-    private readonly projectMemberRepo: Repository<ProjectMember>,
+    @Inject(EMAIL_DISPATCH_TOKEN)
+    private readonly emailDispatch: IEmailDispatch,
+    @Inject(PROJECT_MEMBER_QUERY_TOKEN)
+    private readonly memberQuery: IProjectMemberQuery,
   ) {
     super();
   }
@@ -89,9 +93,9 @@ export class ScheduledReportsProcessor extends WorkerHost {
    *
    * Flow:
    * 1. Extract job data
-   * 2. Generate export stream for the specified report type + format
+   * 2. Export the report stream via the O(1) facade (explicit tenant scope)
    * 3. Upload stream to S3/MinIO with tenant-scoped path
-   * 4. Log the resulting S3 key (persistence to DB left for future entity)
+   * 4. Dispatch the distribution email to the Project Lead
    */
   async process(job: Job<IScheduledReportJob>): Promise<string> {
     const {
@@ -108,13 +112,13 @@ export class ScheduledReportsProcessor extends WorkerHost {
     );
 
     try {
-      // Step 1: Generate export stream
-      const stream = await this.generateExportStream(
+      // Step 1: Export stream — tenant resolved explicitly from the job payload
+      // (no request/CLS scope inside the worker thread).
+      const stream = await this.exporter.export(reportType, format, {
         projectId,
-        job.data.userId,
-        reportType,
-        format,
-      );
+        userId: job.data.userId,
+        organizationId,
+      });
 
       // Step 2: Build S3 key
       const today = new Date().toISOString().split('T')[0];
@@ -179,19 +183,20 @@ export class ScheduledReportsProcessor extends WorkerHost {
   private async dispatchReportEmail(
     projectId: string,
     projectName: string,
-    reportType: ScheduledReportType,
+    reportType: ReportType,
     s3ObjectKey: string,
   ): Promise<void> {
     try {
-      // Find the Project Lead with their user email
-      const leadMember = await this.projectMemberRepo
-        .createQueryBuilder('pm')
-        .innerJoinAndSelect('pm.user', 'user')
-        .where('pm.projectId = :projectId', { projectId })
-        .andWhere('pm.roleName = :role', { role: ProjectRole.PROJECT_LEAD })
-        .getOne();
+      // Find the Project Lead through the ISP-segregated query surface.
+      // listMembers returns a narrow user projection (id/name/email/
+      // defaultRole only) — sensitive credential columns never leave
+      // the membership boundary.
+      const members = await this.memberQuery.listMembers(projectId);
+      const leadMember = members.find(
+        (m) => m.roleName === ProjectRole.PROJECT_LEAD,
+      );
 
-      if (!leadMember?.user?.email) {
+      if (!leadMember?.user.email) {
         this.logger.warn(
           `No Project Lead with email found for project ${projectId} — skipping email`,
         );
@@ -200,13 +205,13 @@ export class ScheduledReportsProcessor extends WorkerHost {
 
       const reportLabel = REPORT_TYPE_LABELS[reportType] ?? reportType;
 
-      await this.emailService.sendReportEmail(
-        leadMember.user.email,
+      await this.emailDispatch.sendReport({
+        to: leadMember.user.email,
         projectName,
-        reportLabel,
+        reportType: reportLabel,
         s3ObjectKey,
-        REPORT_URL_EXPIRY_HOURS,
-      );
+        expiresInHours: REPORT_URL_EXPIRY_HOURS,
+      });
 
       this.logger.log(
         `Report email dispatched to ${leadMember.user.email} for project "${projectName}"`,
@@ -218,59 +223,6 @@ export class ScheduledReportsProcessor extends WorkerHost {
       this.logger.warn(
         `Failed to dispatch report email for project ${projectId}: ${msg}`,
       );
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Export Stream Generation
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Generate the appropriate export stream based on report type and format.
-   *
-   * Data is fetched via ReportsService (which uses caching).
-   * Export services return PassThrough streams — O(row_size) memory.
-   */
-  private async generateExportStream(
-    projectId: string,
-    userId: string,
-    reportType: ScheduledReportType,
-    format: ScheduledReportFormat,
-  ): Promise<PassThrough> {
-    switch (reportType) {
-      case ScheduledReportType.VELOCITY: {
-        const data = await this.reportsService.getVelocity(projectId, userId);
-        return format === ScheduledReportFormat.PDF
-          ? this.pdfExportService.generateVelocityPdf(data)
-          : this.excelExportService.generateVelocityExcel(data);
-      }
-
-      case ScheduledReportType.BURNDOWN: {
-        const data = await this.reportsService.getBurndown(projectId, userId);
-        return format === ScheduledReportFormat.PDF
-          ? this.pdfExportService.generateBurndownPdf(data)
-          : this.excelExportService.generateBurndownExcel(data);
-      }
-
-      case ScheduledReportType.EPIC_PROGRESS: {
-        const data = await this.reportsService.getEpicProgress(
-          projectId,
-          userId,
-        );
-        return format === ScheduledReportFormat.PDF
-          ? this.pdfExportService.generateEpicProgressPdf(data)
-          : this.excelExportService.generateEpicProgressExcel(data);
-      }
-
-      case ScheduledReportType.ISSUE_BREAKDOWN: {
-        const data = await this.reportsService.getIssueBreakdown(
-          projectId,
-          userId,
-        );
-        return format === ScheduledReportFormat.PDF
-          ? this.pdfExportService.generateIssueBreakdownPdf(data)
-          : this.excelExportService.generateIssueBreakdownExcel(data);
-      }
     }
   }
 }

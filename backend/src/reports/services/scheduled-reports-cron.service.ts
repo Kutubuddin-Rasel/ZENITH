@@ -1,30 +1,22 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bullmq';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
 import { Queue } from 'bullmq';
-import { Project } from '../../projects/entities/project.entity';
+import { REPORTS_READ_MODEL_TOKEN } from '../constants/reports.tokens';
+import { getISOWeekIdentifier } from '../utils/iso-week.util';
+import type {
+  IReportsReadModel,
+  SchedulableProject,
+  ReportType,
+  ReportFormat,
+} from '../interfaces/reports.interfaces';
 import {
   SCHEDULED_REPORTS_QUEUE,
   DEFAULT_REPORT_FORMATS,
   DEFAULT_REPORT_TYPES,
   IScheduledReportJob,
-  ScheduledReportFormat,
-  ScheduledReportType,
   buildJobId,
 } from '../interfaces/scheduled-report.interfaces';
-
-// ---------------------------------------------------------------------------
-// Strict Types (ZERO `any`)
-// ---------------------------------------------------------------------------
-
-/** Slim project projection for cron dispatch — no large text columns */
-interface ActiveProjectRow {
-  id: string;
-  name: string;
-  organizationId: string;
-}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -45,30 +37,32 @@ const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
  * ScheduledReportsCronService — Weekly Report Dispatcher
  *
  * ARCHITECTURE:
- * This is the THIN cron layer. It does NOT generate reports.
- * It queries active projects and dispatches BullMQ jobs to the
- * `scheduled-reports-queue`. The heavy work (export + S3 upload)
- * happens in `ScheduledReportsProcessor` running in a worker thread.
+ * This is the THIN cron layer. It does NOT generate reports, and it no longer
+ * touches the database directly — the active-project sweep is delegated to the
+ * reports-owned read port (`REPORTS_READ_MODEL_TOKEN`), the only surface
+ * allowed to query the `Project` table on behalf of reports. It dispatches
+ * BullMQ jobs to the `scheduled-reports-queue`; the heavy work (export + S3
+ * upload) happens in `ScheduledReportsProcessor` running in a worker thread.
  *
  * IDEMPOTENCY:
  * Each job gets a deterministic ID: `scheduled-report:{projectId}:{year}-W{week}:{format}`
- * BullMQ silently ignores `queue.add()` if a job with the same ID
- * already exists. This prevents duplicate generations if:
+ * where the week is a correct ISO-8601 (Thursday-rule) identifier — see
+ * `getISOWeekIdentifier`. BullMQ silently ignores `queue.add()` if a job with
+ * the same ID already exists, preventing duplicate generations when:
  * - The cron fires twice (pod restart during execution window)
  * - Multiple pods run the same cron (missing distributed lock)
  *
  * SCALABILITY:
- * Dispatching is a Redis write (~1ms per job). For 500 projects:
- * 500 projects × 2 report types × 1 format = 1000 jobs in ~1 second.
- * The queue distributes processing across available worker threads.
+ * Dispatching is a Redis write (~1ms per job). The queue distributes
+ * processing across available worker threads.
  */
 @Injectable()
 export class ScheduledReportsCronService {
   private readonly logger = new Logger(ScheduledReportsCronService.name);
 
   constructor(
-    @InjectRepository(Project)
-    private readonly projectRepo: Repository<Project>,
+    @Inject(REPORTS_READ_MODEL_TOKEN)
+    private readonly readModel: IReportsReadModel,
     @InjectQueue(SCHEDULED_REPORTS_QUEUE)
     private readonly scheduledReportsQueue: Queue,
   ) {}
@@ -87,8 +81,9 @@ export class ScheduledReportsCronService {
   async dispatchWeeklyReports(): Promise<void> {
     this.logger.log('Weekly report generation started');
 
-    const weekIdentifier = this.getISOWeekIdentifier();
-    const activeProjects = await this.getActiveProjects();
+    const weekIdentifier = getISOWeekIdentifier();
+    const activeProjects =
+      await this.readModel.findActiveProjectsForScheduling();
 
     this.logger.log(
       `Found ${activeProjects.length} active projects for week ${weekIdentifier}`,
@@ -134,28 +129,13 @@ export class ScheduledReportsCronService {
   // ---------------------------------------------------------------------------
 
   /**
-   * Query active (non-archived, non-deleted) projects.
-   *
-   * SLIM READ: Only selects `id`, `name`, `organizationId` — no description,
-   * no templateConfig (large JSONB), no audit fields.
-   */
-  private async getActiveProjects(): Promise<ActiveProjectRow[]> {
-    return this.projectRepo
-      .createQueryBuilder('project')
-      .select(['project.id', 'project.name', 'project.organizationId'])
-      .where('project.isArchived = :isArchived', { isArchived: false })
-      .andWhere('project.deletedAt IS NULL')
-      .getRawMany<ActiveProjectRow>();
-  }
-
-  /**
    * Dispatch a single report job to BullMQ with deterministic ID.
    * Returns true if job was submitted, false if it already existed.
    */
   private async dispatchJob(
-    project: ActiveProjectRow,
-    reportType: ScheduledReportType,
-    format: ScheduledReportFormat,
+    project: SchedulableProject,
+    reportType: ReportType,
+    format: ReportFormat,
     weekIdentifier: string,
   ): Promise<boolean> {
     const jobId = buildJobId(project.id, weekIdentifier, format);
@@ -185,22 +165,5 @@ export class ScheduledReportsCronService {
       this.logger.error(`Failed to dispatch report job ${jobId}: ${msg}`);
       return false;
     }
-  }
-
-  /**
-   * Get ISO week identifier: "{year}-W{week}"
-   * e.g., "2026-W09" for the 9th week of 2026.
-   */
-  private getISOWeekIdentifier(): string {
-    const now = new Date();
-    const year = now.getFullYear();
-
-    // ISO week calculation
-    const jan1 = new Date(year, 0, 1);
-    const dayOfYear =
-      Math.floor((now.getTime() - jan1.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-    const weekNum = Math.ceil((dayOfYear + jan1.getDay()) / 7);
-
-    return `${year}-W${String(weekNum).padStart(2, '0')}`;
   }
 }

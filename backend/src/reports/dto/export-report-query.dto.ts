@@ -5,27 +5,23 @@
  * preventing injection of arbitrary values.
  */
 import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { ReportFormat } from '../interfaces/reports.interfaces';
 
-/** Supported export formats */
-export enum ExportFormat {
-  XLSX = 'xlsx',
-  PDF = 'pdf',
-}
-
-/** Supported report types for export */
-export enum ReportType {
-  VELOCITY = 'velocity',
-  BURNDOWN = 'burndown',
-  CUMULATIVE_FLOW = 'cumulative-flow',
-  EPIC_PROGRESS = 'epic-progress',
-  ISSUE_BREAKDOWN = 'issue-breakdown',
-}
+// The unified enums live in the canonical contract layer. Both are re-exported
+// here so existing import sites (`reports.controller`) keep resolving from this
+// DTO module unchanged.
+export { ReportType } from '../interfaces/reports.interfaces';
+export { ReportFormat } from '../interfaces/reports.interfaces';
 
 export class ExportReportQueryDto {
-  @IsEnum(ExportFormat, {
-    message: `format must be one of: ${Object.values(ExportFormat).join(', ')}`,
+  // Step 3 widened validation from the transitional `pdf|xlsx` subset to the
+  // full `ReportFormat` (pdf | xlsx | csv) now that the streaming
+  // `CsvReportFormatter` is wired through the O(1) registry — a `csv` request
+  // now routes to its formatter instead of 400-ing.
+  @IsEnum(ReportFormat, {
+    message: `format must be one of: ${Object.values(ReportFormat).join(', ')}`,
   })
-  format: ExportFormat;
+  format: ReportFormat;
 
   /** Optional sprint ID for burndown exports */
   @IsOptional()
