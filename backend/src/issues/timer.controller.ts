@@ -7,7 +7,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf/csrf.guard';
+import { StatefulCsrfGuard, RequireCsrf } from '../security/csrf';
 import { TimerService } from './timer.service';
 import { StartTimerDto } from './dto/start-timer.dto';
 import { StopTimerDto } from './dto/stop-timer.dto';

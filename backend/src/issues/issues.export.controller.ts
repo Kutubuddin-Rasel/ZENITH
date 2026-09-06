@@ -1,13 +1,15 @@
 import {
   Controller,
   Get,
+  Inject,
   Param,
   UseGuards,
   Header,
   StreamableFile,
   Request,
 } from '@nestjs/common';
-import { IssuesService } from './issues.service';
+import { ISSUE_QUERY_TOKEN } from './constants/issues.tokens';
+import type { IIssueQuery } from './interfaces/issues.interfaces';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
@@ -17,7 +19,9 @@ import { Transform } from 'stream';
 @Controller('projects/:projectId/issues/export')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class IssuesExportController {
-  constructor(private readonly issuesService: IssuesService) {}
+  constructor(
+    @Inject(ISSUE_QUERY_TOKEN) private readonly issuesService: IIssueQuery,
+  ) {}
 
   @Get()
   @RequirePermission('issues:view')

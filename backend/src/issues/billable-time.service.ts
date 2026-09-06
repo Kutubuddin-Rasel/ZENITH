@@ -5,13 +5,14 @@ import {
   BillableScope,
 } from '../database/interfaces/repository.interfaces';
 import { BillingSummary } from './dto/timer.interface';
+import type { IBillableTime } from './interfaces/issues.interfaces';
 
 interface BillableScopeWithCurrency extends BillableScope {
   currency?: string;
 }
 
 @Injectable()
-export class BillableTimeService {
+export class BillableTimeService implements IBillableTime {
   constructor(private readonly workLogs: WorkLogRepository) {}
 
   async calculateBillableAmount(

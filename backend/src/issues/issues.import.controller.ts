@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Inject,
   Param,
   UseGuards,
   UseInterceptors,
@@ -10,7 +11,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { IssuesService } from './issues.service';
+import { ISSUE_IMPORT_TOKEN } from './constants/issues.tokens';
+import type { IIssueImport } from './interfaces/issues.interfaces';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../core/auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
@@ -19,7 +21,9 @@ import { AuthenticatedRequest } from '../common/types/authenticated-request.inte
 @Controller('projects/:projectId/issues/import')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class IssuesImportController {
-  constructor(private readonly issuesService: IssuesService) {}
+  constructor(
+    @Inject(ISSUE_IMPORT_TOKEN) private readonly issuesService: IIssueImport,
+  ) {}
 
   @Post()
   @RequirePermission('issues:create')

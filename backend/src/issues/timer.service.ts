@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { CACHE_STORE_TOKEN } from '../cache/constants/cache.tokens';
 import { ICacheStore } from '../cache/interfaces/cache.interfaces';
-import { WorkLogsService } from './issues.service';
+import { WorklogCommandService } from './services/worklog-command.service';
 import {
   ActiveTimerPayload,
   TimerStatus,
@@ -17,14 +17,15 @@ import {
   TIMER_TTL_SECONDS,
 } from './dto/timer.interface';
 import { WorkLog } from './entities/work-log.entity';
+import type { ITimer } from './interfaces/issues.interfaces';
 
 @Injectable()
-export class TimerService {
+export class TimerService implements ITimer {
   private readonly logger = new Logger(TimerService.name);
 
   constructor(
     @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
-    private readonly workLogsService: WorkLogsService,
+    private readonly workLogsService: WorklogCommandService,
   ) {}
 
   async start(
@@ -72,7 +73,9 @@ export class TimerService {
     }
 
     // ATOMIC BOUNDARY: delete first; only persist a WorkLog if Redis ACK'd the delete.
-    const deleted = await this.cacheStore.del(key, { namespace: TIMER_NAMESPACE });
+    const deleted = await this.cacheStore.del(key, {
+      namespace: TIMER_NAMESPACE,
+    });
     if (!deleted) {
       throw new ConflictException(
         'Timer could not be released; aborting work-log creation',
