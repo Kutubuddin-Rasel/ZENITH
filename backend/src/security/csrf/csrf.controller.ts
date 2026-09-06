@@ -1,54 +1,61 @@
-import { Controller, Get, Request, UseGuards, Logger } from '@nestjs/common';
-import { CsrfService } from './csrf.service';
+import {
+  Controller,
+  Get,
+  Inject,
+  Logger,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
+import { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import {
+  CSRF_REQUEST_CONTEXT_TOKEN,
+  CSRF_TOKEN_COMMAND_TOKEN,
+} from './constants/csrf.tokens';
+import {
+  ICsrfRequestContext,
+  ICsrfTokenCommand,
+} from './interfaces/csrf.interfaces';
 
 /**
  * CSRF Token Controller
  *
- * SECURITY NOTES:
- * 1. This endpoint REQUIRES authentication (JwtAuthGuard)
- * 2. CSRF tokens are only needed for authenticated state-changing operations
- * 3. POST /login does NOT need CSRF (uses LocalStrategy, not vulnerable)
+ * GET /auth/csrf-token — issues (or refreshes) the user's CSRF token.
  *
- * The login flow is:
- * 1. User submits credentials → POST /auth/login (no CSRF needed)
- * 2. Server returns JWT → User is now authenticated
- * 3. Frontend calls GET /auth/csrf-token (requires JWT)
- * 4. Frontend uses CSRF token for sensitive operations (change-password, etc.)
+ * SECURITY:
+ *  1. Requires `JwtAuthGuard` at the front door — no anonymous tokens.
+ *  2. Reuses `ICsrfRequestContext` for userId resolution so the
+ *     extraction logic is byte-identical to the guard (legacy version
+ *     used `req.user?.userId` only, missing the `id` / `sub` fallback —
+ *     unifying via the port closes that subtle drift).
+ *  3. `ICsrfTokenCommand` enforces defense-in-depth: if a future
+ *     developer removes `JwtAuthGuard`, the command service still
+ *     refuses to mint a token without a valid userId.
  */
 @Controller('auth')
 export class CsrfController {
   private readonly logger = new Logger(CsrfController.name);
 
-  constructor(private readonly csrfService: CsrfService) {}
+  constructor(
+    @Inject(CSRF_TOKEN_COMMAND_TOKEN)
+    private readonly tokenCommand: ICsrfTokenCommand,
+    @Inject(CSRF_REQUEST_CONTEXT_TOKEN)
+    private readonly requestContext: ICsrfRequestContext,
+  ) {}
 
-  /**
-   * Get CSRF token for the authenticated user
-   *
-   * Multi-tab safe: returns existing token if valid
-   *
-   * SECURITY:
-   * - Requires JwtAuthGuard (Controller level - front door)
-   * - Service also validates user context (defense in depth)
-   */
   @UseGuards(JwtAuthGuard)
   @Get('csrf-token')
   async getCsrfToken(
-    @Request() req: { user?: { userId?: string } },
+    @Request() req: ExpressRequest,
   ): Promise<{ csrfToken: string }> {
-    // Defense in depth: Don't rely solely on guard
-    const userId = req.user?.userId;
-
+    const { userId } = this.requestContext.extract(req);
     if (!userId) {
-      // This should never happen if JwtAuthGuard works correctly
-      // But we log it as a security anomaly if it does
       this.logger.error(
         'SECURITY ANOMALY: getCsrfToken called without userId despite JwtAuthGuard',
       );
       throw new Error('User context required for CSRF token generation');
     }
-
-    const token = await this.csrfService.generateToken(userId);
-    return { csrfToken: token };
+    const csrfToken = await this.tokenCommand.generateToken(userId);
+    return { csrfToken };
   }
 }
