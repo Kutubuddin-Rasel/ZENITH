@@ -14,7 +14,9 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
+import { TwoFactorRecoveryRequestedEvent } from '../../core/events/payloads/two-factor-recovery-requested.event';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { Public } from '../decorators/public.decorator';
 import { CsrfGuard, RequireCsrf } from '../../security/csrf';
@@ -33,6 +35,12 @@ import {
   I2FASecretStore,
   I2FAVerifier,
 } from '../interfaces/two-factor.interfaces';
+
+/**
+ * Human-readable form of `RECOVERY_TOKEN_TTL_MS` (15 min) in
+ * `recovery-token.service.ts`, for the email copy. Keep the two in sync.
+ */
+const RECOVERY_TOKEN_TTL_LABEL = '15 minutes';
 
 /**
  * Two-Factor Authentication Controller
@@ -62,6 +70,7 @@ export class TwoFactorAuthController {
     private readonly recovery: I2FARecoveryService,
     @Inject(TWO_FACTOR_ADMIN_SERVICE_TOKEN)
     private readonly admin: I2FAAdminService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /** Generate 2FA secret + QR. Read-only — no CSRF. */
@@ -164,14 +173,27 @@ export class TwoFactorAuthController {
   async requestRecovery(@Body() body: { email: string }) {
     const result = await this.recovery.issueRecoveryToken(body.email);
 
-    // TODO: dispatch the recovery link via EmailService. In dev only,
-    // log the link so manual QA can complete the flow.
-    if (result.token && process.env.NODE_ENV !== 'production') {
-      this.logger.debug(
-        `[DEV ONLY] Recovery link for ${body.email}: /auth/2fa-recovery?email=${encodeURIComponent(
+    // Emitted ONLY when a token was actually minted. The endpoint returns an
+    // identical response either way (user-enumeration defence), so the absence
+    // of an event is what keeps that guarantee — never move this out of the
+    // branch. `auth` emits; the `email` module listens and delivers.
+    if (result.token) {
+      const recoveryLink =
+        `${process.env.FRONTEND_URL || 'http://localhost:3000'}` +
+        `/auth/2fa-recovery?email=${encodeURIComponent(body.email)}&token=${result.token}`;
+
+      this.eventEmitter.emit(
+        TwoFactorRecoveryRequestedEvent.EVENT_NAME,
+        new TwoFactorRecoveryRequestedEvent(
           body.email,
-        )}&token=${result.token}`,
+          recoveryLink,
+          RECOVERY_TOKEN_TTL_LABEL,
+        ),
       );
+
+      if (process.env.NODE_ENV !== 'production') {
+        this.logger.debug(`[DEV ONLY] Recovery link: ${recoveryLink}`);
+      }
     }
 
     return { success: result.success, message: result.message };

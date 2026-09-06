@@ -6,7 +6,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
+import { EmailVerificationRequestedEvent } from '../../../core/events/payloads/email-verification-requested.event';
 import { UsersService } from '../../../users/users.service';
 import {
   INVITE_COMMAND_TOKEN,
@@ -33,6 +35,8 @@ const ARGON2ID_VERSION = 3;
 // OWASP: 32 random bytes = 256-bit entropy for email-verification tokens.
 const EMAIL_VERIFICATION_TOKEN_BYTES = 32;
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+/** Human-readable form of the TTL above, for the email copy. Keep in sync. */
+const EMAIL_VERIFICATION_TTL_LABEL = '24 hours';
 
 /**
  * Step 3 — Registration & invite-redemption flows extracted from the
@@ -60,6 +64,7 @@ export class RegistrationService {
     @Inject(ORG_WRITER_TOKEN)
     private readonly orgWriter: IOrganizationWriter,
     private readonly loginCoordinator: LoginCoordinator,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async register(dto: RegisterDto): Promise<SafeUser> {
@@ -124,7 +129,18 @@ export class RegistrationService {
 
     await this.onboardingService.initializeOnboarding(user.id);
 
-    // TODO: dispatch verification email via EmailService.
+    // Hand off delivery to the `email` module. Emitted AFTER the user write
+    // commits, so a failed registration cannot produce a phantom verification
+    // email. `auth` only emits; `email` only listens — no module edge either way.
+    this.eventEmitter.emit(
+      EmailVerificationRequestedEvent.EVENT_NAME,
+      new EmailVerificationRequestedEvent(
+        user.email,
+        `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${emailVerificationToken}`,
+        EMAIL_VERIFICATION_TTL_LABEL,
+        user.name,
+      ),
+    );
 
     return user;
   }
