@@ -8,7 +8,9 @@ import { CACHE_STORE_TOKEN } from '../../cache/constants/cache.tokens';
 import { ICacheStore } from '../../cache/interfaces/cache.interfaces';
 @Injectable()
 export class RedisHealthIndicator extends HealthIndicator {
-  constructor(@Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore) {
+  constructor(
+    @Inject(CACHE_STORE_TOKEN) private readonly cacheStore: ICacheStore,
+  ) {
     super();
   }
 
@@ -19,7 +21,9 @@ export class RedisHealthIndicator extends HealthIndicator {
       // Use cache service ping via set/get pattern
       const testKey = 'health:ping';
       const testValue = 'pong';
-      const setResult = await this.cacheStore.set(testKey, testValue, { ttl: 10 });
+      const setResult = await this.cacheStore.set(testKey, testValue, {
+        ttl: 10,
+      });
 
       if (!setResult) {
         throw new Error('Redis set operation failed');
