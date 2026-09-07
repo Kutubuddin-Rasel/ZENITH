@@ -52,7 +52,3 @@ build/
 .cache/
 .eslintcache
 *.tsbuildinfo
-
-# Project Specific
-docs/
-.docs/
